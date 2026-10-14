@@ -121,3 +121,47 @@ th{color:#9dc4d4}
 .mobilebar .navicon{display:flex;justify-content:center;align-items:center;min-height:27px}
 .mobilebar .navicon svg{width:23px;height:23px}
 @media(max-width:850px){.content{gap:14px;padding:14px 14px calc(100px + env(safe-area-inset-bottom))}.panel,.card{margin:0!important}.heroport{margin-bottom:14px!important}.mobilebar{isolation:isolate}.mobilebar button{padding:7px 2px}}
+
+/* Full-viewport TradeFlow mission map */
+body:has(.tf-map-screen) .top{display:none}
+body:has(.tf-map-screen) .content{padding:0!important;display:block;overflow:hidden}
+body:has(.tf-map-screen) .main{min-height:100dvh}
+.tf-map-screen{position:relative;width:100%;height:calc(100dvh - 82px - env(safe-area-inset-bottom));min-height:400px;overflow:hidden;background:#071524;isolation:isolate}
+.tf-map-screen .territory-map{position:absolute;inset:0;width:100%;height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
+.tf-map-top{position:absolute;top:0;left:0;right:0;z-index:10;padding:14px 14px 0;pointer-events:none;background:linear-gradient(180deg,#06121ff0 0%,#071524b0 70%,transparent)}
+.tf-map-top>*{pointer-events:auto}
+.tf-map-brand{display:flex;align-items:center;gap:8px;color:#edfaff;font-size:11px;letter-spacing:.19em;font-weight:700;margin-bottom:14px}
+.tf-brand-t{font-size:27px;font-weight:900;letter-spacing:-.1em;line-height:1;color:#f4ffff;text-shadow:0 0 12px #53cfdc70}
+.tf-brand-t span{font-size:15px;color:#35dbe1;vertical-align:top}
+.tf-map-filter{margin-left:auto;background:#102b3b;border:1px solid #2a5768;border-radius:50%;color:#92ecf2;width:36px;height:36px;font-size:20px}
+.tf-map-search-wrap{position:relative}
+.tf-map-search{display:flex;align-items:center;gap:10px;padding:0 12px;height:48px;border:1px solid #255065;border-radius:26px;background:#10283beF;box-shadow:0 7px 28px #0008;color:#7ce7ec}
+.tf-map-search>span{font-size:26px}
+.tf-map-search input{width:100%;min-width:0;background:none;border:0;outline:none;color:#f2ffff;font:inherit;font-size:14px}
+.tf-map-search input::placeholder{color:#92b2c0}
+.tf-map-search button{background:transparent;border:0;color:#74e5e8;font-size:22px}
+.tf-map-suggestions{position:absolute;top:54px;left:0;right:0;z-index:20;max-height:min(45dvh,340px);overflow-y:auto;border:1px solid #2d6170;border-radius:15px;background:#0c2030f5;box-shadow:0 16px 35px #000b}
+.tf-map-suggestions[hidden],.tf-map-controls[hidden]{display:none!important}
+.tf-map-suggestions button{display:flex;align-items:center;gap:12px;width:100%;padding:12px;text-align:left;background:transparent;border:0;border-bottom:1px solid #234050;color:#effcff}
+.tf-map-suggestions button span:first-child{font-size:22px;color:#45d8df}
+.tf-map-suggestions small{display:block;color:#96b9c8;font-size:11px;margin-top:3px}
+.tf-map-controls{margin-top:10px;padding:12px;background:#0a2133ed;border:1px solid #31586b;border-radius:14px;box-shadow:0 12px 30px #0008}
+.tf-map-controls .tf-map-modes{margin:0 0 10px}
+.tf-map-controls p{margin:8px 0 0}
+.tf-map-footer{position:absolute;left:12px;bottom:12px;right:12px;z-index:2;display:flex;justify-content:space-between;gap:8px;pointer-events:none;color:#c2dbe6;text-shadow:0 1px 4px #000;font-size:10px}
+.tf-sheet-shade{position:fixed;inset:0;background:#02091277;z-index:1000}
+.tf-location-sheet{position:fixed;z-index:1001;left:0;right:0;bottom:0;max-height:min(75dvh,680px);overflow-y:auto;overscroll-behavior:contain;padding:14px 18px calc(24px + env(safe-area-inset-bottom));border:1px solid #3c7486;border-bottom:0;border-radius:24px 24px 0 0;background:linear-gradient(155deg,#142f42,#081925 75%);box-shadow:0 -14px 50px #0009,0 -1px 18px #29d4e01c;color:#eafaff;animation:tf-sheet-rise .2s ease-out}
+@keyframes tf-sheet-rise{from{transform:translateY(25%);opacity:.7}to{transform:translateY(0);opacity:1}}
+.tf-sheet-grip{height:4px;width:42px;border-radius:4px;background:#688e9d;margin:0 auto 18px}
+.tf-sheet-close{position:absolute;right:16px;top:20px;width:32px;height:32px;border-radius:50%;border:1px solid #365769;background:#183344;color:#eafaff;font-size:22px}
+.tf-sheet-eyebrow{color:#65e5e7;font-size:10px;letter-spacing:.18em;margin-bottom:9px}
+.tf-location-sheet h2{font-size:23px;margin:0 40px 7px 0}
+.tf-sheet-address{font-size:15px;color:#d1e4ef;line-height:1.4}
+.tf-sheet-actions{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0}
+.tf-sheet-actions .btn{flex:1;text-align:center;white-space:nowrap}
+.tf-sheet-more{border-top:1px solid #284a5d;padding-top:14px}
+.tf-sheet-more summary{color:#9be5e9;cursor:pointer;margin-bottom:12px}
+.tf-sheet-more label{display:block;margin:12px 0}
+.tf-sheet-more select{display:block;width:100%;margin:7px 0}
+@media(min-width:850px){.tf-map-screen{height:calc(100dvh - 30px)}.tf-location-sheet{left:auto;right:20px;bottom:20px;width:min(440px,95vw);border-radius:22px;border-bottom:1px solid #3c7486}}
+@media(prefers-reduced-motion:reduce){.tf-location-sheet{animation:none}}
