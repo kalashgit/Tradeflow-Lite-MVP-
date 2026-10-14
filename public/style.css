@@ -103,3 +103,6 @@ th{color:#9dc4d4}
 .segment.active{background:#126477;border-color:#39d5e7;color:white}
 @media(max-width:850px){.top{padding:14px 16px}.content{padding:14px}.card,.panel{border-radius:15px}.mobilebar{grid-template-columns:repeat(5,minmax(0,1fr));overflow:hidden!important}.mobilebar button{min-width:0!important;flex:1 1 0!important}.mobilebar button .navicon{font-size:21px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* TradeFlow tactical intelligence map controls */
+.tf-map-modes{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 8px}.tf-map-modes .btn{flex:1;min-width:92px;white-space:nowrap;border:1px solid var(--brand-accent,#29c9d4);border-radius:10px}.tf-map-modes .btn:not(.secondary){box-shadow:0 0 16px color-mix(in srgb,var(--brand-accent,#29c9d4) 26%,transparent)}.tf-map-legend{display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;margin-bottom:10px;background:#0b2031;border:1px solid #265164;border-radius:10px;color:#b5d7e7;font-size:11px}.tf-map-legend span:first-child{color:#5de7e4}.tf-map-legend span:last-child{color:#e3b879}.territory-map{min-height:360px;box-shadow:inset 0 0 30px #1cc8dc13,0 0 20px #11b3c50a}@media(max-width:650px){.tf-map-modes .btn{font-size:11px;padding:9px 5px}.tf-map-legend{font-size:10px}}
