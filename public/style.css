@@ -230,3 +230,15 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
  .tf-map-screen .maplibregl-ctrl-bottom-left{bottom:70px!important}
  .tf-map-screen .maplibregl-ctrl-attrib{max-width:calc(100vw - 35px)!important}
 }
+
+/* Opportunity intelligence dossiers: tighter hierarchy, never imply unverified demand */
+.oplist{display:grid;gap:11px;margin-top:14px}
+.opitem{padding:14px!important;border-radius:13px!important;background:linear-gradient(145deg,#102638,#081a2a)!important;border:1px solid #244658!important;box-shadow:inset 0 1px 0 #ffffff08,0 5px 16px #0002!important}
+.opitem .panelhead{align-items:flex-start;gap:10px;flex-wrap:wrap}
+.opitem .panelhead strong{font-size:15px;line-height:1.35;font-weight:650;overflow-wrap:anywhere}
+.opitem .pill{font-size:10px;white-space:nowrap;padding:5px 8px;background:#0e3b4b;color:#86e7e9;border:1px solid #285b68}
+.opitem p{margin:8px 0;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.opitem p:nth-of-type(2){display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.opitem .toolbar{margin:11px 0 0;gap:8px}
+.opitem .toolbar .btn:last-child{margin-left:auto}
+@media(max-width:850px){.oplist{gap:10px}.opitem{padding:13px!important}.opitem .panelhead strong{font-size:14px}.opitem p{font-size:11px}}
