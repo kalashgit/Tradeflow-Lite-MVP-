@@ -216,3 +216,17 @@ body:has(.tf-map-screen) .maplibregl-ctrl-attrib a{color:#a6e6e9!important}
 body:has(.tf-map-screen) .maplibregl-ctrl-attrib-button{background-color:#d7e9ed!important;border-radius:50%}
 body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-left{bottom:35px}
 @media(max-width:850px){.mobilebar{min-height:72px}.mobilebar button{flex:1}.mobilebar button.active{border:1px solid #286275!important}}
+
+/* Resolve older phase1 map-height rule, which produced the blank band on iPhone */
+@media(max-width:850px){
+ .main:has(.tf-map-screen) .content{max-width:none!important;width:100%!important}
+ .main:has(.tf-map-screen) .tf-map-screen{height:calc(100dvh - 72px - env(safe-area-inset-bottom))!important;min-height:0!important}
+ .main:has(.tf-map-screen) .tf-map-screen .territory-map{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-height:0!important;border:0!important;border-radius:0!important}
+ .main:has(.tf-map-screen){padding-bottom:0!important}
+ .main:has(.tf-map-screen) .tf-map-footer{bottom:36px}
+ .tf-map-top{padding-right:18px}
+ .tf-map-screen .maplibregl-ctrl-top-right{top:112px!important}
+ .tf-map-screen .maplibregl-ctrl-bottom-right{bottom:70px!important}
+ .tf-map-screen .maplibregl-ctrl-bottom-left{bottom:70px!important}
+ .tf-map-screen .maplibregl-ctrl-attrib{max-width:calc(100vw - 35px)!important}
+}
