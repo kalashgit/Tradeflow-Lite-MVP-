@@ -165,3 +165,54 @@ body:has(.tf-map-screen) .main{min-height:100dvh}
 .tf-sheet-more select{display:block;width:100%;margin:7px 0}
 @media(min-width:850px){.tf-map-screen{height:calc(100dvh - 30px)}.tf-location-sheet{left:auto;right:20px;bottom:20px;width:min(440px,95vw);border-radius:22px;border-bottom:1px solid #3c7486}}
 @media(prefers-reduced-motion:reduce){.tf-location-sheet{animation:none}}
+
+/* TRADEFLOW COMMAND OS — reference-faithful compact home */
+:root{--tf-ink:#03101b;--tf-glass:#0a1b2a;--tf-line:#244454;--tf-glow:var(--brand-accent,#34d7df)}
+body{background:#030d18}
+.tf-home{width:100%;max-width:650px;margin:auto;display:flex;flex-direction:column;gap:12px;color:#eafaff}
+.tf-home-head{display:flex;justify-content:space-between;align-items:center;padding:4px 0 6px}
+.tf-home-brand{display:flex;align-items:center;gap:9px;font-size:11px;letter-spacing:.22em;font-weight:750}
+.tf-home-symbol{font-size:31px;font-weight:900;line-height:1;letter-spacing:-.15em;color:#f3ffff;text-shadow:0 0 10px #6deaf588}
+.tf-home-symbol span{font-size:12px;letter-spacing:0;color:var(--tf-glow);vertical-align:top}
+.tf-home-alert{width:35px;height:35px;border-radius:50%;border:1px solid #173747;background:#0b2433;color:#93eaf0;display:grid;place-items:center}
+.tf-home-alert svg{width:19px;height:19px}
+.tf-home-intro h1{font-size:21px;line-height:1.25;margin:0 0 3px;font-weight:550;color:#f3faff}
+.tf-home-intro p{font-size:12px;margin:0;color:#8aa6b7}
+.tf-home-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tf-home-stat{position:relative;min-width:0;min-height:77px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;padding:11px 13px;border:1px solid #17384a;border-radius:11px;background:linear-gradient(135deg,#10283a,#061b28 85%);color:#f0fbff;box-shadow:inset 0 1px 0 #ffffff07,0 4px 16px #0003}
+.tf-home-stat:nth-child(3){background:linear-gradient(135deg,#0b2b32,#061b28 85%)}
+.tf-home-stat strong{font-size:25px;font-weight:600;line-height:1.15}
+.tf-home-stat>span:last-child{font-size:11px;color:#bdd2dc;margin-top:3px}
+.tf-stat-icon{position:absolute;top:11px;right:12px;color:var(--tf-glow);filter:drop-shadow(0 0 4px #39dbe555)}
+.tf-stat-icon svg{width:21px;height:21px}
+.tf-home-finance{border:1px solid #173848;border-radius:13px;background:linear-gradient(145deg,#071827,#03111c 85%);padding:14px 12px 11px;min-width:0;overflow:hidden;box-shadow:0 6px 20px #0004}
+.tf-home-charthead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.tf-home-charthead>div{display:flex;flex-direction:column;gap:5px}
+.tf-home-kicker{font-size:11px;color:#bdd3df}
+.tf-home-charthead strong{font-size:26px;font-weight:600;line-height:1.1}
+.tf-home-period{font-size:11px;color:#8faaba}
+.tf-home-chart{width:100%;min-width:0;margin-top:2px}
+.tf-home-chart svg{display:block;width:100%;height:auto;max-height:190px;filter:drop-shadow(0 0 5px #00c5db25)}
+.tf-home-controls{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.tf-home-controls .segmented{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tf-home-controls .segment{padding:5px 7px;font-size:10px;white-space:nowrap}
+.tf-home-disclaimer{font-size:10px;color:#849eac;line-height:1.35;margin:7px 0 0}
+.tf-home-shortcuts{display:flex;gap:9px;flex-wrap:wrap}
+.tf-home-shortcuts button{flex:1}
+.tf-home-details{padding:12px;border:1px solid #25485a;border-radius:12px;background:#0b1e2c}
+.tf-home-details summary{cursor:pointer;font-size:13px;color:#bce9ee}
+.tf-home-details p{font-size:12px}
+.tf-home>.panel{margin:0!important}
+body:has(.tf-home) .top{display:none}
+body:has(.tf-home) .content{padding-top:14px}
+body:has(.tf-home) .mobilebar{border-top:1px solid #183546;background:#071724f8}
+body:has(.tf-home) .mobilebar button.active{background:linear-gradient(145deg,#103b48,#082331);color:var(--tf-glow);box-shadow:0 0 15px #12d2dc18}
+@media(max-width:850px){.tf-home{padding:0 0 12px}.tf-home-finance{padding:13px 10px}.tf-home-stat{min-height:74px}.tf-home-chart svg{max-height:165px}}
+/* Make the map genuinely fill the available phone area, without blank lower band */
+@media(max-width:850px){body:has(.tf-map-screen) .content{padding:0!important;margin:0!important;min-height:0}.tf-map-screen{height:calc(100dvh - 80px - env(safe-area-inset-bottom));min-height:450px}.tf-map-screen .territory-map{height:100%!important;min-height:0!important}.tf-map-footer{bottom:16px;padding:6px 9px;border-radius:8px;background:#061827b0}.tf-map-top{padding-top:16px}}
+/* Research cards: compact mission dossiers, not huge bordered text blocks */
+body:has(.tf-map-screen) .maplibregl-ctrl-attrib{font-size:9px!important;background:#091e2acc!important;color:#b9d6df!important}
+body:has(.tf-map-screen) .maplibregl-ctrl-attrib a{color:#a6e6e9!important}
+body:has(.tf-map-screen) .maplibregl-ctrl-attrib-button{background-color:#d7e9ed!important;border-radius:50%}
+body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-left{bottom:35px}
+@media(max-width:850px){.mobilebar{min-height:72px}.mobilebar button{flex:1}.mobilebar button.active{border:1px solid #286275!important}}
