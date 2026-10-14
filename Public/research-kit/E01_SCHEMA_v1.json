@@ -1,0 +1,49 @@
+{
+  "schema_version": "E01-1.0",
+  "import_filename": "E01_TRADEFLOW_IMPORT_v001.csv",
+  "columns": [
+    "record_id",
+    "source_record_id",
+    "project_name",
+    "trade",
+    "opportunity_type",
+    "project_description",
+    "city",
+    "region",
+    "latitude",
+    "longitude",
+    "source_url",
+    "source_date",
+    "discovered_at",
+    "verified_at",
+    "evidence_status",
+    "status",
+    "organization_name",
+    "contact_url",
+    "evidence_notes"
+  ],
+  "required": [
+    "record_id",
+    "project_name",
+    "opportunity_type",
+    "source_url"
+  ],
+  "opportunity_types": {
+    "verified_request": "Evidence of an actual electrical-service request",
+    "potential_opportunity": "Project with evidence of possible subcontracting",
+    "project_signal": "Documented activity; no confirmed demand",
+    "business_prospect": "Relevant organization; no current demand evidence"
+  },
+  "evidence_status": [
+    "verified",
+    "unreviewed",
+    "needs_review"
+  ],
+  "notes": [
+    "Approved means authentic and properly classified, NOT confirmed buyer demand.",
+    "Do not put unreviewed rows into approved master.",
+    "Do not add private homeowner contact data.",
+    "No fake coordinates; blank if unavailable.",
+    "Source date and verification date should be filled in approved rows."
+  ]
+}
