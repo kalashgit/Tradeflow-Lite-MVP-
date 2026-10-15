@@ -636,3 +636,10 @@ button:disabled{opacity:.45;filter:none;transform:none;cursor:not-allowed}
 .mobilebar button.active .navicon svg{stroke:#22e5f1!important}
 .mobilebar button.active{background:linear-gradient(155deg,#183d50,#153345)!important;border-color:#28798b!important;box-shadow:inset 0 0 0 1px #4ad9e933,0 0 15px #09d4e629!important}
 .mobilebar button.active .navicon{filter:drop-shadow(0 0 7px #09d9e966)}
+
+/* Mapping actions: main map button and separate, readable batch control */
+.tf-op-v3 .tf-op3-mapactions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:stretch}
+.tf-op-v3 .tf-op3-mapactions [data-action="opportunityMapAll"]{grid-column:1;grid-row:1;min-width:0}
+.tf-op-v3 .tf-op3-mapactions [data-action="opportunityMapFilters"]{grid-column:2;grid-row:1;min-width:48px}
+.tf-op-v3 .tf-op3-mapactions [data-action="opportunityMapRemaining"]{grid-column:1/-1;grid-row:2;min-height:46px;border:1px solid #286d82;border-radius:12px;background:#102d3c;color:#90e9f1;font-weight:700;font-size:14px}
+.tf-op-v3 #tfMapProgress:not([hidden]){display:block;margin:12px 4px 0;color:#a6e6ed;font-size:13px}
