@@ -821,3 +821,36 @@ body:has(.tf-cash) .top{display:none!important}
  .tf-cash-cat-name{font-size:13px}
  .tf-cash-categories{padding-left:7px!important;padding-right:7px!important}
 }
+
+/* TradeFlow record forms: consistent sizing, aligned native dates, sharp controls */
+.tf-record-dialog{z-index:100!important;box-sizing:border-box;overflow:hidden;padding:16px!important}
+.tf-record-modal{box-sizing:border-box!important;display:block;width:min(510px,100%)!important;max-width:100%!important;max-height:min(88dvh,780px)!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;border:1px solid #32657b!important;border-radius:17px!important;padding:25px 22px 22px!important;background:linear-gradient(155deg,#102c3f,#081b2b)!important;color:#eefaff!important;box-shadow:0 18px 65px #000b!important;-webkit-overflow-scrolling:touch}
+.tf-record-modal *{box-sizing:border-box!important;min-width:0}
+.tf-record-modalhead{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:14px!important;margin-bottom:22px!important}
+.tf-record-modalhead h2{margin:0!important;min-width:0;font-size:clamp(22px,5vw,28px)!important;line-height:1.22!important;font-weight:730!important;color:#f2fbff!important}
+.tf-record-modalhead .tf-record-close{display:grid!important;place-items:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;border:1px solid #2d8196!important;border-radius:11px!important;background:#0b3043!important;color:#d6faff!important;box-shadow:none!important}
+.tf-record-modalhead .tf-record-close:hover,.tf-record-modalhead .tf-record-close:focus-visible{color:#16dcee!important;border-color:#15cbdf!important;background:#123e51!important;box-shadow:0 0 14px #00ddec3b!important}
+.tf-record-modalhead .tf-record-close:active{background:#1b5365!important;transform:scale(.94)!important;box-shadow:0 0 16px #12d3e45e!important}
+.tf-record-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:15px!important;width:100%!important}
+.tf-record-grid .tf-record-field{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:7px!important;width:100%!important;max-width:100%!important;margin:0!important;font-size:14px!important;color:#e8f9ff!important;font-weight:650!important}
+.tf-record-label{display:block;line-height:1.25}
+.tf-record-control{box-sizing:border-box!important;display:flex!important;align-items:center!important;position:relative;width:100%!important;max-width:100%!important;min-width:0!important;min-height:49px!important;height:49px!important;overflow:hidden!important;border:1px solid #39778e!important;border-radius:11px!important;background:#0a2333!important;transition:border-color .12s,box-shadow .12s}
+.tf-record-control:focus-within{border-color:#21e0ed!important;box-shadow:0 0 0 2px #0dd2e72c!important}
+.tf-record-icon{display:grid!important;place-items:center!important;flex:0 0 45px!important;width:45px!important;height:100%!important;color:#2bdded!important;pointer-events:none}
+.tf-record-icon svg{display:block;width:20px;height:20px}
+.tf-record-control>.input{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;min-height:47px!important;height:47px!important;margin:0!important;padding:9px 12px 9px 0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important;color:#ebfaff!important;font-size:16px!important;line-height:25px!important;font-weight:500!important}
+.tf-record-control>.input::placeholder{color:#809bac!important;opacity:1}
+.tf-record-control>select.input{padding-right:32px!important;text-overflow:ellipsis}
+.tf-record-date{overflow:hidden!important;max-width:100%!important}
+.tf-record-date>input[type="date"]{display:block!important;position:relative!important;inline-size:100%!important;min-inline-size:0!important;max-inline-size:100%!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;overflow:hidden!important}
+.tf-record-date>input[type="date"]::-webkit-datetime-edit{min-width:0;max-width:100%;line-height:24px}
+.tf-record-date>input[type="date"]::-webkit-date-and-time-value{min-height:24px;text-align:left}
+.tf-record-date>input[type="date"]::-webkit-calendar-picker-indicator{margin-right:0;max-width:28px;opacity:.9}
+.tf-record-actions{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:12px!important;align-items:stretch!important;width:100%!important;margin:24px 0 0!important}
+.tf-record-actions>button{display:grid!important;place-items:center!important;min-width:0!important;min-height:49px!important;width:100%!important;padding:11px!important;border-radius:11px!important;font-size:15px!important;font-weight:750!important;white-space:nowrap!important;transition:background .12s,box-shadow .12s,transform .12s!important}
+.tf-record-actions .tf-record-save{color:#041c29!important;background:#10d0e2!important;border:1px solid #55ebf3!important;box-shadow:0 0 13px #04cdd72a!important}
+.tf-record-actions .tf-record-save:active{background:#58e8f3!important;transform:scale(.965)!important;box-shadow:0 0 21px #09deed67!important}
+.tf-record-actions .tf-record-cancel{color:#eaf9ff!important;background:#112d3f!important;border:1px solid #4a889f!important;box-shadow:none!important}
+.tf-record-actions .tf-record-cancel:active{background:#1c455a!important;transform:scale(.965)!important}
+@media(max-width:390px){.tf-record-modal{padding:20px 16px 19px!important}.tf-record-actions{gap:9px!important}.tf-record-actions>button{font-size:14px!important}}
+@media(prefers-reduced-motion:reduce){.tf-record-actions>button,.tf-record-control{transition:none!important}}
