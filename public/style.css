@@ -429,3 +429,15 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
 .tf-map-legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:11px;color:#b3d8e3;margin-top:10px}
 .tf-map-legend span:first-child{color:#12dbe8}
 @media(max-width:600px){.tf-location-sheet{width:100%!important;left:0!important;right:0!important}.tf-sheet-primary-action{font-size:11px}}
+
+
+/* Map iOS touch-selection suppression and unified TradeFlow identity */
+.tf-map-screen,.tf-map-screen .territory-map,.tf-map-screen .maplibregl-canvas-container,.tf-map-screen canvas,.tf-map-top,.tf-map-brand,.tf-map-controls,.tf-location-sheet,.tf-location-sheet .tf-sheet-grip,.tf-location-sheet .tf-sheet-primary,.tf-location-sheet .tf-sheet-address,.tf-location-sheet .tf-sheet-coords{
+-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;
+}
+.tf-map-screen .territory-map,.tf-map-screen .maplibregl-canvas-container,.tf-map-screen .maplibregl-canvas{touch-action:none!important;-webkit-tap-highlight-color:transparent}
+.tf-map-screen button,.tf-location-sheet button,.tf-location-sheet a{-webkit-tap-highlight-color:transparent}
+.tf-map-screen input,.tf-map-screen textarea,.tf-location-sheet input,.tf-location-sheet textarea,.tf-location-sheet select{-webkit-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important}
+.tf-map-brand .tf-map-logo{width:43px;height:39px;flex:none;margin-right:4px}
+.tf-map-brand .tf-map-logo svg{width:100%;height:100%}
+.tf-map-brand{gap:12px;font-size:clamp(12px,3.3vw,17px);letter-spacing:.2em}
