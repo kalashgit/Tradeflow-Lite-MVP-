@@ -70,9 +70,19 @@ return `<div class="tf-import-backdrop"><section class="tf-import-dialog" role="
 async function saveOpportunityImportDraft(){const draft=opportunityImportDraft;if(!draft)return;const selected=draft.records.filter(x=>draft.selected.has(x.id));if(!selected.length)return;const transaction=db.transaction('opportunities','readwrite');for(const r of selected)transaction.objectStore('opportunities').put({...r,map_enabled:draft.mapLocations&&opportunityHasLocation(r)});await new Promise((resolve,reject)=>{transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error)});opportunityImportDraft=null;notify('Imported '+selected.length+' records');render()}
 const opportunityHasLocation=x=>typeof x.latitude==='number'&&typeof x.longitude==='number'&&Number.isFinite(x.latitude)&&Number.isFinite(x.longitude)&&Math.abs(x.latitude)<=90&&Math.abs(x.longitude)<=180;
 const opportunityMapped=x=>opportunityHasLocation(x)&&x.map_enabled!==false;
-const opportunityStage=x=>{const status=String(x.status||'New');if(status==='Won')return 'won';if(status==='Quoted')return 'quoted';if(status==='Interested')return 'active';if(status==='Contacted')return 'contacted';if(x.followup_date&&x.followup_date<=new Date().toISOString().slice(0,10))return 'followup';if(status==='Saved')return 'saved';if(status==='Lost')return 'lost';return 'new'};
+const opportunityStage=x=>{const status=String(x.status||'New').toLowerCase().trim();if(['won','completed','finished','job won'].includes(status))return 'won';if(['lost','rejected'].includes(status))return 'lost';if(['in progress','active','interested','working'].includes(status))return 'active';if(['follow-up','followup','follow up'].includes(status)||(x.followup_date&&x.followup_date<=new Date().toISOString().slice(0,10)&&!['quoted','won','lost'].includes(status)))return 'followup';if(['quoted','quote sent','proposal'].includes(status))return 'quoted';if(['contacted','replied'].includes(status))return 'contacted';if(status==='saved')return 'saved';return 'new'};
 const opportunityStageName=x=>({won:'Won / job',quoted:'Quoted',active:'In progress',contacted:'Contacted',followup:'Follow-up',saved:'Saved',lost:'Lost',new:'New lead'})[opportunityStage(x)];
-const opportunityStageSvg=x=>{const stage=opportunityStage(x),path=({won:'<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',quoted:'<path d="M6 3h9l4 4v14H6zM15 3v5h4M9 13h7M9 17h5"/>',active:'<path d="M3 17h18v3H3zM5 16a7 7 0 0 1 14 0M10 6V4h4v2"/>',contacted:'<path d="M4 5h16v12H8l-4 4zM8 9h8M8 13h5"/>',followup:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',saved:'<path d="M6 3h12v18l-6-4-6 4z"/>',lost:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',new:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'})[stage];return '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>'};
+/* One shared SVG vocabulary for opportunity cards and map pins. */
+const opportunityStageSvg=x=>{const stage=opportunityStage(x),path=({
+ won:'<circle cx="12" cy="12" r="9"/><path d="m7.5 12 3 3 6-6"/>',
+ quoted:'<path d="M7 3.5h8l4 4V20H7z"/><path d="M15 3.5v4h4M10 12h6M10 15h4"/><path d="m14 18 1.4 1.4L18 17"/>',
+ active:'<path d="M3 17h18v3H3zM5 16a7 7 0 0 1 14 0M10 8V5h4v3"/>',
+ contacted:'<path d="M4 5h16v12H8l-4 4zM8 9h8M8 13h5"/>',
+ followup:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
+ saved:'<path d="M6 3h12v18l-6-4-6 4z"/>',
+ lost:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
+ new:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>'
+})[stage];return '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>'};
 let opportunityDetailId=null,opportunityFilter='all';
 let opportunityMappingRunning=false;
 function opportunityAddressVariants(r){
