@@ -1080,3 +1080,93 @@ body:has(.tf-record-hub) .content,body:has(.tf-record-dossier) .content{padding:
 .tf-record-control:has(textarea){height:auto!important;min-height:90px!important;overflow:visible!important}
 @media(max-width:380px){.tf-record-card{gap:8px;padding:9px}.tf-record-card-icon{flex-basis:41px;width:41px;height:42px}.tf-record-hub-actions button{font-size:12px;padding:8px 5px}.tf-record-card-quick{width:30px}.tf-record-info-row{gap:9px}.tf-record-related-grid{gap:6px}}
 @media(min-width:850px){body:has(.tf-record-hub) .content,body:has(.tf-record-dossier) .content{padding:30px 32px 100px!important}}
+
+/* TradeFlow Photo Intake / local intelligence — design-compatible, accessible, offline-first */
+.tf-record-hub-actions{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr)!important;gap:8px!important}
+.tf-record-hub-actions .tf-record-photo{display:flex;align-items:center;justify-content:center;gap:5px;background:#0a3041!important;color:var(--tf-accent)!important;border:1px solid color-mix(in srgb,var(--tf-accent) 60%,#183747)!important;box-shadow:none!important}
+.tf-record-hub-actions .tf-record-photo svg{width:17px;height:17px;flex:none}
+.tf-record-hub-actions .tf-record-photo:active{transform:scale(.97);background:#13455a!important;box-shadow:0 0 15px color-mix(in srgb,var(--tf-accent) 32%,transparent)!important}
+.tf-record-dossier .tf-record-attach-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:48px;border:1px solid color-mix(in srgb,var(--tf-accent) 58%,#12384b);background:#0a3245;color:var(--tf-accent);border-radius:11px;font-size:13px;font-weight:720;margin:9px 0 15px}
+.tf-record-dossier .tf-record-attach-btn:active{filter:brightness(1.23)}
+.tf-photo-overlay{position:fixed;inset:0;z-index:160;display:grid;place-items:center;box-sizing:border-box;padding:max(14px,env(safe-area-inset-top)) 12px max(14px,env(safe-area-inset-bottom));background:#020913e6;backdrop-filter:blur(6px)}
+.tf-photo-panel{box-sizing:border-box;width:min(520px,100%);max-width:100%;max-height:min(87dvh,790px);overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:20px;background:linear-gradient(150deg,#102e40,#071c2a);border:1px solid #32677d;border-radius:18px;box-shadow:0 22px 70px #000b;color:#eaf9ff}
+.tf-photo-panel *{box-sizing:border-box;min-width:0}
+.tf-photo-head{display:flex;align-items:start;justify-content:space-between;gap:13px;margin-bottom:12px}
+.tf-photo-head small{display:block;color:var(--tf-accent);font-size:10px;letter-spacing:.12em;font-weight:750;margin-bottom:5px}
+.tf-photo-head h2{margin:0;font-size:21px;line-height:1.3;color:#f2fbff}
+.tf-photo-head button{flex:0 0 42px;display:grid;place-items:center;width:42px;height:42px;min-height:42px;background:#0b3144;border:1px solid #326e83;color:#defaff;font-size:26px;border-radius:11px}
+.tf-photo-head button:active{background:#145067;border-color:var(--tf-accent)}
+.tf-photo-panel>p{font-size:12px;color:#aac3d1;line-height:1.55;margin:0 0 17px}
+.tf-photo-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tf-photo-options label{display:flex;align-items:center;justify-content:center;gap:10px;min-height:58px;border:1px solid var(--tf-accent);border-radius:12px;background:#0b3343;color:var(--tf-accent);cursor:pointer;padding:10px}
+.tf-photo-options label strong{font-size:13px;font-weight:720}
+.tf-photo-options label svg{flex:none;width:23px;height:23px}
+.tf-photo-options label:active{background:#16495b;box-shadow:0 0 17px color-mix(in srgb,var(--tf-accent) 32%,transparent)}
+.tf-photo-preview,.tf-photo-placeholder{margin:15px 0;border:1px solid #326179;border-radius:12px;background:#061b2a;overflow:hidden}
+.tf-photo-placeholder{min-height:110px;display:grid;place-items:center;color:#8faec1;font-size:12px}
+.tf-photo-preview img{display:block;width:100%;max-height:295px;object-fit:contain;background:#09141a}
+.tf-photo-preview small{display:block;padding:10px 12px;font-size:11px;color:#a6c3d0;overflow-wrap:anywhere}
+.tf-photo-ai-lock{display:flex;align-items:center;gap:11px;padding:12px;margin:14px 0;background:#0d2533;border:1px solid #2e556a;border-radius:12px}
+.tf-photo-ai-lock>span{display:grid;place-items:center;flex:none;width:31px;height:31px;border-radius:10px;background:#0d4050;color:var(--tf-accent);font-size:23px}
+.tf-photo-ai-lock>div{display:grid;gap:4px;flex:1}
+.tf-photo-ai-lock strong{font-size:12px;color:#f1faff}
+.tf-photo-ai-lock small{font-size:10px;line-height:1.45;color:#a5bbc8}
+.tf-photo-ai-lock button{flex:none;border:1px solid #366073;border-radius:8px;background:#132c3b;color:#aecbd9;padding:9px 8px;font-size:11px;font-weight:660}
+.tf-photo-actions{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,1.45fr);gap:10px}
+.tf-photo-actions button{min-height:49px;border-radius:11px;border:1px solid #42758b;background:#143547;color:#eafaff;font-size:13px;font-weight:730;padding:9px 8px}
+.tf-photo-actions .tf-photo-confirm{background:var(--tf-accent);color:var(--tf-accent-contrast,#041b29);border-color:color-mix(in srgb,var(--tf-accent) 70%,white);box-shadow:0 0 16px color-mix(in srgb,var(--tf-accent) 18%,transparent)}
+.tf-photo-actions .tf-photo-confirm:disabled{opacity:.46;box-shadow:none}
+.tf-photo-actions button:not(:disabled):active{transform:scale(.97);filter:brightness(1.1)}
+.tf-photo-saved img{display:block;max-width:100%;max-height:350px;margin:auto;object-fit:contain;border-radius:10px;background:#071b27}
+.tf-photo-saved-actions{display:flex;gap:10px;margin-top:13px}
+.tf-photo-saved-actions button{flex:1;min-height:41px;border:1px solid #326c83;border-radius:10px;background:#0c3042;color:var(--tf-accent);font-size:12px;font-weight:690}
+.tf-photo-saved-actions button:last-child{color:#f39da5;border-color:#6a3b49;background:#301d27}
+.tf-photo-form-preview,.tf-photo-finance-attached{display:grid;gap:9px;margin:15px 0;padding:12px;border-radius:12px;border:1px solid #2b657b;background:#092a3a;color:#e9faff}
+.tf-photo-form-preview strong,.tf-photo-finance-attached strong{font-size:13px}
+.tf-photo-form-preview img,.tf-photo-finance-attached img{display:block;max-height:225px;max-width:100%;width:100%;object-fit:contain;border-radius:9px;background:#071923}
+.tf-photo-form-preview small,.tf-photo-finance-attached small{color:#a4bdcc;font-size:11px;line-height:1.4}
+.tf-cash-photo-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:11px 0}
+.tf-cash-photo-actions button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 9px;border:1px solid color-mix(in srgb,var(--tf-accent) 55%,#235267);border-radius:10px;background:#082b3b;color:var(--tf-accent);font-size:12px;font-weight:700}
+.tf-cash-photo-actions button svg{width:19px;height:19px;flex:none}
+.tf-cash-photo-actions button:active{transform:scale(.97);filter:brightness(1.2)}
+/* TradeFlow local insights, with a clear distinction from upcoming paid AI */
+body:has(.tf-ai-screen) .content{padding:20px 16px 125px!important;overflow-x:clip}
+.tf-ai-screen{width:100%;max-width:710px;margin:0 auto;box-sizing:border-box;color:#eefaff}
+.tf-ai-screen *{box-sizing:border-box;min-width:0}
+.tf-ai-heading{display:flex;align-items:center;gap:13px;margin-bottom:13px}
+.tf-ai-heading>svg{flex:none;width:42px;height:42px;color:var(--tf-accent);padding:9px;background:#0c384a;border:1px solid #286c83;border-radius:12px}
+.tf-ai-heading h1{margin:0;font-size:clamp(20px,5vw,25px);color:#f2fbff}
+.tf-ai-heading p{margin:5px 0 0;color:#9db8c8;font-size:12px}
+.tf-ai-tags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:19px}
+.tf-ai-tags span{display:inline-block;border:1px solid #285969;border-radius:16px;background:#092e3b;color:#a9d5dd;font-size:10px;font-weight:720;letter-spacing:.055em;padding:6px 9px}
+.tf-ai-panel,.tf-ai-pro{padding:18px 16px;border-radius:16px;background:linear-gradient(145deg,#0a2c3d,#061c2b);border:1px solid #2e6074;margin-bottom:16px}
+.tf-ai-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:13px}
+.tf-ai-section-head h2{font-size:17px;margin:0}
+.tf-ai-section-head small{font-size:11px;color:#a2bcca}
+.tf-ai-questions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px}
+.tf-ai-questions button{min-height:43px;padding:8px;background:#0b3040;color:#bdd6e2;border:1px solid #31596b;border-radius:10px;font-size:12px;font-weight:700}
+.tf-ai-questions button.active{color:var(--tf-accent-contrast,#041b29);background:var(--tf-accent);border-color:var(--tf-accent)}
+.tf-ai-questions button:active{transform:scale(.97);filter:brightness(1.14)}
+.tf-ai-answer{padding:15px;border:1px solid #265568;background:#061c29;border-radius:12px}
+.tf-ai-answer h3{margin:0 0 10px;font-size:15px;color:#effbff}
+.tf-ai-answer ul{padding-left:19px;margin:0;color:#c2d8e3;display:grid;gap:9px;font-size:12px;line-height:1.6}
+.tf-ai-disclosure{margin:13px 0 0;font-size:11px;line-height:1.6;color:#9bb5c4}
+.tf-ai-pro-head{display:flex;align-items:center;gap:12px;margin-bottom:15px}
+.tf-ai-pro-head>span:first-child{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;color:var(--tf-accent);background:#0b3b4c;font-size:27px;flex:none}
+.tf-ai-pro-head>div{flex:1}
+.tf-ai-pro h2{font-size:17px;margin:0}
+.tf-ai-pro-head p{font-size:12px;color:#a6c0cf;margin:4px 0 0}
+.tf-ai-pro-head .tf-ai-locked{font-size:10px;font-weight:780;color:#bed0da;letter-spacing:.06em;border:1px solid #345968;background:#0d2a39;padding:6px 8px;border-radius:7px;flex:none}
+.tf-ai-pro-lines{display:grid;gap:0;margin:0 0 13px;border-top:1px solid #254c60}
+.tf-ai-pro-lines>div{padding:12px 2px;border-bottom:1px solid #254c60;color:#cbe1ea;font-size:12px}
+.tf-ai-pro>button{width:100%;min-height:44px;padding:8px;background:#0d3342;border:1px solid color-mix(in srgb,var(--tf-accent) 59%,#305265);border-radius:10px;color:var(--tf-accent);font-size:13px;font-weight:730}
+.tf-ai-pro>p{color:#a6bdc9;font-size:11px;line-height:1.55;margin:12px 0 0}
+@media(max-width:370px){
+ .tf-record-hub-actions{gap:5px!important}
+ .tf-record-hub-actions button{padding:7px 4px;font-size:11px!important}
+ .tf-record-hub-actions .tf-record-photo svg{width:15px}
+ .tf-photo-panel{padding:16px}
+ .tf-photo-options label{gap:6px;font-size:12px}
+ .tf-photo-actions{gap:7px}
+ .tf-photo-ai-lock{gap:6px}
+}
