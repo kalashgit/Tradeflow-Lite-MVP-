@@ -540,3 +540,47 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
 .tf-settings-rowarrow{font-size:26px;color:#94b6c6}
 .tf-settings-row:active,.tf-more-item:active{background:#103448!important}
 @media(max-width:850px){body:has(.tf-settings-v2) .content,body:has(.tf-more-screen) .content{padding:18px 19px 125px!important;max-width:100%!important;margin:0!important}body:has(.tf-more-screen) .top{display:none!important}}
+
+/* Opportunities v3 — restrained tactical intelligence interface */
+.tf-op-v3{max-width:730px;margin:0 auto;padding:8px 0 115px;color:#edf9ff}
+.tf-op3-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px}
+.tf-op3-head h2{font-size:26px;letter-spacing:-.03em;margin:0 0 8px;display:flex;align-items:center;gap:11px}
+.tf-op3-titleicon{color:#13d9e8;font-size:29px;font-weight:500}
+.tf-op3-head p{margin:0;color:#a3bdca;font-size:13px;line-height:1.45}
+.tf-op3-upload{width:44px;height:44px;flex:none;border:1px solid #236078;border-radius:12px;background:#0b2635;color:#9fdbea;font-size:25px}
+.tf-op3-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 17px}
+.tf-op3-stats>div{display:grid;gap:7px;min-width:0;background:#0b2634;border:1px solid #24566b;border-radius:14px;padding:15px 13px}
+.tf-op3-stats strong{font-size:26px;line-height:1.1;font-weight:720;font-variant-numeric:tabular-nums}
+.tf-op3-stats small{font-size:11px;color:#a2bfce;white-space:nowrap}
+.tf-op3-mapcard{border:1px solid #266579;border-radius:18px;background:#0b2837;padding:18px;margin-bottom:17px}
+.tf-op3-mapheading{display:flex;align-items:center;gap:13px;margin-bottom:17px}
+.tf-op3-mapicon{width:43px;height:43px;display:grid;place-items:center;border-radius:12px;background:#123d4e;color:#0dd6e7;font-size:29px}
+.tf-op3-mapheading strong{display:block;font-size:18px}
+.tf-op3-mapheading small{display:block;font-size:12px;color:#a1bbca;margin-top:5px}
+.tf-op3-mapactions{display:grid;grid-template-columns:minmax(0,1fr) 49px;gap:10px}
+.tf-op3-mapactions button{min-height:46px;border-radius:11px;border:1px solid #27667b;background:#0d2c3b;color:#c3ecf5;font-size:19px}
+.tf-op3-mapactions button:first-child{background:#0bd4e5;border-color:#0bd4e5;color:#052532;font-size:15px;font-weight:750}
+.tf-op3-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}
+.tf-op3-chips button{padding:9px 13px;border:1px solid #295268;border-radius:99px;background:#0b2634;color:#a7bfce;font-size:12px;white-space:nowrap}
+.tf-op3-chips button.active{background:#124050;border-color:#10c9dd;color:#5ce6f0}
+.tf-op3-search{display:flex;align-items:center;gap:12px;background:#0b2634;border:1px solid #295a70;border-radius:13px;padding:0 14px;margin-bottom:13px;height:48px}
+.tf-op3-search span{font-size:26px;color:#9dbfcd}
+.tf-op3-search input{border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;color:#eafaff!important;width:100%;font-size:13px;min-width:0}
+.tf-op3-search input::placeholder{color:#8fa9b9}
+.tf-op3-list{display:grid;gap:9px}
+.tf-op3-row{display:flex;align-items:center;gap:8px;min-height:75px;background:#0a2533;border:1px solid #22536a;border-radius:14px;padding:9px 12px;box-sizing:border-box}
+.tf-op3-open{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:#edfaff}
+.tf-op3-status{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:12px;background:#12384a;color:#16d9e9}
+.tf-stage-followup{color:#f4bf54!important}.tf-stage-quoted{color:#9da5ff!important}.tf-stage-active{color:#ff9b58!important}.tf-stage-won{color:#4dde99!important}.tf-stage-lost{color:#ed8091!important}.tf-stage-saved{color:#7cb8ff!important}.tf-stage-contacted{color:#a6a4ef!important}
+.tf-op3-copy{display:block;min-width:0;flex:1}
+.tf-op3-copy strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:650}
+.tf-op3-copy small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px;color:#a3bdca;font-size:11px}
+.tf-op3-pin{background:transparent;border:0;color:#12d2e4;font-size:27px;padding:5px;flex:none}
+.tf-op3-unmapped{color:#4d7081;font-size:23px;padding:5px}
+.tf-op3-chevron{font-size:25px;color:#8caab9}
+.tf-map-stage{width:39px;height:39px;display:grid;place-items:center;border:2px solid currentColor;border-radius:12px;background:#0b2838;color:#0bd4e5;box-shadow:0 3px 9px #0008;cursor:pointer}
+.tf-map-stage svg{width:23px;height:23px}
+.tf-import-mapchoice{display:flex;gap:12px;align-items:flex-start;margin:12px 16px;padding:13px;border:1px solid #245b71;border-radius:12px;background:#0d2a39;color:#e9fbff}
+.tf-import-mapchoice input{width:20px;height:20px;accent-color:#12d4e4;flex:none}
+.tf-import-mapchoice strong{display:block;font-size:13px}.tf-import-mapchoice small{display:block;font-size:11px;color:#9ebac9;margin-top:5px}
+@media(max-width:430px){.tf-op3-stats{gap:7px}.tf-op3-stats>div{padding:13px 9px}.tf-op3-stats strong{font-size:24px}.tf-op3-stats small{font-size:10px}.tf-op3-copy strong{font-size:13px}.tf-op3-mapcard{padding:15px}}
