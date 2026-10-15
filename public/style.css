@@ -343,3 +343,66 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
 .tf-pref-actions{display:flex;gap:9px;flex-wrap:wrap}
 .tf-pref-actions .btn{min-width:0}
 .tf-pref-caution{font-size:12px!important;color:#e4bb7d!important}
+
+
+/* Home v2: approved TradeFlow visual specification */
+@media(max-width:850px){
+ body:has(.tf-home-v2) .content{padding:18px 20px 120px!important;width:100%!important;max-width:100%!important;margin:0!important}
+ body:has(.tf-home-v2) .mobilebar{background:linear-gradient(180deg,#071b2aef,#04121ffb)!important;border:1px solid #0c4057!important;border-radius:24px 24px 0 0!important;padding:8px 9px calc(9px + env(safe-area-inset-bottom))!important}
+ body:has(.tf-home-v2) .mobilebar button.active{background:linear-gradient(150deg,#07394a,#052130)!important;box-shadow:inset 0 0 16px #02d9e92a,0 0 15px #00b9d022!important;color:#33f6ff!important}
+}
+.tf-home-v2{width:100%;max-width:650px;margin:0 auto;gap:15px;color:#f5fcff}
+.tf-home-v2 .tf-home-head{padding:0 0 10px}
+.tf-home-v2 .tf-home-brand{gap:14px;font-size:clamp(13px,3.5vw,19px);letter-spacing:.22em;color:#fff}
+.tf-home-logo{display:flex;width:43px;height:39px;filter:drop-shadow(0 0 9px #b9f7ff36)}
+.tf-home-logo svg{width:100%;height:100%}
+.tf-home-v2 .tf-home-alert{position:relative;width:51px;height:51px;border-radius:50%;background:#062233;border-color:#15536b;color:#c5edff}
+.tf-home-v2 .tf-home-alert svg{width:26px;height:26px}
+.tf-home-alert i{position:absolute;top:5px;right:5px;width:10px;height:10px;border-radius:50%;background:#ff5364}
+.tf-home-v2 .tf-home-intro h1{font-size:clamp(26px,6.5vw,39px);font-weight:650;letter-spacing:-.03em}
+.tf-home-v2 .tf-home-intro p{font-size:clamp(14px,3.7vw,18px);color:#93b0c7}
+.tf-home-v2 .tf-home-stats{gap:12px}
+.tf-home-v2 .tf-home-stat{min-height:108px;border:1px solid #17647c;border-radius:15px;padding:17px;background:linear-gradient(145deg,#062a37,#031824 88%);box-shadow:inset 0 1px 0 #ffffff0b}
+.tf-home-v2 .tf-home-stat strong{font-size:clamp(31px,7.4vw,44px);font-weight:700}
+.tf-home-v2 .tf-home-stat>span:last-child{font-size:clamp(13px,3.5vw,17px);color:#b3d0e1}
+.tf-home-v2 .tf-stat-icon{top:17px;right:16px;color:#00e9f2;filter:drop-shadow(0 0 7px #00edfb70)}
+.tf-home-v2 .tf-stat-icon svg{width:30px;height:30px}
+.tf-home-v2 .tf-home-finance,.tf-home-trade,.tf-home-activity{border:1px solid #11647c;border-radius:17px;background:linear-gradient(140deg,#041c29,#03131f 86%);padding:18px 16px;min-width:0;box-shadow:0 5px 22px #0004}
+.tf-home-v2 .tf-home-charthead{align-items:center}
+.tf-home-v2 .tf-home-kicker{font-size:17px;font-weight:650;color:#e9faff}
+.tf-home-v2 .tf-home-period{font-size:13px;color:#bcd6e5;background:#071e2e;border:1px solid #24546a;border-radius:9px;padding:8px 10px;max-width:45%}
+.tf-home-revenue{display:block;font-size:clamp(32px,8vw,46px);letter-spacing:-.03em;margin-top:14px;line-height:1.1}
+.tf-home-growth{font-size:12px;color:#5be8d4;margin-top:7px;min-height:17px}
+.tf-home-v2 .tf-home-chart{margin-top:0}
+.tf-home-v2 .tf-home-chart svg{height:auto;max-height:none;aspect-ratio:720/245;filter:none}
+.tf-revenue-plot{position:relative;width:100%;touch-action:pan-y;user-select:none}
+.tf-revenue-plot svg{width:100%;display:block;overflow:visible}
+.tf-chart-tooltip{position:absolute;top:4px;transform:translateX(-50%);display:grid;gap:2px;padding:7px 11px;border:1px solid #316c85;border-radius:8px;background:#061525ed;white-space:nowrap;text-align:center;pointer-events:none;box-shadow:0 7px 20px #0008}
+.tf-chart-tooltip[hidden]{display:none}
+.tf-chart-tooltip strong{font-size:13px;color:white}
+.tf-chart-tooltip small{font-size:10px;color:#a8c9d9}
+.tf-home-sectionhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}
+.tf-home-sectionhead h2{font-size:18px;font-weight:650;line-height:1.2;margin:0;color:#f5fbff}
+.tf-home-sectionhead>span,.tf-home-sectionhead>button{font-size:12px;color:#a5d2e2;background:none;border:0;padding:0}
+.tf-home-trade-body{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.tf-home-trade-label{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
+.tf-home-trade-icon{width:43px;height:43px;border-radius:50%;display:grid;place-items:center;color:#00ecf6;background:#063342;border:1px solid #08748c;flex-shrink:0}
+.tf-home-trade-icon svg{width:24px;height:24px}
+.tf-home-trade-label strong{font-size:13px;display:block;overflow-wrap:anywhere}
+.tf-home-trade-label small,.tf-home-trade-metrics small{font-size:10px;color:#9bbbcf;display:block;margin-top:5px}
+.tf-home-trade-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:2;min-width:0}
+.tf-home-trade-metrics>div{padding:0 6px;border-left:1px solid #1b5369;min-width:0}
+.tf-home-trade-metrics strong{display:block;font-size:clamp(10px,2.6vw,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-home-progress{height:7px;border-radius:20px;background:#22465b;margin-top:24px;overflow:hidden}
+.tf-home-progress span{display:block;height:100%;background:linear-gradient(90deg,#00ecf5,#46c8f6);border-radius:20px}
+.tf-home-progress-caption{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:11px;color:#9cbdd0;margin-top:7px}
+.tf-home-progress-caption button{border:0;background:none;color:#a9d9e9;font-size:25px;line-height:1}
+.tf-home-timeline{display:grid;gap:0}
+.tf-home-event{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #143648}
+.tf-home-event:last-child{border-bottom:0}
+.tf-home-event-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;border:1px solid #12667e;background:#062839;color:#10ddec}
+.tf-home-event-icon svg{width:21px;height:21px}
+.tf-home-event-text{font-size:12px;line-height:1.45;color:#e9f8ff;overflow-wrap:anywhere}
+.tf-home-event time{font-size:10px;color:#9bb5c8;white-space:nowrap}
+.tf-home-empty{font-size:13px;color:#92b1c2;padding:12px 0}
+@media(max-width:380px){.tf-home-v2 .tf-home-stat{padding:12px;min-height:96px}.tf-home-v2 .tf-home-stat strong{font-size:30px}.tf-home-v2 .tf-stat-icon svg{width:25px;height:25px}.tf-home-trade-body{flex-wrap:wrap}.tf-home-trade-metrics{flex-basis:100%}}
