@@ -75,50 +75,80 @@ const opportunityStageName=x=>({won:'Won / job',quoted:'Quoted',active:'In progr
 const opportunityStageSvg=x=>{const stage=opportunityStage(x),path=({won:'<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',quoted:'<path d="M6 3h9l4 4v14H6zM15 3v5h4M9 13h7M9 17h5"/>',active:'<path d="M3 17h18v3H3zM5 16a7 7 0 0 1 14 0M10 6V4h4v2"/>',contacted:'<path d="M4 5h16v12H8l-4 4zM8 9h8M8 13h5"/>',followup:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',saved:'<path d="M6 3h12v18l-6-4-6 4z"/>',lost:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',new:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'})[stage];return '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>'};
 let opportunityDetailId=null,opportunityFilter='all';
 let opportunityMappingRunning=false;
+function opportunityAddressVariants(r){
+ const street=String(r.address||'').trim(),city=String(r.city||'').trim(),region=String(r.region||'').trim(),zip=String(r.postal_code||r.zip||r.zip_code||'').trim();
+ const parts=[street,city,region,zip].filter(Boolean);
+ const variants=[parts.join(', ')];
+ if(street){
+  const normalized=street.replace(/\\s+/g,' ').replace(/,?\\s*(?:United States|USA)\\s*$/i,'').trim();
+  variants.push([normalized,city,region].filter(Boolean).join(', '));
+  const trailing=normalized.match(/^(.+?)\\s+(\\d+[A-Za-z]?)$/);
+  if(trailing)variants.push([trailing[2]+' '+trailing[1],city,region,zip].filter(Boolean).join(', '));
+  const leading=normalized.match(/^(\\d+[A-Za-z]?)\\s+(.+)$/);
+  if(leading)variants.push([leading[2]+' '+leading[1],city,region,zip].filter(Boolean).join(', '));
+ }
+ if(!street&&r.project_name)variants.push([r.project_name,city,region].filter(Boolean).join(', '));
+ return [...new Set(variants.map(x=>x.trim()).filter(Boolean))].slice(0,3);
+}
+function opportunityLocationPlausible(hit,r){
+ const name=String(hit.display_name||'').toLowerCase();
+ const city=String(r.city||'').trim().toLowerCase();
+ const zip=String(r.postal_code||r.zip||r.zip_code||'').trim();
+ if(zip&&/^[0-9]{5}(?:-[0-9]{4})?$/.test(zip)&&name.includes(zip.slice(0,5)))return true;
+ if(city&&name.includes(city))return true;
+ if(!city&&!zip)return true;
+ return false;
+}
+let opportunityMappingRunning=false;
 async function locateOpportunityBatch(records){
  if(opportunityMappingRunning)return alert('Address mapping is already running.');
  if(!navigator.onLine)return alert('Internet access is required for address lookup.');
- const pending=records.filter(x=>!opportunityMapped(x)&&[x.address,x.city,x.region].some(Boolean)&&x.map_location_status!=='unresolved');
- const unresolved=records.filter(x=>!opportunityMapped(x)&&x.map_location_status==='unresolved').length;
- if(!pending.length)return alert(unresolved?unresolved+' addresses could not be matched automatically. Open a record to review or locate it manually.':'All records with usable addresses are already mapped.');
- const max=Math.min(20,pending.length);
- if(!confirm('Locate the next '+max+' unmapped addresses? This uses a public, rate-limited service and may take about '+Math.ceil(max*1.2)+' seconds. Results are approximate and need review.'))return;
+ const pending=records.filter(x=>!opportunityMapped(x)&&opportunityAddressVariants(x).length&&x.map_location_status!=='unresolved');
+ const retry=records.filter(x=>!opportunityMapped(x)&&x.map_location_status==='unresolved'&&opportunityAddressVariants(x).length);
+ const queue=[...pending,...retry];
+ if(!queue.length)return alert('No unmapped records with usable location information remain.');
+ const max=Math.min(20,queue.length);
+ if(!confirm('Search '+max+' addresses ('+pending.length+' new, '+retry.length+' previous no-matches)? Online lookup is rate-limited and results need verification.'))return;
  opportunityMappingRunning=true;
- let located=0,unmatched=0,errors=0;
+ let located=0,unmatched=0,errors=0,processed=0,stopped=false;
  const progress=document.getElementById('tfMapProgress');
- if(progress){progress.hidden=false;progress.textContent='Mapping 0 / '+max+' addresses…'}
+ if(progress){progress.hidden=false;progress.textContent='Mapping 0 / '+max+'…'}
  const cache=new Map();
  try{
- for(let i=0;i<max;i++){
-  const record=pending[i],address=[record.address,record.city,record.region].filter(Boolean).join(', ').trim();
-  try{
-   let hit;
-   const key=address.toLowerCase().replace(/\\s+/g,' ');
-   if(cache.has(key))hit=cache.get(key);
-   else{
-    const results=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address));
-    hit=results&&results[0]||null;cache.set(key,hit);
+  for(const record of queue.slice(0,max)){
+   try{
+    let hit=null,plausible=false;
+    for(const address of opportunityAddressVariants(record)){
+     const key=address.toLowerCase().replace(/\\s+/g,' ');
+     let results;
+     if(cache.has(key))results=cache.get(key);
+     else{results=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q='+encodeURIComponent(address));cache.set(key,results)}
+     const candidates=Array.isArray(results)?results:[];
+     const candidate=candidates.find(x=>opportunityLocationPlausible(x,record));
+     if(candidate){hit=candidate;plausible=true;break}
+     if(!hit&&candidates.length)hit=candidates[0];
+    }
+    const lat=Number(hit?.lat),lon=Number(hit?.lon);
+    if(!hit||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||!plausible){
+     record.map_location_status='unresolved';record.map_error=hit?'Found only a location outside the expected city or ZIP':'No matching address';unmatched++;
+    }else{
+     record.latitude=lat;record.longitude=lon;record.map_enabled=true;
+     record.map_location_status='needs_review';record.map_address_result=String(hit.display_name||'');
+     delete record.map_error;located++;
+    }
+    await put('opportunities',record);
+   }catch(err){
+    errors++;
+    if(/429|403|503|rate|limit/i.test(String(err.message||''))){stopped=true;break}
+    record.map_location_status='lookup_error';record.map_error=String(err.message||'Lookup failed').slice(0,160);
+    await put('opportunities',record);
    }
-   const lat=Number(hit?.lat),lon=Number(hit?.lon);
-   if(!hit||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180){
-    record.map_location_status='unresolved';record.map_error='No matching address';unmatched++;
-   }else{
-    record.latitude=lat;record.longitude=lon;record.map_enabled=true;
-    record.map_location_status='needs_review';record.map_address_result=String(hit.display_name||'');
-    delete record.map_error;located++;
-   }
-   await put('opportunities',record);
-  }catch(err){
-   errors++;
-   if(/429|403|503|rate|limit/i.test(String(err.message||''))){alert('Address service is limiting requests. '+located+' locations saved. Try again later.');break}
-   record.map_location_status='lookup_error';record.map_error=String(err.message||'Lookup failed').slice(0,160);
-   await put('opportunities',record);
+   processed++;
+   if(progress)progress.textContent='Mapping '+processed+' / '+max+' · '+located+' located · '+unmatched+' unmatched';
   }
-  if(progress)progress.textContent='Mapping '+(i+1)+' / '+max+' · '+located+' located · '+unmatched+' unmatched';
- }
  }finally{opportunityMappingRunning=false}
  mapLastView=null;await render();
- alert(located+' locations saved for verification. '+unmatched+' unmatched; '+errors+' lookup errors. Open the map to view plotted records. Use Map remaining to continue in batches.');
+ alert(located+' mapped for review, '+unmatched+' unmatched, '+errors+' errors. '+(stopped?'The geocoding provider paused requests; retry later. ':'')+'Use Map remaining to continue.');
 }
 
 function opportunityView(d){
