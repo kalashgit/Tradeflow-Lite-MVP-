@@ -85,34 +85,50 @@ const opportunityStageSvg=x=>{const stage=opportunityStage(x),path=({
 })[stage];return '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>'};
 let opportunityDetailId=null,opportunityFilter='all';
 
-function opportunityAddressVariants(r){
- const raw=String(r.address||r.street_address||r.site_address||r.project_address||'').trim();
- const city=String(r.city||'').trim(),region=String(r.region||r.state||'').trim(),zip=String(r.postal_code||r.zip||r.zip_code||'').trim();
+function opportunityLocationParts(r){
+ const rawAddress=String(r.address||r.street_address||r.site_address||r.project_address||'').trim();
+ const rawCity=String(r.city||'').trim(),rawRegion=String(r.region||r.state||'').trim();
+ const combined=rawAddress||rawCity;
  const clean=x=>String(x||'').replace(/\s+/g,' ').replace(/,?\s*(?:United States of America|United States|USA)\s*$/i,'').trim().replace(/,\s*,/g,',');
- const street=clean(raw);
+ // Research imports sometimes store an entire street address in their "city" field.
+ let city=rawCity;
+ if(!rawAddress&&/^\s*\d+[A-Za-z]?\s+\S/.test(rawCity)){
+  const sections=rawCity.split(',').map(x=>x.trim()).filter(Boolean);
+  const locality=sections.find((x,i)=>i>0&&/[A-Za-z]/.test(x)&&!/^\d{5}(?:-\d{4})?$/.test(x));
+  city=locality?locality.replace(/\b(?:TX|CA|NY|FL|WA|IL|AZ|CO|GA|NC|OH|PA|MI|NJ)\b.*$/i,'').replace(/\b\d{5}(?:-\d{4})?\b/g,'').trim():'';
+ }
+ const zip=String(r.postal_code||r.zip||r.zip_code||'').trim()||(combined.match(/\b\d{5}(?:-\d{4})?\b/)||[])[0]||'';
+ return {street:clean(combined),city:clean(city),region:clean(rawRegion),zip};
+}
+function opportunityAddressVariants(r){
+ const {street,city,region,zip}=opportunityLocationParts(r);
  const variants=[];
- const add=x=>{x=clean(x);if(x&&!variants.some(v=>v.toLowerCase()===x.toLowerCase()))variants.push(x)};
- // First try the exact source address: it may already contain city, state and ZIP.
+ const add=x=>{x=String(x||'').replace(/\s+/g,' ').trim();if(x&&!variants.some(v=>v.toLowerCase()===x.toLowerCase()))variants.push(x)};
  add(street);
- // Only append city/state when not already included in the address.
- const suffix=[city,region,zip].filter(x=>x&&!street.toLowerCase().includes(x.toLowerCase()));
- if(street&&suffix.length)add([street,...suffix].join(', '));
- if(street)add([street,city,region].filter(Boolean).join(', '));
- const trailing=street.match(/^(.+?)\s+(\d+[A-Za-z]?)$/);
- if(trailing)add([trailing[2]+' '+trailing[1],city,region,zip].filter(Boolean).join(', '));
- const leading=street.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
- if(leading)add([leading[2]+' '+leading[1],city,region,zip].filter(Boolean).join(', '));
+ // Avoid appending duplicate city/region/ZIP to already complete site addresses.
+ if(street){
+  const suffix=[city,region,zip].filter(x=>x&&!street.toLowerCase().includes(x.toLowerCase()));
+  if(suffix.length)add([street,...suffix].join(', '));
+  const trailing=street.match(/^(.+?)\s+(\d+[A-Za-z]?)$/);
+  if(trailing)add([trailing[2]+' '+trailing[1],city,region].filter(Boolean).join(', '));
+  const leading=street.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
+  if(leading)add([leading[2]+' '+leading[1],city,region].filter(Boolean).join(', '));
+ }
  if(!street&&r.project_name)add([r.project_name,city,region].filter(Boolean).join(', '));
- return variants.slice(0,5);
+ return variants.slice(0,4);
 }
 function opportunityLocationPlausible(hit,r){
- const name=String(hit.display_name||'').toLowerCase();
- const city=String(r.city||'').trim().toLowerCase();
- const zip=String(r.postal_code||r.zip||r.zip_code||'').trim();
- if(zip&&/^[0-9]{5}(?:-[0-9]{4})?$/.test(zip)&&name.includes(zip.slice(0,5)))return true;
- if(city&&name.includes(city))return true;
- if(!city&&!zip)return true;
- return false;
+ const result=String(hit.display_name||'').toLowerCase();
+ const {street,city,region,zip}=opportunityLocationParts(r);
+ const expectedCity=city.toLowerCase();
+ if(zip&&result.includes(zip.slice(0,5)))return true;
+ if(expectedCity&&result.includes(expectedCity))return true;
+ // Nominatim often uses a neighboring municipality or locality; compare street names
+ // but only when a street number and the state/region are present.
+ const streetPart=street.split(',')[0].trim();
+ const number=(streetPart.match(/^\d+[A-Za-z]?/)||[])[0];
+ const words=streetPart.replace(/^\d+[A-Za-z]?\s*/,'').toLowerCase().split(/\s+/).filter(w=>w.length>3&&!/^(street|road|drive|lane|avenue|boulevard)$/.test(w));
+ return Boolean(number&&words.length&&result.includes(number.toLowerCase())&&words.some(w=>result.includes(w))&&(!region||result.includes(region.toLowerCase())||result.includes('texas')));
 }
 let opportunityMappingRunning=false;
 async function locateOpportunityBatch(records){
