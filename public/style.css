@@ -501,3 +501,42 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
 
 /* Settings hub */
 .tf-settings-v2{max-width:640px;margin:0 auto;padding:8px 0 140px;color:#effbff}.tf-settings-heading{display:flex;align-items:center;gap:15px;margin-bottom:22px}.tf-settings-heading>button{width:44px;height:44px;border-radius:12px;border:1px solid #18728d;background:#08283b;color:#17e2eb;font-size:29px}.tf-settings-heading h2{font-size:28px;margin:0}.tf-settings-heading p{font-size:12px;color:#a2bfce;margin:3px 0}.tf-settings-brand,.tf-settings-group,.tf-settings-panel{border:1px solid #145c75;border-radius:17px;background:linear-gradient(135deg,#092a3a,#031624);margin-bottom:15px}.tf-settings-brand{display:flex;align-items:center;gap:16px;padding:20px}.tf-settings-logo{font-size:46px;font-weight:900;line-height:1}.tf-settings-logo span{font-size:14px;color:#06e2ed}.tf-settings-brand strong{letter-spacing:.19em;font-size:13px}.tf-settings-brand small{display:block;color:#1bdce9;margin-top:6px}.tf-settings-group{padding:13px 17px}.tf-settings-group h3{font-size:11px;color:#12e1ec;letter-spacing:.14em;margin:2px 0 9px}.tf-settings-group>button{display:flex;align-items:center;gap:18px;width:100%;border:0;background:transparent;text-align:left;color:#0ee1ec;font-size:25px;padding:10px 2px}.tf-settings-group>button span{flex:1;font-size:15px;color:#f1fcff}.tf-settings-group>button small{display:block;font-size:11px;color:#9fbccc;margin-top:5px}.tf-settings-panel{padding:19px;scroll-margin-top:20px}.tf-settings-panel[hidden]{display:none!important}.tf-settings-panelhead{display:flex;justify-content:space-between;align-items:center}.tf-settings-panelhead h3{font-size:20px;margin:0 0 17px}.tf-settings-panelhead button{background:transparent;border:0;color:#d5f4ff;font-size:28px}.tf-settings-form{display:grid;gap:15px}.tf-settings-form label{display:grid;gap:7px;font-size:13px}.tf-settings-form input{width:100%;box-sizing:border-box;background:#061e2d;color:white;border:1px solid #24677f;border-radius:11px;padding:13px;font:inherit}.tf-settings-form p,.tf-settings-panel>p{color:#9ebccd;font-size:12px;line-height:1.5}.tf-settings-save{background:#08dce9;border:1px solid #52f7ff;border-radius:11px;color:#001823;padding:14px;font-weight:750}.tf-settings-backup{display:flex;gap:10px;flex-wrap:wrap}.tf-settings-backup button,.tf-settings-backup label{border:1px solid #20718c;background:#0a3042;color:#e9fbff;border-radius:9px;padding:12px;font-size:13px}@media(max-width:850px){body:has(.tf-settings-v2) .top{display:none!important}body:has(.tf-settings-v2) .content{padding:20px 20px 120px!important;max-width:100%!important;margin:0!important}}
+
+/* Reference-aligned More and Settings navigation */
+.tf-brand-mark{position:relative;display:inline-block;flex:none;width:47px;height:43px;filter:drop-shadow(0 0 9px #1eeaff35)}
+.tf-brand-top{position:absolute;left:1px;top:5px;width:44px;height:10px;background:#f0fbff;clip-path:polygon(0 0,100% 0,88% 100%,14% 100%)}
+.tf-brand-stem{position:absolute;left:17px;top:13px;width:13px;height:29px;background:linear-gradient(90deg,#fff,#c9eaf3)}
+.tf-brand-accent{position:absolute;right:0;top:19px;width:14px;height:12px;background:#08e2f2;box-shadow:0 0 11px #00edff8c}
+.tf-more-screen{width:min(100%,480px);max-width:480px;margin:0 auto;padding:4px 8px 30px;box-sizing:border-box}
+.tf-more-header{padding:14px 8px 25px;min-height:64px}
+.tf-more-brand{gap:13px;font-size:15px;letter-spacing:.22em}
+.tf-more-gear{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;color:#a6d4e5}
+.tf-more-gear svg{width:22px;height:22px}
+.tf-more-menu{padding:17px 0 0}
+.tf-more-item{min-height:71px;grid-template-columns:38px minmax(0,1fr) 20px;gap:15px;padding:12px 14px;font-size:18px;font-weight:450}
+.tf-more-itemicon{display:grid;place-items:center;color:#4bd6f4}
+.tf-more-itemicon svg{width:25px;height:25px}
+.tf-more-chevron{font-size:29px}
+.tf-more-divider{margin:16px 12px;background:#264656}
+.tf-settings-v2{width:min(100%,510px);max-width:510px;margin:0 auto;box-sizing:border-box;padding:0 3px 25px}
+.tf-settings-heading{display:flex;align-items:center;gap:13px;margin:2px 0 22px}
+.tf-settings-heading>button{flex:none}
+.tf-settings-heading h2{font-size:24px!important;margin:0!important}
+.tf-settings-heading p{font-size:13px!important;margin:4px 0 0!important}
+.tf-settings-brand{display:flex!important;align-items:center!important;gap:15px!important;padding:20px!important;min-height:98px!important;margin:0 0 18px!important}
+.tf-settings-brand>div{min-width:0;flex:1}
+.tf-settings-brand strong{letter-spacing:.18em;font-size:14px}
+.tf-settings-brand small{display:block;margin-top:6px}
+.tf-settings-brand-edit{flex:none!important;width:auto!important;padding:9px 11px!important;border:1px solid #276a80!important;border-radius:10px!important;background:#092738!important;color:#79e7f5!important;font-size:12px!important}
+.tf-settings-group{margin:0 0 15px!important;padding:11px 16px 7px!important;border-radius:16px!important}
+.tf-settings-group h3{font-size:11px!important;letter-spacing:.14em!important;margin:4px 0 7px!important}
+.tf-settings-row{display:grid!important;grid-template-columns:35px minmax(0,1fr) 17px!important;gap:11px!important;align-items:center!important;width:100%!important;min-height:67px!important;padding:11px 1px!important;background:transparent!important;border:0!important;border-radius:0!important;text-align:left!important;color:#eafaff!important}
+.tf-settings-row+.tf-settings-row{border-top:1px solid #173b4c!important}
+.tf-settings-rowicon{color:#13d9ee;display:grid;place-items:center}
+.tf-settings-rowicon svg{width:23px;height:23px}
+.tf-settings-rowcopy{display:grid;gap:3px;min-width:0}
+.tf-settings-rowcopy strong{font-size:14px;font-weight:550}
+.tf-settings-rowcopy small{font-size:11px;color:#a2bbcd}
+.tf-settings-rowarrow{font-size:26px;color:#94b6c6}
+.tf-settings-row:active,.tf-more-item:active{background:#103448!important}
+@media(max-width:850px){body:has(.tf-settings-v2) .content,body:has(.tf-more-screen) .content{padding:18px 19px 125px!important;max-width:100%!important;margin:0!important}body:has(.tf-more-screen) .top{display:none!important}}
