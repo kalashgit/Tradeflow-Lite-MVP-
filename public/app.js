@@ -374,7 +374,7 @@ function tfFinancePhotoSection(record,target){
 
 /* TradeFlow AI preview: chat remains in memory, private code stays in sessionStorage,
    and only opted-in aggregate context crosses the network. */
-let tfChatMessages=[],tfChatBusy=false,tfChatError='',tfChatWithSummary=false;
+let tfChatMessages=[],tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='';
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
@@ -392,8 +392,26 @@ function tfAIChatView(data){
  const unlocked=!!tfAiKey();
  const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p></div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
  const examples=[['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
- const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview access code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button></div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Unlock</button></div><small>A private access code must be configured in Cloudflare before live AI works.</small></form>';
+ const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
  return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(tfChatBusy?'disabled':'')+' aria-label="Clear conversation">Clear</button></div>'+gate+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(unlocked&&!tfChatBusy?'':'disabled')+' placeholder="'+(unlocked?'Ask TradeFlow AI...':'Unlock private preview to chat')+'"></textarea><button type="submit" '+(unlocked&&!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Messages are sent for inference but not saved in TradeFlow.</p></section>';
+}
+async function tfAiHealthCheck(){
+ const response=await fetch('/api/ai/health',{method:'GET',cache:'no-store'});
+ const body=await response.json().catch(()=>null);
+ if(!response.ok||!body?.online)throw Error('AI endpoint unreachable (HTTP '+response.status+')');
+ tfAiStatus=!body.secretConfigured?'Endpoint reachable, but TF_AI_PREVIEW_TOKEN has not been saved in Cloudflare.':!body.aiBound?'Endpoint reachable, but the AI binding is missing.':'Endpoint online. AI binding and access-code configuration detected.';
+ return body;
+}
+async function tfAiDescribeError(err){
+ const name=String(err?.name||'');
+ const message=String(err?.message||err||'Unknown request error');
+ if(name!=='TypeError'&&!/type error|failed to fetch|load failed|networkerror/i.test(message))return message.slice(0,240);
+ try{
+  await tfAiHealthCheck();
+  return 'The AI server is reachable, but the chat request failed in this browser ('+message.slice(0,60)+'). Open the preview directly in Safari, not an in-app browser.';
+ }catch(probeError){
+  return 'Network error: the browser could not reach /api/ai/chat or /api/ai/health ('+message.slice(0,60)+'). Open the preview directly in Safari, disable content blockers/VPN if applicable, and retry.';
+ }
 }
 async function tfAISend(text){
  const content=String(text||'').trim().slice(0,1200);
@@ -407,10 +425,10 @@ async function tfAISend(text){
   if(tfChatWithSummary){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
   const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tfAiKey()},body:JSON.stringify({messages:tfChatMessages.slice(-8),business}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(String(payload.error||'AI service not available')+' ('+response.status+')');
+  if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
   tfChatMessages.push({role:'assistant',content:payload.reply.trim().slice(0,2500)});
- }catch(err){tfChatError=String(err.message||'AI request failed').slice(0,220)}
+ }catch(err){tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await render();const log=document.getElementById('tfAiThread');if(log)log.scrollTop=log.scrollHeight}
 }
 document.addEventListener('submit',async e=>{
@@ -418,8 +436,14 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();
   const code=String(new FormData(e.target).get('code')||'').trim();
   if(code.length<12)return alert('Enter the private access code (at least 12 characters).');
-  try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){return alert('This browser does not allow session storage.')}
-  tfChatError='';await render();return;
+  try{
+   const response=await fetch('/api/ai/verify',{method:'POST',headers:{'Authorization':'Bearer '+code},cache:'no-store'});
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.authorized)throw Error((result.error||'Cannot verify this access code')+' (HTTP '+response.status+')');
+   try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){throw Error('This browser does not allow session storage.')}
+   tfChatError='';tfAiStatus='Access verified. AI connection available.';
+  }catch(err){tfChatError=await tfAiDescribeError(err);tfAiStatus='Access verification unsuccessful.';}
+  await render();return;
  }
  if(e.target.id==='tfAiChatForm'){
   e.preventDefault();
@@ -761,8 +785,9 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfAiPrompt'){const field=document.getElementById('tfAiPrompt');if(field){field.value=el.dataset.prompt||'';field.focus()}return}
+ if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}await render();return}
  if(el.dataset.action==='tfAiClear'){tfChatMessages=[];tfChatError='';await render();return}
- if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatMessages=[];tfChatError='';await render();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatMessages=[];tfChatError='';tfAiStatus='';await render();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 

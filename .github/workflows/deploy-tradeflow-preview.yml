@@ -7,6 +7,7 @@ on:
       - feature/v05-map
     paths:
       - "public/**"
+      - "src/**"
       - "tests/**"
       - "wrangler.jsonc"
       - "package.json"
@@ -60,3 +61,32 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify live Cloudflare AI endpoint and auth checks
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const root='https://tradeflow-v05-preview.bartoszszarafinski.workers.dev';
+          (async()=>{
+           let response;
+           for(let i=0;i<4;i++){
+            try{
+             response=await fetch(root+'/api/ai/health',{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+             if(response.status===200)break;
+            }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
+            await new Promise(resolve=>setTimeout(resolve,1500));
+           }
+           assert.ok(response,'Live AI endpoint did not respond');
+           const health=await response.json();
+           assert.equal(response.status,200,'AI health endpoint status');
+           assert.equal(health.online,true,'AI health endpoint must respond as JSON');
+           assert.equal(health.aiBound,true,'Workers AI binding must be attached');
+           console.log('Live Worker health:',JSON.stringify(health));
+           response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{Authorization:'Bearer deliberately-wrong-code'},signal:AbortSignal.timeout(12000)});
+           const body=await response.json();
+           assert.ok([401,503].includes(response.status),'Verification must reject incorrect access code or indicate missing server secret');
+           console.log('Live verification endpoint:',response.status,body.error);
+           console.log('PASS: Real deployed AI endpoint is reachable over GET and POST');
+          })().catch(error=>{console.error(error);process.exitCode=1});
+          NODE

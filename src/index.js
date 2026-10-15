@@ -4,6 +4,16 @@ const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Contro
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
+  if(url.pathname==='/api/ai/health'){
+   if(request.method!=='GET')return reply({error:'GET required'},405);
+   return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.6.1'});
+  }
+  if(url.pathname==='/api/ai/verify'){
+   if(request.method!=='POST')return reply({error:'POST required'},405);
+   if(!env.TF_AI_PREVIEW_TOKEN)return reply({error:'Preview access code is not configured in Cloudflare'},503);
+   if(request.headers.get('Authorization')!=='Bearer '+env.TF_AI_PREVIEW_TOKEN)return reply({error:'Access code does not match Cloudflare secret'},401);
+   return reply({authorized:true});
+  }
   if(url.pathname!=='/api/ai/chat'){
    if(url.pathname.startsWith('/api/'))return reply({error:'Not found'},404);
    return env.ASSETS.fetch(request);

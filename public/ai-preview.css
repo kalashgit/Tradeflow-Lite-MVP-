@@ -39,3 +39,7 @@
 .tf-ai-privacy{margin:12px 17px 18px;font-size:11px;line-height:1.6;color:#91acbb}
 .tf-ai-chat-box button:focus-visible,.tf-ai-chat-box textarea:focus-visible,.tf-ai-chat-box input:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
 @media(max-width:550px){.tf-ai-chat-top{padding:16px 13px}.tf-ai-chat-top h2{font-size:17px}.tf-ai-chat-top h2 span{font-size:8px;margin-left:2px}.tf-ai-preview-gate{padding:11px 12px}.tf-ai-chat-thread{height:38dvh;min-height:235px}.tf-ai-bubble{max-width:96%}.tf-ai-chat-box{border-radius:16px}}
+
+/* Connection and access diagnostics remain visible next to the access gate. */
+.tf-ai-preview-gate [data-action="tfAiTestConnection"]{background:#0a3548;border:1px solid #388aa1;color:#d7f7ff;padding:9px 12px;border-radius:8px;font-weight:650}
+.tf-ai-preview-gate [role="status"]{flex-basis:100%;font-size:12px;line-height:1.5;color:#b8dfe9}

@@ -13,6 +13,13 @@ const env={
 };
 const make=(token)=>new Request('https://example.com/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({messages:[{role:'user',content:'What should I do?'}]})});
 (async()=>{
+ const health=await worker.fetch(new Request('https://example.com/api/ai/health'),env);
+ assert.equal(health.status,200);
+ assert.equal((await health.json()).secretConfigured,true);
+ assert.equal((await worker.fetch(new Request('https://example.com/api/ai/verify',{method:'POST',headers:{Authorization:'Bearer wrong'}}),env)).status,401);
+ const authorized=await worker.fetch(new Request('https://example.com/api/ai/verify',{method:'POST',headers:{Authorization:'Bearer '+env.TF_AI_PREVIEW_TOKEN}}),env);
+ assert.equal(authorized.status,200);
+ assert.equal((await authorized.json()).authorized,true);
  assert.equal((await worker.fetch(make('bad'),env)).status,401);
  assert.equal(called,0,'No inference when unauthorized');
  const success=await worker.fetch(make(env.TF_AI_PREVIEW_TOKEN),env);
