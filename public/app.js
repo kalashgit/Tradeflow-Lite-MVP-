@@ -132,7 +132,7 @@ function opportunityLocationPlausible(hit,r){
 }
 let opportunityMappingRunning=false;
 async function locateOpportunityBatch(records){
- if(opportunityMappingRunning)return alert('Address mapping is already running.');
+ if(opportunityMappingRunning){document.getElementById('tfMapProgress')?.scrollIntoView({block:'center',behavior:'smooth'});return;}
  if(!navigator.onLine)return alert('Internet access is required for address lookup.');
  const pending=records.filter(x=>!opportunityMapped(x)&&opportunityAddressVariants(x).length&&x.map_location_status!=='unresolved');
  const retry=records.filter(x=>!opportunityMapped(x)&&x.map_location_status==='unresolved'&&opportunityAddressVariants(x).length);
@@ -141,6 +141,7 @@ async function locateOpportunityBatch(records){
  const max=Math.min(20,queue.length);
  if(!confirm('Search '+max+' addresses ('+pending.length+' new, '+retry.length+' previous no-matches)? Online lookup is rate-limited and results need verification.'))return;
  opportunityMappingRunning=true;
+ const mapButton=document.querySelector('[data-action="opportunityMapRemaining"]');if(mapButton){mapButton.disabled=true;mapButton.setAttribute('aria-busy','true')}
  let located=0,unmatched=0,errors=0,processed=0,stopped=false;
  const progress=document.getElementById('tfMapProgress');
  if(progress){progress.hidden=false;progress.textContent='Mapping 0 / '+max+'…'}
@@ -177,7 +178,7 @@ async function locateOpportunityBatch(records){
    processed++;
    if(progress)progress.textContent='Mapping '+processed+' / '+max+' · '+located+' located · '+unmatched+' unmatched';
   }
- }finally{opportunityMappingRunning=false}
+ }finally{opportunityMappingRunning=false;if(mapButton){mapButton.disabled=false;mapButton.removeAttribute('aria-busy')}}
  mapLastView=null;await render();
  alert(located+' mapped for review, '+unmatched+' unmatched, '+errors+' errors. '+(stopped?'The geocoding provider paused requests; retry later. ':'')+'Use Map remaining to continue.');
 }
