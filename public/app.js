@@ -110,6 +110,201 @@ function tfFinanceView(d){
 }
 function tfFinanceCapture(){const form=document.getElementById('tfFinanceForm');return form?Object.fromEntries(new FormData(form)):null}
 
+
+/* Universal Import V1: local CSV/TSV with explicit review before writing. */
+let tfImportDraft=null,tfImportSaving=false;
+const tfImportDefs={
+ customers:{label:'Customers',fields:[['name','Customer name',true,['customer','customername','fullname','name','client','clientname','contact','contactname']],['firstName','First name',false,['firstname','givenname']],['lastName','Last name',false,['lastname','surname','familyname']],['phone','Phone',false,['phone','phonenumber','telephone','mobile','cell','contactnumber']],['email','Email',false,['email','emailaddress','contactemail']],['address','Address',false,['address','streetaddress','location','customeraddress','billingaddress']],['company','Company',false,['company','business','businessname','organization','organisation']],['notes','Notes',false,['notes','comments','description']]]},
+ quotes:{label:'Quotations',fields:[['title','Description',true,['title','description','quote','quotation','quotetitle','quotedescription','project','scope']],['customerId','Customer name or ID',true,['customer','customername','client','clientname','customerid','clientid']],['category','Trade category',false,['trade','category','tradecategory','type']],['amount','Estimated value',false,['amount','value','estimatedvalue','quoteamount','quotevalue','total','price']],['status','Status',false,['status','stage']],['sentDate','Date sent',false,['datesent','sentdate','date','quotedate']]]},
+ jobs:{label:'Jobs',fields:[['title','Job description',true,['job','jobtitle','jobdescription','title','description','project','projectname','scope']],['customerId','Customer name or ID',true,['customer','customername','client','clientname','customerid','clientid']],['category','Trade',false,['trade','category','tradecategory']],['status','Status',false,['status','stage','jobstatus']],['date','Scheduled date',false,['scheduleddate','date','startdate','jobdate','schedule']]]},
+ tasks:{label:'Tasks',fields:[['title','Task title',true,['task','tasktitle','title','description','action','todo']],['customerId','Customer name or ID',false,['customer','customername','client','clientname','customerid','clientid']],['due','Due date',false,['due','duedate','deadline','date']],['status','Status',false,['status','stage']]]},
+ expenses:{label:'Expenses',fields:[['amount','Amount paid',true,['amount','paid','value','cost','total','expenseamount','debit']],['date','Payment date',true,['date','paymentdate','paiddate','transactiondate','expensedate']],['title','Description',false,['description','title','expense','memo','details']],['category','Category',false,['category','type','expensecategory','trade']],['vendor','Supplier',false,['vendor','supplier','merchant','payee','paidto']],['method','Payment method',false,['paymentmethod','method','paymenttype']],['notes','Notes',false,['notes','comments']]]},
+ payments:{label:'Income',fields:[['amount','Amount received',true,['amount','payment','paid','received','total','income','credit','revenue']],['date','Payment date',true,['date','paymentdate','receiveddate','transactiondate']],['source','Payer / source',false,['source','customer','client','payer','from','description']],['method','Payment method',false,['paymentmethod','method','paymenttype']],['notes','Notes',false,['notes','comments','memo']]]}
+};
+const tfImportNorm=v=>String(v??'').toLowerCase().trim().replace(/[^a-z0-9]/g,'');
+const tfImportClean=v=>String(v??'').trim().slice(0,1000);
+function tfImportDate(v){
+ const text=String(v??'').trim();
+ if(!text)return '';
+ let yyyy,mm,dd;
+ const iso=text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:\s.*)?$/);
+ if(iso){yyyy=+iso[1];mm=+iso[2];dd=+iso[3]}
+ else{
+  const us=text.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})$/);
+  if(us){mm=+us[1];dd=+us[2];yyyy=+us[3]}
+  else if(/^\d{5}$/.test(text)){const date=new Date(Date.UTC(1899,11,30)+Number(text)*86400000);return date.toISOString().slice(0,10)}
+  else return null;
+ }
+ const d=new Date(Date.UTC(yyyy,mm-1,dd));
+ return d.getUTCFullYear()===yyyy&&d.getUTCMonth()+1===mm&&d.getUTCDate()===dd?
+ yyyy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0'):null;
+}
+function tfImportAmount(v){
+ let t=String(v??'').trim().replace(/[€$£\s]/g,'');
+ if(!t)return null;
+ if(/^\(.*\)$/.test(t))t='-'+t.slice(1,-1);
+ if(t.includes(',')&&t.includes('.'))t=t.lastIndexOf(',')>t.lastIndexOf('.')?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');
+ else if(t.includes(',')&&/,\d{1,2}$/.test(t))t=t.replace(',','.');
+ else t=t.replace(/,/g,'');
+ const n=Number(t);
+ return Number.isFinite(n)&&n>=0&&n<=1e9?Math.round(n*100)/100:null;
+}
+function tfImportDelimited(text,delimiter){
+ if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+ const rows=[];let row=[],field='',quoted=false;
+ for(let i=0;i<text.length;i++){
+  const char=text[i];
+  if(quoted){if(char==='"'&&text[i+1]==='"'){field+='"';i++}else if(char==='"')quoted=false;else field+=char}
+  else if(char==='"'&&!field)quoted=true;
+  else if(char===delimiter){row.push(field);field=''}
+  else if(char==='\r'||char==='\n'){if(char==='\r'&&text[i+1]==='\n')i++;row.push(field);if(row.some(v=>v.trim()))rows.push(row);row=[];field=''}
+  else field+=char;
+ }
+ if(quoted)throw Error('The file contains an unclosed quoted field.');
+ if(field!==''||row.length){row.push(field);if(row.some(v=>v.trim()))rows.push(row)}
+ return rows;
+}
+function tfImportDelimiter(text){
+ let line='',quoted=false;for(let i=0;i<Math.min(text.length,8000);i++){const c=text[i];if(c==='"')quoted=!quoted;if((c==='\n'||c==='\r')&&!quoted)break;line+=c}
+ const counts=[',','\t',';'].map(c=>{let n=0,inQuotes=false;for(let i=0;i<line.length;i++){if(line[i]==='"')inQuotes=!inQuotes;else if(line[i]===c&&!inQuotes)n++}return {c,n}});
+ counts.sort((a,b)=>b.n-a.n);return counts[0].n?counts[0].c:',';
+}
+function tfImportAutoMap(headers,target){
+ const mapping={},defs=tfImportDefs[target].fields;
+ const selected=new Set();
+ for(const [key,, ,aliases] of defs){
+  const index=headers.findIndex((h,i)=>!selected.has(i)&&aliases.includes(tfImportNorm(h)));
+  mapping[key]=index>=0?String(index):'';
+  if(index>=0)selected.add(index);
+ }
+ return mapping;
+}
+function tfImportDupKey(target,record){
+ const val=x=>tfImportNorm(x);
+ if(target==='customers')return record.email?'e:'+val(record.email):record.phone?'p:'+String(record.phone).replace(/\D/g,''):'n:'+val(record.name)+'|'+val(record.address);
+ if(target==='quotes')return [record.customerId,record.title,record.amount,record.sentDate].map(val).join('|');
+ if(target==='jobs')return [record.customerId,record.title,record.date].map(val).join('|');
+ if(target==='tasks')return [record.title,record.customerId,record.due].map(val).join('|');
+ if(target==='expenses')return [record.amount,record.date,record.vendor||'',record.title||''].map(val).join('|');
+ if(target==='payments')return [record.amount,record.date,record.source||'',record.method||''].map(val).join('|');
+ return '';
+}
+function tfImportResolveCustomer(value,customers){
+ const input=String(value??'').trim(),name=tfImportNorm(input);
+ if(!input)return '';
+ const found=customers.find(c=>c.id===input||tfImportNorm(c.name)===name||tfImportNorm(c.email)===name);
+ return found?.id||null;
+}
+function tfImportToRecord(values,target,customers){
+ const v=key=>tfImportClean(values[key]),r={};
+ if(target==='customers'){
+  r.name=v('name')||[v('firstName'),v('lastName')].filter(Boolean).join(' ');
+  if(!r.name)return {error:'Missing customer name'};
+  r.phone=v('phone');r.email=v('email').toLowerCase();r.address=v('address');r.company=v('company');r.notes=v('notes');
+  if(r.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email))return {error:'Invalid email address'};
+ }else if(target==='quotes'||target==='jobs'){
+  r.title=v('title');if(!r.title)return {error:'Missing description'};
+  const customer=v('customerId');
+  if(!customer)return {error:'Missing customer — import customers first'};
+  r.customerId=tfImportResolveCustomer(customer,customers);
+  if(!r.customerId)return {error:'Customer not found: '+customer.slice(0,45)};
+  r.category=v('category')||prefs.categories?.[0]||'Other';
+  if(target==='quotes'){
+   const amount=v('amount')?tfImportAmount(v('amount')):0;if(amount===null)return {error:'Invalid quotation amount'};r.amount=String(amount);
+   r.status=['Draft','Sent','Accepted','Declined'].find(x=>tfImportNorm(x)===tfImportNorm(v('status')))||'Draft';
+   r.sentDate=tfImportDate(v('sentDate'));if(r.sentDate===null)return {error:'Invalid date sent'};
+  }else{
+   r.status=['Planned','In Progress','Completed'].find(x=>tfImportNorm(x)===tfImportNorm(v('status')))||'Planned';
+   r.date=tfImportDate(v('date'));if(r.date===null)return {error:'Invalid scheduled date'};
+  }
+ }else if(target==='tasks'){
+  r.title=v('title');if(!r.title)return {error:'Missing task title'};
+  if(v('customerId')){r.customerId=tfImportResolveCustomer(v('customerId'),customers);if(!r.customerId)return {error:'Customer not found: '+v('customerId').slice(0,45)}}
+  r.due=tfImportDate(v('due'));if(r.due===null)return {error:'Invalid due date'};
+  r.status=['Open','Done'].find(x=>tfImportNorm(x)===tfImportNorm(v('status')))||'Open';
+ }else if(target==='expenses'||target==='payments'){
+  const amount=tfImportAmount(v('amount'));if(amount===null||amount<=0)return {error:'Amount must be positive'};
+  r.amount=amount;
+  r.date=tfImportDate(v('date'));if(!r.date)return {error:'Missing or invalid payment date'};
+  if(target==='expenses'){
+   r.title=v('title')||v('category')||'Expense';r.category=v('category')||'Other';
+   r.vendor=v('vendor');r.method=v('method')||'Bank transfer';r.notes=v('notes');
+  }else{
+   r.title='Payment received';r.source=v('source');r.method=v('method')||'Bank transfer';
+   r.notes=v('notes');r.trade=prefs.primaryTrade||prefs.categories?.[0]||'Electrical';
+  }
+ }else return {error:'Unknown destination'};
+ return {record:r};
+}
+function tfImportPreview(data){
+ if(!tfImportDraft?.rows)return {items:[],valid:0,duplicate:0,invalid:0};
+ const {target,rows,mapping}=tfImportDraft;
+ const existing=new Set((data[target]||[]).map(r=>tfImportDupKey(target,r)));
+ const imported=new Set(),items=[];let valid=0,duplicate=0,invalid=0;
+ for(let i=0;i<rows.length;i++){
+  const fields={};
+  for(const [key,index] of Object.entries(mapping)){
+   if(index!=='')fields[key]=rows[i][Number(index)]||'';
+  }
+  const converted=tfImportToRecord(fields,target,data.customers||[]);
+  let status='valid',message='',record=converted.record;
+  if(converted.error){status='invalid';message=converted.error;invalid++}
+  else{
+   const key=tfImportDupKey(target,record);
+   if(existing.has(key)||imported.has(key)){status='duplicate';message='Possible duplicate — skipped';duplicate++}
+   else{imported.add(key);valid++}
+  }
+  items.push({index:i+2,status,message,record});
+ }
+ return {items,valid,duplicate,invalid};
+}
+async function tfImportReadFile(file){
+ if(!tfImportDraft)return;
+ if(file.size>4*1024*1024)throw Error('Maximum file size is 4 MB.');
+ if(!/\.(csv|tsv|txt)$/i.test(file.name))throw Error('This first version accepts CSV or TSV. In Excel, use Save As → CSV.');
+ const text=await file.text(),rows=tfImportDelimited(text,tfImportDelimiter(text));
+ if(rows.length<2)throw Error('Include one header row and at least one data row.');
+ if(rows.length>2001)throw Error('Import up to 2,000 records at a time.');
+ const headers=rows.shift().map((x,i)=>tfImportClean(x)||'Column '+(i+1));
+ if(headers.length>120)throw Error('Too many spreadsheet columns (maximum 120).');
+ tfImportDraft={...tfImportDraft,filename:file.name,headers,rows,mapping:tfImportAutoMap(headers,tfImportDraft.target)};
+ await render();
+}
+function tfUniversalImportView(data){
+ if(!tfImportDraft)return '';
+ const {target,headers,filename,mapping}=tfImportDraft,schema=tfImportDefs[target];
+ if(!schema)return '';
+ const hasFile=!!headers,preview=hasFile?tfImportPreview(data):null;
+ const nav='<div class="tf-import-head"><div><small>TRADEFLOW / IMPORT</small><h2>Import '+esc(schema.label)+'</h2></div><button type="button" data-action="tfImportClose" aria-label="Close import">×</button></div>';
+ const fileArea='<label class="tf-import-picker" for="tfUniversalFile"><span>Choose CSV / TSV file</span><small>'+esc(filename||'Export from Excel, Google Sheets or your old system as CSV.')+'</small></label><input id="tfUniversalFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" hidden>';
+ if(!hasFile)return '<div class="tf-import-overlay"><section class="tf-import-panel" role="dialog" aria-modal="true" aria-label="Import '+esc(schema.label)+'">'+nav+'<p>Transfer existing records without retyping. Files stay on this device. Nothing is saved until you review and confirm.</p>'+fileArea+'<div class="tf-import-foot"><button type="button" data-action="tfImportClose">Cancel</button></div></section></div>';
+ const options='<option value="">— Do not import —</option>'+headers.map((h,i)=>'<option value="'+i+'">'+esc(h)+'</option>').join('');
+ const fields=schema.fields.map(([key,label,required])=>'<label class="tf-import-field"><span>'+esc(label)+(required?' *':'')+'</span><select data-import-map="'+esc(key)+'">'+options.replace('value="'+esc(mapping[key])+'"','value="'+esc(mapping[key])+'" selected')+'</select></label>').join('');
+ const sample=preview.items.slice(0,12).map(item=>{
+  const title=item.record?.name||item.record?.title||item.record?.source||item.record?.vendor||'Row '+item.index;
+  return '<div class="tf-import-sample '+item.status+'"><span class="tf-import-status">'+(item.status==='valid'?'Ready':item.status==='duplicate'?'Duplicate':'Review')+'</span><span><strong>'+esc(title)+'</strong><small>'+esc(item.message||('Spreadsheet row '+item.index))+'</small></span></div>';
+ }).join('');
+ const stats='<div class="tf-import-stats"><span><strong>'+preview.valid+'</strong> ready</span><span><strong>'+preview.duplicate+'</strong> duplicates</span><span><strong>'+preview.invalid+'</strong> need review</span></div>';
+ return '<div class="tf-import-overlay"><section class="tf-import-panel" role="dialog" aria-modal="true" aria-label="Review '+esc(schema.label)+' import">'+nav+fileArea+'<p class="tf-import-hint">Match your spreadsheet columns, then review what will be saved. Existing records are never overwritten. Dates accept YYYY-MM-DD or U.S. MM/DD/YYYY.</p><div class="tf-import-fields">'+fields+'</div>'+stats+'<h3>Preview</h3><div class="tf-import-samples">'+sample+'</div><div class="tf-import-foot"><button type="button" data-action="tfImportClose">Cancel</button><button type="button" class="tf-import-confirm" data-action="tfImportSave" '+(!preview.valid||tfImportSaving?'disabled':'')+'>Import '+preview.valid+' records</button></div><p class="tf-import-hint">Unmatched customers, invalid fields and duplicates are skipped. Review any rejected rows in your source file.</p></section></div>';
+}
+async function tfImportSave(data){
+ if(tfImportSaving||!tfImportDraft?.rows)return;
+ const target=tfImportDraft.target,preview=tfImportPreview(data),accepted=preview.items.filter(x=>x.status==='valid');
+ if(!accepted.length)return alert('No valid, new records to import.');
+ if(!confirm('Import '+accepted.length+' '+tfImportDefs[target].label.toLowerCase()+'? '+(preview.invalid+preview.duplicate)+' rows will be skipped.'))return;
+ tfImportSaving=true;
+ try{
+  const time=new Date().toISOString();
+  await new Promise((resolve,reject)=>{
+   const transaction=db.transaction(target,'readwrite'),store=transaction.objectStore(target);
+   transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error);
+   for(const item of accepted)store.put({...item.record,id:uid(),updatedAt:time,importSource:tfImportDraft.filename});
+  });
+  await event('Imported '+accepted.length+' '+tfImportDefs[target].label.toLowerCase());
+  tfImportDraft=null;notify(accepted.length+' records imported · '+(preview.invalid+preview.duplicate)+' skipped');
+ }catch(error){alert('Import failed: '+error.message)}
+ finally{tfImportSaving=false}
+}
 function view(d){if(tab==='expenses')return tfFinanceView(d);if(tab==='map')return mapView(d);if(tab==='dashboard'){
 const activeJobs=d.jobs.filter(x=>x.status!=='Completed'&&x.status!=='Cancelled');
 const dueTasks=d.tasks.filter(x=>x.status!=='Done'&&x.due&&x.due<=today());
