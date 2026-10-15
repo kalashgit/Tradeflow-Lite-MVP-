@@ -305,6 +305,102 @@ async function tfImportSave(data){
  }catch(error){alert('Import failed: '+error.message)}
  finally{tfImportSaving=false}
 }
+
+/* Photo Intake: capture / choose a photo offline, then review and save it with a record.
+   Image data is deliberately NOT sent to a server. AI extraction is not yet connected. */
+let tfCapture=null,tfCaptureBusy=false,tfPhotoPending=null,tfAIQuestion='priorities';
+const tfPhotoTargetTitle={customers:'Customer',jobs:'Job',quotes:'Quotation',tasks:'Task',payments:'Income',expenses:'Expense'};
+const tfSafeImage=v=>typeof v==='string'&&/^data:image\/jpeg;base64,[a-zA-Z0-9+/=]+$/.test(v)&&v.length<680000?v:'';
+function tfCaptureStart(target,id=''){
+ if(!tfPhotoTargetTitle[target])return;
+ tfCapture={target,recordId:id||'',dataUrl:'',filename:''};
+}
+async function tfCompressPhoto(file){
+ if(!file||file.size>15*1024*1024)throw Error('Choose a photo smaller than 15 MB.');
+ if(!/^image\//.test(file.type))throw Error('Please choose an image, not a document.');
+ const objectUrl=URL.createObjectURL(file);
+ try{
+  const img=new Image();
+  img.src=objectUrl;
+  if(img.decode){await img.decode()}else await new Promise((res,rej)=>{img.onload=res;img.onerror=rej});
+  const width=img.naturalWidth||img.width,height=img.naturalHeight||img.height;
+  if(!width||!height)throw Error('This photo cannot be opened. Try a JPEG or PNG.');
+  const scale=Math.min(1,1440/Math.max(width,height));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(width*scale));
+  canvas.height=Math.max(1,Math.round(height*scale));
+  const ctx=canvas.getContext('2d');
+  if(!ctx)throw Error('Photo processing is unavailable in this browser.');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  let output='';
+  for(const quality of [.77,.65,.52,.4,.3]){
+   output=canvas.toDataURL('image/jpeg',quality);
+   if(output.length<=560000)break;
+  }
+  if(!tfSafeImage(output))throw Error('This image is too large. Crop the paper and try again.');
+  return output;
+ }finally{URL.revokeObjectURL(objectUrl)}
+}
+function tfCaptureView(){
+ if(!tfCapture)return '';
+ const {target,dataUrl,filename,recordId}=tfCapture;
+ const title=tfPhotoTargetTitle[target]||'Record';
+ const preview=tfSafeImage(dataUrl);
+ return '<div class="tf-photo-overlay"><section class="tf-photo-panel" role="dialog" aria-modal="true" aria-labelledby="tfPhotoTitle"><header class="tf-photo-head"><div><small>TRADEFLOW / PHOTO INTAKE</small><h2 id="tfPhotoTitle">'+(recordId?'Attach to ':'New ')+esc(title.toLowerCase())+' photo</h2></div><button type="button" data-action="tfPhotoClose" aria-label="Close photo intake">×</button></header><p>Photograph an existing paper record or select a picture. Review the image, then enter its information manually. Saved photos stay in this browser and are included in your backups.</p><div class="tf-photo-options"><label for="tfPhotoCamera">'+tfPhotoIcon()+'<strong>Take photo</strong></label><input id="tfPhotoCamera" type="file" accept="image/*" capture="environment" hidden><label for="tfPhotoGallery">'+tfPhotoIcon()+'<strong>Choose photo</strong></label><input id="tfPhotoGallery" type="file" accept="image/*" hidden></div>'+(preview?'<div class="tf-photo-preview"><img src="'+preview+'" alt="Captured document preview"><small>'+esc(filename||'Photo ready')+' · Compressed for local storage</small></div>':'<div class="tf-photo-placeholder">No photo selected yet</div>')+'<div class="tf-photo-ai-lock"><span>✦</span><div><strong>AI document reading · Pro</strong><small>Automatic text extraction is not available yet. No image is uploaded or analyzed by AI.</small></div><button type="button" data-action="tfAIProInfo">Locked</button></div><div class="tf-photo-actions"><button type="button" data-action="tfPhotoClose">Cancel</button><button type="button" class="tf-photo-confirm" data-action="tfPhotoContinue" '+(!preview||tfCaptureBusy?'disabled':'')+'>'+(recordId?'Save photo':'Continue to '+esc(title.toLowerCase()))+'</button></div></section></div>';
+}
+function tfPhotoIcon(){return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></svg>'}
+function tfRecordPhotoSection(row,target){
+ const data=tfSafeImage(row?.photoData);
+ if(!data)return '';
+ return '<section class="tf-record-dossier-box tf-photo-saved"><h3>'+tfPhotoIcon()+' Attached paper record</h3><img alt="Photo attached to this record" src="'+data+'"><div class="tf-photo-saved-actions"><button type="button" data-action="tfPhotoStart" data-target="'+target+'" data-id="'+esc(row.id)+'">Replace photo</button><button type="button" data-action="tfPhotoRemove" data-target="'+target+'" data-id="'+esc(row.id)+'">Remove photo</button></div></section>';
+}
+function tfFinancePhotoSection(record,target){
+ const saved=tfSafeImage(tfPhotoPending?.target===target?tfPhotoPending.dataUrl:record?.photoData);
+ if(!saved)return '';
+ return '<div class="tf-photo-finance-attached"><strong>Attached paper record</strong><img src="'+saved+'" alt="Photo attached to financial record"><small>Kept locally with this record and included in JSON backup.</small></div>';
+}
+const tfAIIcon='<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="4"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3M10 11h4m-2-2v4"/></svg>';
+function tfAIView(d){
+ const openJobs=d.jobs.filter(x=>x.status!=='Completed'&&x.status!=='Cancelled'),pending=d.tasks.filter(x=>x.status!=='Done');
+ const date=today(),overdue=pending.filter(x=>x.due&&x.due<date);
+ const dueSoon=pending.filter(x=>x.due&&x.due>=date&&x.due<=new Date(Date.now()+7*86400000).toISOString().slice(0,10));
+ const quotesWaiting=d.quotes.filter(x=>x.status==='Sent');
+ const month=date.slice(0,7);
+ const income=d.payments.filter(x=>String(x.date||'').startsWith(month)).reduce((n,x)=>n+Number(x.amount||0),0);
+ const expenses=d.expenses.filter(x=>String(x.date||'').startsWith(month)).reduce((n,x)=>n+Number(x.amount||0),0);
+ const leads=(d.opportunities||[]).filter(x=>!['Won','Lost'].includes(x.status||''));
+ const n=(value,singular,plural)=>value+' '+(value===1?singular:plural);
+ const responses={
+ priorities:['Your next actions',[
+  n(overdue.length,'task is','tasks are')+' overdue.',
+  n(dueSoon.length,'task is','tasks are')+' due within 7 days.',
+  n(quotesWaiting.length,'quotation is','quotations are')+' marked Sent and may need a follow-up.',
+  n(openJobs.length,'job is','jobs are')+' still active.'
+ ]],
+ cash:['This month’s cash position',[
+  'Recorded income: '+euro(income)+'.',
+  'Recorded expenses: '+euro(expenses)+'.',
+  'Net cash flow: '+euro(income-expenses)+'.',
+  'Only recorded payments count as received income; quotations are not payments.'
+ ]],
+ pipeline:['Your current pipeline',[
+  n(leads.length,'opportunity is','opportunities are')+' still in the research or sales pipeline.',
+  n(quotesWaiting.length,'quotation has','quotations have')+' status Sent.',
+  n(openJobs.length,'job remains','jobs remain')+' active.',
+  'Review each opportunity’s evidence before treating it as verified demand.'
+ ]],
+ tasks:['Task review',[
+  n(overdue.length,'task is','tasks are')+' past its due date.',
+  n(dueSoon.length,'task is','tasks are')+' due in the next week.',
+  n(pending.length,'task remains','tasks remain')+' incomplete.',
+  'Open Tasks to change assignments and completion statuses.'
+ ]]
+ };
+ const [answer,lines]=responses[tfAIQuestion]||responses.priorities;
+ return '<section class="tf-ai-screen"><header class="tf-ai-heading">'+tfAIIcon+'<div><h1>TradeFlow Intelligence</h1><p>Your local business briefing.</p></div></header><div class="tf-ai-tags"><span>OFFLINE</span><span>NO AI API CALLS</span><span>LOCAL DATA ONLY</span></div><section class="tf-ai-panel"><div class="tf-ai-section-head"><h2>Ask your headquarters</h2><small>Choose a briefing</small></div><div class="tf-ai-questions">'+[['priorities','My priorities'],['cash','Cash flow'],['pipeline','Pipeline'],['tasks','Tasks']].map(([key,label])=>'<button type="button" data-action="tfAIQuestion" data-question="'+key+'" class="'+(tfAIQuestion===key?'active':'')+'">'+label+'</button>').join('')+'</div><div class="tf-ai-answer"><h3>'+esc(answer)+'</h3><ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><p class="tf-ai-disclosure">These are rule-based summaries of records on this device, not generative AI or financial advice. Figures depend on the records you entered.</p></section><section class="tf-ai-pro"><div class="tf-ai-pro-head"><span>✦</span><div><h2>TradeFlow AI Pro</h2><p>Advanced capabilities planned</p></div><span class="tf-ai-locked">LOCKED</span></div><div class="tf-ai-pro-lines"><div>Document and handwriting extraction</div><div>AI-assisted follow-up drafts</div><div>Business recommendations</div></div><button type="button" data-action="tfAIProInfo">About future Pro access</button><p>Not for sale or active yet. Pro will require verified account entitlements and a secure server connection.</p></section></section>';
+}
+
 function view(d){if(tab==='expenses')return tfFinanceView(d);if(tab==='map')return mapView(d);if(tab==='dashboard'){
 const activeJobs=d.jobs.filter(x=>x.status!=='Completed'&&x.status!=='Cancelled');
 const dueTasks=d.tasks.filter(x=>x.status!=='Done'&&x.due&&x.due<=today());
