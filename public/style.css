@@ -962,3 +962,45 @@ body:has(.tf-cash) .top{display:none!important}
 }
 .tf-cash-selected-check{background:var(--tf-accent)!important;color:var(--tf-accent-contrast)!important}
 .tf-cash-category-arrow{color:var(--tf-accent)!important}
+
+/* Universal import: offline-first, review-before-write flow */
+.tf-import-overlay{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:14px;background:#020912db;backdrop-filter:blur(6px);box-sizing:border-box}
+.tf-import-panel{box-sizing:border-box;width:min(650px,100%);max-height:min(90dvh,880px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:linear-gradient(145deg,#102d3f,#061a29);border:1px solid #336b7f;border-radius:18px;box-shadow:0 22px 75px #000b;padding:22px;color:#eaf9ff}
+.tf-import-panel *{box-sizing:border-box;min-width:0}
+.tf-import-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px}
+.tf-import-head small{display:block;color:var(--tf-accent,#10cfe1);letter-spacing:.13em;font-size:10px;font-weight:750;margin-bottom:6px}
+.tf-import-head h2{font-size:23px;line-height:1.3;margin:0;color:#f4fdff}
+.tf-import-head button{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;border:1px solid #367589;background:#0b2c3d;color:#e7faff;font-size:26px}
+.tf-import-head button:active{transform:scale(.96);border-color:var(--tf-accent)}
+.tf-import-panel>p,.tf-import-panel .tf-import-hint{color:#a9c1cf;font-size:13px;line-height:1.55;margin:8px 0 16px}
+.tf-import-picker{display:grid;gap:5px;min-height:84px;padding:16px;border:1px dashed color-mix(in srgb,var(--tf-accent) 64%,#345466);border-radius:12px;background:#0d3241;cursor:pointer}
+.tf-import-picker>span{color:#f0faff;font-size:15px;font-weight:720}
+.tf-import-picker>small{color:#a9c2d0;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.tf-import-picker:active{background:#134354;box-shadow:0 0 17px color-mix(in srgb,var(--tf-accent) 25%,transparent)}
+.tf-import-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:11px 14px;padding:13px 0 20px}
+.tf-import-field{display:grid;gap:6px;min-width:0;font-size:12px;color:#d8edf7}
+.tf-import-field>span{white-space:normal;font-weight:650}
+.tf-import-field select{width:100%;height:44px;min-width:0;max-width:100%;padding:7px 10px;border:1px solid #315e72;border-radius:10px;background:#092636;color:#f2fbff;font-size:13px}
+.tf-import-field select:focus{outline:2px solid var(--tf-accent);outline-offset:1px}
+.tf-import-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:3px 0 20px}
+.tf-import-stats span{display:grid;gap:4px;align-content:center;padding:11px 9px;text-align:center;background:#0a2636;border:1px solid #29576a;border-radius:11px;color:#a9bfcb;font-size:11px}
+.tf-import-stats strong{display:block;color:#ecfaff;font-size:20px;font-variant-numeric:tabular-nums}
+.tf-import-panel h3{font-size:16px;margin:0 0 11px}
+.tf-import-samples{display:grid;gap:7px}
+.tf-import-sample{display:flex;align-items:flex-start;gap:12px;min-height:53px;padding:9px;background:#092a3a;border:1px solid #244c5e;border-radius:10px}
+.tf-import-sample>span:last-child{flex:1;display:grid;gap:5px;overflow-wrap:anywhere}
+.tf-import-sample strong{color:#eefaff;font-size:12px;line-height:1.3}
+.tf-import-sample small{color:#a0b9c8;font-size:11px;line-height:1.4}
+.tf-import-status{display:grid;place-items:center;flex:none;min-width:69px;padding:5px 6px;border-radius:8px;font-size:10px;font-weight:750;background:#153b49;color:#9ce5ea}
+.tf-import-sample.duplicate .tf-import-status{background:#392f23;color:#efc380}
+.tf-import-sample.invalid .tf-import-status{background:#482c31;color:#faadb1}
+.tf-import-foot{position:sticky;bottom:-22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:10px;align-items:center;margin:18px -22px 0;padding:15px 22px 18px;background:#071f2e;border-top:1px solid #255063}
+.tf-import-foot button{width:100%;min-height:46px;border-radius:10px;border:1px solid #437284;background:#132f3f;color:#eaf9ff;font-size:14px;font-weight:730;padding:9px}
+.tf-import-foot .tf-import-confirm{border-color:var(--tf-accent);background:var(--tf-accent);color:var(--tf-accent-contrast,#041b29)}
+.tf-import-foot button:active{transform:scale(.975);box-shadow:0 0 16px color-mix(in srgb,var(--tf-accent) 40%,transparent)}
+.tf-import-foot button:disabled{opacity:.48;cursor:not-allowed}
+.tf-import-open{white-space:nowrap}
+.tf-cash-imports{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:11px}
+.tf-cash-imports button{min-height:42px;border:1px solid color-mix(in srgb,var(--tf-accent) 52%,#285b6f);border-radius:10px;background:#082a3a;color:var(--tf-accent);font-size:12px;font-weight:700}
+.tf-cash-imports button:active{transform:scale(.97);background:#123d4b}
+@media(max-width:540px){.tf-import-overlay{padding:9px}.tf-import-panel{padding:17px;max-height:90dvh}.tf-import-fields{grid-template-columns:minmax(0,1fr)}.tf-import-foot{bottom:-17px;margin-left:-17px;margin-right:-17px;padding:12px 17px 15px}.tf-import-head h2{font-size:20px}.tf-import-stats{gap:6px}.tf-import-sample{gap:8px}}
