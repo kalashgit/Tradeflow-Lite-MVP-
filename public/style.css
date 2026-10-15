@@ -749,3 +749,10 @@ body:has(.tf-cash) .top{display:none!important}
 .tf-cash-disclaimer{font-size:12px;color:#9fb8c6;line-height:1.5}
 @media(min-width:850px){body:has(.tf-cash) .top{display:flex!important}body:has(.tf-cash) .content{padding:26px 32px 100px!important}}
 @media(max-width:375px){.tf-cash-numbers strong{font-size:13px}.tf-cash-actions{gap:7px}.tf-cash-actions button{font-size:12px}}
+
+.tf-cash-month{padding-top:10px}
+.tf-cash-monthhead{display:flex;justify-content:space-between;align-items:start;gap:10px;margin:10px 0 7px}
+.tf-cash-monthhead>strong{font-size:14px;line-height:1.4}
+.tf-cash-monthhead>span{text-align:right;display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.tf-cash-monthhead b{font-size:12px;font-weight:650}
+.tf-cash-monthhead small{display:block;flex-basis:100%;font-size:11px;color:#9cb7c7}
