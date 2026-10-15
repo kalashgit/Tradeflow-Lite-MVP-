@@ -408,7 +408,7 @@ function tfRecordHubView(d){
  const detail=tfRecordDetailId&&records.find(x=>x.id===tfRecordDetailId);
  if(detail)return tfRecordDetailView(d,detail,type);
  const heading='<header class="tf-record-hub-header"><h1>'+esc(spec.label)+' <span>'+records.length+'</span></h1><p>'+spec.hint+'</p></header>';
- const search='<label class="tf-record-search">'+tfRecordIcon('map',20).replace(/<path[^>]*>[\s\S]*?<\/path>/,'')+'<span class="tf-record-search-glass">⌕</span><input id="search" type="search" placeholder="Search '+esc(spec.label.toLowerCase())+'..." value="'+esc(query)+'" aria-label="Search '+esc(spec.label)+'"></label>';
+ const search='<label class="tf-record-search">'+'<span class="tf-record-search-glass" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></span>'+ '<input id="search" type="search" placeholder="Search '+esc(spec.label.toLowerCase())+'..." value="'+esc(query)+'" aria-label="Search '+esc(spec.label)+'"></label>';
  const actions='<div class="tf-record-hub-actions"><button class="tf-record-create" type="button" data-action="new">+ New '+esc(spec.singular)+'</button><button class="tf-record-import" type="button" data-action="tfImportStart" data-target="'+type+'">'+tfRecordIcon('quotes',18)+' Import CSV</button></div>';
  return '<section class="tf-record-hub">'+heading+search+actions+'<div class="tf-record-list">'+(found.length?found.map(x=>tfRecordCompact(d,x,type)).join(''):'<div class="tf-record-empty">No '+esc(spec.label.toLowerCase())+' found. Add your first '+esc(spec.singular)+'.</div>')+'</div></section>';
 }
