@@ -1,0 +1,58 @@
+name: Deploy TradeFlow Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/v05-map
+    paths:
+      - "public/**"
+      - "wrangler.jsonc"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-tradeflow-preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeflow-preview-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    name: Deploy preview Worker only
+    runs-on: ubuntu-latest
+    environment: tradeflow-preview
+    steps:
+      - name: Checkout development branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v05-map
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify preview-only Wrangler configuration
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
+          if (config.name !== 'tradeflow-v05-preview' || config.assets?.directory !== './public') {
+            throw new Error('Deployment blocked: Wrangler config is not the expected preview Worker and public/ directory');
+          }
+          console.log('Preview-only deployment guard passed');
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare preview
+        run: npx wrangler deploy --config wrangler.jsonc --name tradeflow-v05-preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
