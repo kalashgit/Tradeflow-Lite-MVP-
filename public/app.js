@@ -408,7 +408,7 @@ async function tfAiDescribeError(err){
  if(name!=='TypeError'&&!/type error|failed to fetch|load failed|networkerror/i.test(message))return message.slice(0,240);
  try{
   await tfAiHealthCheck();
-  return 'The AI server is reachable, but the chat request failed in this browser ('+message.slice(0,60)+'). Open the preview directly in Safari, not an in-app browser.';
+  return 'The AI server is reachable, but a request failed before receiving a response ('+message.slice(0,100)+'). Reload in Safari and try again.';
  }catch(probeError){
   return 'Network error: the browser could not reach /api/ai/chat or /api/ai/health ('+message.slice(0,60)+'). Open the preview directly in Safari, disable content blockers/VPN if applicable, and retry.';
  }
@@ -423,7 +423,7 @@ async function tfAISend(text){
  try{
   let business=null;
   if(tfChatWithSummary){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
-  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tfAiKey()},body:JSON.stringify({messages:tfChatMessages.slice(-8),business}),cache:'no-store'});
+  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages:tfChatMessages.slice(-8),business}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
@@ -434,10 +434,10 @@ async function tfAISend(text){
 document.addEventListener('submit',async e=>{
  if(e.target.id==='tfAiUnlockForm'){
   e.preventDefault();
-  const code=String(new FormData(e.target).get('code')||'').trim();
-  if(code.length<12)return alert('Enter the private access code (at least 12 characters).');
+  const code=String(new FormData(e.target).get('code')||'');
+  if(code.trim().length<12)return alert('Enter the private access code (at least 12 characters).');
   try{
-   const response=await fetch('/api/ai/verify',{method:'POST',headers:{'Authorization':'Bearer '+code},cache:'no-store'});
+   const response=await fetch('/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code}),cache:'no-store'});
    const result=await response.json().catch(()=>({}));
    if(!response.ok||!result.authorized)throw Error((result.error||'Cannot verify this access code')+' (HTTP '+response.status+')');
    try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){throw Error('This browser does not allow session storage.')}

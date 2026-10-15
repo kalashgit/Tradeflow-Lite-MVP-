@@ -1,4 +1,4 @@
-const CACHE='tradeflow-lite-v09-ai-diagnostics';
+const CACHE='tradeflow-lite-v10-ai-unicode-auth';
 const ASSETS=['./','./index.html','./style.css','./phase1.css','./ai-preview.css','./app.js','./manifest.webmanifest','./icons/icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('tradeflow-lite-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});

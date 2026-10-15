@@ -83,7 +83,7 @@ jobs:
            assert.equal(health.online,true,'AI health endpoint must respond as JSON');
            assert.equal(health.aiBound,true,'Workers AI binding must be attached');
            console.log('Live Worker health:',JSON.stringify(health));
-           response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{Authorization:'Bearer deliberately-wrong-code'},signal:AbortSignal.timeout(12000)});
+           response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
            const body=await response.json();
            assert.ok([401,503].includes(response.status),'Verification must reject incorrect access code or indicate missing server secret');
            console.log('Live verification endpoint:',response.status,body.error);

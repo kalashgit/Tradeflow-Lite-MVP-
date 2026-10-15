@@ -6,12 +6,15 @@ export default {
   const url=new URL(request.url);
   if(url.pathname==='/api/ai/health'){
    if(request.method!=='GET')return reply({error:'GET required'},405);
-   return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.6.1'});
+   return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.6.2'});
   }
   if(url.pathname==='/api/ai/verify'){
    if(request.method!=='POST')return reply({error:'POST required'},405);
    if(!env.TF_AI_PREVIEW_TOKEN)return reply({error:'Preview access code is not configured in Cloudflare'},503);
-   if(request.headers.get('Authorization')!=='Bearer '+env.TF_AI_PREVIEW_TOKEN)return reply({error:'Access code does not match Cloudflare secret'},401);
+   if(!/^application\/json\b/i.test(request.headers.get('Content-Type')||''))return reply({error:'JSON required'},415);
+   let credentials;
+   try{credentials=await request.json()}catch(err){return reply({error:'Invalid request JSON'},400)}
+   if(typeof credentials?.code!=='string'||credentials.code!==env.TF_AI_PREVIEW_TOKEN)return reply({error:'Access code does not match Cloudflare secret'},401);
    return reply({authorized:true});
   }
   if(url.pathname!=='/api/ai/chat'){
@@ -20,12 +23,12 @@ export default {
   }
   if(request.method!=='POST')return reply({error:'POST required'},405);
   if(!env.TF_AI_PREVIEW_TOKEN)return reply({error:'AI preview is not configured yet. Set the TF_AI_PREVIEW_TOKEN Worker secret.'},503);
-  if(request.headers.get('Authorization')!=='Bearer '+env.TF_AI_PREVIEW_TOKEN)return reply({error:'Incorrect preview access code'},401);
   if(!env.AI)return reply({error:'Cloudflare AI binding missing'},503);
   if(!/^application\/json\b/i.test(request.headers.get('Content-Type')||''))return reply({error:'JSON required'},415);
   if(Number(request.headers.get('Content-Length')||0)>14000)return reply({error:'Request too large'},413);
   let body;
   try{body=await request.json()}catch(err){return reply({error:'Invalid JSON'},400)}
+  if(typeof body?.code!=='string'||body.code!==env.TF_AI_PREVIEW_TOKEN)return reply({error:'Incorrect preview access code'},401);
   const raw=body?.messages;
   if(!Array.isArray(raw)||!raw.length||raw.length>8)return reply({error:'Send 1 to 8 chat messages'},400);
   const messages=raw.map(x=>({role:x?.role,content:x?.content}));
