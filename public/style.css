@@ -1009,3 +1009,74 @@ body:has(.tf-cash) .top{display:none!important}
 .tf-import-reviewbar h3{margin:0}
 .tf-import-reviewbar button{min-height:38px;max-width:100%;padding:7px 11px;border:1px solid #3a7488;border-radius:9px;background:#102f40;color:var(--tf-accent);font-size:12px;font-weight:650}
 .tf-import-reviewbar button:disabled{opacity:.42}
+
+/* Shared TradeFlow record command cards, based on the Opportunities design */
+body:has(.tf-record-hub) .content,body:has(.tf-record-dossier) .content{padding:22px 16px 130px!important;overflow-x:clip}
+.tf-record-hub,.tf-record-dossier{width:100%;max-width:760px;margin:0 auto;min-width:0;color:#f1faff;box-sizing:border-box}
+.tf-record-hub *,.tf-record-dossier *{box-sizing:border-box;min-width:0}
+.tf-record-hub-header{margin:0 0 19px}
+.tf-record-hub-header h1{margin:0 0 5px;display:flex;align-items:center;gap:12px;color:#f2fbff;font-weight:760;font-size:clamp(24px,5.2vw,31px);letter-spacing:-.025em}
+.tf-record-hub-header h1 span{display:inline-grid;place-items:center;min-width:30px;min-height:28px;padding:3px 9px;border-radius:22px;border:1px solid color-mix(in srgb,var(--tf-accent) 60%,#17394a);background:#072c3b;color:var(--tf-accent);font-size:13px;font-weight:680}
+.tf-record-hub-header p{margin:0;color:#a3bdcb;font-size:13px;line-height:1.55}
+.tf-record-search{width:100%;min-height:47px;display:flex;align-items:center;gap:10px;border:1px solid #2b6075;border-radius:12px;background:#092839;padding:0 12px;margin:0 0 12px}
+.tf-record-search-glass{display:grid;place-items:center;flex:0 0 25px;color:#abd1df;font-size:28px;font-weight:300;line-height:1}
+.tf-record-search input{appearance:none;background:transparent!important;border:0!important;outline:0!important;box-shadow:none!important;color:#eafaff!important;font-size:15px!important;min-width:0;width:100%;height:46px!important;padding:0!important}
+.tf-record-search input::placeholder{color:#86a6b9}
+.tf-record-search:focus-within{border-color:var(--tf-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--tf-accent) 18%,transparent)}
+.tf-record-hub-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:0 0 18px}
+.tf-record-hub-actions button{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;min-height:46px;border-radius:11px;padding:8px 10px;font-size:13px;font-weight:750;white-space:nowrap;transition:transform .12s,box-shadow .12s,background .12s}
+.tf-record-hub-actions .tf-record-create{border:1px solid color-mix(in srgb,var(--tf-accent) 70%,white);background:var(--tf-accent);color:var(--tf-accent-contrast,#041b29);box-shadow:0 0 13px color-mix(in srgb,var(--tf-accent) 18%,transparent)}
+.tf-record-hub-actions .tf-record-import{border:1px solid var(--tf-accent);background:#09293b;color:var(--tf-accent)}
+.tf-record-hub-actions button:active{transform:scale(.97);box-shadow:0 0 17px color-mix(in srgb,var(--tf-accent) 40%,transparent)}
+.tf-record-list{display:grid;gap:10px}
+.tf-record-card{display:flex;align-items:center;gap:11px;border:1px solid color-mix(in srgb,var(--tf-accent) 40%,#193d51);background:linear-gradient(145deg,#092d3b,#071c2a);border-radius:13px;min-height:88px;padding:11px 10px;box-shadow:inset 0 0 10px #06172354}
+.tf-record-card-icon{display:grid;place-items:center;flex:0 0 47px;align-self:center;width:47px;height:47px;border-radius:12px;background:#103d4f;color:var(--tf-accent)}
+.tf-record-card-icon svg{display:block;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--tf-accent) 17%,transparent))}
+.tf-record-card-main{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:5px;flex:1;min-width:0;text-align:left;color:#f1fbff;background:transparent!important;border:0!important;box-shadow:none!important;padding:4px 0!important;min-height:55px}
+.tf-record-card-main strong{display:block;max-width:100%;font-size:14px;line-height:1.35;letter-spacing:-.005em;overflow-wrap:anywhere;font-weight:740}
+.tf-record-card-main small{display:block;max-width:100%;color:#a7c0d0;font-size:11px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf-record-card-pill{display:inline-block;max-width:100%;color:var(--tf-accent);background:#0c3846;border:1px solid #326c7c;border-radius:16px;padding:3px 7px;font-size:10px;white-space:nowrap}
+.tf-record-card-pill.tf-status-good{color:#5be0a5;border-color:#327a5b;background:#123b32}
+.tf-record-card-quick,.tf-record-card-chevron{display:grid;place-items:center;flex:none;width:34px;height:40px;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:#9ebfd0!important}
+.tf-record-card-chevron{width:23px;color:var(--tf-accent)!important}
+.tf-record-card-quick:active,.tf-record-card-chevron:active{transform:scale(.89);color:var(--tf-accent)!important}
+.tf-record-card:focus-within{border-color:var(--tf-accent)}
+.tf-record-empty{padding:55px 16px;text-align:center;color:#9fb9c8;border:1px solid #27546a;background:#0a2434;border-radius:13px;font-size:14px}
+.tf-record-dossier-head{margin:0 0 16px}
+.tf-record-dossier-head button{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:5px 12px 5px 5px;border:0;background:transparent;color:var(--tf-accent);font-size:23px}
+.tf-record-dossier-head button span{font-size:14px;font-weight:650}
+.tf-record-dossier-identity{display:flex;gap:15px;align-items:center;padding:16px;border:1px solid color-mix(in srgb,var(--tf-accent) 55%,#315a6c);border-radius:15px;background:linear-gradient(125deg,#0a3040,#061b2a);margin-bottom:13px}
+.tf-record-dossier-identity>.tf-record-card-icon{flex-basis:55px;width:55px;height:55px}
+.tf-record-dossier-identity h2{font-size:19px;line-height:1.4;margin:0;font-weight:740;overflow-wrap:anywhere}
+.tf-record-dossier-badges{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}
+.tf-record-dossier-badges span{padding:3px 9px;color:#7de8f3;border:1px solid #23738b;border-radius:20px;background:#0b3444;font-size:11px}
+.tf-record-contact-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:13px}
+.tf-record-contact-actions a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:70px;padding:9px 5px;background:#0d2b3b;border:1px solid #2d5e72;border-radius:11px;color:var(--tf-accent);font-size:12px;font-weight:720;text-decoration:none}
+.tf-record-contact-actions a:active{background:#154454;box-shadow:0 0 13px color-mix(in srgb,var(--tf-accent) 30%,transparent)}
+.tf-record-dossier-box{margin:0 0 13px;padding:13px 15px;background:#081f2e;border:1px solid #2b5970;border-radius:13px}
+.tf-record-info-row{display:flex;align-items:center;gap:12px;min-height:61px;border-bottom:1px solid #1b4355;padding:9px 0}
+.tf-record-info-row:last-child{border-bottom:0}
+.tf-record-info-symbol{flex:0 0 28px;display:grid;place-items:center;color:var(--tf-accent)}
+.tf-record-info-row>div{display:grid;gap:5px;min-width:0;flex:1}
+.tf-record-info-row small{font-size:11px;color:#94b1c3}
+.tf-record-info-row strong{font-size:13px;color:#e8f8ff;line-height:1.45;overflow-wrap:anywhere;font-weight:530}
+.tf-record-info-tail{color:var(--tf-accent)}
+.tf-record-dossier-box h3{display:flex;align-items:center;gap:9px;font-size:15px;color:#f2fbff;margin:0 0 12px}
+.tf-record-dossier-box h3 svg{color:var(--tf-accent)}
+.tf-record-dossier-box p{color:#bdd2df;font-size:13px;line-height:1.6;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.tf-record-related-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tf-record-related-grid button{display:flex;align-items:center;gap:9px;min-height:62px;padding:10px;background:#0b2c3b;border:1px solid #28647c;border-radius:10px;color:#dff8ff}
+.tf-record-related-grid button>svg:first-child{color:var(--tf-accent);flex:none}
+.tf-record-related-grid button>svg:last-child{margin-left:auto;color:var(--tf-accent);flex:none}
+.tf-record-related-grid button span{display:grid;gap:4px;text-align:left;font-size:12px;font-weight:650}
+.tf-record-related-grid button small{font-size:10px;color:#a4c4d1}
+.tf-record-dossier-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin:14px 0}
+.tf-record-dossier-primary{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:49px;margin:0 0 12px;background:var(--tf-accent);border:1px solid color-mix(in srgb,var(--tf-accent) 65%,white);border-radius:11px;color:var(--tf-accent-contrast,#041b29);font-size:14px;font-weight:730}
+.tf-record-dossier-primary:active{transform:scale(.97);filter:brightness(1.08)}
+.tf-record-dossier-footer .tf-record-dossier-primary{margin:0}
+.tf-record-dossier-delete{min-width:75px;padding:8px 13px;min-height:49px;border:1px solid #81515b;background:#3b1e2a;color:#ffa6ae;border-radius:11px;font-weight:650}
+.tf-record-dossier-delete:active{background:#63303b}
+.tf-record-control>textarea.input{height:auto!important;min-height:88px!important;padding-top:12px!important;resize:vertical!important}
+.tf-record-control:has(textarea){height:auto!important;min-height:90px!important;overflow:visible!important}
+@media(max-width:380px){.tf-record-card{gap:8px;padding:9px}.tf-record-card-icon{flex-basis:41px;width:41px;height:42px}.tf-record-hub-actions button{font-size:12px;padding:8px 5px}.tf-record-card-quick{width:30px}.tf-record-info-row{gap:9px}.tf-record-related-grid{gap:6px}}
+@media(min-width:850px){body:has(.tf-record-hub) .content,body:has(.tf-record-dossier) .content{padding:30px 32px 100px!important}}
