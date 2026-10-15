@@ -86,19 +86,24 @@ const opportunityStageSvg=x=>{const stage=opportunityStage(x),path=({
 let opportunityDetailId=null,opportunityFilter='all';
 
 function opportunityAddressVariants(r){
- const street=String(r.address||'').trim(),city=String(r.city||'').trim(),region=String(r.region||'').trim(),zip=String(r.postal_code||r.zip||r.zip_code||'').trim();
- const parts=[street,city,region,zip].filter(Boolean);
- const variants=[parts.join(', ')];
- if(street){
-  const normalized=street.replace(/\\s+/g,' ').replace(/,?\\s*(?:United States|USA)\\s*$/i,'').trim();
-  variants.push([normalized,city,region].filter(Boolean).join(', '));
-  const trailing=normalized.match(/^(.+?)\\s+(\\d+[A-Za-z]?)$/);
-  if(trailing)variants.push([trailing[2]+' '+trailing[1],city,region,zip].filter(Boolean).join(', '));
-  const leading=normalized.match(/^(\\d+[A-Za-z]?)\\s+(.+)$/);
-  if(leading)variants.push([leading[2]+' '+leading[1],city,region,zip].filter(Boolean).join(', '));
- }
- if(!street&&r.project_name)variants.push([r.project_name,city,region].filter(Boolean).join(', '));
- return [...new Set(variants.map(x=>x.trim()).filter(Boolean))].slice(0,3);
+ const raw=String(r.address||r.street_address||r.site_address||r.project_address||'').trim();
+ const city=String(r.city||'').trim(),region=String(r.region||r.state||'').trim(),zip=String(r.postal_code||r.zip||r.zip_code||'').trim();
+ const clean=x=>String(x||'').replace(/\s+/g,' ').replace(/,?\s*(?:United States of America|United States|USA)\s*$/i,'').trim().replace(/,\s*,/g,',');
+ const street=clean(raw);
+ const variants=[];
+ const add=x=>{x=clean(x);if(x&&!variants.some(v=>v.toLowerCase()===x.toLowerCase()))variants.push(x)};
+ // First try the exact source address: it may already contain city, state and ZIP.
+ add(street);
+ // Only append city/state when not already included in the address.
+ const suffix=[city,region,zip].filter(x=>x&&!street.toLowerCase().includes(x.toLowerCase()));
+ if(street&&suffix.length)add([street,...suffix].join(', '));
+ if(street)add([street,city,region].filter(Boolean).join(', '));
+ const trailing=street.match(/^(.+?)\s+(\d+[A-Za-z]?)$/);
+ if(trailing)add([trailing[2]+' '+trailing[1],city,region,zip].filter(Boolean).join(', '));
+ const leading=street.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
+ if(leading)add([leading[2]+' '+leading[1],city,region,zip].filter(Boolean).join(', '));
+ if(!street&&r.project_name)add([r.project_name,city,region].filter(Boolean).join(', '));
+ return variants.slice(0,5);
 }
 function opportunityLocationPlausible(hit,r){
  const name=String(hit.display_name||'').toLowerCase();
