@@ -406,3 +406,26 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
 .tf-home-event time{font-size:10px;color:#9bb5c8;white-space:nowrap}
 .tf-home-empty{font-size:13px;color:#92b1c2;padding:12px 0}
 @media(max-width:380px){.tf-home-v2 .tf-home-stat{padding:12px;min-height:96px}.tf-home-v2 .tf-home-stat strong{font-size:30px}.tf-home-v2 .tf-stat-icon svg{width:25px;height:25px}.tf-home-trade-body{flex-wrap:wrap}.tf-home-trade-metrics{flex-basis:100%}}
+
+
+/* Compact Google-Maps-inspired TradeFlow location sheet */
+.tf-location-sheet{box-sizing:border-box!important;padding:21px 22px calc(25px + env(safe-area-inset-bottom))!important;max-height:min(75dvh,620px)!important;overflow-y:auto!important;border-radius:26px 26px 0 0!important;background:linear-gradient(150deg,#0a2a3b,#031522 90%)!important;box-shadow:0 -12px 50px #0009!important}
+.tf-location-sheet.tf-sheet-expanded{max-height:90dvh!important}
+.tf-location-sheet .tf-sheet-grip{width:45px;height:5px;background:#638d9c;border-radius:5px;margin:0 auto 22px}
+.tf-location-sheet .tf-sheet-eyebrow{font-size:10px;letter-spacing:.19em;color:#26e7f0;font-weight:700;margin:0 48px 8px 0}
+.tf-location-sheet h2{font-size:clamp(23px,6vw,31px)!important;line-height:1.15!important;letter-spacing:-.035em;margin:0 48px 7px 0!important;color:#f6fdff}
+.tf-location-sheet .tf-sheet-address{font-size:13px!important;color:#b8d2e0!important;line-height:1.5!important;margin:0 0 5px!important}
+.tf-location-sheet .tf-sheet-coords{font-size:11px;color:#7fa9bb;margin:0 0 20px}
+.tf-sheet-primary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 9px}
+.tf-sheet-primary-action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:76px;background:#092638;border:1px solid #20576c;border-radius:14px;color:#dff6ff!important;font-size:12px;font-weight:600;text-decoration:none!important;padding:8px 3px;cursor:pointer}
+.tf-sheet-primary-action:first-child{background:linear-gradient(150deg,#02d7e5,#08b9d0);color:#021b26!important;border-color:#18eaf4}
+.tf-sheet-primary-action span{display:grid;place-items:center;font-size:24px;width:30px;height:29px;line-height:1}
+.tf-location-sheet .tf-sheet-more{border-top:1px solid #1a4354;margin-top:13px;padding-top:13px}
+.tf-location-sheet .tf-sheet-more summary{font-size:13px;color:#b3d8e4;cursor:pointer;list-style:none}
+.tf-location-sheet .tf-sheet-more summary:before{content:'⌄';margin-right:10px;color:#19e2ed}
+.tf-sheet-link-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:14px;align-items:end}
+.tf-sheet-link-grid label{font-size:12px;color:#9ec3d1;min-width:0}
+.tf-sheet-link-grid select{width:100%;margin-top:6px}
+.tf-map-legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:11px;color:#b3d8e3;margin-top:10px}
+.tf-map-legend span:first-child{color:#12dbe8}
+@media(max-width:600px){.tf-location-sheet{width:100%!important;left:0!important;right:0!important}.tf-sheet-primary-action{font-size:11px}}
