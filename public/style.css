@@ -687,3 +687,65 @@ button:disabled{opacity:.45;filter:none;transform:none;cursor:not-allowed}
  outline-offset:3px;
 }
 @media(prefers-reduced-motion:reduce){.content button.btn,.content .btn[data-action],.content button[type="submit"]{transition:none}}
+
+/* TradeFlow Finance V1 — mobile cash-flow headquarters */
+body:has(.tf-cash) .content{padding:21px 17px 135px!important;overflow-x:clip}
+body:has(.tf-cash) .top{display:none!important}
+.tf-cash{width:100%;max-width:680px;margin:auto;color:#edf9ff;box-sizing:border-box;padding-bottom:8px}
+.tf-cash *{box-sizing:border-box;min-width:0}
+.tf-cash-head h1{margin:0;color:#f1fcff;font-size:27px;font-weight:720;letter-spacing:-.025em}
+.tf-cash-head p{margin:6px 0 18px;color:#a4bccb;font-size:13px}
+.tf-cash-tabs,.tf-cash-filtertabs{display:flex;gap:7px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none;padding:0 0 2px}
+.tf-cash-tabs button,.tf-cash-filtertabs button{flex:1 0 auto;min-height:37px;border:1px solid #2a5469;border-radius:22px;background:#061d2b;color:#aec3d0;font-size:12px;padding:8px 12px}
+.tf-cash-tabs button.active,.tf-cash-filtertabs button.active{background:#10cfe1;color:#05212c;border-color:#28e5f3;font-weight:750}
+.tf-cash-summary,.tf-cash-chart,.tf-cash-form,.tf-cash-categories{background:linear-gradient(150deg,#082333,#051825);border:1px solid #1d5269;border-radius:15px}
+.tf-cash-summary{padding:15px;margin-bottom:14px}
+.tf-cash-period{display:block;margin-bottom:16px}.tf-cash-period select{border:1px solid #28556a;border-radius:8px;background:#0b3042;color:#d4ecf5;padding:9px;font-size:12px;min-height:39px}
+.tf-cash-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.tf-cash-numbers>div{padding:3px 8px;border-left:1px solid #214a5e}
+.tf-cash-numbers>div:first-child{padding-left:0;border-left:0}
+.tf-cash-numbers strong{display:block;font-size:clamp(14px,3.9vw,22px);font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:-.035em}
+.tf-cash-numbers small{display:block;margin-top:7px;font-size:11px;color:#9cb7c7}
+.tf-cash .positive{color:#47dfa0}.tf-cash .negative{color:#ff7968}.tf-cash .balance{color:#1cd8e8}
+.tf-cash-chart{padding:15px;margin:0 0 19px}
+.tf-cash-sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.tf-cash-sectionhead h2{font-size:16px;margin:0;font-weight:700}
+.tf-cash-sectionhead small{color:#a6bdc9;font-size:11px}
+.tf-cash-sectionhead button{background:transparent;border:0;color:#20d8e7;padding:7px 3px;font-size:12px}
+.tf-cash-svg{width:100%;height:auto;display:block;aspect-ratio:335/157}
+.tf-cash-history{margin:0 0 15px}
+.tf-cash-row{display:flex;align-items:center;width:100%;text-align:left;gap:11px;padding:12px 3px;background:transparent;border:0;border-bottom:1px solid #143b4c;color:#eaf9ff}
+.tf-cash-direction{width:33px;height:33px;flex:none;display:grid;place-items:center;border-radius:50%;border:1px solid currentColor;font-size:22px}
+.tf-cash-direction.in{color:#47dfa0;background:#0c3c32}.tf-cash-direction.out{color:#ff7968;background:#422821}
+.tf-cash-rowbody{flex:1;display:grid;gap:4px}
+.tf-cash-rowbody strong{font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+.tf-cash-rowbody small{font-size:11px;color:#9fb8c8;overflow-wrap:anywhere}
+.tf-cash-right{display:grid;gap:5px;text-align:right;white-space:nowrap}
+.tf-cash-right strong{font-size:13px;font-variant-numeric:tabular-nums}
+.tf-cash-right small{font-size:10px;color:#9db4c3}
+.tf-cash-empty{color:#9ebac8;font-size:13px;text-align:center;padding:25px 12px}
+.tf-cash-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tf-cash-primary,.tf-cash-outline{min-height:48px;padding:11px;border-radius:11px;font-size:13px;font-weight:750}
+.tf-cash-primary{background:#0fd1e2!important;color:#041c29!important;border:1px solid #57edfa!important;box-shadow:0 0 13px #04dce621}
+.tf-cash-outline{background:#071e2c!important;color:#22dae9!important;border:1px solid #20c6d7!important}
+.tf-cash-primary:active,.tf-cash-outline:active{transform:scale(.97);filter:brightness(1.28);box-shadow:0 0 22px #1de0f05c!important}
+.tf-cash-formhead{display:flex;align-items:center;gap:15px;margin-bottom:18px}
+.tf-cash-formhead button{width:39px;height:39px;flex:none;border:1px solid #28576c;border-radius:11px;background:#0a293b;color:#16d7e8;font-size:25px}
+.tf-cash-formhead h2{margin:0;font-size:19px;font-weight:720}
+.tf-cash-form{display:grid;gap:16px;padding:18px}
+.tf-cash-form>label{display:grid;gap:7px;font-size:12px;color:#ecf8fe}
+.tf-cash-input,.tf-cash-category-btn{width:100%;display:block;min-height:47px;border:1px solid #26556c;border-radius:10px;background:#071f2e;color:#ecf9ff;padding:12px;font-size:16px;outline:none}
+.tf-cash-input:focus,.tf-cash-category-btn:focus{border-color:#11cbdb;box-shadow:0 0 0 2px #10cfe129}
+.tf-cash-input::placeholder{color:#7796a9}
+.tf-cash-category-btn{text-align:left;display:flex;justify-content:space-between;align-items:center}
+.tf-cash-amount{font-size:23px}
+.tf-cash-form .tf-cash-primary{width:100%}
+.tf-cash-delete{background:transparent;color:#ff8d87;border:1px solid #794244;border-radius:9px;min-height:43px}
+.tf-cash-categories{padding:5px 14px}
+.tf-cash-categories>button{display:flex;align-items:center;gap:12px;min-height:54px;width:100%;border:0;border-bottom:1px solid #193d51;background:transparent;color:#eaf8ff;text-align:left;font-size:13px}
+.tf-cash-categories>button:last-child{border-bottom:0}
+.tf-cash-cat-icon{width:31px;height:31px;border:1px solid #28596d;border-radius:50%;display:grid;place-items:center;background:#0c3040;color:#14d4e7;font-size:17px}
+.tf-cash-chevron{margin-left:auto;color:#62dbe8;font-size:20px}
+.tf-cash-disclaimer{font-size:12px;color:#9fb8c6;line-height:1.5}
+@media(min-width:850px){body:has(.tf-cash) .top{display:flex!important}body:has(.tf-cash) .content{padding:26px 32px 100px!important}}
+@media(max-width:375px){.tf-cash-numbers strong{font-size:13px}.tf-cash-actions{gap:7px}.tf-cash-actions button{font-size:12px}}
