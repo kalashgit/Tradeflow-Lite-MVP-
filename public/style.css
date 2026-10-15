@@ -306,3 +306,40 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
  .mobilebar button .navicon svg{max-width:23px!important;max-height:23px!important}
  .tf-more-screen{padding-left:4px;padding-right:4px}
 }
+
+/* Mobile viewport hardening: do not allow fifth tab to be clipped */
+@media(max-width:850px){
+ html,body,#app,.shell,.main{max-width:100%!important;min-width:0!important}
+ .mobilebar{
+  position:fixed!important;inset:auto 0 0 0!important;
+  width:100vw!important;max-width:100vw!important;
+  box-sizing:border-box!important;
+  display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  column-gap:4px!important;
+  padding:7px max(7px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left))!important;
+  margin:0!important;transform:none!important;
+  overflow:hidden!important;z-index:100!important;
+ }
+ .mobilebar>button{width:auto!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;flex:initial!important;overflow:hidden!important;border-radius:12px!important;padding:8px 0!important;font-size:clamp(9px,2.6vw,12px)!important;white-space:nowrap!important}
+ .mobilebar>button .navicon{margin:0 auto!important}
+ .main{padding-bottom:calc(90px + env(safe-area-inset-bottom))!important}
+ .main:has(.tf-map-screen){padding-bottom:0!important}
+ .content{min-width:0!important}
+}
+/* Dedicated Settings: restrained command-console controls */
+.tf-preferences{max-width:650px;margin:0 auto;display:grid;gap:16px;padding-bottom:26px}
+.tf-pref-head{display:flex;align-items:center;gap:15px;padding:9px 0 10px}
+.tf-pref-back{border:1px solid #31546a;background:#102b3a;color:#d5faff;width:44px;height:44px;border-radius:13px;font-size:32px;line-height:1}
+.tf-pref-eyebrow{font-size:10px;color:#48d4e7;letter-spacing:.17em;font-weight:700}
+.tf-pref-head h2{font-size:26px;line-height:1.2;margin:4px 0}
+.tf-pref-head p{font-size:13px;color:#a1bdc9;margin:0}
+.tf-pref-group{padding:19px;border-radius:17px;background:linear-gradient(150deg,#122d3d,#081c2b);border:1px solid #284b5b;box-shadow:0 9px 22px #0003}
+.tf-pref-group h3{font-size:16px;margin:0 0 16px}
+.tf-pref-group p{color:#a9c3d0;font-size:13px;line-height:1.55}
+.tf-pref-group form{display:grid;gap:14px}
+.tf-pref-group .field{display:grid;gap:7px;margin:0;font-size:13px}
+.tf-pref-group .input{width:100%;box-sizing:border-box}
+.tf-pref-group .tf-pref-color{height:45px;padding:4px}
+.tf-pref-actions{display:flex;gap:9px;flex-wrap:wrap}
+.tf-pref-actions .btn{min-width:0}
+.tf-pref-caution{font-size:12px!important;color:#e4bb7d!important}
