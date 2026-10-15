@@ -584,3 +584,28 @@ body:has(.tf-map-screen) .maplibregl-control-container .maplibregl-ctrl-bottom-l
 .tf-import-mapchoice input{width:20px;height:20px;accent-color:#12d4e4;flex:none}
 .tf-import-mapchoice strong{display:block;font-size:13px}.tf-import-mapchoice small{display:block;font-size:11px;color:#9ebac9;margin-top:5px}
 @media(max-width:430px){.tf-op3-stats{gap:7px}.tf-op3-stats>div{padding:13px 9px}.tf-op3-stats strong{font-size:24px}.tf-op3-stats small{font-size:10px}.tf-op3-copy strong{font-size:13px}.tf-op3-mapcard{padding:15px}}
+
+/* Mobile containment: no sideways page expansion after large imports */
+html,body,#app,.shell,.main,.content{max-width:100%;min-width:0;box-sizing:border-box}
+html,body{overflow-x:clip}
+body:has(.tf-op-v3) .content{width:100%!important;min-width:0!important;max-width:100vw!important;overflow-x:clip!important;padding:14px 15px 120px!important}
+.tf-op-v3,.tf-op-v3 *{box-sizing:border-box}
+.tf-op-v3{width:100%;min-width:0;max-width:100%;overflow-x:clip}
+.tf-op3-stats{width:100%;min-width:0;grid-template-columns:repeat(3,minmax(0,1fr))}
+.tf-op3-stats>div{min-width:0;overflow:hidden}
+.tf-op3-stats small{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+.tf-op3-mapcard,.tf-op3-mapactions,.tf-op3-list,.tf-op3-row,.tf-op3-search{min-width:0;max-width:100%}
+.tf-op3-copy{min-width:0;overflow:hidden}
+.tf-op3-chips{max-width:100%;min-width:0}
+.tf-op3-locate{color:#a8c4d1!important}
+.tf-import-backdrop{max-width:100vw;overflow-x:hidden}
+.tf-import-dialog{max-width:calc(100vw - 20px)!important;min-width:0!important;overflow:hidden}
+.tf-import-tablewrap{width:100%;min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tf-import-table{min-width:650px}
+.tf-import-mapchoice{max-width:100%}
+/* Consistent press response across app actions; no persistent glow */
+button,[role="button"],.btn,.tf-settings-backup label{transition:background-color .13s ease,border-color .13s ease,box-shadow .13s ease,transform .11s ease,filter .11s ease;-webkit-tap-highlight-color:transparent}
+button:active,.btn:active,[role="button"]:active,.tf-settings-backup label:active{transform:scale(.975);filter:brightness(1.22);box-shadow:inset 0 0 0 1px #4fe6f277,0 0 13px #0cc7e334!important}
+button:focus-visible,.btn:focus-visible,[role="button"]:focus-visible{outline:2px solid #55dbe9;outline-offset:2px}
+button:disabled{opacity:.45;filter:none;transform:none;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){button,[role="button"],.btn{transition:none!important}}
