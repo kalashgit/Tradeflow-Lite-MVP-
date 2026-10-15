@@ -643,3 +643,18 @@ button:disabled{opacity:.45;filter:none;transform:none;cursor:not-allowed}
 .tf-op-v3 .tf-op3-mapactions [data-action="opportunityMapFilters"]{grid-column:2;grid-row:1;min-width:48px}
 .tf-op-v3 .tf-op3-mapactions [data-action="opportunityMapRemaining"]{grid-column:1/-1;grid-row:2;min-height:46px;border:1px solid #286d82;border-radius:12px;background:#102d3c;color:#90e9f1;font-weight:700;font-size:14px}
 .tf-op-v3 #tfMapProgress:not([hidden]){display:block;margin:12px 4px 0;color:#a6e6ed;font-size:13px}
+
+/* Shared workflow icon language — opportunity cards and tactical map */
+.tf-op3-status,.tf-map-stage{--stage-color:#14d8e8;color:var(--stage-color)!important;background:#103343;border:1px solid transparent;box-shadow:none}
+.tf-op3-status svg,.tf-map-stage svg{width:25px;height:25px;stroke:currentColor;display:block;filter:none}
+.tf-stage-new{--stage-color:#13d9e9}
+.tf-stage-followup{--stage-color:#f5bc4a}
+.tf-stage-quoted{--stage-color:#8d9dff}
+.tf-stage-active{--stage-color:#ff9154}
+.tf-stage-won{--stage-color:#55d68b}
+.tf-stage-contacted{--stage-color:#aaa5f2}
+.tf-stage-saved{--stage-color:#79b9ff}
+.tf-stage-lost{--stage-color:#ee8091}
+.tf-map-stage{width:43px;height:43px;border:2px solid var(--stage-color);border-radius:12px;background:#0b2737;box-shadow:0 0 0 2px rgba(1,12,22,.65),0 2px 12px rgba(0,0,0,.24);cursor:pointer}
+.tf-map-stage:active,.tf-op3-open:active .tf-op3-status{background:#1a4654;transform:scale(.96)}
+.tf-map-stage:focus-visible,.tf-op3-open:focus-visible{outline:2px solid #b6f7ff;outline-offset:3px}
