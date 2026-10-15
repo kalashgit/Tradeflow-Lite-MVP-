@@ -431,6 +431,44 @@ return tfRecordHubView(d)}
 
 /* Compact record command cards and context panels, shared across the four record types. */
 let tfRecordDetailId=null;
+/* Keep the list exactly where the user left it when viewing a record.
+   The record ID and on-screen offset provide a fallback if the list changes. */
+function tfRecordListTarget(recordId){
+ const buttons=document.querySelectorAll('[data-action="tfRecordOpen"][data-id]');
+ for(const button of buttons)if(button.dataset.id===recordId)return button;
+ return null;
+}
+function tfRememberRecordList(recordId){
+ const main=document.querySelector('.main'),content=document.querySelector('.content');
+ const card=tfRecordListTarget(recordId)?.closest('.tf-record-card');
+ return {
+  tab,query,recordId,
+  windowY:window.scrollY||window.pageYOffset||document.scrollingElement?.scrollTop||0,
+  mainY:main?.scrollTop||0,
+  contentY:content?.scrollTop||0,
+  cardTop:card?.getBoundingClientRect().top??null
+ };
+}
+function tfReturnToRecordList(context){
+ if(!context||context.tab!==tab||tfRecordDetailId)return;
+ const main=document.querySelector('.main'),content=document.querySelector('.content');
+ window.scrollTo(0,context.windowY);
+ if(main)main.scrollTop=context.mainY;
+ if(content)content.scrollTop=context.contentY;
+ const button=tfRecordListTarget(context.recordId);
+ const card=button?.closest('.tf-record-card');
+ if(card&&Number.isFinite(context.cardTop)){
+  const difference=card.getBoundingClientRect().top-context.cardTop;
+  if(Math.abs(difference)>3){
+   if(context.contentY>0&&content?.scrollHeight>content?.clientHeight)content.scrollTop+=difference;
+   else if(context.mainY>0&&main?.scrollHeight>main?.clientHeight)main.scrollTop+=difference;
+   else if(document.scrollingElement?.scrollHeight>window.innerHeight)window.scrollBy(0,difference);
+  }
+ }
+ // Restore keyboard and screen-reader context without making the browser scroll.
+ try{button?.focus({preventScroll:true})}catch(e){}
+}
+
 const tfRecordTypes={
  customers:{label:'Customers',singular:'customer',hint:'Manage your customers and contacts.',icon:'customers'},
  quotes:{label:'Quotations',singular:'quotation',hint:'Estimates, proposals and approvals.',icon:'quotes'},
@@ -593,8 +631,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 
  if(el.dataset.action==='tfRecordOpen'){
-  const main=document.querySelector('.main'),content=document.querySelector('.content');
-  tfRecordListContext={query,windowY:window.scrollY||0,mainY:main?.scrollTop||0,contentY:content?.scrollTop||0};
+  tfRecordListContext=tfRememberRecordList(el.dataset.id);
   tfMotionNext='forward';tfRecordDetailId=el.dataset.id;query='';
   await render();
   window.scrollTo(0,0);
@@ -606,15 +643,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   const previous=tfRecordListContext;
   tfMotionNext='back';tfRecordDetailId=null;query=previous?.query||'';
   await render();
-  requestAnimationFrame(()=>{
-   if(previous){
-    window.scrollTo(0,previous.windowY);
-    const main=document.querySelector('.main'),content=document.querySelector('.content');
-    if(main)main.scrollTop=previous.mainY;
-    if(content)content.scrollTop=previous.contentY;
-   }
-  });
   tfRecordListContext=null;
+  requestAnimationFrame(()=>tfReturnToRecordList(previous));
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
@@ -622,7 +652,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
    if(!['jobs','tasks'].includes(tab))return;
    const item=await get(tab,el.dataset.id);if(!item)return;
    item.status=tab==='jobs'?'Completed':'Done';item.updatedAt=new Date().toISOString();
-   await put(tab,item);tfRecordDetailId=null;notify(tab==='jobs'?'Job completed':'Task completed');return;
+   await put(tab,item);
+   const previous=tfRecordListContext;tfRecordListContext=null;
+   tfRecordDetailId=null;query=previous?.query||query;
+   notify(tab==='jobs'?'Job completed':'Task completed');
+   requestAnimationFrame(()=>tfReturnToRecordList(previous));
+   return;
  }
  if(el.dataset.action==='tfRecordRelated'){
    if(el.dataset.type==='payments'){tab='expenses';tfFinanceScreen='transactions';tfFinanceFilter='income';tfFinanceSearch='';}
