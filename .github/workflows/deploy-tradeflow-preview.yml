@@ -38,7 +38,7 @@ jobs:
           node-version: "22"
 
       - name: Verify app behavior without network calls
-        run: node tests/smoke.test.cjs
+        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node --check src/index.js
 
       - name: Verify preview-only Wrangler configuration
         shell: bash

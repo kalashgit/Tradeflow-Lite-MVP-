@@ -1,0 +1,41 @@
+
+/* TradeFlow AI V0.6 chat preview. Isolated from finished map and CRM surfaces. */
+.tf-ai-chat-box{background:linear-gradient(145deg,#112c40,#071723 88%);border:1px solid #255367;border-radius:20px;overflow:hidden;box-shadow:0 16px 45px #0005;color:#edfaff;margin-bottom:20px}
+.tf-ai-chat-top{display:flex;align-items:center;gap:12px;padding:20px 18px 16px;border-bottom:1px solid #244253}
+.tf-ai-chat-symbol{height:43px;width:43px;display:grid;place-items:center;border-radius:13px;background:#0b4355;color:var(--tf-accent,#10cfe1);font-size:24px;box-shadow:0 0 25px #0bc6e422}
+.tf-ai-chat-top h2{font-size:19px;letter-spacing:.01em;margin:0;color:#f5feff}
+.tf-ai-chat-top h2 span{font-size:9px;letter-spacing:.12em;color:#84e5ee;background:#173d4b;border:1px solid #276478;border-radius:6px;padding:4px 6px;vertical-align:middle;margin-left:5px}
+.tf-ai-chat-top p{font-size:12px;margin:5px 0 0;color:#9fc4d2}
+.tf-ai-clear{margin-left:auto;background:transparent;color:#afcdd9;border:0;font-size:12px;padding:9px}
+.tf-ai-preview-gate{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#082332;border-bottom:1px solid #25485a;padding:12px 18px;font-size:12px;color:#add4e1}
+.tf-ai-preview-gate label{font-weight:700}
+.tf-ai-preview-gate>div{display:flex;flex:1;min-width:180px;gap:6px}
+.tf-ai-preview-gate input{min-width:0;flex:1;border-radius:8px;border:1px solid #336175;background:#051722;color:#f2feff;padding:9px;font-size:13px}
+.tf-ai-preview-gate button{border-radius:8px;border:1px solid #4c7889;background:#174255;color:#effeff;padding:9px 12px;cursor:pointer}
+.tf-ai-preview-gate small{color:#87b5c6;flex-basis:100%}
+.tf-ai-chat-thread{height:clamp(230px,41vh,430px);overflow-y:auto;overscroll-behavior:contain;padding:22px 16px 14px;display:flex;flex-direction:column;gap:14px;scrollbar-color:#305b6f transparent}
+.tf-ai-welcome{margin:auto;text-align:center;max-width:290px}
+.tf-ai-sparkle{display:grid;place-items:center;margin:0 auto 14px;width:52px;height:52px;border-radius:50%;border:1px solid #2d6376;color:var(--tf-accent,#10cfe1);font-size:27px;box-shadow:0 0 35px #0faed11f}
+.tf-ai-welcome h3{font-size:19px;color:#f5ffff;margin:0 0 7px}
+.tf-ai-welcome p{font-size:13px;color:#9abccc;line-height:1.5;margin:0}
+.tf-ai-bubble{max-width:93%;border:1px solid #2b5062;padding:12px 14px;border-radius:15px;background:#112f40;align-self:flex-start}
+.tf-ai-bubble.tf-ai-mine{background:#134d61;border-color:#247f93;align-self:flex-end}
+.tf-ai-bubble small{display:block;font-size:9px;color:#9fd9e9;letter-spacing:.1em;margin-bottom:5px}
+.tf-ai-bubble p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.55;margin:0;color:#edfaff}
+.tf-ai-typing{font-size:12px;color:#a0d6e2;padding:10px}
+.tf-ai-chat-error{padding:10px 15px;margin:0 16px;color:#ffceaf;background:#462719;border-radius:8px;font-size:12px}
+.tf-ai-chat-suggestions{display:flex;gap:7px;overflow-x:auto;padding:12px 16px 4px;scrollbar-width:none}
+.tf-ai-chat-suggestions button{white-space:nowrap;padding:8px 11px;border-radius:25px;border:1px solid #31576b;background:#112d3e;color:#c9e8f1;font-size:11px}
+.tf-ai-chat-suggestions button:disabled{opacity:.48}
+.tf-ai-chat-composer{margin:8px 16px 0;background:#0b2535;border:1px solid #396074;border-radius:15px;padding:10px}
+.tf-ai-prompt-label{display:block;color:#a7ccdb;font-size:10px;font-weight:700;margin:0 0 6px}
+.tf-ai-compose-row{display:flex;align-items:end;gap:10px}
+.tf-ai-compose-row textarea{display:block;resize:vertical;flex:1;min-width:0;min-height:48px;border:0;outline:0;background:transparent;color:#efffff;font-size:14px;line-height:1.4;font-family:inherit}
+.tf-ai-compose-row textarea::placeholder{color:#749aad}
+.tf-ai-compose-row button{border:0;border-radius:11px;height:38px;width:38px;flex:0 0 38px;background:var(--tf-accent,#10cfe1);color:#06202c;font-size:20px;font-weight:bold}
+.tf-ai-compose-row button:disabled{opacity:.35}
+.tf-ai-context{font-size:11px;color:#aacbd5;display:flex;align-items:center;gap:8px;margin:7px 0 0}
+.tf-ai-context input{accent-color:var(--tf-accent,#10cfe1)}
+.tf-ai-privacy{margin:12px 17px 18px;font-size:11px;line-height:1.6;color:#91acbb}
+.tf-ai-chat-box button:focus-visible,.tf-ai-chat-box textarea:focus-visible,.tf-ai-chat-box input:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
+@media(max-width:550px){.tf-ai-chat-top{padding:16px 13px}.tf-ai-chat-top h2{font-size:17px}.tf-ai-chat-top h2 span{font-size:8px;margin-left:2px}.tf-ai-preview-gate{padding:11px 12px}.tf-ai-chat-thread{height:38dvh;min-height:235px}.tf-ai-bubble{max-width:96%}.tf-ai-chat-box{border-radius:16px}}

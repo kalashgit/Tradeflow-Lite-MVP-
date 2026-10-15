@@ -371,6 +371,64 @@ function tfFinancePhotoSection(record,target){
  if(!saved)return '';
  return '<div class="tf-photo-finance-attached"><strong>Attached paper record</strong><img src="'+saved+'" alt="Photo attached to financial record"><small>Kept locally with this record and included in JSON backup.</small></div>';
 }
+
+/* TradeFlow AI preview: chat remains in memory, private code stays in sessionStorage,
+   and only opted-in aggregate context crosses the network. */
+let tfChatMessages=[],tfChatBusy=false,tfChatError='',tfChatWithSummary=false;
+function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
+function tfAiContext(data){
+ const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
+ return {
+  primary_trade:String(prefs.primaryTrade||'not set').slice(0,80),
+  active_jobs:(data.jobs||[]).filter(x=>x.status!=='Completed'&&x.status!=='Cancelled').length,
+  open_tasks:(data.tasks||[]).filter(x=>x.status!=='Done').length,
+  quotations_sent:(data.quotes||[]).filter(x=>x.status==='Sent').length,
+  opportunities:(data.opportunities||[]).length,
+  month_income:payments.filter(x=>String(x.date||'').startsWith(month)).reduce((n,x)=>n+(Number(x.amount)||0),0),
+  month_expenses:expenses.filter(x=>String(x.date||'').startsWith(month)).reduce((n,x)=>n+(Number(x.amount)||0),0)
+ };
+}
+function tfAIChatView(data){
+ const unlocked=!!tfAiKey();
+ const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p></div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
+ const examples=[['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
+ const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview access code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button></div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Unlock</button></div><small>A private access code must be configured in Cloudflare before live AI works.</small></form>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(tfChatBusy?'disabled':'')+' aria-label="Clear conversation">Clear</button></div>'+gate+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(unlocked&&!tfChatBusy?'':'disabled')+' placeholder="'+(unlocked?'Ask TradeFlow AI...':'Unlock private preview to chat')+'"></textarea><button type="submit" '+(unlocked&&!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Messages are sent for inference but not saved in TradeFlow.</p></section>';
+}
+async function tfAISend(text){
+ const content=String(text||'').trim().slice(0,1200);
+ if(!content||tfChatBusy||!tfAiKey())return;
+ tfChatError='';
+ tfChatMessages.push({role:'user',content});
+ tfChatBusy=true;
+ await render();
+ try{
+  let business=null;
+  if(tfChatWithSummary){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
+  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tfAiKey()},body:JSON.stringify({messages:tfChatMessages.slice(-8),business}),cache:'no-store'});
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(String(payload.error||'AI service not available')+' ('+response.status+')');
+  if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
+  tfChatMessages.push({role:'assistant',content:payload.reply.trim().slice(0,2500)});
+ }catch(err){tfChatError=String(err.message||'AI request failed').slice(0,220)}
+ finally{tfChatBusy=false;await render();const log=document.getElementById('tfAiThread');if(log)log.scrollTop=log.scrollHeight}
+}
+document.addEventListener('submit',async e=>{
+ if(e.target.id==='tfAiUnlockForm'){
+  e.preventDefault();
+  const code=String(new FormData(e.target).get('code')||'').trim();
+  if(code.length<12)return alert('Enter the private access code (at least 12 characters).');
+  try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){return alert('This browser does not allow session storage.')}
+  tfChatError='';await render();return;
+ }
+ if(e.target.id==='tfAiChatForm'){
+  e.preventDefault();
+  if(tfChatBusy)return;
+  tfChatWithSummary=!!e.target.querySelector('#tfAiContext')?.checked;
+  await tfAISend(String(new FormData(e.target).get('prompt')||''));
+ }
+});
+
 const tfAIIcon='<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="4"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3M10 11h4m-2-2v4"/></svg>';
 function tfAIView(d){
  const openJobs=d.jobs.filter(x=>x.status!=='Completed'&&x.status!=='Cancelled'),pending=d.tasks.filter(x=>x.status!=='Done');
@@ -409,7 +467,7 @@ function tfAIView(d){
  ]]
  };
  const [answer,lines]=responses[tfAIQuestion]||responses.priorities;
- return '<section class="tf-ai-screen"><header class="tf-ai-heading">'+tfAIIcon+'<div><h1>TradeFlow Intelligence</h1><p>Your local business briefing.</p></div></header><div class="tf-ai-tags"><span>OFFLINE</span><span>NO AI API CALLS</span><span>LOCAL DATA ONLY</span></div><section class="tf-ai-panel"><div class="tf-ai-section-head"><h2>Ask your headquarters</h2><small>Choose a briefing</small></div><div class="tf-ai-questions">'+[['priorities','My priorities'],['cash','Cash flow'],['pipeline','Pipeline'],['tasks','Tasks']].map(([key,label])=>'<button type="button" data-action="tfAIQuestion" data-question="'+key+'" class="'+(tfAIQuestion===key?'active':'')+'">'+label+'</button>').join('')+'</div><div class="tf-ai-answer"><h3>'+esc(answer)+'</h3><ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><p class="tf-ai-disclosure">These are rule-based summaries of records on this device, not generative AI or financial advice. Figures depend on the records you entered.</p></section><section class="tf-ai-pro"><div class="tf-ai-pro-head"><span>✦</span><div><h2>TradeFlow AI Pro</h2><p>Advanced capabilities planned</p></div><span class="tf-ai-locked">LOCKED</span></div><div class="tf-ai-pro-lines"><div>Document and handwriting extraction</div><div>AI-assisted follow-up drafts</div><div>Business recommendations</div></div><button type="button" data-action="tfAIProInfo">About future Pro access</button><p>Not for sale or active yet. Pro will require verified account entitlements and a secure server connection.</p></section></section>';
+ return '<section class="tf-ai-screen">'+tfAIChatView(d)+'<header class="tf-ai-heading">'+tfAIIcon+'<div><h1>TradeFlow Intelligence</h1><p>Your local business briefing.</p></div></header><div class="tf-ai-tags"><span>OFFLINE</span><span>NO AI API CALLS</span><span>LOCAL DATA ONLY</span></div><section class="tf-ai-panel"><div class="tf-ai-section-head"><h2>Ask your headquarters</h2><small>Choose a briefing</small></div><div class="tf-ai-questions">'+[['priorities','My priorities'],['cash','Cash flow'],['pipeline','Pipeline'],['tasks','Tasks']].map(([key,label])=>'<button type="button" data-action="tfAIQuestion" data-question="'+key+'" class="'+(tfAIQuestion===key?'active':'')+'">'+label+'</button>').join('')+'</div><div class="tf-ai-answer"><h3>'+esc(answer)+'</h3><ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><p class="tf-ai-disclosure">These are rule-based summaries of records on this device, not generative AI or financial advice. Figures depend on the records you entered.</p></section><section class="tf-ai-pro"><div class="tf-ai-pro-head"><span>✦</span><div><h2>TradeFlow AI Pro</h2><p>Advanced capabilities planned</p></div><span class="tf-ai-locked">LOCKED</span></div><div class="tf-ai-pro-lines"><div>Document and handwriting extraction</div><div>AI-assisted follow-up drafts</div><div>Business recommendations</div></div><button type="button" data-action="tfAIProInfo">About future Pro access</button><p>Not for sale or active yet. Pro will require verified account entitlements and a secure server connection.</p></section></section>';
 }
 
 
@@ -702,6 +760,9 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   try{await put(target,copy);notify('Photo removed')}catch(err){alert('Could not remove photo: '+err.message)}
   return;
  }
+ if(el.dataset.action==='tfAiPrompt'){const field=document.getElementById('tfAiPrompt');if(field){field.value=el.dataset.prompt||'';field.focus()}return}
+ if(el.dataset.action==='tfAiClear'){tfChatMessages=[];tfChatError='';await render();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatMessages=[];tfChatError='';await render();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 
