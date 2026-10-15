@@ -1,4 +1,4 @@
-const DB='tradeflow-lite-v1', STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments'];let db,tab='dashboard',query='',modal=null,toast='';let tfMotionNext='',tfRecordListContext=null;let prefs={company:'TradeFlow Lite',accent:'#10cfe1',categories:['Electrical','Plumbing','Construction','Renovation','Other']};
+const DB='tradeflow-lite-v1', STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments'];let db,tab='dashboard',query='',modal=null,toast='';let tfMotionNext='',tfRecordListContext=null;let prefs={company:'TradeFlow Lite',accent:'#10cfe1',primaryTrade:'',categories:[]};
 const $=s=>document.querySelector(s);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const euro=n=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(Number(n)||0);const today=()=>new Date().toISOString().slice(0,10);const uid=()=>crypto.randomUUID();
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,5);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function tx(store,mode,cb){return new Promise((res,rej)=>{const t=db.transaction(store,mode),s=t.objectStore(store),r=cb(s);t.oncomplete=()=>res(r?.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})}const all=s=>tx(s,'readonly',x=>x.getAll());const put=(s,v)=>tx(s,'readwrite',x=>x.put(v));const del=(s,id)=>tx(s,'readwrite',x=>x.delete(id));const get=(s,id)=>tx(s,'readonly',x=>x.get(id));
@@ -410,6 +410,42 @@ function tfAIView(d){
  };
  const [answer,lines]=responses[tfAIQuestion]||responses.priorities;
  return '<section class="tf-ai-screen"><header class="tf-ai-heading">'+tfAIIcon+'<div><h1>TradeFlow Intelligence</h1><p>Your local business briefing.</p></div></header><div class="tf-ai-tags"><span>OFFLINE</span><span>NO AI API CALLS</span><span>LOCAL DATA ONLY</span></div><section class="tf-ai-panel"><div class="tf-ai-section-head"><h2>Ask your headquarters</h2><small>Choose a briefing</small></div><div class="tf-ai-questions">'+[['priorities','My priorities'],['cash','Cash flow'],['pipeline','Pipeline'],['tasks','Tasks']].map(([key,label])=>'<button type="button" data-action="tfAIQuestion" data-question="'+key+'" class="'+(tfAIQuestion===key?'active':'')+'">'+label+'</button>').join('')+'</div><div class="tf-ai-answer"><h3>'+esc(answer)+'</h3><ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><p class="tf-ai-disclosure">These are rule-based summaries of records on this device, not generative AI or financial advice. Figures depend on the records you entered.</p></section><section class="tf-ai-pro"><div class="tf-ai-pro-head"><span>✦</span><div><h2>TradeFlow AI Pro</h2><p>Advanced capabilities planned</p></div><span class="tf-ai-locked">LOCKED</span></div><div class="tf-ai-pro-lines"><div>Document and handwriting extraction</div><div>AI-assisted follow-up drafts</div><div>Business recommendations</div></div><button type="button" data-action="tfAIProInfo">About future Pro access</button><p>Not for sale or active yet. Pro will require verified account entitlements and a secure server connection.</p></section></section>';
+}
+
+
+/* First-run offline workspace setup. This does not create an online user account. */
+let tfOnboardingTrade='';
+const tfTradeCatalog=[
+ ['Electrical','<path d="m13 2-9 11h7l-1 9 10-12h-7z"/>'],
+ ['Plumbing','<path d="M12 3c-4 5-7 8-7 12a7 7 0 0 0 14 0c0-4-3-7-7-12z"/><path d="M9 17a3 3 0 0 0 3 3"/>'],
+ ['HVAC','<circle cx="12" cy="12" r="2"/><path d="M12 10c-3-7 7-9 7-3 0 2-2 4-5 5M14 12c7-3 9 7 3 7-2 0-4-2-5-5M12 14c3 7-7 9-7 3 0-2 2-4 5-5M10 12c-7 3-9-7-3-7 2 0 4 2 5 5"/>'],
+ ['Construction','<path d="M3 18h18M5 18v-3a7 7 0 0 1 14 0v3M10 8V5h4v3M8 18v-3M16 18v-3"/>'],
+ ['Renovation','<path d="m14 5 5 5M3 21l6-2L20 8a3 3 0 0 0-4-4L5 15z"/>'],
+ ['Carpentry','<path d="M3 20h18M5 15l8-8M12 3l9 9M7 17l10-10M3 5h5v5"/>'],
+ ['Roofing','<path d="m2 12 10-9 10 9M5 11v10h14V11M9 21v-7h6v7"/>'],
+ ['Painting','<rect x="3" y="4" width="15" height="6" rx="2"/><path d="M18 7h3v5h-9v3M12 15v6"/>'],
+ ['Landscaping','<path d="M20 4c-10 0-16 4-16 12a5 5 0 0 0 5 5c8 0 12-6 11-17zM5 19c5-6 9-8 13-10"/>'],
+ ['Cleaning','<path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z"/>'],
+ ['Automotive','<path d="m5 16 1-6h12l1 6M4 16h16v4H4zM8 20v2M16 20v2M5 10l2-5h10l2 5M7 16h.01M17 16h.01"/>'],
+ ['Real Estate','<path d="M4 21V4l9-2v19M13 7h7v14M2 21h20M8 6v2M8 11v2M8 16v2M17 11v2M17 16v2"/>'],
+ ['Flooring','<path d="M3 5h18v14H3zM3 12h18M9 5v7M16 12v7M6 12v7M19 5v7"/>'],
+ ['Handyman','<path d="M21 7a6 6 0 0 1-8 5.7l-8 8a2 2 0 0 1-3-3l8-8A6 6 0 0 1 17 3l-4 4 4 4z"/>'],
+ ['Other','<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>']
+];
+function tfTradeIcon(trade,size=25){
+ const code=tfTradeCatalog.find(([name])=>name.toLowerCase()===String(trade||'').trim().toLowerCase())?.[1]||'<path d="M3 7h18v14H3zM9 7V4h6v3M3 12h18M11 12v2h2v-2"/>';
+ return '<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+code+'</svg>';
+}
+function tfTradeChoices(){
+ return [...new Set([prefs.primaryTrade,...tfTradeCatalog.map(x=>x[0]),...(Array.isArray(prefs.categories)?prefs.categories:[])].map(x=>String(x||'').trim()).filter(Boolean))];
+}
+function tfOnboardingNeeded(savedSettings){
+ return !String(savedSettings?.primaryTrade||'').trim();
+}
+function tfOnboardingView(data){
+ const existing=['customers','quotes','jobs','tasks','payments','expenses','opportunities'].some(key=>(data[key]||[]).length);
+ const selection=tfOnboardingTrade||'';
+ return '<main class="tf-setup-screen"><section class="tf-setup-wrap"><header class="tf-setup-brand"><span class="tf-setup-logo" aria-hidden="true">T<span></span></span><span>TRADEFLOW</span></header><div class="tf-setup-intro"><span class="tf-setup-step">YOUR BUSINESS / SETUP 01</span><h1>Welcome to your headquarters.</h1><p>Set up your workspace around the work you actually do. No account or subscription is needed for local setup.</p></div><form id="tfSetupForm" class="tf-setup-form"><fieldset class="tf-setup-trades"><legend>What type of business do you run? <span>Required</span></legend><p>Choose your primary trade. You can change it anytime in Settings.</p><div class="tf-setup-grid">'+tfTradeCatalog.map(([trade])=>'<button type="button" class="tf-setup-trade'+(selection===trade?' is-selected':'')+'" data-action="tfTradeChoose" data-trade="'+esc(trade)+'" aria-pressed="'+(selection===trade)+'"><span class="tf-setup-trade-icon">'+tfTradeIcon(trade,24)+'</span><span>'+esc(trade)+'</span><span class="tf-setup-selected-check" aria-hidden="true">✓</span></button>').join('')+'</div><input type="hidden" name="primaryTrade" value="'+esc(selection)+'" required><label class="tf-setup-other" id="tfSetupOther" '+(selection==='Other'?'':'hidden')+'>Describe your trade<input id="tfSetupOtherName" name="customTrade" type="text" maxlength="50" placeholder="e.g. Pool servicing" value=""></label></fieldset><div class="tf-setup-details"><label>Business name <span>Optional</span><input name="company" type="text" maxlength="70" value="'+esc(prefs.company==='TradeFlow Lite'?'':prefs.company)+'" placeholder="Your company name"></label><label>Service city / region <span>Optional</span><input name="serviceArea" type="text" maxlength="120" value="'+esc(prefs.serviceArea||'')+'" placeholder="e.g. Austin, Texas"></label><small>You can add your precise business address later in Settings to set the Map home location.</small></div>'+(existing?'<p class="tf-setup-legacy"><strong>Your existing records are safe.</strong> This setup will not delete or overwrite customers, jobs, finances, or opportunities.</p>':'')+'<button class="tf-setup-submit" type="submit">Open my headquarters <span aria-hidden="true">→</span></button><p class="tf-setup-footnote">Offline-first · Business information is stored on this device. Back up under Settings.</p></form></section></main>';
 }
 
 function view(d){if(tab==='expenses')return tfFinanceView(d);if(tab==='map')return mapView(d);if(tab==='dashboard'){
