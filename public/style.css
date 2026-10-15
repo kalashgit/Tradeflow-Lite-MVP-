@@ -658,3 +658,32 @@ button:disabled{opacity:.45;filter:none;transform:none;cursor:not-allowed}
 .tf-map-stage{width:43px;height:43px;border:2px solid var(--stage-color);border-radius:12px;background:#0b2737;box-shadow:0 0 0 2px rgba(1,12,22,.65),0 2px 12px rgba(0,0,0,.24);cursor:pointer}
 .tf-map-stage:active,.tf-op3-open:active .tf-op3-status{background:#1a4654;transform:scale(.96)}
 .tf-map-stage:focus-visible,.tf-op3-open:focus-visible{outline:2px solid #b6f7ff;outline-offset:3px}
+
+/* Unified TradeFlow action language: cyan primary controls and tactile feedback. */
+:root{--tf-action-cyan:#10cfe1;--tf-action-cyan-hover:#39e3f0;--tf-action-ink:#041b29}
+.content button.btn,.content .btn[data-action],.content button[type="submit"],.tf-op-v3 .tf-op-import .toolbar [data-action="importOpportunities"]{
+ background:var(--tf-action-cyan)!important;
+ border:1px solid #50e6ef!important;
+ color:var(--tf-action-ink)!important;
+ box-shadow:0 0 0 1px rgba(18,212,231,.10),0 0 14px rgba(12,208,229,.16)!important;
+ font-weight:700;
+ min-height:44px;
+ transition:background-color .13s ease,box-shadow .13s ease,transform .12s ease,filter .13s ease;
+ -webkit-tap-highlight-color:transparent;
+}
+.content button.btn:hover,.content .btn[data-action]:hover,.content button[type="submit"]:hover{
+ background:var(--tf-action-cyan-hover)!important;
+ box-shadow:0 0 20px rgba(16,214,233,.34)!important;
+}
+.content button.btn:active,.content .btn[data-action]:active,.content button[type="submit"]:active,
+.tf-op-v3 .tf-op-import .toolbar [data-action="importOpportunities"]:active{
+ background:#65eff7!important;
+ box-shadow:inset 0 2px 7px rgba(0,49,65,.20),0 0 23px rgba(19,225,244,.58)!important;
+ transform:translateY(1px) scale(.975);
+ filter:brightness(1.06);
+}
+.content button:focus-visible,.content [role="button"]:focus-visible{
+ outline:2px solid #a7f5ff;
+ outline-offset:3px;
+}
+@media(prefers-reduced-motion:reduce){.content button.btn,.content .btn[data-action],.content button[type="submit"]{transition:none}}
