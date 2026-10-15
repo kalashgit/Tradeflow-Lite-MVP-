@@ -10,6 +10,34 @@ const tfMoreIcons={"customers":"<svg viewBox=\"0 0 24 24\" width=\"23\" height=\
 /* Cash-based finance center. Existing expense records are retained in expenses;
    income uses its own IndexedDB store so quotes never count as received cash. */
 const tfExpenseCategories=['Materials','Tools & Equipment','Subcontractors','Fuel','Vehicle','Software & Subscriptions','Marketing','Office','Insurance','Other'];
+
+const tfFinanceCategoryArtwork={
+ 'Materials':['orange','<path d="m5 19 9-9M12 5l7 7M14 3l7 7M3 14l7 7"/>'],
+ 'Tools & Equipment':['blue','<path d="M21 7a6 6 0 0 1-8 5.66l-8 8a2 2 0 0 1-2.83-2.83l8-8A6 6 0 0 1 17 3l-4 4 4 4z"/>'],
+ 'Subcontractors':['amber','<circle cx="9" cy="8" r="3"/><path d="M2 20v-2.5a6 6 0 0 1 12 0V20H2zM17 5.5a3 3 0 0 1 0 5.7M17 14a5 5 0 0 1 5 5v1h-5"/>'],
+ 'Fuel':['coral','<rect x="3" y="4" width="11" height="17" rx="2"/><path d="M6 8h5M14 9l3 3v5a2 2 0 0 0 4 0V8l-3-3M5 21h11"/>'],
+ 'Vehicle':['purple','<path d="m5 16 1.7-7a2 2 0 0 1 2-1.5h6.6a2 2 0 0 1 2 1.5l1.7 7M4 16h16v4H4zM7 20v2M17 20v2M7 16h.01M17 16h.01"/>'],
+ 'Software & Subscriptions':['violet','<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>'],
+ 'Marketing':['teal','<path d="M3 10v4h4l11 5V5L7 10H3zM7 14l2 7h3M18 9a4 4 0 0 1 0 6"/>'],
+ 'Office':['aqua','<path d="M4 21V6l8-3 8 3v15M9 21v-5h6v5M8 9h1M15 9h1M8 12h1M15 12h1M3 21h18"/>'],
+ 'Insurance':['sky','<path d="M12 2 4 5v6c0 5.5 3.5 9 8 11 4.5-2 8-5.5 8-11V5zM9 12l2 2 4-4"/>'],
+ 'Other':['neutral','<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>']
+};
+const tfFinanceChevron='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>';
+const tfFinanceBackIcon='<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+function tfFinanceCategoryIcon(category){
+ const [tone,art]=tfFinanceCategoryArtwork[category]||tfFinanceCategoryArtwork.Other;
+ return '<span class="tf-cash-cat-icon tf-cash-tone-'+tone+'"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+art+'</svg></span>';
+}
+function tfFinanceScrollStart(){
+ requestAnimationFrame(()=>{
+  window.scrollTo({top:0,left:0,behavior:'instant'});
+  const main=document.querySelector('.main'),content=document.querySelector('.content');
+  if(main)main.scrollTop=0;
+  if(content)content.scrollTop=0;
+ });
+}
+
 const tfPaymentMethods=['Bank transfer','Cash','Card','Cheque','Other'];
 let tfFinanceScreen='overview',tfFinancePeriod='month',tfFinanceFilter='all',tfFinanceSearch='',tfFinanceEdit=null,tfFinanceDraft=null;
 const tfCashRows=d=>[
@@ -48,22 +76,26 @@ function tfFinanceMonthlyList(records){
 }
 function tfFinanceRow(r){
  const income=r.kind==='income',name=r.title||r.source||r.vendor||r.category||(income?'Payment received':'Expense');
- return '<button type="button" class="tf-cash-row" data-action="tfFinanceEdit" data-id="'+esc(r.id)+'" data-kind="'+r.kind+'"><span class="tf-cash-direction '+(income?'in':'out')+'">'+(income?'↗':'↘')+'</span><span class="tf-cash-rowbody"><strong>'+esc(name)+'</strong><small>'+esc(income?(r.source||'Income'):(r.vendor||r.category||'Expense'))+'</small></span><span class="tf-cash-right '+(income?'positive':'negative')+'"><strong>'+(income?'+':'−')+euro(r.amount)+'</strong><small>'+esc(r.date||'')+'</small></span></button>';
+ return '<button type="button" class="tf-cash-row" data-action="tfFinanceEdit" data-id="'+esc(r.id)+'" data-kind="'+r.kind+'"><span class="tf-cash-direction '+(income?'in':'out')+'">'+(income?'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19 19 5M9 5h10v10"/></svg>':'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5 19 19M19 9v10H9"/></svg>')+'</span><span class="tf-cash-rowbody"><strong>'+esc(name)+'</strong><small>'+esc(income?(r.source||'Income'):(r.vendor||r.category||'Expense'))+'</small></span><span class="tf-cash-right '+(income?'positive':'negative')+'"><strong>'+(income?'+':'−')+euro(r.amount)+'</strong><small>'+esc(r.date||'')+'</small></span></button>';
 }
 function tfFinanceView(d){
  const rows=tfCashRows(d),periodRows=rows.filter(x=>tfFinanceInRange(x.date,tfFinancePeriod)),sum=tfFinanceTotals(periodRows);
  const options=[['overview','Overview'],['income','Income'],['expenses','Expenses'],['reports','Reports']];
  const head='<header class="tf-cash-head"><h1>Finance</h1><p>Track income, expenses and cash flow.</p></header>';
  if(tfFinanceScreen==='category'){
-  return '<section class="tf-cash"><header class="tf-cash-formhead"><button type="button" data-action="tfFinanceBack">‹</button><h2>Select category</h2></header><div class="tf-cash-categories">'+tfExpenseCategories.map((c,i)=>'<button type="button" data-action="tfFinanceCategory" data-category="'+esc(c)+'"><span class="tf-cash-cat-icon">'+['⚒','⚙','♟','▣','▰','▤','◉','⌂','◇','•••'][i]+'</span><span>'+esc(c)+'</span><span class="tf-cash-chevron">'+((tfFinanceDraft&&tfFinanceDraft.category===c)?'✓':'›')+'</span></button>').join('')+'</div></section>';
+  const selected=(tfFinanceDraft&&tfFinanceDraft.category)||(tfFinanceEdit&&tfFinanceEdit.category)||'Materials';
+  return '<section class="tf-cash tf-cash-category-screen"><header class="tf-cash-formhead tf-cash-category-header"><button type="button" data-action="tfFinanceBack" aria-label="Back to expense">'+tfFinanceBackIcon+'</button><h2>Select category</h2></header><div class="tf-cash-categories" role="group" aria-label="Expense category">'+tfExpenseCategories.map(c=>{
+   const active=selected===c;
+   return '<button type="button" class="tf-cash-cat-row'+(active?' is-selected':'')+'" data-action="tfFinanceCategory" data-category="'+esc(c)+'" aria-pressed="'+active+'">'+tfFinanceCategoryIcon(c)+'<span class="tf-cash-cat-name">'+esc(c)+'</span><span class="tf-cash-chevron">'+(active?'<span class="tf-cash-selected-check" aria-label="Selected">✓</span>':tfFinanceChevron)+'</span></button>';
+  }).join('')+'</div></section>';
  }
  if(tfFinanceScreen==='add-income'||tfFinanceScreen==='add-expense'){
   const income=tfFinanceScreen==='add-income',edit=tfFinanceEdit||{},record=tfFinanceDraft||edit,select=(name,items,value)=>'<select class="tf-cash-input" name="'+name+'">'+items.map(x=>'<option value="'+esc(x[0])+'" '+(value===x[0]?'selected':'')+'>'+esc(x[1])+'</option>').join('')+'</select>';
   const customerOptions=[['','No customer'],...d.customers.map(x=>[x.id,x.name||'Customer'])];
   const relatedOptions=[['','No linked record'],...(income?d.opportunities:d.jobs).map(x=>[x.id,x.project_name||x.title||'Job'])];
-  return '<section class="tf-cash"><header class="tf-cash-formhead"><button type="button" data-action="tfFinanceBack" aria-label="Back to Finance">‹</button><h2>'+(tfFinanceEdit?'Edit ':'Add ')+(income?'income':'expense')+'</h2></header><form id="tfFinanceForm" class="tf-cash-form"><label>Amount (€)<input class="tf-cash-input tf-cash-amount" type="number" name="amount" inputmode="decimal" min=".01" step=".01" required placeholder="0.00" value="'+esc(record.amount||'')+'"></label><label>Date<input class="tf-cash-input" name="date" type="date" required value="'+esc(record.date||today())+'"></label>'+
+  return '<section class="tf-cash"><header class="tf-cash-formhead"><button type="button" data-action="tfFinanceBack" aria-label="Back to Finance">'+tfFinanceBackIcon+'</button><h2>'+(tfFinanceEdit?'Edit ':'Add ')+(income?'income':'expense')+'</h2></header><form id="tfFinanceForm" class="tf-cash-form"><label>Amount (€)<input class="tf-cash-input tf-cash-amount" type="number" name="amount" inputmode="decimal" min=".01" step=".01" required placeholder="0.00" value="'+esc(record.amount||'')+'"></label><label class="tf-cash-date-field">Date<span class="tf-cash-date-shell"><input class="tf-cash-input tf-cash-date-input" name="date" type="date" required value="'+esc(record.date||today())+'"></span></label>'+
   (income?'<label>Source / Customer<input class="tf-cash-input" name="source" maxlength="120" placeholder="Payment received from..." value="'+esc(record.source||'')+'"></label><label>Existing customer (optional)'+select('customerId',customerOptions,record.customerId||'')+'</label><label>Related opportunity (optional)'+select('relatedId',relatedOptions,record.relatedId||'')+'</label>':
-  '<label>Category<button type="button" class="tf-cash-category-btn" data-action="tfFinanceChooseCategory">'+esc(record.category||'Materials')+' <span>›</span></button><input type="hidden" name="category" value="'+esc(record.category||'Materials')+'"></label><label>Vendor / Supplier<input class="tf-cash-input" name="vendor" maxlength="120" placeholder="Who did you pay?" value="'+esc(record.vendor||'')+'"></label><label>Related job (optional)'+select('relatedId',relatedOptions,record.relatedId||'')+'</label>')+
+  '<label>Category<button type="button" class="tf-cash-category-btn" data-action="tfFinanceChooseCategory">'+tfFinanceCategoryIcon(record.category||'Materials')+'<span class="tf-cash-category-name">'+esc(record.category||'Materials')+'</span><span class="tf-cash-category-arrow">'+tfFinanceChevron+'</span></button><input type="hidden" name="category" value="'+esc(record.category||'Materials')+'"></label><label>Vendor / Supplier<input class="tf-cash-input" name="vendor" maxlength="120" placeholder="Who did you pay?" value="'+esc(record.vendor||'')+'"></label><label>Related job (optional)'+select('relatedId',relatedOptions,record.relatedId||'')+'</label>')+
  '<label>Payment method'+select('method',tfPaymentMethods.map(x=>[x,x]),record.method||'Bank transfer')+'</label><label>Notes (optional)<textarea class="tf-cash-input" name="notes" rows="3" maxlength="1500" placeholder="Add notes...">'+esc(record.notes||'')+'</textarea></label><button type="submit" class="tf-cash-primary">Save '+(income?'income':'expense')+'</button>'+(tfFinanceEdit?'<button type="button" class="tf-cash-delete" data-action="tfFinanceDelete">Delete transaction</button>':'')+'</form></section>';
  }
  const nav='<nav class="tf-cash-tabs" aria-label="Finance sections">'+options.map(([key,name])=>'<button type="button" class="'+(tfFinanceScreen===key?'active':'')+'" data-action="tfFinanceTab" data-screen="'+key+'">'+name+'</button>').join('')+'</nav>';
@@ -72,7 +104,7 @@ function tfFinanceView(d){
  const filterRows=periodRows.filter(x=>(tfFinanceScreen==='income'?x.kind==='income':tfFinanceScreen==='expenses'?x.kind==='expense':true)&&[x.title,x.source,x.vendor,x.category,x.notes,x.date].join(' ').toLowerCase().includes(tfFinanceSearch.toLowerCase()));
  const history='<section class="tf-cash-history"><div class="tf-cash-sectionhead"><h2>Transactions</h2><button type="button" data-action="tfFinanceTab" data-screen="transactions">View all ›</button></div>'+filterRows.slice(0,tfFinanceScreen==='overview'?5:200).map(tfFinanceRow).join('')+(filterRows.length?'':'<p class="tf-cash-empty">No transactions recorded for this period.</p>')+'</section>';
  const actions='<div class="tf-cash-actions"><button type="button" class="tf-cash-primary" data-action="tfFinanceNew" data-kind="income">+ New income</button><button type="button" class="tf-cash-outline" data-action="tfFinanceNew" data-kind="expense">+ New expense</button></div>';
- if(tfFinanceScreen==='transactions')return '<section class="tf-cash"><header class="tf-cash-formhead"><button type="button" data-action="tfFinanceBack" aria-label="Back to Finance">‹</button><h2>Transactions</h2></header><div class="tf-cash-filtertabs">'+[['all','All'],['income','Income'],['expense','Expenses']].map(([v,l])=>'<button type="button" class="'+(tfFinanceFilter===v?'active':'')+'" data-action="tfFinanceFilter" data-kind="'+v+'">'+l+'</button>').join('')+'</div><input id="tfFinanceSearch" class="tf-cash-input" placeholder="Search transactions..." value="'+esc(tfFinanceSearch)+'"><div class="tf-cash-history">'+tfFinanceMonthlyList(rows.filter(x=>(tfFinanceFilter==='all'||x.kind===tfFinanceFilter)&&[x.title,x.source,x.vendor,x.category,x.notes].join(' ').toLowerCase().includes(tfFinanceSearch.toLowerCase())))+'</div></section>';
+ if(tfFinanceScreen==='transactions')return '<section class="tf-cash"><header class="tf-cash-formhead"><button type="button" data-action="tfFinanceBack" aria-label="Back to Finance">'+tfFinanceBackIcon+'</button><h2>Transactions</h2></header><div class="tf-cash-filtertabs">'+[['all','All'],['income','Income'],['expense','Expenses']].map(([v,l])=>'<button type="button" class="'+(tfFinanceFilter===v?'active':'')+'" data-action="tfFinanceFilter" data-kind="'+v+'">'+l+'</button>').join('')+'</div><input id="tfFinanceSearch" class="tf-cash-input" placeholder="Search transactions..." value="'+esc(tfFinanceSearch)+'"><div class="tf-cash-history">'+tfFinanceMonthlyList(rows.filter(x=>(tfFinanceFilter==='all'||x.kind===tfFinanceFilter)&&[x.title,x.source,x.vendor,x.category,x.notes].join(' ').toLowerCase().includes(tfFinanceSearch.toLowerCase())))+'</div></section>';
  if(tfFinanceScreen==='reports')return '<section class="tf-cash">'+head+nav+summary+'<section class="tf-cash-chart"><h2>Cash flow</h2>'+tfFinanceChart(periodRows)+'</section><p class="tf-cash-disclaimer">Cash-basis tracking: recorded payments minus recorded expenses. Not a tax return or accrual-profit report.</p>'+actions+'</section>';
  return '<section class="tf-cash">'+head+nav+summary+(tfFinanceScreen==='overview'?'<section class="tf-cash-chart"><div class="tf-cash-sectionhead"><h2>Cash flow</h2><small>Last 14 days</small></div>'+tfFinanceChart(rows)+'</section>':'')+history+actions+'</section>';
 }
@@ -115,18 +147,18 @@ async function exportData(){const data={format:'tradeflow-lite',version:5,export
 async function restore(file){let data;try{data=JSON.parse(await file.text());if(data.format!=='tradeflow-lite'||![1,2,3,4,5].includes(data.version)||!data.stores||!STORES.every(s=>Array.isArray(data.stores[s]||((data.version<4||s==='pins'||(s==='payments'&&data.version<5))?[]:null))&&(data.stores[s]||[]).every(x=>x&&typeof x.id==='string')))throw Error('Invalid backup');if(!confirm('Replace ALL existing local records with this backup? This cannot be undone.'))return;const t=db.transaction(STORES,'readwrite');for(const s of STORES){const st=t.objectStore(s);st.clear();for(const item of (data.stores[s]||[]))st.put(item)}await new Promise((resolve,reject)=>{t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error)});notify('Backup restored')}catch(e){alert(`Restore failed: ${e.message}`)}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab],[data-action],[data-edit],[data-delete],[data-convert]');if(!el)return;if(tab==='expenses'&&el.dataset.action&&el.dataset.action.startsWith('tfFinance')){
  const action=el.dataset.action;
- if(action==='tfFinanceTab'){tfFinanceScreen=el.dataset.screen;tfFinanceSearch='';render();return}
+ if(action==='tfFinanceTab'){tfFinanceScreen=el.dataset.screen;tfFinanceSearch='';await render();tfFinanceScrollStart();return}
  if(action==='tfFinanceFilter'){tfFinanceFilter=el.dataset.kind;render();return}
- if(action==='tfFinanceNew'){tfFinanceEdit=null;tfFinanceDraft=null;tfFinanceScreen=el.dataset.kind==='income'?'add-income':'add-expense';render();return}
- if(action==='tfFinanceBack'){if(tfFinanceScreen==='category'){tfFinanceScreen='add-expense'}else{tfFinanceScreen='overview';tfFinanceEdit=null;tfFinanceDraft=null}render();return}
- if(action==='tfFinanceChooseCategory'){tfFinanceDraft=tfFinanceCapture()||{};tfFinanceScreen='category';render();return}
- if(action==='tfFinanceCategory'){tfFinanceDraft={...(tfFinanceDraft||{}),category:el.dataset.category};tfFinanceScreen='add-expense';render();return}
+ if(action==='tfFinanceNew'){tfFinanceEdit=null;tfFinanceDraft=null;tfFinanceScreen=el.dataset.kind==='income'?'add-income':'add-expense';await render();tfFinanceScrollStart();return}
+ if(action==='tfFinanceBack'){if(tfFinanceScreen==='category'){tfFinanceScreen='add-expense'}else{tfFinanceScreen='overview';tfFinanceEdit=null;tfFinanceDraft=null}await render();tfFinanceScrollStart();return}
+ if(action==='tfFinanceChooseCategory'){tfFinanceDraft=tfFinanceCapture()||{};tfFinanceScreen='category';await render();tfFinanceScrollStart();return}
+ if(action==='tfFinanceCategory'){tfFinanceDraft={...(tfFinanceDraft||{}),category:el.dataset.category};tfFinanceScreen='add-expense';await render();tfFinanceScrollStart();return}
  if(action==='tfFinanceEdit'){
   const store=el.dataset.kind==='income'?'payments':'expenses';
   const record=await get(store,el.dataset.id);
   if(!record)return;
   tfFinanceEdit=record;tfFinanceDraft=null;
-  tfFinanceScreen=el.dataset.kind==='income'?'add-income':'add-expense';render();return
+  tfFinanceScreen=el.dataset.kind==='income'?'add-income':'add-expense';await render();tfFinanceScrollStart();return
  }
  if(action==='tfFinanceDelete'){
   if(!tfFinanceEdit||!confirm('Delete this transaction permanently?'))return;
