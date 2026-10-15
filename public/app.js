@@ -285,7 +285,7 @@ function tfUniversalImportView(data){
   return '<div class="tf-import-sample '+item.status+'"><span class="tf-import-status">'+(item.status==='valid'?'Ready':item.status==='duplicate'?'Duplicate':'Review')+'</span><span><strong>'+esc(title)+'</strong><small>'+esc(item.message||('Spreadsheet row '+item.index))+'</small></span></div>';
  }).join('');
  const stats='<div class="tf-import-stats"><span><strong>'+preview.valid+'</strong> ready</span><span><strong>'+preview.duplicate+'</strong> duplicates</span><span><strong>'+preview.invalid+'</strong> need review</span></div>';
- return '<div class="tf-import-overlay"><section class="tf-import-panel" role="dialog" aria-modal="true" aria-label="Review '+esc(schema.label)+' import">'+nav+fileArea+'<p class="tf-import-hint">Match your spreadsheet columns, then review what will be saved. Existing records are never overwritten. Dates accept YYYY-MM-DD or U.S. MM/DD/YYYY.</p><div class="tf-import-fields">'+fields+'</div>'+stats+'<h3>Preview</h3><div class="tf-import-samples">'+sample+'</div><div class="tf-import-foot"><button type="button" data-action="tfImportClose">Cancel</button><button type="button" class="tf-import-confirm" data-action="tfImportSave" '+(!preview.valid||tfImportSaving?'disabled':'')+'>Import '+preview.valid+' records</button></div><p class="tf-import-hint">Unmatched customers, invalid fields and duplicates are skipped. Review any rejected rows in your source file.</p></section></div>';
+ return '<div class="tf-import-overlay"><section class="tf-import-panel" role="dialog" aria-modal="true" aria-label="Review '+esc(schema.label)+' import">'+nav+fileArea+'<p class="tf-import-hint">Match your spreadsheet columns, then review what will be saved. Existing records are never overwritten. Dates accept YYYY-MM-DD or U.S. MM/DD/YYYY.</p><div class="tf-import-fields">'+fields+'</div>'+stats+'<div class="tf-import-reviewbar"><h3>Preview</h3><button type="button" data-action="tfImportReport" '+(preview.invalid+preview.duplicate===0?'disabled':'')+'>Download skipped-row report</button></div><div class="tf-import-samples">'+sample+'</div><div class="tf-import-foot"><button type="button" data-action="tfImportClose">Cancel</button><button type="button" class="tf-import-confirm" data-action="tfImportSave" '+(!preview.valid||tfImportSaving?'disabled':'')+'>Import '+preview.valid+' records</button></div><p class="tf-import-hint">Unmatched customers, invalid fields and duplicates are skipped. Review any rejected rows in your source file.</p></section></div>';
 }
 async function tfImportSave(data){
  if(tfImportSaving||!tfImportDraft?.rows)return;
@@ -380,6 +380,16 @@ async function restore(file){let data;try{data=JSON.parse(await file.text());if(
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab],[data-action],[data-edit],[data-delete],[data-convert]');if(!el)return;
  if(el.dataset.action==='tfImportStart'){const target=el.dataset.target;if(!tfImportDefs[target])return;tfImportDraft={target,filename:'',headers:null,rows:null,mapping:{}};await render();return}
  if(el.dataset.action==='tfImportClose'){tfImportDraft=null;await render();return}
+ if(el.dataset.action==='tfImportReport'){
+  if(!tfImportDraft?.rows)return;
+  const target=tfImportDraft.target,data={customers:await all('customers'),[target]:await all(target)};
+  const review=tfImportPreview(data),skipped=review.items.filter(x=>x.status!=='valid');
+  if(!skipped.length)return;
+  const csv=['source_row,status,reason',...skipped.map(x=>[x.index,x.status,x.message].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','))].join('\n');
+  downloadFile('tradeflow-import-review-'+target+'-'+today()+'.csv',csv,'text/csv;charset=utf-8');
+  return;
+ }
+
  if(el.dataset.action==='tfImportSave'){const target=tfImportDraft?.target;if(!target)return;await tfImportSave({customers:await all('customers'),[target]:await all(target)});return}
  if(tab==='expenses'&&el.dataset.action&&el.dataset.action.startsWith('tfFinance')){
  const action=el.dataset.action;
