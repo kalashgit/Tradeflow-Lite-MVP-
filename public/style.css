@@ -1170,3 +1170,97 @@ body:has(.tf-ai-screen) .content{padding:20px 16px 125px!important;overflow-x:cl
  .tf-photo-actions{gap:7px}
  .tf-photo-ai-lock{gap:6px}
 }
+
+/* TradeFlow interaction physics v1: restrained, information-preserving motion. */
+:root{
+ --tf-motion-touch:90ms;
+ --tf-motion-fast:160ms;
+ --tf-motion-view:245ms;
+ --tf-motion-sheet:280ms;
+ --tf-motion-ease:cubic-bezier(.2,.7,.15,1);
+}
+button,a[href],label[for]{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+:where(button,a[href],label[for]):focus-visible{
+ outline:2px solid var(--tf-accent,#10cfe1)!important;
+ outline-offset:3px!important;
+}
+@media(prefers-reduced-motion:no-preference){
+ /* Only actions can get a touch treatment; no infinite glow or moving dashboard. */
+ button:not(:disabled),a[href],label[for]{
+  transition-property:transform,filter,background-color,border-color,box-shadow,color;
+  transition-duration:var(--tf-motion-fast);
+  transition-timing-function:var(--tf-motion-ease);
+ }
+ :where(button:not(:disabled),a[href],label[for]).tf-touch-pressed{
+  transform:scale(.975)!important;
+  filter:brightness(1.12)!important;
+  transition-duration:var(--tf-motion-touch)!important;
+ }
+ :where(.tf-record-card-quick,.tf-record-card-chevron,.tf-record-card-main,.mobilebar button,.nav).tf-touch-pressed{
+  transform:scale(.95)!important;
+ }
+ .content.tf-motion-tab > :first-child{
+  animation:tf-motion-tab-in var(--tf-motion-view) var(--tf-motion-ease) both;
+ }
+ .content.tf-motion-forward > :first-child{
+  animation:tf-motion-forward var(--tf-motion-view) var(--tf-motion-ease) both;
+ }
+ .content.tf-motion-back > :first-child{
+  animation:tf-motion-back var(--tf-motion-view) var(--tf-motion-ease) both;
+ }
+ @keyframes tf-motion-tab-in{
+  from{opacity:.52;transform:translate3d(0,7px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+ }
+ @keyframes tf-motion-forward{
+  from{opacity:.38;transform:translate3d(12px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+ }
+ @keyframes tf-motion-back{
+  from{opacity:.4;transform:translate3d(-12px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+ }
+ .tf-photo-overlay,.tf-import-overlay,.dialog.tf-record-dialog{
+  animation:tf-motion-overlay-in var(--tf-motion-fast) ease-out both;
+ }
+ .tf-photo-panel,.tf-import-panel,.dialog.tf-record-dialog .tf-record-modal{
+  animation:tf-motion-dialog-in var(--tf-motion-sheet) var(--tf-motion-ease) both;
+ }
+ @keyframes tf-motion-overlay-in{
+  from{opacity:0}to{opacity:1}
+ }
+ @keyframes tf-motion-dialog-in{
+  from{opacity:.55;transform:translate3d(0,13px,0) scale(.988)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+ }
+ .mobilebar button .navicon svg,
+ .tf-record-card-icon svg,
+ .tf-record-card-main,
+ .tf-record-card,
+ .tf-ai-questions button{
+  transition:transform var(--tf-motion-fast) var(--tf-motion-ease),color var(--tf-motion-fast) ease,border-color var(--tf-motion-fast) ease,background-color var(--tf-motion-fast) ease;
+ }
+ .tf-record-card:focus-within{
+  border-color:color-mix(in srgb,var(--tf-accent) 72%,#285169)!important;
+ }
+ .tf-record-card:active .tf-record-card-icon svg{
+  transform:scale(.93);
+ }
+ .tf-ai-questions button:active{
+  transform:scale(.975);
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ .tf-touch-pressed{transform:none!important;filter:none!important}
+ .content.tf-motion-tab > :first-child,
+ .content.tf-motion-forward > :first-child,
+ .content.tf-motion-back > :first-child,
+ .tf-photo-overlay,.tf-import-overlay,
+ .dialog.tf-record-dialog,.tf-photo-panel,.tf-import-panel,
+ .dialog.tf-record-dialog .tf-record-modal{
+  animation:none!important;
+ }
+ .tf-record-card,.tf-record-card-icon svg,.mobilebar button .navicon svg{
+  transition:none!important;
+ }
+}
