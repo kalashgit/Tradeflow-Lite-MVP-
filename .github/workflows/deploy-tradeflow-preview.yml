@@ -39,7 +39,7 @@ jobs:
           node-version: "22"
 
       - name: Verify app behavior without network calls
-        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node --check src/index.js
+        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node tests/routes.test.cjs && node --check public/routes.js && node --check src/index.js
 
       - name: Verify preview-only Wrangler configuration
         shell: bash
@@ -74,7 +74,7 @@ jobs:
             try{
              response=await fetch(root+'/api/ai/health?probe='+Date.now()+'-'+i,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
              health=await response.json().catch(()=>({}));
-             if(response.status===200&&health.version==='v0.9.4')break;
+             if(response.status===200&&health.version==='v0.9.5')break;
              console.log('Waiting for deployed Worker version: HTTP',response.status,'version:',health.version||'unknown');
             }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
             await new Promise(resolve=>setTimeout(resolve,4500));
@@ -82,7 +82,7 @@ jobs:
            assert.ok(response,'Live AI endpoint did not respond');
            assert.equal(response.status,200,'AI health endpoint status');
            assert.equal(health.online,true,'AI health endpoint must respond as JSON');
-           assert.equal(health.version,'v0.9.4','Wait for new AI version instead of accepting stale deployment');
+           assert.equal(health.version,'v0.9.5','Wait for new AI version instead of accepting stale deployment');
            assert.equal(health.aiBound,true,'Workers AI binding must be attached');
            console.log('Live Worker health:',JSON.stringify(health));
            response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
@@ -132,6 +132,16 @@ jobs:
            const mkHome=await fetch(root+'/?marketing='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
            const mkHtml=await mkHome.text();
            assert.ok(mkHtml.includes('./marketing.js')&&mkHtml.includes('./marketing.css'),'Homepage must include the Marketing module');
+           const routeAsset=await fetch(root+'/routes.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const routeJs=await routeAsset.text();
+           assert.equal(routeAsset.status,200,'Route module must be reachable');
+           assert.ok(routeJs.includes('TradeFlow Routing & Integrations R05'),'Correct R05 route module must be deployed');
+           const routeCss=await fetch(root+'/routes.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(routeCss.status,200,'Route styles must be reachable');
+           const routeHome=await fetch(root+'/?route='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const routeHtml=await routeHome.text();
+           assert.ok(routeHtml.includes('./routes.js')&&routeHtml.includes('./routes.css'),'Homepage must include R05 assets');
+           console.log('PASS: Route planning and integration status R05 assets deployed');
            console.log('PASS: Marketing R04 offline draft and task workflow assets deployed');
            console.log('PASS: Revenue Release 03 draft, manual-payment and job-cost UI deployed');
            console.log('PASS: Release 02 Field Forms asset deployed');

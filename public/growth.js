@@ -164,7 +164,8 @@ var sections=[
   ['jobs','Jobs','Available','Manage scheduled work and progress'],
   ['tasks','Tasks','Available','Track action items and due dates'],
   ['calendar','Calendar & appointments','Available','Day, week, month views and scheduled visits'],
-  ['','Smart route optimization','Planned','Sequence addresses, driving times and crew constraints'],
+  ['routes','Route Planner','Available','Local geolocated stop ordering; no road ETA'],
+  ['','Drive-time route optimization','Planned','Road distance, traffic and crew constraints'],
   ['','Job forms and files','Planned','Assessment checklists, signatures and attachments']]},
  {name:'Sales & Finance',rows:[
   ['customers','Customers','Available','Maintain customer and contact details'],
@@ -176,6 +177,7 @@ var sections=[
  {name:'Intelligence & Integrations',rows:[
   ['missions','Business Missions','Available','Turn guidance into trackable Tasks'],
   ['ai','TradeFlow AI','Preview','Current question-and-answer assistant'],
+  ['integrations','Integration Status','Available','Review provider readiness and unmet requirements'],
   ['','Automations and QuickBooks','Planned','Authorized workflows, sync and audit logs'],
   ['','Crew dispatch and client portal','Planned','Secure access for workers and customers']]},
 ];
