@@ -22,6 +22,8 @@ assert.ok(script.includes("button('download'")&&script.includes("button('crm'"),
 assert.ok(script.includes('onImported'),'Photo import can initiate limited map lookup');
 assert.ok(script.includes('No')||script.includes('pending source verification'));
 assert.ok(app.includes('tf-op5-topbar')&&app.includes('data-op-ux="import"')&&app.includes('data-op-ux="export"'));
+assert.ok(!app.includes('<h2>Opportunities</h2>'),'Do not duplicate the TradeFlow brand header with an Opportunities title');
+assert.ok(css.includes('justify-content:flex-start'),'Import and Export align without a blank title area');
 assert.ok(!app.includes('TradeFlowOpportunityUX?.mapPreview(data)'),'Mini-map preview must not appear on Opportunities page');
 const viewStart=app.indexOf('function opportunityView(d)'),viewEnd=app.indexOf('window.TradeFlowJobForms?.configure',viewStart);
 const view=app.slice(viewStart,viewEnd);

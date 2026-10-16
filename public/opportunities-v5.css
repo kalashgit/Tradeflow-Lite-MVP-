@@ -1,7 +1,6 @@
 /* TradeFlow Opportunities R05 — reference-aligned page and compact draggable sheets */
 .tf-op-v3.tf-op5{max-width:730px;padding-top:10px}
-.tf-op5 .tf-op5-topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
-.tf-op5 .tf-op5-topbar h2{font-weight:760;font-size:clamp(23px,4.7vw,30px);line-height:1.2;margin:0;letter-spacing:-.035em;color:#f4fdff}
+.tf-op5 .tf-op5-topbar{display:flex;align-items:center;justify-content:flex-start;gap:10px;margin-bottom:14px}
 .tf-op5 .tf-op5-top-actions{display:flex;align-items:center;gap:7px}
 .tf-op5-action{min-height:40px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;border:1px solid #36758b;background:#0e293a;color:#e6f7fc;font-size:12px;font-weight:730;white-space:nowrap}
 .tf-op5-action.primary{border-color:var(--tf-accent);background:var(--tf-accent);color:#05232e}
