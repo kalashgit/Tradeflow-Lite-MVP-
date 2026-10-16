@@ -14,6 +14,8 @@ assert.match(g.renderPage('growth',d,{primaryTrade:'Electrical',serviceArea:'Aus
 assert.match(g.renderPage('missions',d,{}),/Suggested next actions/);
 assert.match(g.renderPage('capabilities',d,{}),/Invoice drafts/);
 assert.match(g.moreQuickLinks(d),/data-tab="growth"/);
+for(const name of ['Automation','Optimization','Communication','Data Intelligence'])assert.ok(g.moreQuickLinks(d).includes(name));
+assert.equal((g.moreQuickLinks(d).match(/<details class="tf-growth-category"/g)||[]).length,4);
 assert.match(g.homePanel(d),/data-tab="missions"/);
 assert.match(g.contactPanel({id:'x',project_name:'<img src=x>'},d),/No valid phone saved/);
 assert.ok(!g.contactPanel({id:'x',contact_email:'bad<script>'},d).includes('href="mailto:bad'),'unsafe email must not become link');

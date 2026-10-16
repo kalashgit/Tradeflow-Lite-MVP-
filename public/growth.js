@@ -21,15 +21,15 @@ function link(tab,title,desc,icon){
  return '<button type="button" class="tf-growth-route" data-tab="'+e(tab)+'"><span class="tf-growth-route-icon">'+ico(icon)+'</span><span class="tf-growth-route-text"><strong>'+e(title)+'</strong><small>'+e(desc)+'</small></span><span class="tf-growth-chevron">›</span></button>';
 }
 function moreQuickLinks(d){
- var s=settings(d),active=s.icps.find(function(x){return x.id===s.activeIcpId});
- var openMissions=(d.tasks||[]).filter(function(t){return t.missionOrigin==='growth'&&t.status!=='Done'}).length;
- return '<section class="tf-growth-more-shortcuts" aria-label="Growth intelligence tools">'+
-  '<span class="tf-growth-kicker">YOUR BUSINESS / GROWTH</span>'+
-  link('growth','Target Customers & Buyer Personas',active?'Active: '+active.name:'Create editable targeting profiles','target')+
-  link('research','Research Briefs','Define evidence-first lead research requests without running searches','target')+
-  link('missions','Business Missions',openMissions?openMissions+' active missions in Tasks':'Suggested goals linked to your Tasks','mission')+
-  link('capabilities','Explore Capabilities','All tools, including planned integrations','library')+
-  '</section>';
+ // Compact entry points only: all existing modules remain accessible.
+ var groups=[
+  ['Automation','mission',[['missions','Business Missions','mission'],['research','Research Briefs','target'],['integrations','Integrations','library'],['routes','Route Planner','calendar']]],
+  ['Optimization','target',[['growth','Target Customers & Buyer Personas','target'],['marketing','Marketing Studio','spark'],['profitability','Job Costing','target']]],
+  ['Communication','people',[['customers','Customers','people'],['marketing','Marketing Studio','mail'],['ai','TradeFlow AI','spark']]],
+  ['Data Intelligence','library',[['research','Research Briefs','book'],['growth','Target Customers & Buyer Personas','target'],['capabilities','Explore Capabilities','library']]]
+ ];
+ return '<section class="tf-growth-more-shortcuts tf-growth-four" aria-label="Business growth categories"><span class="tf-growth-kicker">BUSINESS GROWTH</span>'+
+ groups.map(function(group){return '<details class="tf-growth-category"><summary><span class="tf-growth-category-icon">'+ico(group[1])+'</span><strong>'+e(group[0])+'</strong><span class="tf-growth-category-arrow" aria-hidden="true">›</span></summary><div class="tf-growth-category-links">'+group[2].map(function(route){return '<button type="button" data-tab="'+e(route[0])+'"><span>'+ico(route[2])+'</span>'+e(route[1])+'<span aria-hidden="true">›</span></button>'}).join('')+'</div></details>'}).join('')+'</section>';
 }
 function homePanel(d){
  var s=settings(d),active=s.icps.find(function(x){return x.id===s.activeIcpId});
