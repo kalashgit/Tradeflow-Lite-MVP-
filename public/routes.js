@@ -76,7 +76,7 @@ function routePage(d,prefs){
  '<div class="tf-route-card tf-route-day"><label>Date<input type="date" id="tfRouteDate" value="'+esc(selectedDate)+'"></label>'+
  '<div><strong>'+chosen.length+' selected stop'+(chosen.length===1?'':'s')+'</strong><small>'+distance.toFixed(1)+' km straight-line connection estimate</small></div></div>'+
  '<div class="tf-route-statrow"><div><small>AVAILABLE LOCATIONS</small><strong>'+available.length+'</strong></div><div><small>SELECTED</small><strong>'+chosen.length+'</strong></div><div><small>JOBS MISSING COORDINATES</small><strong>'+unlocated+'</strong></div></div>'+
- '<div class="tf-route-title"><h2>Today's stop order</h2><button class="tf-route-primary" type="button" data-route-action="optimize" '+(chosen.length<2?'disabled':'')+'>Suggest order</button></div>'+
+ '<div class="tf-route-title"><h2>Today’s stop order</h2><button class="tf-route-primary" type="button" data-route-action="optimize" '+(chosen.length<2?'disabled':'')+'>Suggest order</button></div>'+
  (position.length?'<div class="tf-route-card">'+position.map((x,i)=>'<div class="tf-route-ordered"><span class="tf-route-number">'+(i+1)+'</span><div><strong>'+esc(x.name)+'</strong><small>'+esc(x.group)+' · '+esc(x.detail)+'</small></div><button type="button" data-route-action="focus" data-key="'+esc(x.key)+'">Map ↗</button></div>').join('')+
  '<div class="tf-route-actions"><button type="button" class="tf-route-secondary" data-route-action="clear">Clear selected</button>'+
  (routeUrl?'<a class="tf-route-secondary" href="'+esc(routeUrl)+'" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a>':'')+'</div></div>':
