@@ -45,7 +45,7 @@ const mkClick=(action,more={})=>({preventDefault(){},target:{closest:()=>({datas
  assert.deepEqual(Array.from(stores.routePlans[0].jobIds),['j1','j2']);
  const url=ops._test.routeUrl(stores,plan);
  assert.ok(url.startsWith('https://www.google.com/maps/dir/'));
- assert.ok(decodeURIComponent(url).includes('101 Main St'));
+ assert.ok(new URL(url).searchParams.get('origin').includes('101 Main St'));
  assert.ok(!url.includes('apiKey')&&!url.includes('optimized'));
  await click(mkClick('stop-up',{id:'j2'}));
  assert.deepEqual(Array.from(stores.routePlans[0].jobIds),['j2','j1']);
