@@ -63,7 +63,7 @@ assert.equal(vm.runInContext('opportunityBulkMatch',ctx)({display_name:'1001 Mai
  assert.equal(progress.located,65);
  assert.equal(progress.ineligible,1);
  assert.equal(progress.running,false);
- assert.equal(Object.keys(settings['tf-opportunity-geocode-cache-v1'].results).length,65);
+ assert.equal(Object.keys(settings['tf-opportunity-geocode-cache-v2'].results).length,65);
  // Re-entering View on Map with old saved addresses uses the persistent cache.
  for(const record of opportunities.slice(8,11)){
   record.latitude=null;record.longitude=null;record.map_enabled=false;record.map_location_status='';
