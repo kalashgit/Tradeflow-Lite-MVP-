@@ -39,7 +39,7 @@ jobs:
           node-version: "22"
 
       - name: Verify app behavior without network calls
-        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/liquid-glass-lab.test.cjs && node --check public/liquid-glass-lab.js && node --check src/index.js
+        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node --check src/index.js
 
       - name: Verify preview-only Wrangler configuration
         shell: bash
@@ -74,7 +74,7 @@ jobs:
             try{
              response=await fetch(root+'/api/ai/health?probe='+Date.now()+'-'+i,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
              health=await response.json().catch(()=>({}));
-             if(response.status===200&&health.version==='v0.8.0')break;
+             if(response.status===200&&health.version==='v0.8.1')break;
              console.log('Waiting for deployed Worker version: HTTP',response.status,'version:',health.version||'unknown');
             }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
             await new Promise(resolve=>setTimeout(resolve,4500));
@@ -82,32 +82,26 @@ jobs:
            assert.ok(response,'Live AI endpoint did not respond');
            assert.equal(response.status,200,'AI health endpoint status');
            assert.equal(health.online,true,'AI health endpoint must respond as JSON');
-           assert.equal(health.version,'v0.8.0','Wait for new AI version instead of accepting stale deployment');
+           assert.equal(health.version,'v0.8.1','Wait for new AI version instead of accepting stale deployment');
            assert.equal(health.aiBound,true,'Workers AI binding must be attached');
            console.log('Live Worker health:',JSON.stringify(health));
            response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
            const body=await response.json();
            assert.ok([401,503].includes(response.status),'Verification must reject incorrect access code or indicate missing server secret');
            console.log('Live verification endpoint:',response.status,body.error);
-           let glassLive=false;
+           let originalUiLive=false;
            for(let i=0;i<12;i++){
             const salt='verify='+Date.now()+'-'+i;
-            const glassAsset=await fetch(root+'/liquid-glass-lab.js?'+salt,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
-            const glassJS=await glassAsset.text();
             const home=await fetch(root+'/?'+salt,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
             const html=await home.text();
-            const css=await fetch(root+'/liquid-glass-lab.css?'+salt,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
-            const cssText=await css.text();
-            glassLive=glassAsset.status===200&&glassJS.includes('TradeFlow Liquid Glass Lab V0.8')&&
-             home.status===200&&html.includes('liquid-glass-lab.js')&&html.includes('liquid-glass-lab.css')&&
-             css.status===200&&cssText.includes('TradeFlow Glass Lab V0.8');
-            if(glassLive)break;
-            console.log('Waiting for full Liquid Glass asset propagation:',i+1,glassAsset.status,home.status,css.status,
-             'js=',glassJS.includes('TradeFlow Liquid Glass Lab V0.8'),'html=',html.includes('liquid-glass-lab.js'),'css=',cssText.includes('TradeFlow Glass Lab V0.8'));
+            originalUiLive=home.status===200&&html.includes('./app.js')&&html.includes('./ai-preview.css')&&
+             !html.includes('liquid-glass-lab.js')&&!html.includes('liquid-glass-lab.css');
+            if(originalUiLive)break;
+            console.log('Waiting for original TradeFlow UI to propagate:',i+1,'HTTP',home.status);
             await new Promise(resolve=>setTimeout(resolve,4300));
            }
-           assert.ok(glassLive,'New TradeFlow HTML, CSS, and JS must all be live');
-           console.log('PASS: Opt-in Liquid Glass assets are live; production unchanged');
+           assert.ok(originalUiLive,'Updated TradeFlow HTML must load without the removed Liquid Glass prototype');
+           console.log('PASS: Original TradeFlow UI restored; prototype assets not loaded');
            console.log('PASS: Real deployed AI endpoint is reachable over GET and POST');
           })().catch(error=>{console.error(error);process.exitCode=1});
           NODE
