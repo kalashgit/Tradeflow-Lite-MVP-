@@ -21,13 +21,17 @@ Design: Preserve TradeFlow's unique phone-first, dark high-contrast interface, n
 - Planned/actual manual direct job costs and linked Finance expenses; cash contribution marked incomplete, not final profit
 - Current Finance denomination is EUR. Do not sell this as US-ready invoicing until per-customer currency, sales tax, provider, registration and statutory invoice requirements are addressed
 
-## Release 04 — Marketing and Acquisition (next)
-- Customer-approved marketing copy, SEO content suggestions, review request drafts and audience profiles
+## Release 04 — Marketing Studio (local foundation on preview)
+- Implemented: editable campaign drafts linked to ICP/personas, local SEO and review request templates, manually copyable draft content, and campaign preparation Tasks
+- Planned: sophisticated SEO/ads management, analytics, customer-approved sending and account-scoped audiences
 - Future paid lead research/enrichment/QA based on ICP and personas. Runs need identity, server quotas, source evidence, rejection logs, usage metering, deduplication and safe outreach
 - No automated sending, paid ads, crawling, personalized targeting or charging yet
 
-## Release 05 — Integration and Dispatch (next)
-- Account identity / tenant isolation, permissions, encrypted storage and audit logs before team access
+## Release 05 — Route Planner and Integration Readiness (local foundation on preview)
+- Implemented: select saved geolocated Jobs, Tasks, Opportunities or Pins, store date-specific stop lists, suggest a nearest-neighbor order by straight-line distance, inspect locations on the existing map and open external Google Maps directions
+- Implemented: an integration-status directory that accurately lists providers as not connected and does not collect credentials
+- Not yet: road-distance optimization, travel times, crew GPS/location sharing, multiuser permissions, or real third-party synchronization
+- Account identity / tenant isolation, permissions, encrypted storage and audit logs are prerequisites before team access
 - Idempotent integration APIs, error queues and conflict handling for QuickBooks, payment systems, messaging, ads and routes
 - Private customer hub, optional GPS/location-sharing with consent, crew planning and route scheduling after vendor/provider contracts
 
