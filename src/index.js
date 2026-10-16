@@ -6,7 +6,7 @@ export default {
   const url=new URL(request.url);
   if(url.pathname==='/api/ai/health'){
    if(request.method!=='GET')return reply({error:'GET required'},405);
-   return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.9.23'});
+   return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.9.24'});
   }
   if(url.pathname==='/api/ai/verify'){
    if(request.method!=='POST')return reply({error:'POST required'},405);
