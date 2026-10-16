@@ -15,7 +15,7 @@
  function formSupplier(rec){
   return '<section class="tf-supplier-edit"><h2>'+(rec?.id?'Edit supplier':'Add supplier')+'</h2><form id="tfSupplierForm" data-id="'+value(rec,'id')+'">'+
    '<label>Supplier business name *<input required maxlength="140" name="name" value="'+value(rec,'name')+'" placeholder="Supplier name"></label>'+
-   '<label>Business / dispatch address<input maxlength="300" name="address" value="'+value(rec,'address')+'" placeholder="Street, city, region, country"></label>'+
+   '<label>Business / dispatch address<input maxlength="300" name="address" value="'+value(rec,'address')+'" placeholder="Street address or full Google Maps link"></label>'+
    '<div class="tf-supplier-grid"><label>Latitude<input name="latitude" type="number" step="any" min="-90" max="90" value="'+value(rec,'latitude')+'" placeholder="Optional"></label>'+
    '<label>Longitude<input name="longitude" type="number" step="any" min="-180" max="180" value="'+value(rec,'longitude')+'" placeholder="Optional"></label></div>'+
    '<details><summary>Contact and notes</summary><label>Public business phone<input maxlength="80" name="phone" value="'+value(rec,'phone')+'"></label>'+
@@ -23,7 +23,7 @@
    '<label>Official website<input type="url" maxlength="400" name="website" value="'+value(rec,'website')+'"></label>'+
    '<label>Notes<textarea name="notes" maxlength="1200" rows="2">'+value(rec,'notes')+'</textarea></label></details>'+
    '<div class="tf-supplier-actions"><button type="submit" class="primary">Save supplier</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
-   '<p class="tf-supplier-disclaimer">Map markers require verified coordinates. You can also select a location on the Map and link it to a saved supplier.</p></section>';
+   '<p class="tf-supplier-disclaimer">TradeFlow locates saved addresses when possible. For exact locations, use a full Google Maps place link or select a point on Map. Shortened Google Maps links may not contain coordinates.</p></section>';
  }
  function formOrder(rec,data){
   const suppliers=data.suppliers||[];if(!suppliers.length)return '<p>Add a supplier before creating a supply order.</p>';
@@ -92,7 +92,7 @@
     if(result.lastError&&result.located===0)repairStatus=result.lastError;
    }catch(err){repairStatus='Lookup unavailable: '+String(err.message||err).slice(0,110)}
    finally{repairBusy=false}
-   if(action==='viewNetwork'){await bridge.navigate('map');return}
+   if(action==='viewNetwork'){await bridge.navigate('map',{network:true});return}
    await bridge.render();return;
   }
   await bridge.render();

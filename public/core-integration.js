@@ -33,9 +33,16 @@
    const name=brief(body.name,140),existing=body.id?get('suppliers',body.id):null;
    if(!name)throw Error('Supplier name is required');
    if(body.id&&!existing)throw Error('Supplier record no longer exists');
-   const address=brief(body.address,300),point=position(body);
-   if((nonempty(body.latitude)||nonempty(body.longitude))&&!point)throw Error('Enter both valid latitude and longitude coordinates');
-   return {resultId:existing?.id||id,writes:[{store:'suppliers',record:{...existing,id:existing?.id||id,name,address,website:brief(body.website,400),phone:brief(body.phone,80),email:brief(body.email,180).toLowerCase(),notes:brief(body.notes,1200),...point?{latitude:point.lat,longitude:point.lon}:{latitude:null,longitude:null},updatedAt:when}}]};
+   const address=brief(body.address,300),enteredPoint=position(body),priorPoint=position(existing);
+   if((nonempty(body.latitude)||nonempty(body.longitude))&&!enteredPoint)throw Error('Enter both valid latitude and longitude coordinates');
+   // Coordinates are pre-filled on edit. Never reuse stale ones after an address change.
+   const changedAddress=!!existing&&brief(existing.address,300)!==address;
+   const unchangedPoint=priorPoint&&enteredPoint&&priorPoint.lat===enteredPoint.lat&&priorPoint.lon===enteredPoint.lon;
+   const point=changedAddress&&unchangedPoint?null:enteredPoint;
+   const moved=changedAddress||!!(priorPoint&&point&&(priorPoint.lat!==point.lat||priorPoint.lon!==point.lon));
+   return {resultId:existing?.id||id,writes:[{store:'suppliers',record:{...existing,id:existing?.id||id,name,address,website:brief(body.website,400),phone:brief(body.phone,80),email:brief(body.email,180).toLowerCase(),notes:brief(body.notes,1200),...point?{latitude:point.lat,longitude:point.lon}:{latitude:null,longitude:null},
+     mapLocationStatus:point?(moved?'needs_review':existing?.mapLocationStatus||'needs_review'):(address?'unmapped':'no_address'),
+     mapAddressResult:moved?'':existing?.mapAddressResult||'',updatedAt:when}}]};
   }
   if(kind==='supplyOrder.save'){
    const supplierId=brief(body.supplierId,100),supplier=get('suppliers',supplierId);
@@ -53,15 +60,19 @@
     destinationKind==='custom'?brief(body.destinationAddress,300):
     brief(destinationRef?.address||'',300);
    if(!destinationAddress)throw Error('A delivery address is required before saving an order');
-   const point=destinationKind==='custom'?position(body):null;
-   if(destinationKind==='custom'&&(nonempty(body.latitude)||nonempty(body.longitude))&&!point)throw Error('Delivery coordinates must be a valid pair');
+   const enteredPoint=destinationKind==='custom'?position(body):null;
+   if(destinationKind==='custom'&&(nonempty(body.latitude)||nonempty(body.longitude))&&!enteredPoint)throw Error('Delivery coordinates must be a valid pair');
+   const priorPoint=position(existing);
+   const changedDelivery=!!existing&&(existing.destinationKind!==destinationKind||brief(existing.destinationAddress,300)!==destinationAddress);
+   const samePoint=priorPoint&&enteredPoint&&priorPoint.lat===enteredPoint.lat&&priorPoint.lon===enteredPoint.lon;
+   const point=changedDelivery&&samePoint?null:enteredPoint;
    const status=brief(body.status,24)||'Planned';
    if(!['Planned','Ordered','In transit','Delivered','Cancelled'].includes(status))throw Error('Invalid supply order status');
    const plannedDate=brief(body.plannedDate,10);
    if(!validDate(plannedDate))throw Error('Invalid supply delivery date');
    const description=brief(body.description,240);
    if(!description)throw Error('Describe the materials or equipment');
-   return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,opportunityId,description,status,destinationKind,destinationId,destinationAddress,latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,notes:brief(body.notes,900),updatedAt:when}}]};
+   return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,opportunityId,description,status,destinationKind,destinationId,destinationAddress,latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,mapLocationStatus:point?'needs_review':destinationKind==='custom'?'unmapped':'linked_destination',notes:brief(body.notes,900),updatedAt:when}}]};
   }
   if(kind==='quotation.convert'){
    const quote=get('quotes',body.quoteId);
