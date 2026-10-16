@@ -6,6 +6,8 @@
 'use strict';
 let api=null,mode='list',currentId='',filter='';
 const PREFIX='tf-research-brief:';
+// Exact Opportunity import CSV schema, checked in tests.
+const OPPORTUNITY_COLUMNS=['record_id','source_record_id','project_name','trade','opportunity_type','project_description','city','region','latitude','longitude','source_url','source_date','discovered_at','verified_at','evidence_status','status','organization_name','contact_url','evidence_notes','contact_person','contact_phone','contact_email','contact_source_url','icp_profile_id'];
 const e=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean=(v,n=500)=>String(v==null?'':v).trim().slice(0,n);
 const iso=()=>new Date().toISOString();
@@ -90,6 +92,7 @@ function form(data){
  '<p class="tf-rb-disclosure">The currently selected ICP and persona are captured as a snapshot when saved. New edits to the original profiles do not silently rewrite an existing research assignment.</p>'+
  '</form></section>';
 }
+function csvTemplate(){return OPPORTUNITY_COLUMNS.join(',')+'\r\n'}
 function spec(row){
  const snapshot=row.snapshot||{},icp=snapshot.icp||null,persona=snapshot.persona||null;
  return {
@@ -104,8 +107,7 @@ function spec(row){
    project_signal:'Documented activity without confirmed work available to bid.',
    business_prospect:'Relevant organization; no evidence of current project demand.'
   },
-  requiredColumns:['record_id','project_name','trade','opportunity_type','project_description','city','region',
-   'source_url','source_date','verified_at','evidence_status','organization_name','contact_url','contact_person','contact_phone','contact_email','contact_source_url','icp_profile_id'],
+  requiredColumns:OPPORTUNITY_COLUMNS,
   publishedRecordRequirements:[
    'Use HTTPS original source URLs and real dates, not guessed metadata.',
    'Keep source evidence attached; record date checked and demand classification separately.',
@@ -134,6 +136,7 @@ function detail(data){
  '<span>Exclusions</span><strong>'+e(row.exclusions||'Not specified')+'</strong>'+
  '</div>'+
  '<div class="tf-rb-actions"><button class="tf-rb-primary" type="button" data-research-action="export" data-id="'+e(row.id)+'">Export JSON brief</button>'+
+ '<button class="tf-rb-secondary" type="button" data-research-action="template" data-id="'+e(row.id)+'">Download blank CSV template</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="copy" data-id="'+e(row.id)+'">Copy instructions</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="task" data-id="'+e(row.id)+'">Create review Task</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="edit" data-id="'+e(row.id)+'">Edit</button>'+
@@ -168,8 +171,8 @@ async function onSubmit(event){
   currentId=row.id;mode='detail';api.notify('Research brief saved — no search executed');
  }catch(err){alert('Could not save brief: '+err.message)}
 }
-function download(filename,data){
- const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob);
+function download(filename,data,mime='application/json'){
+ const blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
@@ -189,6 +192,10 @@ async function onClick(event){
   if(action==='delete'){
    if(!confirm('Delete this saved research brief? No opportunity records will be changed.'))return;
    await api.del('settings',id);currentId='';mode='list';api.notify('Research brief deleted');return;
+  }
+  if(action==='template'){
+   download('tradeflow-opportunities-template-'+row.id.slice(PREFIX.length)+'.csv',csvTemplate(),'text/csv;charset=utf-8');
+   api.notify('Blank CSV template downloaded. No leads were generated.');return;
   }
   if(action==='copy'||action==='export'){
    const json=JSON.stringify(spec(row),null,2);
@@ -218,5 +225,5 @@ function configure(bridge){
  document.addEventListener('submit',onSubmit);
  document.addEventListener('change',onChange);
 }
-global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice}};
+global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice,csvTemplate,opportunityColumns:OPPORTUNITY_COLUMNS}};
 })(typeof window!=='undefined'?window:globalThis);

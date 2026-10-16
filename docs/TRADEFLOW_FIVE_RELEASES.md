@@ -23,7 +23,7 @@ Design: Preserve TradeFlow's unique phone-first, dark high-contrast interface, n
 
 ## Release 04 — Marketing Studio (local foundation on preview)
 - Implemented: editable campaign drafts linked to ICP/personas, local SEO and review request templates, manually copyable draft content, and campaign preparation Tasks
-- Implemented: offline research brief editor with saved ICP/persona snapshot, strict evidence classifications, human QC requirements, downloadable JSON instructions and linked review Tasks. No actual searches or enrichment runs.
+- Implemented: offline research brief editor with saved ICP/persona snapshot, strict evidence classifications, human QC requirements, downloadable JSON instructions, an exact-schema blank CSV import template, and linked review Tasks. No actual searches or enrichment runs.
 - Planned: sophisticated SEO/ads management, analytics, customer-approved sending and account-scoped audiences
 - Future paid lead research/enrichment/QA based on ICP and personas. Runs need identity, server quotas, source evidence, rejection logs, usage metering, deduplication and safe outreach
 - No automated sending, paid ads, crawling, personalized targeting or charging yet
