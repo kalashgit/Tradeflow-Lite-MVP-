@@ -168,14 +168,14 @@ function exportCsv(d){
  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 async function reviewTasks(){
- const jobs=await api.all('jobs'),tasks=await api.all('tasks');let added=0;
+ const jobs=await api.all('jobs'),existing=new Set((await api.all('tasks')).filter(t=>t.reviewJobId).map(t=>t.reviewJobId));let added=0;
  for(const job of jobs.filter(j=>j.status==='Completed')){
-  if(tasks.some(t=>t.reviewJobId===job.id))continue;
+  if(existing.has(job.id))continue;
   const name=(await api.get('customers',job.customerId))?.name||'customer';
   const rec={id:api.uid(),title:'Review follow-up: '+trim(job.title||'Completed job',90),description:
     'Check whether '+trim(name,80)+' may appropriately receive a neutral, optional Google review request. Verify their preferences and use a genuine review link. Do not offer incentives, filter negative reviews or send automatically.',
     due:today(),status:'Open',reviewJobId:job.id,createdAt:new Date().toISOString()};
-  await api.put('tasks',rec);tasks.push(rec);added++;
+  await api.put('tasks',rec);existing.add(job.id);added++;
  }
  api.notify(added+' local review follow-up Task'+(added===1?'':'s')+' created');
 }
