@@ -1094,7 +1094,7 @@ document.addEventListener('change',async e=>{
 document.addEventListener('change',e=>{if(e.target.id==='restoreFile'&&e.target.files[0])restore(e.target.files[0]);if(e.target.id==='opportunityFile'&&e.target.files[0])importOpportunities(e.target.files[0]).catch(err=>alert(err.message))});
 
 let opSearch='';
-const opFields=['record_id','source_record_id','project_name','trade','opportunity_type','project_description','city','region','latitude','longitude','source_url','source_date','discovered_at','verified_at','evidence_status','status','organization_name','contact_url','evidence_notes','contact_person','contact_phone','contact_email','contact_source_url','icp_profile_id'];
+const opFields=['record_id','source_record_id','project_name','trade','opportunity_type','project_description','city','region','latitude','longitude','source_url','source_date','discovered_at','verified_at','evidence_status','status','organization_name','contact_url','evidence_notes','contact_person','contact_phone','contact_email','contact_source_url','icp_profile_id','address','postal_code','country','map_location_status','map_error','map_address_result'];
 function parseCSV(text){const delimiter=arguments[1]||',';if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=false;else field+=c}else if(c==='"')quoted=true;else if(c===delimiter){row.push(field);field=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field);if(row.some(v=>v.trim()))rows.push(row);row=[];field=''}else field+=c}if(quoted)throw Error('Unclosed CSV quotation mark');if(field||row.length){row.push(field);rows.push(row)}return rows}
 function csvCell(v){const t=String(v??'');return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t}
 function downloadFile(filename,content,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
@@ -1149,7 +1149,7 @@ function convertE06Audit(rows){
  return converted;
 }
 async function importOpportunities(file){if(file.size>5*1024*1024)throw Error('File exceeds 5 MB');const rows=parseCSV(await file.text(),/\.tsv$/i.test(file.name)?'\t':',');if(rows.length<2)throw Error('CSV must contain a header and at least one record');if(rows.length>5001)throw Error('Import a maximum of 5,000 records at a time');let auditExcluded=0;if(rows[0].map(v=>v.trim().toLowerCase()).includes('qc_decision')){const converted=convertE06Audit(rows);auditExcluded=converted.qcExcluded;rows.splice(0,rows.length,...converted)}const headers=rows.shift().map(v=>v.trim().toLowerCase());for(const f of ['record_id','project_name','opportunity_type','source_url'])if(!headers.includes(f))throw Error('Missing required column: '+f);const allowedTypes=['project_signal','potential_opportunity','verified_request','business_prospect'];const existing=await all('opportunities'),ids=new Set(existing.map(x=>x.id)),sources=new Set(existing.filter(x=>x.source_record_id).map(x=>x.source_url+'|'+x.source_record_id));let added=0,duplicates=0,rejected=auditExcluded;const staged=[];const validUrl=u=>{try{const v=new URL(u);return ['https:','http:'].includes(v.protocol)}catch{return false}};
-for(const cells of rows){if(cells.length!==headers.length){rejected++;continue}const raw=Object.fromEntries(headers.map((h,i)=>[h,(cells[i]||'').trim()]));const id=raw.record_id,lat=raw.latitude?Number(raw.latitude):null,lon=raw.longitude?Number(raw.longitude):null;if(!id||id.length>150||!raw.project_name||!['verified','source_supported','unresolved'].includes(raw.evidence_status)||!allowedTypes.includes(raw.opportunity_type)||!validUrl(raw.source_url)||!raw.source_url.startsWith('https://')||!raw.source_date||!raw.verified_at||(raw.latitude&&(!Number.isFinite(lat)||Math.abs(lat)>90))||(raw.longitude&&(!Number.isFinite(lon)||Math.abs(lon)>180))||(raw.latitude&&!raw.longitude)||(!raw.latitude&&raw.longitude)){rejected++;continue}const sourceKey=raw.source_url+'|'+raw.source_record_id;if(ids.has(id)||(raw.source_record_id&&sources.has(sourceKey))){duplicates++;continue}ids.add(id);if(raw.source_record_id)sources.add(sourceKey);staged.push({...Object.fromEntries(opFields.map(f=>[f,raw[f]||''])),id,latitude:lat,longitude:lon,trade:raw.trade||'Electrical',evidence_status:raw.evidence_status||'unreviewed',status:'New',imported_at:new Date().toISOString()})}
+for(const cells of rows){if(cells.length!==headers.length){rejected++;continue}const raw=Object.fromEntries(headers.map((h,i)=>[h,(cells[i]||'').trim()]));const id=raw.record_id,lat=raw.latitude?Number(raw.latitude):null,lon=raw.longitude?Number(raw.longitude):null;if(!id||id.length>150||!raw.project_name||!['verified','source_supported','unresolved'].includes(raw.evidence_status)||!allowedTypes.includes(raw.opportunity_type)||!validUrl(raw.source_url)||!raw.source_url.startsWith('https://')||!raw.source_date||!raw.verified_at||(raw.latitude&&(!Number.isFinite(lat)||Math.abs(lat)>90))||(raw.longitude&&(!Number.isFinite(lon)||Math.abs(lon)>180))||(raw.latitude&&!raw.longitude)||(!raw.latitude&&raw.longitude)){rejected++;continue}const sourceKey=raw.source_url+'|'+raw.source_record_id;if(ids.has(id)||(raw.source_record_id&&sources.has(sourceKey))){duplicates++;continue}ids.add(id);if(raw.source_record_id)sources.add(sourceKey);staged.push({...Object.fromEntries(opFields.map(f=>[f,raw[f]||''])),id,address:raw.address||raw.street_address||raw.site_address||raw.project_address||raw.full_address||raw.street||raw.location||'',postal_code:raw.postal_code||raw.zip||raw.zip_code||raw.postcode||'',country:raw.country||raw.country_code||'US',latitude:lat,longitude:lon,trade:raw.trade||'Electrical',evidence_status:raw.evidence_status||'unreviewed',status:'New',imported_at:new Date().toISOString()})}
 if(!staged.length){alert('No eligible new records. Duplicates: '+duplicates+'; invalid: '+rejected);return}
 opportunityImportDraft={records:staged,duplicates,rejected,selected:new Set(staged.map(x=>x.id)),mapLocations:true};opportunityImportTab='all';await render();return}
 let opportunityImportDraft=null,opportunityImportTab='all';
@@ -1233,17 +1233,39 @@ function opportunityLocationPlausible(hit,r){
    https://operations.osmfoundation.org/policies/nominatim/ */
 let opportunityMappingRunning=false;
 let opportunityMappingProgress=null;
-const opportunityGeoCacheId='tf-opportunity-geocode-cache-v1';
+const opportunityGeoCacheId='tf-opportunity-geocode-cache-v2';
 function opportunityBulkMatch(hit,record){
- // A city/ZIP hit alone is not a verified building or project address.
- const {street,city,region,zip}=opportunityLocationParts(record),found=String(hit?.display_name||'').toLowerCase();
- const site=street.split(',')[0].trim(),number=(site.match(/^(\d+[A-Za-z]?)\s+/)||[])[1];
- if(!number||!found)return false;
- const words=site.replace(/^\d+[A-Za-z]?\s+/,'').toLowerCase().split(/[^a-z0-9]+/)
-  .filter(w=>w.length>3&&!/^(road|street|avenue|drive|boulevard|lane|court|suite|north|south|east|west)$/.test(w));
- const hasNumber=new RegExp('(?:^|[^0-9a-z])'+number.toLowerCase()+'(?=$|[^0-9a-z])').test(found);
- const locationOk=zip?found.includes(zip.slice(0,5)):city?found.includes(city.toLowerCase()):region?found.includes(region.toLowerCase()):false;
- return hasNumber&&words.length>0&&words.some(w=>found.includes(w))&&locationOk;
+ const parsed=window.TradeFlowEngine?.normalizeAddress(record);
+ const fallback=opportunityLocationParts(record);
+ const source=parsed?.parsed?parsed:{
+  streetNumber:(fallback.street.match(/^(\d+[A-Za-z]?)\s+/)||[])[1]||'',
+  streetName:fallback.street.split(',')[0].replace(/^\d+[A-Za-z]?\s+/,'').trim(),
+  city:fallback.city,region:fallback.region,postalCode:fallback.zip};
+ const details=hit?.address||{},display=String(hit?.display_name||'').toLowerCase();
+ const number=String(details.house_number||details.houseNumber||'').trim();
+ const road=String(details.road||details.pedestrian||details.residential||details.street||details.footway||'').trim();
+ const city=String(details.city||details.town||details.village||details.municipality||details.suburb||'').trim();
+ const region=String(details.state_code||details.state||'').trim();
+ const postcode=String(details.postcode||'').trim();
+ const normalize=t=>String(t||'').toLowerCase().normalize('NFKC').replace(/\b(street|st)\b/g,'st').replace(/\b(road|rd)\b/g,'rd').replace(/\b(avenue|ave)\b/g,'ave').replace(/\b(boulevard|blvd)\b/g,'blvd').replace(/\b(drive|dr)\b/g,'dr').replace(/\b(lane|ln)\b/g,'ln').replace(/\b(court|ct)\b/g,'ct').replace(/[^a-z0-9]+/g,' ').trim();
+ const sourceNumber=normalize(source.streetNumber);
+ if(!sourceNumber||!display)return false;
+ const matchesNumber=number?normalize(number)===sourceNumber:
+  new RegExp('(?:^|[^0-9a-z])'+sourceNumber+'(?=$|[^0-9a-z])').test(display);
+ if(!matchesNumber)return false;
+ const expectedStreet=normalize(source.streetName),returnedStreet=normalize(road||display);
+ const coreTokens=expectedStreet.split(' ').filter(w=>w.length>=2&&!['st','rd','ave','blvd','dr','ln','ct','way','n','s','e','w'].includes(w));
+ if(!coreTokens.length||!coreTokens.every(w=>returnedStreet.split(' ').includes(w)))return false;
+ if(source.postalCode&&postcode&&String(source.postalCode).slice(0,5)!==postcode.slice(0,5))return false;
+ const expectedState=window.TradeFlowEngine?.stateCode(source.region)||String(source.region||'').toUpperCase();
+ const returnedState=window.TradeFlowEngine?.stateCode(region)||String(region||'').toUpperCase();
+ if(expectedState&&returnedState&&expectedState!==returnedState)return false;
+ const stateOk=!expectedState||returnedState===expectedState||
+  display.includes(String(source.region||'').toLowerCase())||(expectedState==='TX'&&display.includes('texas'));
+ const localityOk=city?normalize(city)===normalize(source.city)||display.includes(String(source.city||'').toLowerCase()):
+  !!source.city&&display.includes(String(source.city).toLowerCase());
+ const postalOk=source.postalCode&&postcode&&postcode.slice(0,5)===String(source.postalCode).slice(0,5);
+ return Boolean((localityOk&&stateOk)||postalOk);
 }
 function opportunityGeocodeCandidate(r){
  if(!r||opportunityMapped(r))return false;
@@ -1329,14 +1351,14 @@ async function locateOpportunityBatch(records,options={}){
     let hit=null;
     const variants=opportunityAddressVariants(record);
     // Prefer street + locality; don't rely on a broad street-name-only result.
-    const prioritized=[...variants.slice(1),...variants.slice(0,1)].slice(0,2);
+    const prioritized=[...variants.slice(1),...variants.slice(0,1)].slice(0,3);
     for(const address of prioritized){
      const key=address.trim().toLowerCase().replace(/\s+/g,' ');
      let matches;
      if(Object.prototype.hasOwnProperty.call(results,key))matches=results[key];
      else{
-      matches=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q='+encodeURIComponent(address));
-      results[key]=(Array.isArray(matches)?matches:[]).slice(0,3).map(x=>({lat:x.lat,lon:x.lon,display_name:String(x.display_name||'').slice(0,350)}));
+      matches=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q='+encodeURIComponent(address));
+      results[key]=(Array.isArray(matches)?matches:[]).slice(0,5).map(x=>({lat:x.lat,lon:x.lon,display_name:String(x.display_name||'').slice(0,350),address:x.address||{}}));
       // Bound cache size on smaller phones and persist it after each successful lookup.
       const keys=Object.keys(results);for(const stale of keys.slice(0,Math.max(0,keys.length-400)))delete results[stale];
       await put('settings',{id:opportunityGeoCacheId,results});
