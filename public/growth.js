@@ -154,7 +154,7 @@ var sections=[
   ['growth','ICP & Buyer Personas','Available','Define and revise your target customer profiles'],
   ['opportunities','Opportunity Records','Available','Import sourced opportunities and review project evidence'],
   ['','Paid lead research & enrichment','Planned','Verified research runs, contact evidence and quotas'],
-  ['','Review and referral workflows','Planned','Permission-aware client feedback requests']]},
+  ['dispatch','Review follow-up Tasks','Available','Create local follow-up tasks for completed jobs; no automatic send']]},
  {name:'Marketing',rows:[
   ['marketing','Marketing Studio','Available','Create ICP-based marketing drafts and review requests without sending'],
   ['','Local SEO & Google Business','Planned','Audit visibility and improve business listings'],
@@ -165,6 +165,7 @@ var sections=[
   ['tasks','Tasks','Available','Track action items and due dates'],
   ['calendar','Calendar & appointments','Available','Day, week, month views and scheduled visits'],
   ['routes','Route Planner','Available','Local geolocated stop ordering; no road ETA'],
+  ['dispatch','Crew & Dispatch','Available','Local crew assignments and manually ordered field visits'],
   ['','Drive-time route optimization','Planned','Road distance, traffic and crew constraints'],
   ['','Job forms and files','Planned','Assessment checklists, signatures and attachments']]},
  {name:'Sales & Finance',rows:[
@@ -179,7 +180,7 @@ var sections=[
   ['ai','TradeFlow AI','Preview','Current question-and-answer assistant'],
   ['integrations','Integration Status','Available','Review provider readiness and unmet requirements'],
   ['','Automations and QuickBooks','Planned','Authorized workflows, sync and audit logs'],
-  ['','Crew dispatch and client portal','Planned','Secure access for workers and customers']]},
+  ['','Live crew dispatch and client portal','Planned','Secure shared access and permissioned location services']]},
 ];
 function capabilityView(){
  return '<div class="tf-growth-page">'+back('settings')+head('Explore Capabilities','Find existing tools and see which modules are being developed next.')+

@@ -1,0 +1,64 @@
+/* TradeFlow Operations R05 — clean utility-first layout within the original Command OS. */
+.tf-ops-page{width:100%;max-width:840px;margin:0 auto 34px;display:flex;flex-direction:column;gap:16px;color:#ebf9fd}
+.tf-ops-page *{box-sizing:border-box}
+.tf-ops-heading{display:flex;flex-direction:column;gap:8px}
+.tf-ops-kicker{font:700 10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.115em;color:var(--tf-accent,#10cfe1)}
+.tf-ops-heading h1{font-size:clamp(25px,5.5vw,34px);margin:0;color:#f4fdff;letter-spacing:-.037em;font-weight:770;line-height:1.13}
+.tf-ops-heading p{font-size:12px;line-height:1.55;color:#a2c3d0;margin:0}
+.tf-ops-back{background:transparent;border:0;color:#b7d7e3;text-align:left;font-size:12px;font-weight:670;padding:7px 2px}
+.tf-ops-nav,.tf-ops-switch{display:flex;gap:7px;border-radius:12px;background:#0b293b;border:1px solid #305369;padding:5px}
+.tf-ops-nav button,.tf-ops-switch button{flex:1;background:transparent;border:1px solid transparent;border-radius:9px;padding:11px 6px;color:#a7c8d5;font-size:12px;font-weight:710;min-height:43px}
+.tf-ops-nav button.active,.tf-ops-switch button.active{background:#194253;border-color:#44778c;color:#e9fbff}
+.tf-ops-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.tf-ops-stats>div{border:1px solid #315568;background:#0d2a3c;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:9px;min-width:0}
+.tf-ops-stats small{font:700 9px ui-monospace,SFMono-Regular,monospace;color:#9bbcc9;letter-spacing:.05em}
+.tf-ops-stats strong{font-size:23px;letter-spacing:-.02em;color:#eaf9fe}
+.tf-ops-rowhead{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.tf-ops-rowhead h2{color:#f0fcff;font-size:16px;font-weight:750;margin:0}
+.tf-ops-primary,.tf-ops-secondary,.tf-ops-danger{display:inline-flex;align-items:center;justify-content:center;min-height:41px;padding:10px 13px;border-radius:9px;text-decoration:none;font-weight:720;font-size:12px;cursor:pointer}
+.tf-ops-primary{color:#052636;border:1px solid var(--tf-accent,#10cfe1);background:var(--tf-accent,#10cfe1)}
+.tf-ops-secondary{color:#d0edf5;border:1px solid #426e81;background:#163b4f}
+.tf-ops-danger{color:#ffc9c5;border:1px solid #79474b;background:#39282d}
+.tf-ops-panel{display:flex;flex-direction:column;gap:13px;background:linear-gradient(155deg,#153446,#0c2838);border:1px solid #335b6d;border-radius:14px;padding:15px}
+.tf-ops-panel h3{font-size:15px;margin:0;color:#f1fbff}
+.tf-ops-panel p{margin:0;font-size:12px;line-height:1.55;color:#a4c5d0}
+.tf-ops-panel label,.tf-ops-job label,.tf-ops-addstop label{display:flex;flex-direction:column;gap:6px;font-weight:670;color:#c4dfeb;font-size:11px;min-width:0}
+.tf-ops-panel input,.tf-ops-panel textarea,.tf-ops-panel select,.tf-ops-job select,.tf-ops-addstop select{font:500 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#092333;border:1px solid #477288;border-radius:9px;color:#e5f9ff;padding:10px 11px;min-height:42px;width:100%;max-width:100%;outline:none}
+.tf-ops-panel textarea{resize:vertical}
+.tf-ops-panel input:focus,.tf-ops-panel select:focus,.tf-ops-panel textarea:focus,.tf-ops-job select:focus{border-color:var(--tf-accent,#10cfe1);box-shadow:0 0 0 2px #10cfe124}
+.tf-ops-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tf-ops-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tf-ops-actions>button:not(.tf-ops-primary):not(.tf-ops-secondary):not(.tf-ops-danger){border:1px solid #416e7c;border-radius:8px;background:#14374b;color:#cceaf3;padding:8px 10px;font-size:11px}
+.tf-ops-note{border-left:2px solid #547e8f;color:#abc8d4!important;padding:8px 10px;background:#102b3b;font-size:11px!important;line-height:1.55}
+.tf-ops-listitem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid #32566b;background:#0d2a3c;border-radius:12px;width:100%;text-align:left;color:#f0fcff}
+.tf-ops-listitem>div:first-child,.tf-ops-route>span:first-child{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.tf-ops-listitem strong{font-size:13px;font-weight:720;line-height:1.4;overflow-wrap:anywhere}
+.tf-ops-listitem small{font-size:11px;color:#9dbecb;line-height:1.4;overflow-wrap:anywhere}
+.tf-ops-empty{background:#0f2939;border:1px dashed #376276;color:#accbd7;border-radius:12px;padding:18px;font-size:12px;line-height:1.5}
+.tf-ops-job{flex-wrap:wrap}
+.tf-ops-job label{min-width:min(170px,100%);max-width:100%;flex:1}
+.tf-ops-job>button{flex:none}
+.tf-ops-route{cursor:pointer}
+.tf-ops-route>span:last-child{font-size:18px;color:#b9dce6}
+.tf-ops-cardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tf-ops-cardhead h3{color:#f2fcff;margin:0 0 5px}
+.tf-ops-pill{display:inline-flex;border-radius:999px;padding:6px 8px;background:#213b49;border:1px solid #446575;color:#b8d6df;font:680 10px ui-monospace,monospace;white-space:nowrap}
+.tf-ops-stoplist{display:flex;flex-direction:column;gap:8px}
+.tf-ops-stop{display:flex;align-items:center;gap:10px;background:#0a2737;border:1px solid #355a6e;border-radius:10px;padding:10px}
+.tf-ops-stopnumber{width:27px;height:27px;flex:none;border:1px solid #57899c;border-radius:8px;display:grid;place-items:center;color:#c7f5fa;font:740 12px ui-monospace,monospace}
+.tf-ops-stoptext{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}
+.tf-ops-stoptext strong{font-size:12px;color:#ecfbff;overflow-wrap:anywhere}
+.tf-ops-stoptext small{color:#94bac9;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.tf-ops-stopcontrols{display:flex;gap:4px}
+.tf-ops-stopcontrols button{width:29px;height:32px;display:grid;place-items:center;border:1px solid #477487;border-radius:8px;background:#153a4c;color:#e1f6ff;font-size:15px}
+.tf-ops-addstop{display:flex;gap:9px;align-items:flex-end}
+.tf-ops-addstop label{flex:1}
+.tf-ops-explain{background:#103143;padding:15px;border-left:2px solid #497c8d;border-radius:3px 12px 12px 3px;display:flex;flex-direction:column;gap:9px}
+.tf-ops-explain strong{font-size:13px;color:#eaf9ff}
+.tf-ops-explain p{font-size:12px;line-height:1.55;color:#a9cbd7;margin:0}
+.tf-ops-integration{align-items:flex-start}
+.tf-ops-integration>div:first-child{gap:8px}
+.tf-ops-integration>div:first-child>small{font:700 9px ui-monospace,monospace;color:#72b6c7;letter-spacing:.08em}
+.tf-ops-integration p{font-size:11px;color:#a4c3ce;line-height:1.55;margin:0}
+.tf-ops-page button:focus-visible,.tf-ops-page a:focus-visible{outline:2px solid #a4f5fc;outline-offset:3px}
+@media(max-width:550px){.tf-ops-panel{padding:12px}.tf-ops-rowhead h2{font-size:14px}.tf-ops-nav button{font-size:11px}.tf-ops-stats{gap:6px}.tf-ops-stats>div{padding:11px 8px}.tf-ops-stats strong{font-size:20px}.tf-ops-primary,.tf-ops-secondary{padding:9px 11px;font-size:11px}.tf-ops-job>div:first-child{flex-basis:100%}.tf-ops-addstop{align-items:stretch;flex-direction:column}.tf-ops-integration{flex-wrap:wrap}}
