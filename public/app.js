@@ -1569,7 +1569,15 @@ function tfHomeChartEnd(e){const plot=e.target.closest('.tf-revenue-plot');if(!p
 document.addEventListener('pointerup',tfHomeChartEnd);
 document.addEventListener('pointercancel',tfHomeChartEnd);
 const tfNavIcons={"dashboard":"<svg viewBox=\"0 0 24 24\" width=\"23\" height=\"23\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m3 10 9-7 9 7v10H3z\"/><path d=\"M9 20v-7h6v7\"/></svg>","map":"<svg viewBox=\"0 0 24 24\" width=\"23\" height=\"23\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z\"/><path d=\"M9 3v15M15 6v15\"/></svg>","opportunities":"<svg viewBox=\"0 0 24 24\" width=\"23\" height=\"23\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1.5\"/><path d=\"m12 12 8-8\"/></svg>","expenses":"<svg viewBox=\"0 0 24 24\" width=\"23\" height=\"23\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 20V12M9 20V6M14 20v-9M19 20V3\"/></svg>","settings":"<svg viewBox=\"0 0 24 24\" width=\"23\" height=\"23\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"6\" r=\"1\"/><circle cx=\"5\" cy=\"12\" r=\"1\"/><circle cx=\"5\" cy=\"18\" r=\"1\"/><path d=\"M10 6h11M10 12h11M10 18h11\"/></svg>"};
-function applyTradeFlowAccent(value){const accent=/^#[0-9a-fA-F]{6}$/.test(value||'')?value:'#10cfe1';const r=parseInt(accent.slice(1,3),16),g=parseInt(accent.slice(3,5),16),b=parseInt(accent.slice(5,7),16);const light=(r*299+g*587+b*114)/1000>150;const root=document.documentElement;root.style.setProperty('--brand-accent',accent);root.style.setProperty('--tf-accent',accent);root.style.setProperty('--tf-action-cyan',accent);root.style.setProperty('--tf-action-cyan-hover',accent);root.style.setProperty('--tf-accent-contrast',light?'#041b29':'#f2fbff');root.style.setProperty('--tf-accent-rgb',r+' '+g+' '+b);}
+function applyTradeFlowAccent(value){
+ // Local-first appearance engine: derive contrast-safe UI tokens for any user accent.
+ const applied=window.TradeFlowAppearance?.apply(value);
+ if(applied)return applied;
+ const root=document.documentElement,accent=/^#[0-9a-fA-F]{6}$/.test(value||'')?value:'#10cfe1';
+ root.style.setProperty('--tf-accent',accent);
+ root.style.setProperty('--tf-accent-contrast','#041b29');
+ return {accent};
+}
 function tfUnifiedHeader(d){
  const wordmark='<span class="tf-home-logo" aria-hidden="true"><svg viewBox="0 0 46 40"><path fill="#f0faff" d="M1 3h43l-5 9H27v25H17V12H6z"/><path fill="var(--tf-accent)" d="M28 15h15v10H28z"/></svg></span><span class="tf-unified-wordmark">TRADEFLOW</span>';
  return '<header class="tf-unified-header" aria-label="TradeFlow app header"><div class="tf-unified-inner"><div class="tf-unified-brand">'+wordmark+'</div>'+
