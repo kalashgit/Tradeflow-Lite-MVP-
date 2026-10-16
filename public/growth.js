@@ -33,7 +33,7 @@ function moreQuickLinks(d){
 function homePanel(d){
  var s=settings(d),active=s.icps.find(function(x){return x.id===s.activeIcpId});
  var open=(d.tasks||[]).filter(function(t){return t.missionOrigin==='growth'&&t.status!=='Done'}).length;
- return '<section class="tf-growth-home-widget"><div><span class="tf-growth-kicker">GROWTH INTELLIGENCE</span><h2>Your next actions</h2><p>'+(open?e(open+' mission'+(open===1?'':'s')+' in progress.'):'Turn useful recommendations into tracked tasks.')+'</p></div><div class="tf-growth-home-actions"><button type="button" data-tab="missions">Missions →</button><button type="button" data-tab="growth">'+(active?'Target: '+e(active.name):'Set target customers')+' →</button></div></section>';
+ return '<section class="tf-growth-home-widget"><div><span class="tf-growth-kicker">GROWTH INTELLIGENCE</span><h2>Your next actions</h2><p>'+(open?e(open+' mission'+(open===1?'':'s')+' in progress.'):'Turn useful recommendations into tracked tasks.')+'</p></div><div class="tf-growth-home-actions"><button type="button" data-tab="missions">Missions →</button><button type="button" data-tab="calendar">Calendar →</button><button type="button" data-tab="growth">'+(active?'Target: '+e(active.name):'Set target customers')+' →</button></div></section>';
 }
 function tabs(s){
  return '<div class="tf-growth-tabs" role="group" aria-label="Target profile sections">'+
@@ -162,7 +162,8 @@ var sections=[
  {name:'Operations & Scheduling',rows:[
   ['jobs','Jobs','Available','Manage scheduled work and progress'],
   ['tasks','Tasks','Available','Track action items and due dates'],
-  ['','Calendar and route planning','Planned','Day, week, month views and optimized itineraries'],
+  ['calendar','Calendar & appointments','Available','Day, week, month views and scheduled visits'],
+  ['','Smart route optimization','Planned','Sequence addresses, driving times and crew constraints'],
   ['','Job forms and files','Planned','Assessment checklists, signatures and attachments']]},
  {name:'Sales & Finance',rows:[
   ['customers','Customers','Available','Maintain customer and contact details'],
@@ -206,6 +207,7 @@ function contactPanel(o,d){
  (validPhone?'<a href="tel:'+e(dial)+'">'+ico('phone')+' Call</a><a href="sms:'+e(dial)+'">Message</a>':'<span class="tf-growth-unavailable">No valid phone saved</span>')+
  (validEmail?'<a href="mailto:'+e(email)+'">'+ico('mail')+' Email</a>':'<span class="tf-growth-unavailable">No valid email saved</span>')+
  '</div>'+
+ '<button class="tf-growth-secondary" type="button" data-calendar-action="opportunity" data-id="'+e(o.id)+'">Schedule call or site visit on Calendar →</button>'+
  '<form id="tfGrowthOpportunityForm" data-id="'+e(o.id)+'">'+
  field('Contact person / department','contact_person',o.contact_person,{max:120,placeholder:'Optional'})+
  '<div class="tf-growth-two">'+field('Public business phone','contact_phone',phone,{max:70,placeholder:'e.g. +1 512 555 0100'})+

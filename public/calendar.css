@@ -1,0 +1,65 @@
+/* TradeFlow Calendar R02 — operating UI, not a generic calendar template. */
+.tf-cal-page{width:min(100%,820px);margin:0 auto 28px;color:#eff9ff;display:flex;flex-direction:column;gap:17px}
+.tf-cal-page *{box-sizing:border-box}
+.tf-cal-back{border:0;background:transparent;color:#a9d0df;text-align:left;padding:4px 0;font-size:12px}
+.tf-cal-title{margin-top:13px}
+.tf-cal-title span{font:750 10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.13em;color:var(--tf-accent,#10cfe1)}
+.tf-cal-title h1{margin:8px 0;font-size:clamp(26px,6vw,33px);font-weight:750;letter-spacing:-.04em;color:#f1fcff}
+.tf-cal-title p{color:#99bcc9;font-size:12px;line-height:1.5;margin:0}
+.tf-cal-controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.tf-cal-modes{display:flex;align-items:center;gap:6px}
+.tf-cal-modes button,.tf-cal-secondary,.tf-cal-period button{border:1px solid #355d6f;border-radius:9px;background:#102d3e;color:#bad7e4;padding:10px 12px;font-size:12px;font-weight:700;min-height:39px;cursor:pointer}
+.tf-cal-modes button.active{background:#194657;color:#e7fdff;border-color:#478b9b}
+.tf-cal-primary{border:1px solid var(--tf-accent,#10cfe1);border-radius:9px;background:var(--tf-accent,#10cfe1);color:#062230;font-size:12px;font-weight:780;padding:10px 13px;min-height:39px;cursor:pointer}
+.tf-cal-period{border:1px solid #2c5467;background:#0c2939;border-radius:13px;padding:11px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.tf-cal-period>div{display:flex;align-items:center;gap:10px;min-width:0}
+.tf-cal-period>div strong{font-size:13px;line-height:1.35;color:#e5f7ff}
+.tf-cal-period>div button{font-size:22px;line-height:1;min-width:36px;padding:6px 10px}
+.tf-cal-content{min-height:180px}
+.tf-cal-day-list{border:1px solid #2d5163;background:#0c2838;border-radius:15px;overflow:hidden}
+.tf-cal-day-list>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px;border-bottom:1px solid #2b4d5e}
+.tf-cal-day-list h2{margin:0;font-size:17px;font-weight:710;color:#effcff}
+.tf-cal-day-list header small{font-size:11px;color:#98b8c8}
+.tf-cal-week{margin-bottom:14px}
+.tf-cal-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.tf-cal-day-button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:86px;border-radius:11px;border:1px solid #2c5366;background:#0d2c3c;color:#acc6d2;cursor:pointer}
+.tf-cal-day-button span{font-size:10px;color:#9dbaca}
+.tf-cal-day-button strong{font-size:18px;color:#ebf9ff;font-weight:730}
+.tf-cal-day-button small{font-size:8px;color:#82a7b6}
+.tf-cal-day-button.active{background:#185063;border-color:#4b9eb0;box-shadow:inset 0 0 0 1px #8cefff13}
+.tf-cal-item{border-bottom:1px solid #25495b;padding:14px 15px;display:flex;align-items:center;gap:11px;min-height:73px}
+.tf-cal-item:last-child{border-bottom:0}
+.tf-cal-item-icon{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;border:1px solid #3c7181;color:#aee4f0;background:#153f4f}
+.tf-cal-item-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.tf-cal-item-data strong{font-size:12px;line-height:1.4;color:#e5f6ff}
+.tf-cal-item-data small{font-size:10px;line-height:1.4;color:#9dbac7;display:flex;align-items:center;gap:4px}
+.tf-cal-item-data small svg{height:13px;width:13px}
+.tf-cal-item>button{font-size:11px;color:#b5e1ef;border:1px solid #3f6c7c;border-radius:7px;background:#183949;padding:8px 9px}
+.tf-cal-empty{padding:25px 15px;color:#93b4c3;font-size:12px;line-height:1.6}
+.tf-cal-month{border:1px solid #2b5060;border-radius:13px;background:#0a2635;padding:9px;margin-bottom:14px}
+.tf-cal-month-labels,.tf-cal-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.tf-cal-month-labels span{text-align:center;font-size:9px;font-weight:750;padding:8px 0;color:#85aabb}
+.tf-cal-month-grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:1px solid transparent;border-radius:8px;background:#112c3a;color:#d7eefa;min-height:49px;cursor:pointer}
+.tf-cal-month-grid button span{font-size:12px}
+.tf-cal-month-grid button small{background:#346f81;border-radius:6px;min-width:14px;color:#e7f9fc;font-size:9px;padding:1px 4px}
+.tf-cal-month-grid button.other{color:#617f90;background:#102330}
+.tf-cal-month-grid button.active{border-color:#4e9aac;background:#17485a}
+.tf-cal-formpanel{border:1px solid #345c6e;border-radius:15px;background:#0e2b3a;padding:18px}
+.tf-cal-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}
+.tf-cal-section-head h2{font-size:18px;margin:0 0 4px}
+.tf-cal-section-head p{font-size:11px;color:#a1c0cd;line-height:1.5;margin:0}
+.tf-cal-section-head button{border:1px solid #40657a;background:#183c4e;color:#d7edf5;border-radius:8px;width:31px;height:31px;font-size:19px;flex:none}
+#tfCalendarForm{display:flex;flex-direction:column;gap:13px}
+#tfCalendarForm label{display:flex;flex-direction:column;gap:7px;color:#c8e7f1;font-size:12px;font-weight:660}
+#tfCalendarForm input,#tfCalendarForm textarea{width:100%;padding:12px;border-radius:9px;border:1px solid #426c7d;background:#071e2b;color:#e5faff;font:inherit;font-size:13px;outline:none}
+#tfCalendarForm input:focus,#tfCalendarForm textarea:focus{border-color:#65c8d9;box-shadow:0 0 0 2px #4ad6ef1f}
+#tfCalendarForm textarea{resize:vertical}
+.tf-cal-twocol{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tf-cal-form-actions{display:flex;gap:10px;flex-wrap:wrap}
+.tf-cal-resources{border:1px solid #2f5666;border-radius:12px;padding:14px;display:flex;gap:12px;justify-content:space-between;align-items:center;background:#103242}
+.tf-cal-resources strong{font-size:12px;color:#ebfbff}
+.tf-cal-resources p{font-size:11px;color:#94b7c5;line-height:1.5;margin:5px 0 0}
+.tf-cal-resources button{flex:none;background:#143f51;border:1px solid #477687;border-radius:9px;color:#c0f1fd;padding:10px;font-size:11px}
+.tf-cal-disclosure{font-size:11px;line-height:1.55;color:#8aaebd;margin:0}
+@media(max-width:580px){.tf-cal-period>div{gap:4px}.tf-cal-day-button{min-height:75px;gap:5px}.tf-cal-day-button span{font-size:9px}.tf-cal-day-button strong{font-size:16px}.tf-cal-day-button small{font-size:8px}.tf-cal-modes button{padding:10px}.tf-cal-twocol{grid-template-columns:1fr}.tf-cal-resources{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.tf-cal-page *{animation:none!important;transition:none!important}}
