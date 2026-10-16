@@ -16,6 +16,7 @@ assert.throws(()=>core.prepare('supplier.save',{name:''},data,uid,now),/Supplier
 data.suppliers=[supplier.writes[0].record];
 const order=core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Breaker panels',status:'Ordered',destinationKind:'customer',destinationId:'c1',plannedDate:'2026-10-22'},data,uid,now);
 assert.equal(order.writes[0].record.destinationAddress,'401 Main St, Austin, TX');
+assert.throws(()=>core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Panels',destinationKind:'customer',destinationId:'c1',opportunityId:'missing'},data,uid,now),/Linked opportunity/);
 assert.throws(()=>core.prepare('supplyOrder.save',{supplierId:'missing',description:'Panels',destinationKind:'business'},data,uid,now),/existing supplier/);
 assert.throws(()=>core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Panels',status:'Delivered',destinationKind:'custom'},data,uid,now),/delivery address/);
 data.supplyOrders=[order.writes[0].record];

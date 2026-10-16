@@ -29,6 +29,7 @@
   const suppliers=data.suppliers||[];if(!suppliers.length)return '<p>Add a supplier before creating a supply order.</p>';
   const customerList=(data.customers||[]).map(x=>[x.id,x.name||'Customer']);
   const jobList=(data.jobs||[]).map(x=>[x.id,x.title||'Job']);
+  const opportunityList=(data.opportunities||[]).map(x=>[x.id,x.project_name||'Opportunity']);
   const destination=rec?.destinationKind||'business';
   return '<section class="tf-supplier-edit"><h2>'+(rec?.id?'Edit supply order':'New supply order')+'</h2><form id="tfSupplyOrderForm" data-id="'+value(rec,'id')+'">'+
    '<label>Supplier *<select name="supplierId" required>'+opts(suppliers.map(x=>[x.id,x.name]),rec?.supplierId)+'</select></label>'+
@@ -41,7 +42,7 @@
    '<div data-supply-destination="custom" '+(destination!=='custom'?'hidden':'')+'><label>Delivery address<input name="destinationAddress" maxlength="300" value="'+(destination==='custom'?value(rec,'destinationAddress'):'')+'" placeholder="Street, city, region, country"></label>'+
    '<div class="tf-supplier-grid"><label>Latitude<input type="number" name="latitude" step="any" min="-90" max="90" value="'+(destination==='custom'?value(rec,'latitude'):'')+'"></label>'+
    '<label>Longitude<input type="number" name="longitude" step="any" min="-180" max="180" value="'+(destination==='custom'?value(rec,'longitude'):'')+'"></label></div></div>'+
-   '<details><summary>Optional notes</summary><textarea name="notes" maxlength="900" rows="2">'+value(rec,'notes')+'</textarea></details>'+
+   '<details><summary>Link to an opportunity / optional notes</summary><label>Related opportunity<select name="opportunityId"><option value="">None</option>'+opts(opportunityList,rec?.opportunityId)+'</select></label><textarea name="notes" maxlength="900" rows="2" placeholder="Order notes">'+value(rec,'notes')+'</textarea></details>'+
    '<div class="tf-supplier-actions"><button class="primary" type="submit">Save order</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
    '<p class="tf-supplier-disclaimer">Orders are organizational records, not purchases or tracking requests. Geographical connections are illustrative, not navigable road routes.</p></section>';
  }
@@ -57,7 +58,7 @@
   area+='<div class="tf-supplier-section-title"><h2>Supplier network</h2><small>'+suppliers.filter(x=>globalThis.TradeFlowCore?.position(x)).length+' map-ready</small></div>';
   area+=suppliers.length?'<div class="tf-supplier-list">'+suppliers.map(s=>'<article><span class="tf-supplier-symbol" aria-hidden="true">▣</span><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.address||'Address not saved')+'</small><small>'+(globalThis.TradeFlowCore?.position(s)?'Location mapped':'Needs coordinates')+'</small></div><button type="button" data-supply-action="editSupplier" data-id="'+esc(s.id)+'" aria-label="Edit '+esc(s.name)+'">Edit</button></article>').join('')+'</div>':'<p class="tf-supplier-empty">No suppliers saved. Add your first supplier to start connecting deliveries to customers or jobs.</p>';
   area+='<div class="tf-supplier-section-title"><h2>Supply orders</h2><small>'+connections.unmappedOrderIds.length+' connections awaiting coordinates</small></div>';
-  area+=orders.length?'<div class="tf-supplier-list">'+orders.map(o=>{const supplier=suppliers.find(s=>s.id===o.supplierId);return '<article><span class="tf-supplier-symbol" aria-hidden="true">⇢</span><div><strong>'+esc(o.description)+'</strong><small>'+esc(supplier?.name||'Missing supplier')+' → '+esc(o.destinationAddress||'Destination not set')+'</small><small>'+badge(o.status)+' '+esc(o.plannedDate||'No date')+'</small></div><button data-supply-action="editOrder" data-id="'+esc(o.id)+'">Edit</button></article>'}).join('')+'</div>':'<p class="tf-supplier-empty">No supply orders recorded. Creating one does not contact the supplier.</p>';
+  area+=orders.length?'<div class="tf-supplier-list">'+orders.map(o=>{const supplier=suppliers.find(s=>s.id===o.supplierId);return '<article><span class="tf-supplier-symbol" aria-hidden="true">⇢</span><div><strong>'+esc(o.description)+'</strong><small>'+esc(supplier?.name||'Missing supplier')+' → '+esc(o.destinationAddress||'Destination not set')+'</small><small>'+badge(o.status)+' '+esc(o.plannedDate||'No date')+(o.opportunityId?' · Linked to opportunity':'')+'</small></div><button data-supply-action="editOrder" data-id="'+esc(o.id)+'">Edit</button></article>'}).join('')+'</div>':'<p class="tf-supplier-empty">No supply orders recorded. Creating one does not contact the supplier.</p>';
   return area+'<p class="tf-supplier-disclaimer">Neon lines on the Map represent geographic connections between saved coordinates. They are not verified road, shipping or flight routes. No live delivery tracking is active.</p></section>';
  }
  function configure(b){

@@ -47,6 +47,8 @@
    const destinationId=['customer','job'].includes(destinationKind)?brief(body.destinationId,100):'';
    const destinationRef=destinationKind==='customer'?get('customers',destinationId):destinationKind==='job'?get('jobs',destinationId):null;
    if(['customer','job'].includes(destinationKind)&&!destinationRef)throw Error('Select an existing delivery record');
+   const opportunityId=brief(body.opportunityId,100);
+   if(opportunityId&&!get('opportunities',opportunityId))throw Error('Linked opportunity no longer exists');
    const destinationAddress=destinationKind==='business'?brief((data.settings||[]).find(x=>x.id==='business')?.businessAddress,300):
     destinationKind==='custom'?brief(body.destinationAddress,300):
     brief(destinationRef?.address||'',300);
@@ -59,7 +61,7 @@
    if(!validDate(plannedDate))throw Error('Invalid supply delivery date');
    const description=brief(body.description,240);
    if(!description)throw Error('Describe the materials or equipment');
-   return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,description,status,destinationKind,destinationId,destinationAddress,latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,notes:brief(body.notes,900),updatedAt:when}}]};
+   return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,opportunityId,description,status,destinationKind,destinationId,destinationAddress,latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,notes:brief(body.notes,900),updatedAt:when}}]};
   }
   if(kind==='quotation.convert'){
    const quote=get('quotes',body.quoteId);
@@ -152,13 +154,13 @@
    if(!a||!b){missing.push(order.id);continue}
    const segments=greatCircle(a,b);
    for(const coords of segments)features.push({type:'Feature',geometry:{type:'LineString',coordinates:coords},
-    properties:{orderId:String(order.id),supplierId:String(order.supplierId),status:String(order.status),
+    properties:{orderId:String(order.id),supplierId:String(order.supplierId),opportunityId:String(order.opportunityId||''),status:String(order.status),
      type:'supplier_connection_not_road_route',label:String(order.description||'Supply order')}});
   }
   return {geojson:{type:'FeatureCollection',features},unmappedOrderIds:missing,mappedOrderCount:new Set(features.map(x=>x.properties.orderId)).size};
  }
  function relationshipAudit(d){
-  const refs=['customers','quotes','jobs','tasks','invoices','suppliers','supplyOrders'],seen={},issues=[];
+  const refs=['customers','quotes','jobs','tasks','invoices','suppliers','supplyOrders','opportunities'],seen={},issues=[];
   for(const type of refs)seen[type]=new Set(dataArray(d,type).map(x=>x.id));
   for(const type of ['quotes','jobs','tasks','invoices']){
    for(const item of dataArray(d,type))if(item.customerId&&!seen.customers.has(item.customerId))issues.push({type,id:item.id,missing:'customer'});
@@ -166,6 +168,7 @@
   for(const job of dataArray(d,'jobs'))if(job.quoteId&&!seen.quotes.has(job.quoteId))issues.push({type:'jobs',id:job.id,missing:'quote'});
   for(const o of dataArray(d,'supplyOrders')){
    if(!seen.suppliers.has(o.supplierId))issues.push({type:'supplyOrders',id:o.id,missing:'supplier'});
+   if(o.opportunityId&&!seen.opportunities.has(o.opportunityId))issues.push({type:'supplyOrders',id:o.id,missing:'opportunity'});
    if(o.destinationKind==='customer'&&!seen.customers.has(o.destinationId))issues.push({type:'supplyOrders',id:o.id,missing:'customer'});
    if(o.destinationKind==='job'&&!seen.jobs.has(o.destinationId))issues.push({type:'supplyOrders',id:o.id,missing:'job'});
   }
