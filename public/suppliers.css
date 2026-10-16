@@ -1,0 +1,40 @@
+/* TradeFlow Supply Network — aligned with existing TradeFlow information density */
+.tf-supplier-page{max-width:1080px;margin:0 auto;padding:12px 0 48px;color:#eefaff}
+.tf-supplier-back{background:none;border:0;color:#a9cbd7;font:inherit;font-size:13px;padding:0 0 19px}
+.tf-supplier-heading small{color:var(--tf-accent-text,#24d7e7);font-size:11px;letter-spacing:.17em;font-weight:800}
+.tf-supplier-heading h1{font-size:clamp(27px,4vw,35px);margin:12px 0 7px}
+.tf-supplier-heading p{font-size:13px;line-height:1.55;color:#a8c4d2;margin:0 0 19px}
+.tf-supplier-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0 19px}
+.tf-supplier-metrics>div{background:#102d3d;border:1px solid #315769;border-radius:12px;padding:14px;min-width:0}
+.tf-supplier-metrics strong{display:block;font-size:26px;color:#f2fbfd}
+.tf-supplier-metrics small{display:block;font-size:11px;color:#9fc1cf}
+.tf-supplier-tools{display:flex;flex-wrap:wrap;gap:8px}
+.tf-supplier-tools button,.tf-supplier-actions button{border:1px solid #34738a;border-radius:11px;padding:10px 13px;min-height:42px;background:#103143;color:#d7f5ff;font-size:13px;font-weight:700}
+.tf-supplier-tools button.primary,.tf-supplier-actions button.primary{background:var(--tf-accent,#10cfe1);border-color:var(--tf-accent,#10cfe1);color:var(--tf-accent-contrast,#062533)}
+.tf-supplier-tools button:disabled{opacity:.45}
+.tf-supplier-section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:23px 0 9px}
+.tf-supplier-section-title h2{font-size:18px;margin:0}
+.tf-supplier-section-title small{font-size:11px;color:#a5bfcd;text-align:right}
+.tf-supplier-list{border:1px solid #315568;border-radius:15px;overflow:hidden;background:#0e2939}
+.tf-supplier-list article{display:flex;align-items:center;gap:11px;padding:13px 11px;border-bottom:1px solid #284755}
+.tf-supplier-list article:last-child{border-bottom:0}
+.tf-supplier-list article>div{flex:1;min-width:0}
+.tf-supplier-list article strong{display:block;font-size:14px;overflow-wrap:anywhere}
+.tf-supplier-list article small{display:block;color:#9ebdca;font-size:11px;line-height:1.5;margin-top:3px}
+.tf-supplier-list article>button{background:#11374a;border:1px solid #396b7b;border-radius:9px;color:#cbf7ff;padding:9px 12px}
+.tf-supplier-symbol{font-size:25px;color:#27cede;background:#144559;border-radius:9px;min-width:37px;height:37px;display:grid;place-items:center}
+.tf-supplier-status{color:#ffde99}.tf-supplier-status.is-delivered{color:#67efae}
+.tf-supplier-edit{margin:16px 0;padding:17px;border-radius:14px;border:1px solid #3b7080;background:#102b3d}
+.tf-supplier-edit h2{margin:0 0 12px;font-size:17px}
+.tf-supplier-edit label{display:block;font-size:12px;color:#c2dce6;font-weight:600;margin:9px 0}
+.tf-supplier-edit input,.tf-supplier-edit select,.tf-supplier-edit textarea{display:block;box-sizing:border-box;width:100%;margin-top:6px;background:#071e2d;color:#ecfcff;border:1px solid #426878;border-radius:9px;padding:11px;font-size:14px;min-height:41px}
+.tf-supplier-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tf-supplier-edit details{margin:13px 0}.tf-supplier-edit summary{cursor:pointer;color:#b4f2fa;font-size:13px}
+.tf-supplier-actions{display:flex;gap:8px;margin-top:16px}
+.tf-supplier-disclaimer{margin:18px 2px 0;color:#91afbd;font-size:11px;line-height:1.55}
+.tf-supplier-empty{background:#102b39;border:1px dashed #386078;border-radius:12px;color:#a7c4d1;padding:21px;font-size:13px}
+.tf-supplier-page button:focus-visible,.tf-supplier-page input:focus-visible,.tf-supplier-page select:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
+.tf-op-supplier-shortcut{background:transparent;border:1px solid #396c7e;color:var(--tf-accent-text,#4ae6ef);border-radius:11px;padding:9px 13px;font-size:12px;font-weight:700;margin:8px 0 0}
+.tradeflow-map-marker-supplier{width:36px!important;height:36px!important;display:grid;place-items:center;background:#123247;border:2px solid #ffbb33;border-radius:10px;box-shadow:0 0 18px #f9b53966;cursor:pointer}
+.tradeflow-map-marker-supplier svg{height:23px;width:23px;color:#ffcf62}
+@media(max-width:380px){.tf-supplier-tools button{font-size:11px;padding:9px}.tf-supplier-heading h1{font-size:27px}}
