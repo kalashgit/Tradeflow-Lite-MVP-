@@ -1297,7 +1297,7 @@ return `<section class="tf-op-workspace tf-op-v3 tf-op5"><header class="tf-op5-t
 <section class="tf-op3-mapcard"><div class="tf-op3-mapheading"><span class="tf-op3-mapicon">⌖</span>
 <div><strong>Opportunity Map</strong><small>Visualize your projects and leads</small></div>
 <div class="tf-op5-map-count"><strong>${data.filter(opportunityMapped).length} mapped</strong><span>${data.filter(x=>!opportunityMapped(x)).length} unmapped</span></div>
-</div>${window.TradeFlowOpportunityUX?.mapPreview(data)||''}
+</div>
 <div class="tf-op3-mapactions"><button type="button" data-action="opportunityMapAll">▧ &nbsp; View on Map &nbsp; →</button></div>
 <p id="tfMapProgress" class="tf-op5-map-progress" role="status" hidden></p></section>
 <div class="tf-op3-chips">${counts.map(([label,n,key])=>`<button type="button" class="${opportunityFilter===key?'active':''}" data-action="opportunityFilter" data-filter="${key}">${label}</button>`).join('')}</div>
