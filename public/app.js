@@ -416,12 +416,12 @@ function tfAiOverlayView(){
  if(modal||tfCapture||tfImportDraft)return '';
  const onFull=tab==='ai',isOpen=tfAiPanelOpen&&!onFull,unlocked=!!tfAiKey();
  const emblem='<span class="tf-brand-mark" aria-hidden="true"><span class="tf-brand-top"></span><span class="tf-brand-stem"></span><span class="tf-brand-accent"></span></span>';
- const orb='<button type="button" class="tf-ai-orb" data-action="tfAiToggle" aria-label="'+(onFull?'Focus TradeFlow AI':isOpen?'Close TradeFlow AI':'Open TradeFlow AI')+'" aria-expanded="'+String(isOpen)+'" aria-controls="tfAiPanel"><span class="tf-ai-orb-icon">'+emblem+'</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
+ const orb='<button type="button" class="tf-ai-orb" title="Tap for AI · hold for quick access" data-action="tfAiToggle" aria-label="'+(onFull?'Focus TradeFlow AI':isOpen?'Close TradeFlow AI':'Open TradeFlow AI')+'" aria-expanded="'+String(isOpen)+'" aria-controls="tfAiPanel"><span class="tf-ai-orb-icon">'+emblem+'</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
  if(!isOpen)return orb;
  const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p></div>').join('');
  const promptButtons=tfAiCurrentPrompts().map(([title,prompt])=>'<button type="button" data-action="tfAiPanelPrompt" data-prompt="'+esc(prompt)+'" '+(tfChatBusy?'disabled':'')+'>'+esc(title)+'</button>').join('');
  const gate=!unlocked?'<form id="tfAiUnlockForm" class="tf-ai-mini-gate"><label for="tfAiPreviewCode">Private AI preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter your existing code" required><button type="submit">Unlock</button></div><small>Use the same private preview code. No account is created.</small></form>':'';
- return orb+'<section class="tf-ai-mini-panel" id="tfAiPanel" role="dialog" aria-modal="false" aria-labelledby="tfAiPanelTitle"><header class="tf-ai-mini-head"><div class="tf-ai-mini-mark">'+emblem+'</div><div><small>TRADEFLOW / INTELLIGENCE</small><h2 id="tfAiPanelTitle">AI command panel</h2></div><button type="button" class="tf-ai-mini-close" data-action="tfAiClose" aria-label="Close AI panel">×</button></header><div class="tf-ai-mini-context"><span class="tf-ai-mini-live" aria-hidden="true"></span>Viewing '+esc(tfAiScreenTitles[tab]||'TradeFlow')+' <span>· Preview</span></div><div class="tf-ai-mini-thread" id="tfAiMiniThread" role="log" aria-live="polite">'+(msgs||'<div class="tf-ai-mini-empty">How can I help you on this screen?</div>')+(tfChatBusy?'<div class="tf-ai-mini-thinking">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-mini-error" role="alert">'+esc(tfChatError)+'</p>':'')+gate+'<div class="tf-ai-mini-suggestions">'+promptButtons+'</div><form id="tfAiQuickForm" class="tf-ai-mini-compose"><label for="tfAiQuickPrompt">Ask TradeFlow AI</label><div><textarea id="tfAiQuickPrompt" name="prompt" rows="2" maxlength="1200" placeholder="'+(unlocked?'Ask a question or describe a task…':'Unlock the preview to send a message')+'" '+(unlocked&&!tfChatBusy?'':'disabled')+' required>'+esc(tfAiPanelDraft)+'</textarea><button type="submit" aria-label="Send to TradeFlow AI" '+(unlocked&&!tfChatBusy?'':'disabled')+'>➤</button></div><label class="tf-ai-mini-optin"><input type="checkbox" id="tfAiQuickContext" '+(tfChatWithSummary?'checked':'')+' '+(unlocked&&!tfChatBusy?'':'disabled')+'> Share anonymous business totals</label></form><footer class="tf-ai-mini-foot"><span>Screen name is shared; records stay private unless totals are enabled.</span><button type="button" data-action="tfAiOpenFull">Expand ↗</button></footer></section>';
+ return orb+'<section class="tf-ai-mini-panel" id="tfAiPanel" role="dialog" aria-modal="false" aria-labelledby="tfAiPanelTitle"><header class="tf-ai-mini-head"><span class="tf-ai-mini-grip" aria-hidden="true"></span><div class="tf-ai-mini-mark">'+emblem+'</div><div><small>TRADEFLOW / INTELLIGENCE</small><h2 id="tfAiPanelTitle">AI command panel</h2></div><button type="button" class="tf-ai-mini-close" data-action="tfAiClose" aria-label="Close AI panel">×</button></header><div class="tf-ai-mini-context"><span class="tf-ai-mini-live" aria-hidden="true"></span>Viewing '+esc(tfAiScreenTitles[tab]||'TradeFlow')+' <span>· Preview</span></div><div class="tf-ai-mini-thread" id="tfAiMiniThread" role="log" aria-live="polite">'+(msgs||'<div class="tf-ai-mini-empty">How can I help you on this screen?</div>')+(tfChatBusy?'<div class="tf-ai-mini-thinking">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-mini-error" role="alert">'+esc(tfChatError)+'</p>':'')+gate+'<div class="tf-ai-mini-suggestions">'+promptButtons+'</div><form id="tfAiQuickForm" class="tf-ai-mini-compose"><label for="tfAiQuickPrompt">Ask TradeFlow AI</label><div><textarea id="tfAiQuickPrompt" name="prompt" rows="2" maxlength="1200" placeholder="'+(unlocked?'Ask a question or describe a task…':'Unlock the preview to send a message')+'" '+(unlocked&&!tfChatBusy?'':'disabled')+' required>'+esc(tfAiPanelDraft)+'</textarea><button type="submit" aria-label="Send to TradeFlow AI" '+(unlocked&&!tfChatBusy?'':'disabled')+'>➤</button></div><label class="tf-ai-mini-optin"><input type="checkbox" id="tfAiQuickContext" '+(tfChatWithSummary?'checked':'')+' '+(unlocked&&!tfChatBusy?'':'disabled')+'> Share anonymous business totals</label></form><footer class="tf-ai-mini-foot"><span>Screen name is shared; records stay private unless totals are enabled.</span><button type="button" data-action="tfAiOpenFull">Expand ↗</button></footer><label class="tf-ai-haptic-setting"><input type="checkbox" switch id="tfAiHaptics" '+(tfUiHapticsEnabled?'checked':'')+'> Tactile feedback <small>(supported devices)</small></label></section>';
 }
 function tfAiRefreshOverlay(){
  const host=document.getElementById('tfAiOverlayRoot');
@@ -435,8 +435,83 @@ async function tfAiUpdateChatUI(){
  else tfAiRefreshOverlay();
 }
 function tfAiClosePanel(){if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
+/* Haptics are progressive enhancement: iOS Safari doesn't provide arbitrary web vibration.
+   The native switch may provide its own system feedback; an eventual iOS native wrapper
+   would use UIFeedbackGenerator/Core Haptics for custom event feedback. */
+let tfUiHapticsEnabled=true;
+try{tfUiHapticsEnabled=localStorage.getItem('tf-ui-haptics')!=='off'}catch(e){}
+function tfUiHaptic(kind='selection'){
+ if(!tfUiHapticsEnabled||typeof navigator.vibrate!=='function')return false;
+ try{return navigator.vibrate(kind==='success'?[13,55,13]:kind==='warning'?[20,50,20]:9)===true}catch(e){return false}
+}
+/* The AI control behaves like a small physical switch: short tap opens, press/hold
+   expands after 430 ms, large finger movement cancels the hold. No data is changed. */
+let tfAiHoldTimer=0,tfAiHoldOrigin=null,tfAiSkipClickUntil=0,tfAiDrag=null;
+function tfAiCancelHold(){
+ if(tfAiHoldTimer)clearTimeout(tfAiHoldTimer);
+ tfAiHoldTimer=0;
+ if(tfAiHoldOrigin?.node)tfAiHoldOrigin.node.classList.remove('tf-ai-liquid-pressed');
+ tfAiHoldOrigin=null;
+}
+document.addEventListener('pointerdown',event=>{
+ const orb=event.target.closest?.('.tf-ai-orb');
+ if(!orb||(event.pointerType==='mouse'&&event.button!==0))return;
+ tfAiCancelHold();
+ tfAiHoldOrigin={node:orb,x:event.clientX,y:event.clientY,id:event.pointerId};
+ orb.classList.add('tf-ai-liquid-pressed');
+ if(tab==='ai'||tfAiPanelOpen)return;
+ tfAiHoldTimer=setTimeout(()=>{
+  tfAiHoldTimer=0;
+  if(!tfAiHoldOrigin||tab==='ai'||tfAiPanelOpen)return;
+  tfAiSkipClickUntil=Date.now()+650;
+  tfAiPanelOpen=true;
+  tfUiHaptic('selection');
+  tfAiHoldOrigin=null;
+  tfAiRefreshOverlay();
+ },430);
+},true);
+document.addEventListener('pointermove',event=>{
+ if(tfAiHoldOrigin&&event.pointerId===tfAiHoldOrigin.id&&Math.hypot(event.clientX-tfAiHoldOrigin.x,event.clientY-tfAiHoldOrigin.y)>12)tfAiCancelHold();
+ if(tfAiDrag&&event.pointerId===tfAiDrag.id){
+  const d=event.clientY-tfAiDrag.y;
+  tfAiDrag.dy=d>0?d:0;
+  if(tfAiDrag.dy>0&&tfAiDrag.panel.isConnected){
+   tfAiDrag.panel.style.transition='none';
+   tfAiDrag.panel.style.transform='translate3d(0,'+Math.min(130,tfAiDrag.dy*.75)+'px,0)';
+  }
+ }
+},{capture:true,passive:true});
+document.addEventListener('pointerdown',event=>{
+ const header=event.target.closest?.('.tf-ai-mini-head');
+ if(!header||event.target.closest?.('button'))return;
+ const panel=header.closest('.tf-ai-mini-panel');
+ if(panel)tfAiDrag={panel,y:event.clientY,id:event.pointerId,dy:0};
+},true);
+function tfAiStopPointer(event){
+ tfAiCancelHold();
+ if(!tfAiDrag||event.pointerId!==tfAiDrag.id)return;
+ const state=tfAiDrag;tfAiDrag=null;
+ if(state.dy>90){tfUiHaptic('selection');tfAiClosePanel();return}
+ if(!state.panel.isConnected)return;
+ state.panel.style.transition='transform 220ms cubic-bezier(.2,.8,.2,1)';
+ state.panel.style.transform='';
+ setTimeout(()=>{if(state.panel.isConnected)state.panel.style.transition=''},240);
+}
+document.addEventListener('pointerup',tfAiStopPointer,true);
+document.addEventListener('pointercancel',tfAiStopPointer,true);
+document.addEventListener('click',event=>{
+ if(Date.now()<tfAiSkipClickUntil&&event.target.closest?.('.tf-ai-orb')){
+  event.preventDefault();event.stopImmediatePropagation();
+ }
+},true);
 document.addEventListener('input',event=>{if(event.target.id==='tfAiQuickPrompt')tfAiPanelDraft=event.target.value});
-document.addEventListener('change',event=>{if(event.target.id==='tfAiQuickContext')tfChatWithSummary=event.target.checked});
+document.addEventListener('change',event=>{
+ if(event.target.id==='tfAiQuickContext')tfChatWithSummary=event.target.checked;
+ if(event.target.id==='tfAiHaptics'){
+  tfUiHapticsEnabled=!!event.target.checked;
+  try{localStorage.setItem('tf-ui-haptics',tfUiHapticsEnabled?'on':'off')}catch(e){}
+ }
+});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&tfAiPanelOpen){tfAiClosePanel();document.querySelector('.tf-ai-orb')?.focus()}});
 document.addEventListener('click',event=>{
  if(!tfAiPanelOpen||event.target.closest?.('#tfAiPanel,.tf-ai-orb'))return;
@@ -844,11 +919,13 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  }
  if(el.dataset.action==='tfAiToggle'){
   if(tab==='ai'){document.getElementById('tfAiPrompt')?.focus();return}
+  tfAiCancelHold();
   tfAiPanelOpen=!tfAiPanelOpen;
+  tfUiHaptic('selection');
   tfAiRefreshOverlay();
   return;
  }
- if(el.dataset.action==='tfAiClose'){tfAiClosePanel();return}
+ if(el.dataset.action==='tfAiClose'){tfUiHaptic('selection');tfAiClosePanel();return}
  if(el.dataset.action==='tfAiPanelPrompt'){
   tfAiPanelDraft=String(el.dataset.prompt||'').slice(0,1200);
   const input=document.getElementById('tfAiQuickPrompt');
@@ -856,6 +933,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfAiOpenFull'){
+  tfUiHaptic('selection');
   tfAiPanelOpen=false;
   tfMotionNext='tab';tab='ai';modal=null;
   await render();
