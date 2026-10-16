@@ -169,8 +169,9 @@ var sections=[
   ['customers','Customers','Available','Maintain customer and contact details'],
   ['quotes','Quotations','Available','Create estimates and advance jobs'],
   ['expenses','Finance','Available','Recorded income, expenses and cash flow'],
-  ['','Invoices and online payments','Planned','Secure invoicing and hosted payment links'],
-  ['','Job costing and profitability','Planned','Actual labor, materials, margin and cost tracking']]},
+  ['invoices','Invoice drafts','Available','Create local drafts and record externally received payments'],
+  ['','Online payments','Planned','Authorized provider checkout and hosted payment links'],
+  ['profitability','Job cost records','Available','Review linked expenses and manual job cost entries']]},
  {name:'Intelligence & Integrations',rows:[
   ['missions','Business Missions','Available','Turn guidance into trackable Tasks'],
   ['ai','TradeFlow AI','Preview','Current question-and-answer assistant'],

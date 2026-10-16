@@ -12,7 +12,7 @@ assert.ok(g&&typeof g.renderPage==='function','Growth module must expose screens
 const d={settings:[],tasks:[],quotes:[],jobs:[],opportunities:[],customers:[]};
 assert.match(g.renderPage('growth',d,{primaryTrade:'Electrical',serviceArea:'Austin, TX'}),/New ICP/);
 assert.match(g.renderPage('missions',d,{}),/Suggested next actions/);
-assert.match(g.renderPage('capabilities',d,{}),/Invoices and online payments/);
+assert.match(g.renderPage('capabilities',d,{}),/Invoice drafts/);
 assert.match(g.moreQuickLinks(d),/data-tab="growth"/);
 assert.match(g.homePanel(d),/data-tab="missions"/);
 assert.match(g.contactPanel({id:'x',project_name:'<img src=x>'},d),/No valid phone saved/);
