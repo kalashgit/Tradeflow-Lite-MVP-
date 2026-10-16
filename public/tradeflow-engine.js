@@ -53,8 +53,10 @@
    }
   }else if(numberRegex.test(full)){
    // Non-comma form: 6801 River Place Blvd Austin TX 78726.
+   const suffix=full.match(/^(\d+[A-Za-z]?(?:-\d+[A-Za-z]?)?\s+.+?\b(?:St|Street|Rd|Road|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Way|Pkwy|Parkway|Pl|Place))\s+(.+?)\s+(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\s+(\d{5}(?:-\d{4})?)$/i);
    const tail=full.match(/^(.*?)\s+([A-Za-z][A-Za-z .'-]+?)\s+(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\s+(\d{5}(?:-\d{4})?)$/i);
-   if(tail){street=tail[1];city=tail[2];if(!region)region=tail[3].toUpperCase();if(!postalCode)postalCode=(tail[4].match(zipRegex)||[])[1]}
+   if(suffix){street=suffix[1];city=suffix[2];if(!region)region=suffix[3].toUpperCase();if(!postalCode)postalCode=(suffix[4].match(zipRegex)||[])[1]}
+   else if(tail){street=tail[1];city=tail[2];if(!region)region=tail[3].toUpperCase();if(!postalCode)postalCode=(tail[4].match(zipRegex)||[])[1]}
    else street=parts[0]||full;
   }else if(parts.length>=2&&numberRegex.test(parts[1])){
    // City first: Austin TX, 6801 River Place Blvd, 78726.
