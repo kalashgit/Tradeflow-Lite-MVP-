@@ -1339,6 +1339,6 @@ button,a[href],label[for]{-webkit-tap-highlight-color:transparent;touch-action:m
 .tf-cash .tf-cash-direction.out{color:var(--tf-expense-neon)!important;background:#330e1b!important;border-color:var(--tf-expense-neon)!important;box-shadow:0 0 13px #ff334d24}
 .tf-cash .tf-cash-actions button[data-kind="income"]{background:var(--tf-income-neon)!important;border-color:var(--tf-income-neon)!important;color:#031d12!important;box-shadow:0 0 14px #00ed6440}
 .tf-cash .tf-cash-actions button[data-kind="expense"]{color:var(--tf-expense-neon)!important;border-color:var(--tf-expense-neon)!important;background:#250e19!important}
-.tf-cash .tf-cash-numbers .balance strong{color:var(--tf-income-neon)}
-.tf-cash:has(.tf-cash-numbers .balance strong) .tf-cash-numbers .balance{color:var(--tf-accent)}
+.tf-cash .tf-cash-numbers .balance.positive strong{color:var(--tf-income-neon)!important}
+.tf-cash .tf-cash-numbers .balance.negative strong{color:var(--tf-expense-neon)!important}
 @media(max-width:370px){.tf-finance-tool-options{gap:6px}.tf-finance-tool-row .tf-op5-action{padding:8px 9px}}

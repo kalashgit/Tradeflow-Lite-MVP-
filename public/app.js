@@ -114,7 +114,7 @@ function tfFinanceView(d){
  }
  const nav='<nav class="tf-cash-tabs" aria-label="Finance sections">'+options.map(([key,name])=>'<button type="button" class="'+(tfFinanceScreen===key?'active':'')+'" data-action="tfFinanceTab" data-screen="'+key+'">'+name+'</button>').join('')+'</nav>';
  const period='<label class="tf-cash-period"><span class="tf-cash-period-label">Reporting period</span><select id="tfFinancePeriod">'+[['month','This month'],['week','Last 7 days'],['year','This year'],['all','All time']].map(([k,v])=>'<option value="'+k+'" '+(tfFinancePeriod===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label>';
- const summary='<section class="tf-cash-summary">'+period+'<div class="tf-cash-numbers"><div class="positive"><strong>'+euro(sum.income)+'</strong><small>Income</small></div><div class="negative"><strong>'+euro(sum.expenses)+'</strong><small>Expenses</small></div><div class="balance"><strong>'+euro(sum.net)+'</strong><small>Net cash flow</small></div></div></section>';
+ const summary='<section class="tf-cash-summary">'+period+'<div class="tf-cash-numbers"><div class="positive"><strong>'+euro(sum.income)+'</strong><small>Income</small></div><div class="negative"><strong>'+euro(sum.expenses)+'</strong><small>Expenses</small></div><div class="balance '+(sum.net<0?'negative':'positive')+'"><strong>'+euro(sum.net)+'</strong><small>Net cash flow</small></div></div></section>';
  const filterRows=periodRows.filter(x=>(tfFinanceScreen==='income'?x.kind==='income':tfFinanceScreen==='expenses'?x.kind==='expense':true)&&[x.title,x.source,x.vendor,x.category,x.notes,x.date].join(' ').toLowerCase().includes(tfFinanceSearch.toLowerCase()));
  const history='<section class="tf-cash-history"><div class="tf-cash-sectionhead"><h2>Transactions</h2><button type="button" data-action="tfFinanceTab" data-screen="transactions">View all ›</button></div>'+filterRows.slice(0,tfFinanceScreen==='overview'?5:200).map(tfFinanceRow).join('')+(filterRows.length?'':'<p class="tf-cash-empty">No transactions recorded for this period.</p>')+'</section>';
  const actions='<div class="tf-cash-actions"><button type="button" class="tf-cash-primary" data-action="tfFinanceNew" data-kind="income">+ New income</button><button type="button" class="tf-cash-outline" data-action="tfFinanceNew" data-kind="expense">+ New expense</button></div>';
@@ -1280,7 +1280,7 @@ function opportunityBulkMatch(hit,record){
  return Boolean((localityOk&&stateOk)||postalOk);
 }
 function opportunityGeocodeCandidate(r){
- if(!r||opportunityMapped(r)||r.map_location_status==='no_address')return false;
+ if(!r||opportunityMapped(r))return false;
  const location=opportunityLocationParts(r);
  return /^\s*\d+[A-Za-z]?\s+[^\s,]+/.test(location.street||'')&&opportunityAddressVariants(r).length>0;
 }
@@ -1342,7 +1342,7 @@ async function locateOpportunityBatch(records,options={}){
  const ineligible=(records||[]).filter(x=>!opportunityMapped(x)&&!opportunityGeocodeCandidate(x)).length;
  // Explicitly distinguish truly missing addresses from parseable locations and review-needed text.
  for(const record of records||[]){
-  if(opportunityMapped(record)||opportunityGeocodeCandidate(record)||record.map_location_status==='no_address')continue;
+  if(opportunityMapped(record)||opportunityGeocodeCandidate(record))continue;
   const raw=[record.address,record.street_address,record.site_address,record.project_address,record.city,record.location].some(x=>String(x||'').trim());
   record.map_location_status=raw?'address_review':'no_address';
   record.map_error=raw?'Address needs review: cannot identify a complete street number and name':'No address provided';
