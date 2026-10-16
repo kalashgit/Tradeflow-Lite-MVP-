@@ -29,17 +29,18 @@ State: **Development in progress.** The word "released" below means preview depl
 
 ## R02 — Scheduling, crews and field operations
 
-**Status: Calendar foundation implemented in preview. Advanced R02 work remains.**
+**Status: Calendar and job assessment checklist foundation implemented in preview. Advanced R02 work remains.**
 
 Now implemented:
 - Calendar day/week/month navigation using real Jobs' scheduled dates and Tasks' due dates.
 - Create an appointment with optional time, minutes, location, staff assignment note and description; stored as a Task in the same local DB.
 - Prepare a scheduled call/site visit from an opportunity.
+- Job assessment checklists attached to existing Job records. Owners can add generic or custom items, mark them complete, save field assessment notes and print/save the form through the browser. This is not a certified inspection or customer signature system.
 - Calendar entry in More and in the capabilities directory.
 - No automated crew GPS, booking confirmations, notifications or routing service yet.
 
 Next development work:
-- Job assessment checklists and reusable field forms with offline drafts; downloadable/printable PDF, signatures and versioned submissions.
+- Extend field forms with customizable job templates, signed submissions, field-specific structured data, versioned assessment history and polished downloadable PDFs. Basic checklist and browser printing already work.
 - Job-linked photos and documents, local storage limits, import/export and cloud storage migration later.
 - Schedule conflict detection, drag/drop/rescheduling and daily agenda.
 - Crew identity, roles/permissions and assigned work. Authenticated shared workspace is prerequisite.
