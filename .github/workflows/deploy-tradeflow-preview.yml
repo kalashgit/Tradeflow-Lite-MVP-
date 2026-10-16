@@ -39,7 +39,7 @@ jobs:
           node-version: "22"
 
       - name: Verify app behavior without network calls
-        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node tests/routes.test.cjs && node --check public/routes.js && node tests/operations.test.cjs && node --check public/operations.js && node tests/research-briefs.test.cjs && node --check public/research-briefs.js && node tests/qc-import.test.cjs && node tests/notifications.test.cjs && node --check public/notifications.js && node tests/opportunities-v5.test.cjs && node --check public/opportunities-v5.js && node --check src/index.js
+        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node tests/routes.test.cjs && node --check public/routes.js && node tests/operations.test.cjs && node --check public/operations.js && node tests/research-briefs.test.cjs && node --check public/research-briefs.js && node tests/qc-import.test.cjs && node tests/notifications.test.cjs && node --check public/notifications.js && node tests/opportunities-v5.test.cjs && node --check public/opportunities-v5.js && node tests/unified-header.test.cjs && node --check src/index.js
 
       - name: Verify preview-only Wrangler configuration
         shell: bash
@@ -74,7 +74,7 @@ jobs:
             try{
              response=await fetch(root+'/api/ai/health?probe='+Date.now()+'-'+i,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
              health=await response.json().catch(()=>({}));
-             if(response.status===200&&health.version==='v0.9.13')break;
+             if(response.status===200&&health.version==='v0.9.14')break;
              console.log('Waiting for deployed Worker version: HTTP',response.status,'version:',health.version||'unknown');
             }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
             await new Promise(resolve=>setTimeout(resolve,4500));
@@ -82,7 +82,7 @@ jobs:
            assert.ok(response,'Live AI endpoint did not respond');
            assert.equal(response.status,200,'AI health endpoint status');
            assert.equal(health.online,true,'AI health endpoint must respond as JSON');
-           assert.equal(health.version,'v0.9.13','Wait for new AI version instead of accepting stale deployment');
+           assert.equal(health.version,'v0.9.14','Wait for new AI version instead of accepting stale deployment');
            assert.equal(health.aiBound,true,'Workers AI binding must be attached');
            console.log('Live Worker health:',JSON.stringify(health));
            response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
@@ -188,6 +188,14 @@ jobs:
            const opHtml=await opHome.text();
            assert.ok(opHtml.includes('./opportunities-v5.js')&&opHtml.includes('./opportunities-v5.css'),'Preview index must load v5 resources');
            console.log('PASS: Opportunities v5 Import Export sheets and map overview deployed');
+           const brandCss=await fetch(root+'/unified-header.css?check='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const brandSource=await brandCss.text();
+           assert.equal(brandCss.status,200,'Shared TradeFlow brand header stylesheet must be deployed');
+           assert.ok(brandSource.includes('TradeFlow Unified Brand Header'),'Correct header style deployed');
+           const brandRoot=await fetch(root+'/?brand='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const brandHtml=await brandRoot.text();
+           assert.ok(brandHtml.includes('./unified-header.css'),'The app must load the shared header style');
+           console.log('PASS: Unified branded header stylesheet deployed');
            console.log('PASS: Original TradeFlow UI retained; Liquid Glass prototype not loaded');
            console.log('PASS: Real deployed AI endpoint is reachable over GET and POST');
           })().catch(error=>{console.error(error);process.exitCode=1});

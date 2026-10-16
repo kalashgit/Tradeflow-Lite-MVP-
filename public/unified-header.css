@@ -1,0 +1,31 @@
+/* TradeFlow Unified Brand Header — consistent identity on all screens. */
+:root{--tf-unified-head-height:74px}
+.tf-unified-header{height:var(--tf-unified-head-height);display:flex;align-items:center;position:relative;z-index:26;background:linear-gradient(110deg,#061420,#071b29 70%,#06121f);border-bottom:1px solid #183747;box-sizing:border-box;color:#f3fbff}
+.tf-unified-header .tf-unified-inner{width:min(100%,762px);height:100%;box-sizing:border-box;margin:0 auto;padding:0 17px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tf-unified-brand{display:flex;align-items:center;gap:12px;flex:0 1 auto;min-width:0;white-space:nowrap}
+.tf-unified-brand .tf-home-logo{width:43px;height:39px;flex:none;filter:drop-shadow(0 0 7px #c4f8ff2c)}
+.tf-unified-brand .tf-home-logo svg{display:block;width:100%;height:100%}
+.tf-unified-brand .tf-unified-wordmark{font-weight:770;letter-spacing:.21em;font-size:clamp(13px,3.6vw,18px);line-height:1.15;color:#f6fdff}
+.tf-unified-header .tf-notif-anchor{position:relative;z-index:30}
+.tf-unified-header .tf-home-alert{position:relative;display:grid;place-items:center;width:47px;height:47px;border-radius:50%;background:#0b2636;border:1px solid #315971;color:#d5f2fd;box-sizing:border-box}
+.tf-unified-header .tf-home-alert svg{width:25px;height:25px}
+.tf-unified-header .tf-home-alert i{position:absolute;top:5px;right:5px;width:10px;height:10px;background:#f04b5b;border:2px solid #092a3b;border-radius:50%;pointer-events:none}
+.tf-unified-header .tf-notif-panel{right:0;top:calc(100% + 12px)}
+.tf-unified-header .tf-home-alert:focus-visible{outline:2px solid #94ecff;outline-offset:2px}
+.tf-opportunity-topless{display:none!important}
+@media(max-width:850px){
+ .tf-unified-header{min-height:var(--tf-unified-head-height)}
+ .tf-unified-header .tf-unified-inner{max-width:100%;padding:0 17px}
+ .tf-map-screen{height:calc(100dvh - var(--tf-unified-head-height) - 81px - env(safe-area-inset-bottom))!important;min-height:280px!important}
+ .tf-map-top{padding-top:13px!important}
+ .tf-map-screen .maplibregl-ctrl-top-right{top:70px!important}
+}
+@media(min-width:851px){
+ .tf-unified-header{width:100%}
+ .tf-map-screen{height:calc(100dvh - var(--tf-unified-head-height) - 18px)!important}
+}
+@media(max-width:370px){
+ .tf-unified-brand{gap:9px}
+ .tf-unified-brand .tf-home-logo{width:38px;height:35px}
+ .tf-unified-brand .tf-unified-wordmark{font-size:12.5px;letter-spacing:.18em}
+}
