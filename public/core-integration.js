@@ -157,18 +157,36 @@
   return segments;
  }
  function supplierLinks(data,prefs){
-  const suppliers=new Map(dataArray(data,'suppliers').map(s=>[s.id,s])),features=[],missing=[];
+  const suppliers=new Map(dataArray(data,'suppliers').map(s=>[s.id,s])),features=[],missing=[],linkedSuppliers=new Set();
+  const headquarters=position({latitude:prefs?.homeLat,longitude:prefs?.homeLon});
   for(const order of dataArray(data,'supplyOrders')){
    if(order.status==='Cancelled')continue;
    const supplier=suppliers.get(order.supplierId);
    const a=position(supplier),b=destination(order,data,prefs);
    if(!a||!b){missing.push(order.id);continue}
    const segments=greatCircle(a,b);
+   if(order.destinationKind==='business')linkedSuppliers.add(String(order.supplierId));
    for(const coords of segments)features.push({type:'Feature',geometry:{type:'LineString',coordinates:coords},
     properties:{orderId:String(order.id),supplierId:String(order.supplierId),opportunityId:String(order.opportunityId||''),status:String(order.status),
      type:'supplier_connection_not_road_route',label:String(order.description||'Supply order')}});
   }
-  return {geojson:{type:'FeatureCollection',features},unmappedOrderIds:missing,mappedOrderCount:new Set(features.map(x=>x.properties.orderId)).size};
+  // Model known supplier-to-headquarters relationships even without an order.
+  // These are geographic connections, not shipments or road routes.
+  const connectedSupplierIds=[];
+  if(headquarters)for(const supplier of suppliers.values()){
+   const from=position(supplier);
+   if(!from)continue;
+   connectedSupplierIds.push(String(supplier.id));
+   if(linkedSuppliers.has(String(supplier.id)))continue;
+   for(const coords of greatCircle(from,headquarters)){
+    features.push({type:'Feature',geometry:{type:'LineString',coordinates:coords},
+      properties:{orderId:'',supplierId:String(supplier.id),supplierName:String(supplier.name||'Supplier'),
+        status:'Network',type:'supplier_network_connection',label:'Supplier → headquarters · geographic link'}});
+   }
+  }
+  return {geojson:{type:'FeatureCollection',features},unmappedOrderIds:missing,
+    mappedOrderCount:new Set(features.filter(x=>x.properties.orderId).map(x=>x.properties.orderId)).size,
+    connectedSupplierCount:connectedSupplierIds.length};
  }
  function relationshipAudit(d){
   const refs=['customers','quotes','jobs','tasks','invoices','suppliers','supplyOrders','opportunities'],seen={},issues=[];

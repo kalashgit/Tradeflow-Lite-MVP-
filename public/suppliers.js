@@ -48,17 +48,17 @@
  }
  function render(data,prefs){
   const suppliers=data.suppliers||[],orders=data.supplyOrders||[];
-  const connections=globalThis.TradeFlowCore?.supplierLinks(data,prefs)||{mappedOrderCount:0,unmappedOrderIds:[]};
+  const connections=globalThis.TradeFlowCore?.supplierLinks(data,prefs)||{mappedOrderCount:0,unmappedOrderIds:[],connectedSupplierCount:0};
   let area='<section class="tf-supplier-page"><button data-tab="settings" class="tf-supplier-back" type="button">‹ More</button>'+
    heading('Suppliers','Organize suppliers, deliveries and geographic connections in one headquarters.')+
-   '<div class="tf-supplier-metrics"><div><strong>'+suppliers.length+'</strong><small>Suppliers</small></div><div><strong>'+orders.length+'</strong><small>Orders</small></div><div><strong>'+connections.mappedOrderCount+'</strong><small>Mapped links</small></div></div>'+
+   '<div class="tf-supplier-metrics"><div><strong>'+suppliers.length+'</strong><small>Suppliers</small></div><div><strong>'+orders.length+'</strong><small>Orders</small></div><div><strong>'+connections.connectedSupplierCount+'</strong><small>HQ links</small></div></div>'+
    '<div class="tf-supplier-tools"><button type="button" data-supply-action="newSupplier" class="primary">+ Supplier</button><button type="button" data-supply-action="newOrder" '+(!suppliers.length?'disabled':'')+'>+ Supply order</button><button type="button" data-supply-action="resolve" '+(repairBusy?'disabled':'')+'>⌖ Locate addresses</button><button type="button" data-supply-action="viewNetwork">View network ↗</button></div>'+
 '<div class="tf-supplier-location-status" role="status">'+(prefs?.businessAddress?(globalThis.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon})?'Headquarters located':'Headquarters address saved · not mapped'):'Set your headquarters address in Business profile')+(repairStatus?' · '+esc(repairStatus):'')+'</div>';
   if(form==='supplier')area+=formSupplier(suppliers.find(x=>x.id===editId));
   if(form==='order')area+=formOrder(orders.find(x=>x.id===editId),data);
   area+='<div class="tf-supplier-section-title"><h2>Supplier network</h2><small>'+suppliers.filter(x=>globalThis.TradeFlowCore?.position(x)).length+' map-ready</small></div>';
   area+=suppliers.length?'<div class="tf-supplier-list">'+suppliers.map(s=>'<article><span class="tf-supplier-symbol" aria-hidden="true">▣</span><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.address||'Address not saved')+'</small><small>'+(globalThis.TradeFlowCore?.position(s)?'Location mapped · review pin':'Needs location match')+'</small></div><button type="button" data-supply-action="editSupplier" data-id="'+esc(s.id)+'" aria-label="Edit '+esc(s.name)+'">Edit</button></article>').join('')+'</div>':'<p class="tf-supplier-empty">No suppliers saved. Add your first supplier to start connecting deliveries to customers or jobs.</p>';
-  area+='<div class="tf-supplier-section-title"><h2>Supply orders</h2><small>'+connections.unmappedOrderIds.length+' connections awaiting coordinates</small></div>';
+  area+='<div class="tf-supplier-section-title"><h2>Supply orders</h2><small>'+connections.unmappedOrderIds.length+' orders awaiting coordinates</small></div>';
   area+=orders.length?'<div class="tf-supplier-list">'+orders.map(o=>{const supplier=suppliers.find(s=>s.id===o.supplierId);return '<article><span class="tf-supplier-symbol" aria-hidden="true">⇢</span><div><strong>'+esc(o.description)+'</strong><small>'+esc(supplier?.name||'Missing supplier')+' → '+esc(o.destinationAddress||'Destination not set')+'</small><small>'+badge(o.status)+' '+esc(o.plannedDate||'No date')+(o.opportunityId?' · Linked to opportunity':'')+'</small></div><button data-supply-action="editOrder" data-id="'+esc(o.id)+'">Edit</button></article>'}).join('')+'</div>':'<p class="tf-supplier-empty">No supply orders recorded. Creating one does not contact the supplier.</p>';
   return area+'<p class="tf-supplier-disclaimer">Neon lines on the Map represent geographic connections between saved coordinates. They are not verified road, shipping or flight routes. No live delivery tracking is active.</p></section>';
  }

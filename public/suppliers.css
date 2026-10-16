@@ -40,3 +40,9 @@
 @media(max-width:380px){.tf-supplier-tools button{font-size:11px;padding:9px}.tf-supplier-heading h1{font-size:27px}}
 
 .tf-supplier-location-status{font-size:11px;line-height:1.6;color:#a8d0d9;margin:8px 3px 13px}.tf-supplier-tools button[data-supply-action="resolve"]{color:var(--tf-accent-text,#4ae6ef);border-color:#427688}.tf-supplier-tools button[data-supply-action="resolve"]:disabled{opacity:.5}
+
+/* Persistent headquarters pin and minimal location recovery */
+.tradeflow-map-marker-headquarters{width:39px;height:39px;display:grid;place-items:center;background:#0c2a3c;border:2px solid #30dff1;border-radius:12px;box-shadow:0 0 0 4px #15b4d52b,0 0 24px #1cf1f477;color:#aef8ff;cursor:pointer}
+.tradeflow-map-marker-headquarters svg{width:24px;height:24px}
+.tf-map-hq-shortcut{display:block;margin:7px 0 0;padding:8px 12px;border-radius:12px;background:rgba(5,22,34,.90);border:1px solid rgba(65,209,231,.65);color:#c7f7ff;font-size:12px;font-weight:700;cursor:pointer;backdrop-filter:blur(10px)}
+.tf-map-hq-shortcut:focus-visible{outline:2px solid #35def1;outline-offset:2px}

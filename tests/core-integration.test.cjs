@@ -32,7 +32,13 @@ const updatedCustom=core.prepare('supplyOrder.save',{...custom,destinationAddres
 assert.equal(updatedCustom.latitude,null,'Changed delivery address must clear obsolete coordinates');
 let links=core.supplierLinks(data,{homeLat:30.27,homeLon:-97.73});
 assert.equal(links.mappedOrderCount,1);
-assert.ok(links.geojson.features.every(f=>f.properties.type==='supplier_connection_not_road_route'));
+assert.ok(links.geojson.features.filter(f=>f.properties.orderId).every(f=>f.properties.type==='supplier_connection_not_road_route'));
+assert.equal(links.connectedSupplierCount,1,'Supplier and headquarters connected');
+const networkOnly=core.supplierLinks({...data,supplyOrders:[]},{homeLat:30.27,homeLon:-97.73});
+assert.equal(networkOnly.mappedOrderCount,0,'No phantom supply order');
+assert.equal(networkOnly.connectedSupplierCount,1,'Supplier and HQ connect before any order exists');
+assert.ok(networkOnly.geojson.features.some(f=>f.properties.type==='supplier_network_connection'));
+assert.equal(core.supplierLinks({...data,supplyOrders:[]},{homeLat:null,homeLon:null}).connectedSupplierCount,0,'No invented HQ at zero coordinates');
 assert.ok(links.geojson.features[0].geometry.coordinates.length>2,'Geodesic path is interpolated');
 assert.equal(core.position({latitude:0,longitude:0}).lat,0);
 assert.equal(core.position({latitude:'',longitude:0}),null);
@@ -59,5 +65,9 @@ assert.ok(html.includes('core-integration.js')&&html.includes('suppliers.js')&&h
 assert.ok(sw.includes('core-integration.js')&&sw.includes('suppliers.js'),'Offline app shell includes supply modules');
 assert.ok(app.includes("supplierLinks("),'Supplier map connections');
 assert.ok(app.includes("tf-supplier-lines"),'Supplier map overlay');
+assert.ok(app.includes("if(hq)locations.unshift("),'HQ map marker exists without suppliers');
+assert.ok(app.includes("tfHeadquartersMapMarker()"),'HQ has a distinct map icon');
+assert.ok(!app.includes("if(hq&&(d.suppliers||[]).length)"),'HQ marker no longer depends on supplier count');
+assert.ok(app.includes('data-action="businessLocate"'),'Profile can locate HQ pin in one tap');
 assert.ok(app.includes("TradeFlowSupply?.render"),'Supply UI integration');
 console.log('PASS Core Integration Sprint 01: supplier validation, quote handoff, saved links, world-geodesic mapping and offline wiring.');
