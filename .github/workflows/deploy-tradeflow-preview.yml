@@ -39,7 +39,7 @@ jobs:
           node-version: "22"
 
       - name: Verify app behavior without network calls
-        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node tests/routes.test.cjs && node --check public/routes.js && node tests/operations.test.cjs && node --check public/operations.js && node --check src/index.js
+        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node tests/routes.test.cjs && node --check public/routes.js && node tests/operations.test.cjs && node --check public/operations.js && node tests/research-briefs.test.cjs && node --check public/research-briefs.js && node --check src/index.js
 
       - name: Verify preview-only Wrangler configuration
         shell: bash
@@ -74,7 +74,7 @@ jobs:
             try{
              response=await fetch(root+'/api/ai/health?probe='+Date.now()+'-'+i,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
              health=await response.json().catch(()=>({}));
-             if(response.status===200&&health.version==='v0.9.6')break;
+             if(response.status===200&&health.version==='v0.9.7')break;
              console.log('Waiting for deployed Worker version: HTTP',response.status,'version:',health.version||'unknown');
             }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
             await new Promise(resolve=>setTimeout(resolve,4500));
@@ -82,7 +82,7 @@ jobs:
            assert.ok(response,'Live AI endpoint did not respond');
            assert.equal(response.status,200,'AI health endpoint status');
            assert.equal(health.online,true,'AI health endpoint must respond as JSON');
-           assert.equal(health.version,'v0.9.6','Wait for new AI version instead of accepting stale deployment');
+           assert.equal(health.version,'v0.9.7','Wait for new AI version instead of accepting stale deployment');
            assert.equal(health.aiBound,true,'Workers AI binding must be attached');
            console.log('Live Worker health:',JSON.stringify(health));
            response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
@@ -152,6 +152,16 @@ jobs:
            assert.ok(opsHTML.includes('./operations.js')&&opsHTML.includes('./operations.css'),'Homepage must load Crew Operations');
            console.log('PASS: R05 local crew, dispatch and Marketing R04 database migration deployed');
            console.log('PASS: Route planning and integration status R05 assets deployed');
+           const briefAsset=await fetch(root+'/research-briefs.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const briefJs=await briefAsset.text();
+           assert.equal(briefAsset.status,200,'Research brief tool must be reachable');
+           assert.ok(briefJs.includes('TradeFlow R04 Research Briefs'),'Correct research brief module must be deployed');
+           const briefStyles=await fetch(root+'/research-briefs.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(briefStyles.status,200,'Research brief styles must be reachable');
+           const briefHome=await fetch(root+'/?research='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const briefHtml=await briefHome.text();
+           assert.ok(briefHtml.includes('./research-briefs.js')&&briefHtml.includes('./research-briefs.css'),'Homepage must load R04 research assets');
+           console.log('PASS: Source-first Research Briefs R04 deployed without automated sourcing claims');
            console.log('PASS: Marketing R04 offline draft and task workflow assets deployed');
            console.log('PASS: Revenue Release 03 draft, manual-payment and job-cost UI deployed');
            console.log('PASS: Release 02 Field Forms asset deployed');

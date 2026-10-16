@@ -1,0 +1,46 @@
+/* TradeFlow Research Briefs R04 — original navigation and restrained information-first styling. */
+.tf-rb-page{max-width:810px;margin:0 auto 32px;color:#edfaff;display:flex;flex-direction:column;gap:16px}
+.tf-rb-page *{box-sizing:border-box}
+.tf-rb-back{border:0;background:transparent;color:#afcdda;text-align:left;padding:4px 0 8px;font-size:12px;font-weight:650}
+.tf-rb-kicker{font:730 10px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--tf-accent,#10cfe1);letter-spacing:.12em}
+.tf-rb-heading h1{margin:7px 0 7px;letter-spacing:-.04em;font-size:clamp(25px,5vw,34px);color:#f6fcff;line-height:1.15}
+.tf-rb-heading p{color:#9cbbc8;font-size:12px;line-height:1.55;margin:0}
+.tf-rb-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.tf-rb-stats>div{padding:13px 11px;background:#0c2b3a;border:1px solid #35556a;border-radius:11px;display:flex;flex-direction:column;gap:8px}
+.tf-rb-stats small{color:#94bdca;letter-spacing:.065em;font:700 9px ui-monospace,monospace}
+.tf-rb-stats strong{font-size:23px;color:#eefbff}
+.tf-rb-sectionhead{display:flex;align-items:center;justify-content:space-between;gap:13px}
+.tf-rb-sectionhead h2{color:#edfaff;font-weight:730;font-size:16px;margin:0 0 5px}
+.tf-rb-sectionhead p{margin:0;color:#97b7c7;font-size:11px;line-height:1.5}
+.tf-rb-primary,.tf-rb-secondary,.tf-rb-danger{display:inline-flex;align-items:center;justify-content:center;border-radius:9px;min-height:40px;font-size:12px;font-weight:750;padding:9px 13px;cursor:pointer;text-decoration:none}
+.tf-rb-primary{border:1px solid var(--tf-accent,#10cfe1);background:var(--tf-accent,#10cfe1);color:#062333}
+.tf-rb-secondary{border:1px solid #436c7d;background:#173c4f;color:#e3f4fa}
+.tf-rb-danger{border:1px solid #734b4c;background:#322933;color:#f2b6b1}
+.tf-rb-card{background:linear-gradient(145deg,#103444,#092433 81%);border:1px solid #335868;border-radius:14px;padding:17px;display:flex;flex-direction:column;gap:14px}
+.tf-rb-listrow{display:flex;align-items:center;justify-content:space-between;gap:13px;padding:15px 13px;border:1px solid #335b6c;border-radius:12px;background:#0d2c3b;color:#e9f8ff;width:100%;text-align:left}
+.tf-rb-listrow>span:first-child{min-width:0;display:flex;flex-direction:column;gap:6px;flex:1}
+.tf-rb-listrow strong{font-size:13px;overflow-wrap:anywhere}
+.tf-rb-listrow small{color:#97b8c7;font-size:11px}
+.tf-rb-empty,.tf-rb-notice{border:1px dashed #3e677b;border-radius:13px;background:#102c3b;padding:17px;color:#c7e0eb}
+.tf-rb-empty strong,.tf-rb-notice strong{font-size:14px;color:#edfaff}
+.tf-rb-empty p,.tf-rb-notice p{font-size:12px;color:#a3c6d4;line-height:1.55;margin:8px 0 12px}
+.tf-rb-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.tf-rb-field span{font-size:12px;font-weight:670;color:#cce1eb}
+.tf-rb-field input,.tf-rb-field select,.tf-rb-field textarea{width:100%;background:#082534;border:1px solid #456d7d;border-radius:9px;min-height:42px;padding:10px 11px;font-size:13px;font-family:inherit;color:#f2faff;outline:none}
+.tf-rb-field textarea{resize:vertical;line-height:1.5}
+.tf-rb-field input:focus,.tf-rb-field textarea:focus,.tf-rb-field select:focus{border-color:var(--tf-accent,#10cfe1);box-shadow:0 0 0 2px #10cfe12c}
+.tf-rb-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.tf-rb-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.tf-rb-disclosure{padding:10px 12px;background:#142d3a;border-left:2px solid #6897a8;color:#a3bfcb;font-size:11px;line-height:1.55;margin:0}
+.tf-rb-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:13px}
+.tf-rb-detail-head small{color:#77bbcc;font:740 10px ui-monospace,monospace;letter-spacing:.1em}
+.tf-rb-detail-head h2{font-size:19px;color:#f4fcff;line-height:1.25;margin:7px 0 0}
+.tf-rb-pill{font:700 9px ui-monospace,monospace;letter-spacing:.07em;color:#b2dbe4;border:1px solid #426f81;border-radius:50px;background:#163d51;padding:7px 9px;white-space:nowrap}
+.tf-rb-kv{display:grid;grid-template-columns:minmax(115px,1fr) minmax(0,2fr);gap:12px 14px;border-top:1px solid #335464;padding-top:15px}
+.tf-rb-kv>span{font-size:12px;color:#94b7c5}
+.tf-rb-kv>strong{color:#e8faff;font-size:12px;font-weight:640;white-space:pre-wrap;overflow-wrap:anywhere}
+.tf-rb-card details{border:1px solid #3b6474;border-radius:9px;padding:11px}
+.tf-rb-card summary{cursor:pointer;font-size:12px;color:#d4ebf2}
+.tf-rb-card pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto;color:#b4d7e4;font:11px/1.5 ui-monospace,monospace}
+.tf-rb-page button:focus-visible,.tf-rb-page select:focus-visible{outline:2px solid #b7f7ff;outline-offset:3px}
+@media(max-width:540px){.tf-rb-card{padding:13px}.tf-rb-stats{gap:7px}.tf-rb-stats>div{padding:10px 8px}.tf-rb-stats strong{font-size:19px}.tf-rb-primary,.tf-rb-secondary,.tf-rb-danger{font-size:11px;padding:10px}.tf-rb-kv{grid-template-columns:minmax(95px,1fr) minmax(0,1.6fr)}}

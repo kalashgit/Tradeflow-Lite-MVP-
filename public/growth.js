@@ -26,6 +26,7 @@ function moreQuickLinks(d){
  return '<section class="tf-growth-more-shortcuts" aria-label="Growth intelligence tools">'+
   '<span class="tf-growth-kicker">YOUR BUSINESS / GROWTH</span>'+
   link('growth','Target Customers & Buyer Personas',active?'Active: '+active.name:'Create editable targeting profiles','target')+
+  link('research','Research Briefs','Define evidence-first lead research requests without running searches','target')+
   link('missions','Business Missions',openMissions?openMissions+' active missions in Tasks':'Suggested goals linked to your Tasks','mission')+
   link('capabilities','Explore Capabilities','All tools, including planned integrations','library')+
   '</section>';
@@ -153,6 +154,7 @@ var sections=[
  {name:'Growth & Acquisition',rows:[
   ['growth','ICP & Buyer Personas','Available','Define and revise your target customer profiles'],
   ['opportunities','Opportunity Records','Available','Import sourced opportunities and review project evidence'],
+  ['research','Research Briefs','Available','Create ICP-based research specifications and export instructions'],
   ['','Paid lead research & enrichment','Planned','Verified research runs, contact evidence and quotas'],
   ['dispatch','Review follow-up Tasks','Available','Create local follow-up tasks for completed jobs; no automatic send']]},
  {name:'Marketing',rows:[

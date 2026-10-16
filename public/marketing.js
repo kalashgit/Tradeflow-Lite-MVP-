@@ -66,6 +66,7 @@ function detail(d){
 function list(d){
  const all=d.marketingCampaigns||[],show=filter==='all'?all:all.filter(x=>x.status===filter),pf=profiles(d);
  return '<div class="tf-marketing-page">'+nav()+header()+
+ '<div class="tf-marketing-info"><strong>Acquiring new customers?</strong> Start with a verified research specification before drafting outreach. <button type="button" data-tab="research">Open Research Briefs ↗</button></div>'+
  '<div class="tf-marketing-metrics"><div><small>CAMPAIGNS</small><strong>'+all.length+'</strong></div><div><small>DRAFTS</small><strong>'+all.filter(x=>x.status==='Draft').length+'</strong></div><div><small>READY FOR REVIEW</small><strong>'+all.filter(x=>x.status==='Ready').length+'</strong></div></div>'+
  '<div class="tf-marketing-sectionhead"><div><h2>Campaign workspace</h2><p>Design around your target customer and buyer persona.</p></div><button type="button" class="tf-marketing-primary" data-marketing-action="new">+ New draft</button></div>'+
  (!pf.icps.length?'<div class="tf-marketing-info">Set an Ideal Customer Profile under Growth Intelligence before planning a targeted campaign. <button type="button" data-tab="growth">Set ICP ↗</button></div>':'')+
