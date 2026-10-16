@@ -24,7 +24,7 @@ ops.configure({
  del:async(s,id)=>{stores[s]=stores[s].filter(x=>x.id!==id)},
  uid:()=>String(++inc),render(){},notify(){notified++},navigate:async()=>{}
 });
-assert.ok(ops.render('dispatch',stores).includes('Crew & Dispatch'));
+assert.ok(ops.render('dispatch',stores).includes('Crew &amp; Dispatch'));
 assert.ok(ops.render('integrations',stores).includes('Not connected'));
 assert.ok(ops.render('integrations',stores).includes('QuickBooks Online'));
 assert.ok(ops._test.accountingCsv(stores).includes('received_payment'));
