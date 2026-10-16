@@ -1320,3 +1320,25 @@ button,a[href],label[for]{-webkit-tap-highlight-color:transparent;touch-action:m
 @media(max-width:575px){.tf-setup-trades{padding:16px 12px}.tf-setup-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tf-setup-trade{min-height:87px}.tf-setup-details{grid-template-columns:minmax(0,1fr)}}
 @media(min-width:900px){.tf-setup-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.tf-setup-wrap{max-width:820px}}
 @media(prefers-reduced-motion:reduce){.tf-setup-trade{transition:none!important}}
+
+/* Finance TradeFlow action toolbar and trading-style signal palette */
+.tf-cash{--tf-income-neon:#00ed64;--tf-expense-neon:#ff334d}
+.tf-finance-tool-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:1px 0 13px}
+.tf-finance-tool-row .tf-op5-action{min-width:0;min-height:43px;gap:9px;font-size:13px;font-weight:750}
+.tf-finance-tool-row .tf-op5-action svg{width:18px;height:18px}
+.tf-finance-tool-row .tf-op5-action span{margin-left:auto}
+.tf-finance-tool-menu{background:#0a2535;border:1px solid #305d70;border-radius:14px;padding:12px;margin:0 0 16px;box-shadow:0 12px 27px #0004}
+.tf-finance-tool-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#eafcff;margin-bottom:10px}
+.tf-finance-tool-head button{background:none;border:0;color:#c8e2ee;font-size:23px}
+.tf-finance-tool-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tf-finance-tool-options button{min-height:45px;white-space:normal;background:#102c3d;border:1px solid #367188;border-radius:10px;color:#e6f7fc;padding:9px 7px;font-size:12px;font-weight:670}
+.tf-finance-tool-options button:active{background:#1a455b}
+.tf-cash .positive,.tf-cash .tf-cash-right.positive{color:var(--tf-income-neon)!important}
+.tf-cash .negative,.tf-cash .tf-cash-right.negative{color:var(--tf-expense-neon)!important}
+.tf-cash .tf-cash-direction.in{color:var(--tf-income-neon)!important;background:#062c1b!important;border-color:var(--tf-income-neon)!important;box-shadow:0 0 13px #00ed6428}
+.tf-cash .tf-cash-direction.out{color:var(--tf-expense-neon)!important;background:#330e1b!important;border-color:var(--tf-expense-neon)!important;box-shadow:0 0 13px #ff334d24}
+.tf-cash .tf-cash-actions button[data-kind="income"]{background:var(--tf-income-neon)!important;border-color:var(--tf-income-neon)!important;color:#031d12!important;box-shadow:0 0 14px #00ed6440}
+.tf-cash .tf-cash-actions button[data-kind="expense"]{color:var(--tf-expense-neon)!important;border-color:var(--tf-expense-neon)!important;background:#250e19!important}
+.tf-cash .tf-cash-numbers .balance strong{color:var(--tf-income-neon)}
+.tf-cash:has(.tf-cash-numbers .balance strong) .tf-cash-numbers .balance{color:var(--tf-accent)}
+@media(max-width:370px){.tf-finance-tool-options{gap:6px}.tf-finance-tool-row .tf-op5-action{padding:8px 9px}}

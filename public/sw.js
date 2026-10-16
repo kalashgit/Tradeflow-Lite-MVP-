@@ -1,4 +1,4 @@
-const CACHE='tradeflow-lite-v36-address-preservation';
+const CACHE='tradeflow-lite-v37-finance-tools';
 const ASSETS=['./','./index.html','./style.css','./phase1.css','./ai-preview.css','./growth.css','./growth.js','./notifications.css','./notifications.js','./calendar.css','./calendar.js','./job-forms.css','./job-forms.js','./revenue.css','./revenue.js','./marketing.css','./marketing.js','./research-briefs.css','./research-briefs.js','./routes.css','./routes.js','./operations.css','./operations.js','./opportunities-v5.css','./opportunities-v5.js','./tradeflow-engine.js','./unified-header.css','./app.js','./manifest.webmanifest','./icons/icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('tradeflow-lite-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});
