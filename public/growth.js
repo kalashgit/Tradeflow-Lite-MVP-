@@ -156,6 +156,7 @@ var sections=[
   ['','Paid lead research & enrichment','Planned','Verified research runs, contact evidence and quotas'],
   ['','Review and referral workflows','Planned','Permission-aware client feedback requests']]},
  {name:'Marketing',rows:[
+  ['marketing','Marketing Studio','Available','Create ICP-based marketing drafts and review requests without sending'],
   ['','Local SEO & Google Business','Planned','Audit visibility and improve business listings'],
   ['','Google and Meta campaigns','Planned','Prepare drafts for approved advertising accounts'],
   ['','Email marketing','Planned','Segment audiences, get approval and track sends']]},
