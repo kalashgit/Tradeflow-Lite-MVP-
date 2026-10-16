@@ -7,11 +7,11 @@ const worker=context.previewWorker;
 let called=0,model='';
 const env={
  ASSETS:{fetch:async()=>new Response('Static app',{status:200})},
- AI:{run:async(name,input)=>{called++;model=name;assert.equal(input.messages.at(-1).content,'What should I do?');return {response:'Review your active jobs.'}}},
+ AI:{run:async(name,input)=>{called++;model=name;assert.equal(input.messages.at(-1).content,'What should I do?');assert.ok(input.messages[0].content.includes('Opportunity Map screen'));return {response:'Review your active jobs.'}}},
  TF_AI_PREVIEW_TOKEN:'🔒Κωδικός-2026-⚡!user'
 };
 const makeVerify=(token)=>new Request('https://example.com/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:token})});
-const makeChat=(token)=>new Request('https://example.com/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:token,messages:[{role:'user',content:'What should I do?'}]})});
+const makeChat=(token)=>new Request('https://example.com/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:token,screen:'map',messages:[{role:'user',content:'What should I do?'}]})});
 (async()=>{
  const health=await worker.fetch(new Request('https://example.com/api/ai/health'),env);
  assert.equal(health.status,200);
