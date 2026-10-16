@@ -67,6 +67,8 @@ assert.ok(app.includes("supplierLinks("),'Supplier map connections');
 assert.ok(app.includes("tf-supplier-lines"),'Supplier map overlay');
 assert.ok(app.includes("if(hq)locations.unshift("),'HQ map marker exists without suppliers');
 assert.ok(app.includes("tfHeadquartersMapMarker()"),'HQ has a distinct map icon');
+assert.ok(app.includes("label.textContent=letters"),'HQ business initials are rendered safely with textContent');
+assert.ok(fs.readFileSync('public/suppliers.css','utf8').includes('.tf-map-hq-initials'),'Business monogram has a consistent map style');
 assert.ok(!app.includes("if(hq&&(d.suppliers||[]).length)"),'HQ marker no longer depends on supplier count');
 assert.ok(app.includes('data-action="businessLocate"'),'Profile can locate HQ pin in one tap');
 assert.ok(app.includes("TradeFlowSupply?.render"),'Supply UI integration');
