@@ -17,8 +17,8 @@ assert.ok(html.includes('./opportunities-v5.js')&&html.includes('./opportunities
 assert.ok(sw.includes('./opportunities-v5.js')&&sw.includes('./opportunities-v5.css'),'Offline worker precaches UI');
 assert.ok(css.includes('.tf-op5-sheet')&&css.includes('.tf-op5-handle')&&css.includes('.tf-op5-map-preview'));
 assert.ok(css.includes('.top.tf-opportunity-topless'),'Old redundant header removed only on Opportunities');
-assert.ok(script.includes('data-op-ux="camera"')&&script.includes('data-op-ux="library"'),'Native image inputs present');
-assert.ok(script.includes('data-op-ux="csv"')&&script.includes('data-op-ux="crm"'),'CSV and CRM exports present');
+assert.ok(script.includes("button('camera'")&&script.includes("button('image'")&&script.includes("'library'"),'Native image inputs present');
+assert.ok(script.includes("button('download'")&&script.includes("button('crm'"),'CSV and CRM exports present');
 assert.ok(script.includes('onImported'),'Photo import can initiate limited map lookup');
 assert.ok(script.includes('No')||script.includes('pending source verification'));
 assert.ok(app.includes('tf-op5-topbar')&&app.includes('data-op-ux="import"')&&app.includes('data-op-ux="export"'));
