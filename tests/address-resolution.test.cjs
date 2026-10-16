@@ -19,7 +19,7 @@ assert.equal(resolver.select('6801 River Place Blvd, Austin',[]),null);
 assert.ok(app.includes("tfResolveSupplyLocations({onlyBusiness:true,max:1})"),'Editing a business address triggers address lookup');
 assert.ok(app.includes('Business profile saved · Location needs review in Suppliers'),'Saving an unmapped address must not fail');
 assert.ok(app.includes("window.TradeFlowAddress"),'App uses shared address resolution');
-assert.ok(app.includes("data-map-action=\\\"business\\\""),'Map supports setting exact HQ pin');
+assert.ok(app.includes('data-map-action="business"'),'Map supports setting exact HQ pin');
 assert.ok(app.includes("resolveLocations:tfResolveSupplyLocations"),'Supplier repair uses shared address engine');
 assert.ok(suppliers.includes('data-supply-action="resolve"'),'User can retry unmapped addresses');
 assert.ok(suppliers.includes("repairBusy"),'Prevent duplicate overlapping repair taps');
