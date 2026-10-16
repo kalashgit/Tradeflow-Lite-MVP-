@@ -50,3 +50,11 @@ routing, automatic lead scraping, stock tracking, carrier tracking, and autonomo
 6. Refine pages one at a time after shared functional acceptance.
 
 **This sprint is a foundation release, not a claim that the entire Command OS is ready to sell.**
+
+## Address-resolution repair (preview v0.9.30)
+- Business profile addresses persist even when external geocoding is unavailable; changing an address clears only stale home coordinates.
+- Supplier saves attempt conservative location resolution. Existing unmapped records can be retried from Suppliers and when opening the supply map.
+- Manual pin selection on Map can now set exact headquarters coordinates; supplier positions can already be pinned.
+- Full Google Maps place links containing selected coordinates are supported. Short links or viewport-only URLs are not considered authoritative coordinates.
+- Address queries use the existing user-triggered, rate-limited public provider; reject unmatched street numbers and postal codes from automatic acceptance.
+- Plotting means a best-effort location that requires owner review. No Google Maps API, mass geocoding entitlement, routing engine, or verified delivery tracking is claimed.

@@ -6,7 +6,7 @@
  if(root)root.TradeFlowSupply=api;
 })(typeof globalThis==='object'?globalThis:null,function(){
  'use strict';
- let bridge=null,form='',editId='',draft='';
+ let bridge=null,form='',editId='',draft='',repairStatus='',repairBusy=false;
  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const opts=(rows,value='')=>rows.map(([id,text])=>'<option value="'+esc(id)+'" '+(String(id)===String(value)?'selected':'')+'>'+esc(text)+'</option>').join('');
  const value=(o,k)=>esc(o&&o[k]!==undefined&&o[k]!==null?o[k]:'');
@@ -52,11 +52,12 @@
   let area='<section class="tf-supplier-page"><button data-tab="settings" class="tf-supplier-back" type="button">‹ More</button>'+
    heading('Suppliers','Organize suppliers, deliveries and geographic connections in one headquarters.')+
    '<div class="tf-supplier-metrics"><div><strong>'+suppliers.length+'</strong><small>Suppliers</small></div><div><strong>'+orders.length+'</strong><small>Orders</small></div><div><strong>'+connections.mappedOrderCount+'</strong><small>Mapped links</small></div></div>'+
-   '<div class="tf-supplier-tools"><button type="button" data-supply-action="newSupplier" class="primary">+ Supplier</button><button type="button" data-supply-action="newOrder" '+(!suppliers.length?'disabled':'')+'>+ Supply order</button><button type="button" data-tab="map">View network ↗</button></div>';
+   '<div class="tf-supplier-tools"><button type="button" data-supply-action="newSupplier" class="primary">+ Supplier</button><button type="button" data-supply-action="newOrder" '+(!suppliers.length?'disabled':'')+'>+ Supply order</button><button type="button" data-supply-action="resolve" '+(repairBusy?'disabled':'')+'>⌖ Locate addresses</button><button type="button" data-supply-action="viewNetwork">View network ↗</button></div>'+
+'<div class="tf-supplier-location-status" role="status">'+(prefs?.businessAddress?(globalThis.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon})?'Headquarters located':'Headquarters address saved · not mapped'):'Set your headquarters address in Business profile')+(repairStatus?' · '+esc(repairStatus):'')+'</div>';
   if(form==='supplier')area+=formSupplier(suppliers.find(x=>x.id===editId));
   if(form==='order')area+=formOrder(orders.find(x=>x.id===editId),data);
   area+='<div class="tf-supplier-section-title"><h2>Supplier network</h2><small>'+suppliers.filter(x=>globalThis.TradeFlowCore?.position(x)).length+' map-ready</small></div>';
-  area+=suppliers.length?'<div class="tf-supplier-list">'+suppliers.map(s=>'<article><span class="tf-supplier-symbol" aria-hidden="true">▣</span><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.address||'Address not saved')+'</small><small>'+(globalThis.TradeFlowCore?.position(s)?'Location mapped':'Needs coordinates')+'</small></div><button type="button" data-supply-action="editSupplier" data-id="'+esc(s.id)+'" aria-label="Edit '+esc(s.name)+'">Edit</button></article>').join('')+'</div>':'<p class="tf-supplier-empty">No suppliers saved. Add your first supplier to start connecting deliveries to customers or jobs.</p>';
+  area+=suppliers.length?'<div class="tf-supplier-list">'+suppliers.map(s=>'<article><span class="tf-supplier-symbol" aria-hidden="true">▣</span><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.address||'Address not saved')+'</small><small>'+(globalThis.TradeFlowCore?.position(s)?'Location mapped · review pin':'Needs location match')+'</small></div><button type="button" data-supply-action="editSupplier" data-id="'+esc(s.id)+'" aria-label="Edit '+esc(s.name)+'">Edit</button></article>').join('')+'</div>':'<p class="tf-supplier-empty">No suppliers saved. Add your first supplier to start connecting deliveries to customers or jobs.</p>';
   area+='<div class="tf-supplier-section-title"><h2>Supply orders</h2><small>'+connections.unmappedOrderIds.length+' connections awaiting coordinates</small></div>';
   area+=orders.length?'<div class="tf-supplier-list">'+orders.map(o=>{const supplier=suppliers.find(s=>s.id===o.supplierId);return '<article><span class="tf-supplier-symbol" aria-hidden="true">⇢</span><div><strong>'+esc(o.description)+'</strong><small>'+esc(supplier?.name||'Missing supplier')+' → '+esc(o.destinationAddress||'Destination not set')+'</small><small>'+badge(o.status)+' '+esc(o.plannedDate||'No date')+(o.opportunityId?' · Linked to opportunity':'')+'</small></div><button data-supply-action="editOrder" data-id="'+esc(o.id)+'">Edit</button></article>'}).join('')+'</div>':'<p class="tf-supplier-empty">No supply orders recorded. Creating one does not contact the supplier.</p>';
   return area+'<p class="tf-supplier-disclaimer">Neon lines on the Map represent geographic connections between saved coordinates. They are not verified road, shipping or flight routes. No live delivery tracking is active.</p></section>';
@@ -83,6 +84,17 @@
   else if(action==='newOrder'){form='order';editId=''}
   else if(action==='editSupplier'){form='supplier';editId=button.dataset.id}
   else if(action==='editOrder'){form='order';editId=button.dataset.id}
+  else if(action==='resolve'||action==='viewNetwork'){
+   if(repairBusy)return;
+   repairBusy=true;repairStatus='Checking saved addresses…';await bridge.render();
+   try{const result=await bridge.resolveLocations({max:3,interactive:action==='resolve'});
+    repairStatus=result.checked?result.located+' located · '+result.unresolved+' need review'+(result.offline?' · '+result.offline+' lookup unavailable':'')+(result.remaining?' · '+result.remaining+' waiting':''):'No new addresses to locate';
+    if(result.lastError&&result.located===0)repairStatus=result.lastError;
+   }catch(err){repairStatus='Lookup unavailable: '+String(err.message||err).slice(0,110)}
+   finally{repairBusy=false}
+   if(action==='viewNetwork'){await bridge.navigate('map');return}
+   await bridge.render();return;
+  }
   await bridge.render();
  }
  async function submit(e){
@@ -94,7 +106,11 @@
   if(kind==='supplyOrder.save')f.destinationId=f.destinationKind==='customer'?f.customerDestination:f.destinationKind==='job'?f.jobDestination:'';
   try{
    const result=await bridge.execute(kind,f);
-   form='';editId='';
+   form='';editId='';repairStatus='';
+   const opts=kind==='supplier.save'?{supplierIds:[result.id],skipBusiness:true,max:1}:{orderIds:[result.id],includeBusiness:true,max:2};
+   const locate=await bridge.resolveLocations(opts);
+   if(locate.located)repairStatus='Location plotted · review on map';
+   else if(locate.checked)repairStatus='Saved · address needs mapping review';
    await bridge.render();bridge.notify((kind==='supplier.save'?'Supplier':'Supply order')+' saved');
   }catch(err){window.alert('Could not save: '+err.message)}
  }

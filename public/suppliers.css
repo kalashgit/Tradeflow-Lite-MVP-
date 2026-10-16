@@ -38,3 +38,5 @@
 .tradeflow-map-marker-supplier{width:36px!important;height:36px!important;display:grid;place-items:center;background:#123247;border:2px solid #ffbb33;border-radius:10px;box-shadow:0 0 18px #f9b53966;cursor:pointer}
 .tradeflow-map-marker-supplier svg{height:23px;width:23px;color:#ffcf62}
 @media(max-width:380px){.tf-supplier-tools button{font-size:11px;padding:9px}.tf-supplier-heading h1{font-size:27px}}
+
+.tf-supplier-location-status{font-size:11px;line-height:1.6;color:#a8d0d9;margin:8px 3px 13px}.tf-supplier-tools button[data-supply-action="resolve"]{color:var(--tf-accent-text,#4ae6ef);border-color:#427688}.tf-supplier-tools button[data-supply-action="resolve"]:disabled{opacity:.5}

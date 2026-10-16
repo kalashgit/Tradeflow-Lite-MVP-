@@ -1078,7 +1078,17 @@ document.addEventListener('submit',async e=>{if(e.target.id==='tfFinanceForm'){
  tfFinanceScreen='overview';tfFinanceEdit=null;tfFinanceDraft=null;tfFinanceSearch='';
  notify(income?'Income recorded':'Expense recorded');return;
 }
-if(e.target.id==='settingsForm'){e.preventDefault();const f=new FormData(e.target),company=String(f.get('company')||'').trim(),address=String(f.get('businessAddress')||'').trim(),trade=String(f.get('primaryTrade')||'').trim().slice(0,50),serviceArea=String(f.get('serviceArea')||'').trim().slice(0,120);if(!company)return alert('Enter a business name');if(!trade)return alert('Choose or enter a primary trade');let home={};if(address!==String(prefs.businessAddress||'')){if(address){try{const results=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address));if(!results.length||!Number.isFinite(Number(results[0].lat))||!Number.isFinite(Number(results[0].lon)))throw Error('Address not found');home={homeLat:Number(results[0].lat),homeLon:Number(results[0].lon)}}catch(err){alert('Address could not be verified. No changes saved. '+err.message);return}}else home={homeLat:'',homeLon:''}}prefs={...prefs,company,serviceArea,primaryTrade:trade,categories:[...new Set([trade,...(Array.isArray(prefs.categories)?prefs.categories:[])])],onboardingComplete:true,contactName:String(f.get('contactName')||'').trim(),contactEmail:String(f.get('contactEmail')||'').trim(),contactPhone:String(f.get('contactPhone')||'').trim(),businessAddress:address,...home};await put('settings',{id:'business',...prefs});if(Object.keys(home).length)mapLastView=null;notify('Business profile saved');return}if(e.target.id==='appearanceForm'){e.preventDefault();prefs.accent=String(new FormData(e.target).get('accent')||'#10cfe1');prefs.accentCustomized=true;await put('settings',{id:'business',...prefs});notify('Appearance saved');return}if(e.target.id==='tfOdContactWorkflowForm'){e.preventDefault();const id=e.target.dataset.id;const record=await get('opportunities',id);if(!record)return;const fd=new FormData(e.target);
+if(e.target.id==='settingsForm'){e.preventDefault();const f=new FormData(e.target),company=String(f.get('company')||'').trim(),address=String(f.get('businessAddress')||'').trim(),trade=String(f.get('primaryTrade')||'').trim().slice(0,50),serviceArea=String(f.get('serviceArea')||'').trim().slice(0,120);if(!company)return alert('Enter a business name');if(!trade)return alert('Choose or enter a primary trade');const changed=address!==String(prefs.businessAddress||'');
+const hasHome=!!window.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon});
+const home=changed?{homeLat:null,homeLon:null,mapLocationStatus:address?'unmapped':'no_address',mapAddressResult:''}:{};
+prefs={...prefs,company,serviceArea,primaryTrade:trade,categories:[...new Set([trade,...(Array.isArray(prefs.categories)?prefs.categories:[])])],onboardingComplete:true,contactName:String(f.get('contactName')||'').trim(),contactEmail:String(f.get('contactEmail')||'').trim(),contactPhone:String(f.get('contactPhone')||'').trim(),businessAddress:address,...home};
+await put('settings',{id:'business',...prefs});
+if(changed)mapLastView=null;
+if(address&&(changed||!hasHome)){
+ const resolved=await tfResolveSupplyLocations({onlyBusiness:true,max:1});
+ notify(resolved.located?'Business profile saved · Address plotted (review pin)':'Business profile saved · Location needs review in Suppliers');
+}else notify('Business profile saved');
+return}if(e.target.id==='appearanceForm'){e.preventDefault();prefs.accent=String(new FormData(e.target).get('accent')||'#10cfe1');prefs.accentCustomized=true;await put('settings',{id:'business',...prefs});notify('Appearance saved');return}if(e.target.id==='tfOdContactWorkflowForm'){e.preventDefault();const id=e.target.dataset.id;const record=await get('opportunities',id);if(!record)return;const fd=new FormData(e.target);
 const status=String(fd.get('status')||'New');if(!['New','Saved','Contacted','Interested','Quoted','Won','Lost'].includes(status))return;
 const email=String(fd.get('contact_email')||'').trim().slice(0,250),phone=String(fd.get('contact_phone')||'').trim().slice(0,70);
 const publicSource=String(fd.get('contact_source_url')||'').trim().slice(0,450);
@@ -1462,7 +1472,7 @@ return `<section class="tf-op-workspace tf-op-v3 tf-op5"><header class="tf-op5-t
 ${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article class="tf-op3-row"><button type="button" class="tf-op3-open" data-action="opportunityDetail" data-id="${esc(x.id)}"><span class="tf-op3-status tf-stage-${opportunityStage(x)}">${opportunityStageSvg(x)}</span><span class="tf-op3-copy"><strong>${esc(x.project_name)}</strong><small>${esc([x.city,x.region].filter(Boolean).join(', ')||'Location unavailable')} · ${esc(opportunityStageName(x))}</small></span></button>${opportunityMapped(x)?`<button class="tf-op3-pin" type="button" data-action="opportunityMap" data-id="${esc(x.id)}" aria-label="View ${esc(x.project_name)} on map">⌖</button>` :`<button class="tf-op3-pin tf-op3-locate" type="button" data-action="opportunityLocate" data-id="${esc(x.id)}" aria-label="Locate ${esc(x.project_name)} on map">⊕</button>`}<span class="tf-op3-chevron">›</span></article>`).join('')||`<div class="tf-op-empty"><h3>${data.length?'No matching opportunities':'No research records imported yet'}</h3><p>${data.length?'Try another filter or search.':'Import a research CSV to begin.'}</p><button class="btn secondary small" data-op-ux="import">Import records</button></div>`}</div>${filtered.length>200?'<p class="muted sub">Showing first 200 records; refine search for more.</p>':''}</section>${opportunityReviewModal()}`;
 }
 
-window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
+window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,resolveLocations:tfResolveSupplyLocations,navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowJobForms?.configure({get,put,render,uid});
 window.TradeFlowCalendar?.configure({
  get,put,all,render,notify,uid,
@@ -1511,6 +1521,82 @@ function showSettingsPanel(which){const box=document.getElementById('tfSettingsP
 async function setMapHome(){if(!liveMap)return alert('Open the map while online first.');const c=liveMap.getCenter();prefs.homeLat=Number(c.lat.toFixed(6));prefs.homeLon=Number(c.lng.toFixed(6));await put('settings',{id:'business',...prefs});notify('Home map location saved')}
 async function focusMapPin(id){const x=await get('pins',id);if(x&&liveMap)liveMap.flyTo({center:[x.longitude,x.latitude],zoom:15})}
 function mapNominatim(url){const request=mapRequestQueue.then(async()=>{const delay=Math.max(0,nextMapRequestAt-Date.now());if(delay)await new Promise(resolve=>setTimeout(resolve,delay));nextMapRequestAt=Date.now()+1100;const response=await fetch(url,{headers:{'Accept-Language':'en'}});if(!response.ok)throw Error(`Geocoding unavailable (${response.status})`);return response.json()});mapRequestQueue=request.catch(()=>{});return request}
+/* A location is map-ready only when actual coordinates have been resolved.
+   Lookups are one-off, user-initiated or triggered by saving a changed address;
+   no bulk crawling or unconfirmed city-level fallback is permitted. */
+async function tfFindMapPoint(address,interactive=false){
+ const resolver=window.TradeFlowAddress,raw=String(address||'').trim();
+ if(!resolver||!raw)return {status:'missing_address'};
+ const google=resolver.googlePinCoordinates(raw);
+ if(google)return {status:'located',lat:google.lat,lon:google.lon,label:'Google Maps selected point',quality:'review'};
+ if(navigator.onLine===false)return {status:'offline'};
+ if(/^https?:\/\//i.test(raw))return {status:'unsupported_map_link'};
+ let review=null;
+ for(const query of resolver.queries(raw)){
+  try{
+   const url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q='+encodeURIComponent(query);
+   const key='tf-address:'+query.toLowerCase().replace(/\s+/g,' ');
+   let hits=mapGeocodeCache.get(key);
+   if(!hits){hits=await mapNominatim(url);if(Array.isArray(hits)&&hits.length)mapGeocodeCache.set(key,hits.slice(0,5))}
+   const choice=resolver.select(raw,hits);
+   if(choice?.confidence==='high')return {status:'located',...choice,quality:'review'};
+   if(choice&&!review)review=choice;
+  }catch(error){return {status:'lookup_error',reason:String(error?.message||error).slice(0,180)}}
+ }
+ if(review&&interactive&&confirm('Possible location for '+raw+':\n'+review.display+'\n\nUse this suggested point? You can verify and move it on the map.')){
+  return {status:'located',...review,quality:'review'};
+ }
+ return review?{status:'needs_review',suggested:review.display}:{status:'not_found'};
+}
+let tfSupplyLocationRepairRunning=false;
+async function tfResolveSupplyLocations(options={}){
+ if(tfSupplyLocationRepairRunning)return {busy:true};
+ tfSupplyLocationRepairRunning=true;
+ const report={located:0,unresolved:0,offline:0,checked:0,remaining:0};
+ try{
+  const limit=Math.max(1,Math.min(3,Number(options.max)||3)),data=Object.fromEntries(await Promise.all(['settings','suppliers','supplyOrders','customers','jobs'].map(async s=>[s,await all(s)])));
+  const settings=data.settings.find(s=>s.id==='business')||{},queue=[];
+  const add=(store,id,address)=>{if(String(address||'').trim())queue.push({store,id,address:String(address).trim()})};
+  const wantBusiness=!!options.onlyBusiness||!!options.includeBusiness||(!options.skipBusiness&&!options.supplierIds&&!options.orderIds);
+  if(wantBusiness&&!window.TradeFlowCore.position({latitude:settings.homeLat,longitude:settings.homeLon}))add('settings','business',settings.businessAddress);
+  const suppliers=options.onlyBusiness||(!options.supplierIds&&options.orderIds)?[]:data.suppliers.filter(s=>!options.supplierIds||options.supplierIds.includes(s.id));
+  for(const supplier of suppliers)if(!window.TradeFlowCore.position(supplier))add('suppliers',supplier.id,supplier.address);
+  const orders=options.onlyBusiness||(options.supplierIds&&!options.orderIds)?[]:data.supplyOrders.filter(o=>!options.orderIds||options.orderIds.includes(o.id));
+  const added=new Set();
+  for(const order of orders){
+   if(order.status==='Cancelled')continue;
+   if(order.destinationKind==='custom'&&!window.TradeFlowCore.position(order))add('supplyOrders',order.id,order.destinationAddress);
+   if(order.destinationKind==='customer'||order.destinationKind==='job'){
+    const store=order.destinationKind==='customer'?'customers':'jobs',target=data[store].find(x=>x.id===order.destinationId);
+    if(target&&!window.TradeFlowCore.position(target)&&!added.has(store+':'+target.id)){added.add(store+':'+target.id);add(store,target.id,target.address)}
+   }
+  }
+  report.remaining=Math.max(0,queue.length-limit);
+  for(const item of queue.slice(0,limit)){
+   const result=await tfFindMapPoint(item.address,!!options.interactive);
+   report.checked++;
+   if(result.status==='offline'||result.status==='lookup_error'){report.offline++;report.lastError=result.reason||result.status;continue}
+   if(result.status!=='located'){report.unresolved++;report.lastError=result.status==='unsupported_map_link'?'Use a street address or choose a pin on Map. Short Google Maps links do not contain usable coordinates.':result.suggested?'Location needs confirmation: '+result.suggested:'No specific building-level match';continue}
+   const old=await get(item.store,item.id);
+   if(!old)continue;
+   const expected=item.store==='settings'?'businessAddress':item.store==='supplyOrders'?'destinationAddress':'address';
+   if(String(old[expected]||'').trim()!==item.address)continue; // Prevent stale lookup overwriting a changed address.
+   const update={...old,updatedAt:new Date().toISOString(),mapLocationStatus:'needs_review',mapAddressResult:result.label||result.display||item.address};
+   if(item.store==='settings'){
+    update.homeLat=result.lat;update.homeLon=result.lon;
+    prefs={...prefs,homeLat:result.lat,homeLon:result.lon};
+   }else if(item.store==='suppliers'||item.store==='supplyOrders'){
+    update.latitude=result.lat;update.longitude=result.lon;
+   }else{
+    update.coordinates=JSON.stringify({lat:result.lat,lng:result.lon});
+   }
+   await put(item.store,update);
+   if(item.store==='settings')mapLastView=null;
+   report.located++;
+  }
+  return report;
+ }finally{tfSupplyLocationRepairRunning=false}
+}
 function parseSavedCoordinates(value){if(!value)return null;let point=value;if(typeof value==='string'){try{point=JSON.parse(value)}catch{return null}}if(!point||typeof point!=='object')return null;const latitude=Number(point.lat??point.latitude),longitude=Number(point.lng??point.lon??point.longitude);return Number.isFinite(latitude)&&Number.isFinite(longitude)&&Math.abs(latitude)<=90&&Math.abs(longitude)<=180?{latitude,longitude}:null}
 async function geocodeMapAddress(address){const key=String(address||'').trim().toLowerCase();if(!key)return null;if(mapGeocodeCache.has(key))return mapGeocodeCache.get(key);try{const results=await mapNominatim(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`),point=results&&results[0]?{lat:Number(results[0].lat),lon:Number(results[0].lon),label:String(results[0].display_name||address)}:null;mapGeocodeCache.set(key,point);return point}catch{mapGeocodeCache.set(key,null);return null}}
 async function reverseMapAddress(latitude,longitude){const key=`reverse:${latitude.toFixed(5)},${longitude.toFixed(5)}`;if(mapGeocodeCache.has(key))return mapGeocodeCache.get(key);try{const result=await mapNominatim(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`),address=result&&result.display_name?String(result.display_name):null;mapGeocodeCache.set(key,address);return address}catch{mapGeocodeCache.set(key,null);return null}}
@@ -1531,7 +1617,7 @@ const customers=(data.customers||[]).map(x=>`<option value="${esc(x.id)}">${esc(
 const jobs=(data.jobs||[]).map(x=>`<option value="${esc(x.id)}">${esc(x.title||'Job')}</option>`).join('');
 const suppliers=(data.suppliers||[]).map(x=>`<option value="${esc(x.id)}">${esc(x.name||'Supplier')}</option>`).join('');
 const attrs=`data-lat="${latitude}" data-lng="${longitude}" data-address="${esc(address||'')}"`;
-const more=`<div class="tf-sheet-link-grid"><label>Link customer<select class="input" data-link-customer><option value="">Choose customer</option>${customers}</select></label><button class="btn secondary small" data-map-action="customer" ${attrs}>Link</button><label>Link job<select class="input" data-link-job><option value="">Choose job</option>${jobs}</select></label><button class="btn secondary small" data-map-action="job" ${attrs}>Link</button><label>Link supplier<select class="input" data-link-supplier><option value="">Choose supplier</option>${suppliers}</select></label><button class="btn secondary small" data-map-action="supplier" ${attrs}>Link</button></div>`;
+const more=`<div class="tf-sheet-link-grid"><button type="button" class="btn secondary small" data-map-action="business" ${attrs}>Set as business HQ</button><label>Link customer<select class="input" data-link-customer><option value="">Choose customer</option>${customers}</select></label><button class="btn secondary small" data-map-action="customer" ${attrs}>Link</button><label>Link job<select class="input" data-link-job><option value="">Choose job</option>${jobs}</select></label><button class="btn secondary small" data-map-action="job" ${attrs}>Link</button><label>Link supplier<select class="input" data-link-supplier><option value="">Choose supplier</option>${suppliers}</select></label><button class="btn secondary small" data-map-action="supplier" ${attrs}>Link</button></div>`;
 const name=String(address||'').split(',')[0]||'Dropped pin';
 openTradeFlowSheet(tfLocationCard(name,address,latitude,longitude,more,attrs));
 }
@@ -1541,7 +1627,7 @@ const attrs=`data-lat="${record.latitude}" data-lng="${record.longitude}" data-a
 const more=`${record.source_url&&/^https:\/\//.test(record.source_url)?`<a class="btn secondary small" href="${esc(record.source_url)}" target="_blank" rel="noopener">View original source ↗</a>`:''}${record.mapKind==='opportunity'?'<p class="muted sub">Research signal — not a confirmed open bid.</p>':''}`;
 openTradeFlowSheet(tfLocationCard(name,address,record.latitude,record.longitude,more,attrs));
 }
-async function handleMapAction(action,metadata){const latitude=Number(metadata.lat),longitude=Number(metadata.lng),coordinates=JSON.stringify({lat:latitude,lng:longitude});if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;try{if(action==='save'){const title=prompt('Name this location','Saved location');if(title===null||!title.trim())return;await put('pins',{id:uid(),title:title.trim().slice(0,120),type:'Manual pin',latitude,longitude,address:metadata.address||'',createdAt:new Date().toISOString()})}else if(action==='opportunity'){const title=prompt('Opportunity name','New opportunity');if(title===null)return;const amount=Number(prompt('Estimated value (€)','0'));await put('quotes',{id:uid(),customerId:'',title:title.trim()||'New opportunity',category:'Other',amount:Number.isFinite(amount)?amount:0,status:'Draft',sentDate:today(),coordinates,...(metadata.address?{address:metadata.address}:{})});await event(`Created opportunity from map: ${title.trim()||'New opportunity'}`)}else if(action==='supplier'){const id=metadata.supplierId;if(!id){alert('Choose a supplier to link first.');return}const record=await get('suppliers',id);if(!record){alert('Supplier record missing.');return}await put('suppliers',{...record,latitude,longitude,address:metadata.address||record.address,updatedAt:new Date().toISOString()});await event('Linked supplier map position: '+record.name)}else if(action==='customer'||action==='job'){const store=action==='customer'?'customers':'jobs',id=action==='customer'?metadata.customerId:metadata.jobId;if(!id){alert(`Choose a ${action} to link first.`);return}const record=await get(store,id);if(!record){alert(`The selected ${action} no longer exists. Refresh and try again.`);return}record.coordinates=coordinates;if(metadata.address)record.address=metadata.address;await put(store,record);await event(`Linked map location to ${action==='customer'?record.name:record.title}`)}else return;closeTradeFlowSheet();if(pendingMapMarker)pendingMapMarker.remove();pendingMapPopup=null;pendingMapMarker=null;notify(action==='save'?'Location saved':action==='opportunity'?'Opportunity created':action==='customer'?'Customer linked':action==='supplier'?'Supplier linked':'Job linked')}catch(error){alert(`Unable to complete map action: ${error.message}`)}}
+async function handleMapAction(action,metadata){const latitude=Number(metadata.lat),longitude=Number(metadata.lng),coordinates=JSON.stringify({lat:latitude,lng:longitude});if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;try{if(action==='save'){const title=prompt('Name this location','Saved location');if(title===null||!title.trim())return;await put('pins',{id:uid(),title:title.trim().slice(0,120),type:'Manual pin',latitude,longitude,address:metadata.address||'',createdAt:new Date().toISOString()})}else if(action==='opportunity'){const title=prompt('Opportunity name','New opportunity');if(title===null)return;const amount=Number(prompt('Estimated value (€)','0'));await put('quotes',{id:uid(),customerId:'',title:title.trim()||'New opportunity',category:'Other',amount:Number.isFinite(amount)?amount:0,status:'Draft',sentDate:today(),coordinates,...(metadata.address?{address:metadata.address}:{})});await event(`Created opportunity from map: ${title.trim()||'New opportunity'}`)}else if(action==='business'){prefs.homeLat=latitude;prefs.homeLon=longitude;prefs.mapLocationStatus='needs_review';prefs.mapAddressResult=metadata.address||'Manually selected map point';if(!prefs.businessAddress)prefs.businessAddress=metadata.address||'';await put('settings',{id:'business',...prefs});mapLastView=null;await event('Updated business headquarters location')}else if(action==='supplier'){const id=metadata.supplierId;if(!id){alert('Choose a supplier to link first.');return}const record=await get('suppliers',id);if(!record){alert('Supplier record missing.');return}await put('suppliers',{...record,latitude,longitude,address:metadata.address||record.address,updatedAt:new Date().toISOString()});await event('Linked supplier map position: '+record.name)}else if(action==='customer'||action==='job'){const store=action==='customer'?'customers':'jobs',id=action==='customer'?metadata.customerId:metadata.jobId;if(!id){alert(`Choose a ${action} to link first.`);return}const record=await get(store,id);if(!record){alert(`The selected ${action} no longer exists. Refresh and try again.`);return}record.coordinates=coordinates;if(metadata.address)record.address=metadata.address;await put(store,record);await event(`Linked map location to ${action==='customer'?record.name:record.title}`)}else return;closeTradeFlowSheet();if(pendingMapMarker)pendingMapMarker.remove();pendingMapPopup=null;pendingMapMarker=null;notify(action==='save'?'Location saved':action==='opportunity'?'Opportunity created':action==='customer'?'Customer linked':action==='supplier'?'Supplier linked':action==='business'?'Business headquarters located':'Job linked')}catch(error){alert(`Unable to complete map action: ${error.message}`)}}
 let mapSuggestionRecords=[];
 function showLocalMapSuggestions(text){const box=document.getElementById('tfMapSuggestions');if(!box)return;const q=String(text||'').trim().toLowerCase();if(q.length<2){box.hidden=true;return}const matches=mapSuggestionRecords.filter(x=>String(x.label).toLowerCase().includes(q)).slice(0,6);box.innerHTML=matches.map((x,i)=>`<button type="button" role="option" data-map-suggestion="${i}"><span>⌖</span><span>${esc(x.label)}<small>${esc(x.type)} · Saved TradeFlow record</small></span></button>`).join('')+'<button type="button" data-action="mapSearch"><span>⌕</span><span>Search online for “'+esc(text)+'”<small>Full search · internet required</small></span></button>';box.hidden=false;box._matches=matches}
 document.addEventListener('click',event=>{const button=event.target.closest('[data-map-suggestion]');if(!button)return;event.stopImmediatePropagation();const box=document.getElementById('tfMapSuggestions'),match=box?._matches?.[Number(button.dataset.mapSuggestion)];if(!match)return;box.hidden=true;document.getElementById('mapAddress').value=match.label;liveMap?.flyTo({center:[match.longitude,match.latitude],zoom:16})});
