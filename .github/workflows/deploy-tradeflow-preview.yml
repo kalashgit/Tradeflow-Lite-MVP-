@@ -39,7 +39,7 @@ jobs:
           node-version: "22"
 
       - name: Verify app behavior without network calls
-        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node --check src/index.js
+        run: node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/liquid-glass-lab.test.cjs && node --check public/liquid-glass-lab.js && node --check src/index.js
 
       - name: Verify preview-only Wrangler configuration
         shell: bash
@@ -89,6 +89,14 @@ jobs:
            const body=await response.json();
            assert.ok([401,503].includes(response.status),'Verification must reject incorrect access code or indicate missing server secret');
            console.log('Live verification endpoint:',response.status,body.error);
+           const glassAsset=await fetch(root+'/liquid-glass-lab.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(glassAsset.status,200,'Liquid Glass lab script must be publicly reachable');
+           const glassJS=await glassAsset.text();
+           assert.ok(glassJS.includes('TradeFlow Liquid Glass Lab V0.8'),'New prototype script must be deployed, not old SPA fallback');
+           const home=await fetch(root+'/?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const html=await home.text();
+           assert.ok(html.includes('liquid-glass-lab.js')&&html.includes('liquid-glass-lab.css'),'Live HTML must load experimental assets');
+           console.log('PASS: Opt-in Liquid Glass assets are live; production unchanged');
            console.log('PASS: Real deployed AI endpoint is reachable over GET and POST');
           })().catch(error=>{console.error(error);process.exitCode=1});
           NODE
