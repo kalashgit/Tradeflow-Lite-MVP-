@@ -19,5 +19,5 @@ assert.ok(app.includes("{automatic:true,all:true}"),'View Map checks full eligib
 assert.ok(!app.includes("r.map_location_status==='no_address')return false"),'No-address status cannot permanently block a newly repaired address');
 assert.ok(app.includes("record.map_location_status=raw?'address_review':'no_address'"),'Only missing addresses are explicitly marked no_address');
 assert.ok(app.includes("opportunityGeoCacheId='tf-opportunity-geocode-cache-v2'"),'Retain structured geocoding response cache');
-assert.ok(sw.includes('tradeflow-lite-v38-finance-qa'),'New service worker cache forces asset refresh');
+assert.ok(sw.includes('appearance-theme.css')&&sw.includes('appearance-theme.js'),'Appearance assets are cached for offline availability');
 console.log('PASS: Finance Import and Export menus, neon money direction, correct net colors, full-map retry after address repair');
