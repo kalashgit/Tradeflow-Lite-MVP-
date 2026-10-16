@@ -1099,8 +1099,50 @@ function parseCSV(text){if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);const 
 function csvCell(v){const t=String(v??'');return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t}
 function downloadFile(filename,content,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
 async function exportOpportunities(){const data=await all('opportunities');downloadFile('tradeflow-opportunities-'+today()+'.csv',[opFields.join(','),...data.map(r=>opFields.map(f=>csvCell(r[f])).join(','))].join('\r\n'),'text/csv')}
-function convertE06Audit(rows){const headers=rows[0].map(x=>x.trim().toLowerCase());const col=(row,name)=>row[headers.indexOf(name)]||'';const converted=[opFields];for(const row of rows.slice(1)){const qc=col(row,'qc_decision').toUpperCase(),kind=col(row,'submitted_classification').toLowerCase(),location=col(row,'location'),id=col(row,'record_id');const record={record_id:id,source_record_id:id,project_name:col(row,'entity_or_project'),trade:'Electrical',opportunity_type:kind.includes('potential')?'potential_opportunity':kind.includes('business')?'business_prospect':'project_signal',project_description:location+'; '+col(row,'reviewer_notes'),city:location,region:'Texas',latitude:'',longitude:'',source_url:col(row,'original_source_url'),source_date:col(row,'source_date')||col(row,'research_date'),discovered_at:col(row,'research_date'),verified_at:col(row,'research_date'),evidence_status:qc==='UNRESOLVED'?'unresolved':'source_supported',status:'New',organization_name:col(row,'entity_or_project'),contact_url:'',evidence_notes:'E06 QC: '+qc+'; '+col(row,'source_verification')};converted.push(opFields.map(f=>record[f]||''))}return converted}
-async function importOpportunities(file){if(file.size>5*1024*1024)throw Error('File exceeds 5 MB');const rows=parseCSV(await file.text());if(rows.length<2)throw Error('CSV must contain a header and at least one record');if(rows.length>5001)throw Error('Import a maximum of 5,000 records at a time');if(rows[0].map(v=>v.trim().toLowerCase()).includes('qc_decision')){const converted=convertE06Audit(rows);rows.splice(0,rows.length,...converted)}const headers=rows.shift().map(v=>v.trim().toLowerCase());for(const f of ['record_id','project_name','opportunity_type','source_url'])if(!headers.includes(f))throw Error('Missing required column: '+f);const allowedTypes=['project_signal','potential_opportunity','verified_request','business_prospect'];const existing=await all('opportunities'),ids=new Set(existing.map(x=>x.id)),sources=new Set(existing.filter(x=>x.source_record_id).map(x=>x.source_url+'|'+x.source_record_id));let added=0,duplicates=0,rejected=0;const staged=[];const validUrl=u=>{try{const v=new URL(u);return ['https:','http:'].includes(v.protocol)}catch{return false}};
+function convertE06Audit(rows){
+ const headers=rows[0].map(x=>String(x||'').trim().toLowerCase()),position=new Map(headers.map((name,i)=>[name,i]));
+ for(const required of ['qc_decision','record_id','entity_or_project','original_source_url','source_date','research_date']){
+  if(!position.has(required))throw Error('QC audit missing required column: '+required);
+ }
+ const value=(row,name)=>String(row[position.get(name)]??'').trim();
+ const validDate=v=>{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+  const date=new Date(v+'T00:00:00.000Z');
+  return !Number.isNaN(date.valueOf())&&date.toISOString().slice(0,10)===v;
+ };
+ const validUrl=u=>{
+  try{const v=new URL(u);return v.protocol==='https:'&&!!v.hostname&&!v.username&&!v.password}
+  catch{return false}
+ };
+ const converted=[opFields],allowed=new Set(['APPROVED','ACCEPTED']);
+ let excluded=0;
+ for(const row of rows.slice(1)){
+  const qc=value(row,'qc_decision').toUpperCase();
+  // Only explicit approved audit rows are candidates; rejected/unresolved never enter an import preview.
+  if(!allowed.has(qc)){excluded++;continue}
+  const id=value(row,'record_id'),name=value(row,'entity_or_project'),url=value(row,'original_source_url'),
+   sourceDate=value(row,'source_date'),researchDate=value(row,'research_date'),verification=value(row,'source_verification');
+  // Research date MUST NOT be substituted for a missing original source publication date.
+  if(!id||id.length>150||!name||!validUrl(url)||!validDate(sourceDate)||!validDate(researchDate)||
+     /\b(unverified|not\s+verified|unsupported|invalid|failed|fake|missing\s+source)\b/i.test(verification)){
+   excluded++;continue;
+  }
+  const kind=value(row,'submitted_classification').toLowerCase(),location=value(row,'location'),notes=value(row,'reviewer_notes');
+  const classification=kind.includes('verified')&&kind.includes('demand')||kind.includes('verified_request')?'verified_request':
+    kind.includes('potential')?'potential_opportunity':
+    kind.includes('business')||kind.includes('prospect')?'business_prospect':'project_signal';
+  const record={record_id:id,source_record_id:id,project_name:name,trade:value(row,'trade')||'Electrical',
+   opportunity_type:classification,project_description:(notes||location),city:location,region:value(row,'region')||'Texas',
+   latitude:'',longitude:'',source_url:url,source_date:sourceDate,discovered_at:researchDate,verified_at:researchDate,
+   evidence_status:'source_supported',status:'New',organization_name:name,contact_url:'',
+   evidence_notes:'E06 QC: '+qc+'; '+verification+'; '+notes,
+   contact_person:'',contact_phone:'',contact_email:'',contact_source_url:'',icp_profile_id:''};
+  converted.push(opFields.map(f=>record[f]||''));
+ }
+ converted.qcExcluded=excluded;
+ return converted;
+}
+async function importOpportunities(file){if(file.size>5*1024*1024)throw Error('File exceeds 5 MB');const rows=parseCSV(await file.text());if(rows.length<2)throw Error('CSV must contain a header and at least one record');if(rows.length>5001)throw Error('Import a maximum of 5,000 records at a time');let auditExcluded=0;if(rows[0].map(v=>v.trim().toLowerCase()).includes('qc_decision')){const converted=convertE06Audit(rows);auditExcluded=converted.qcExcluded;rows.splice(0,rows.length,...converted)}const headers=rows.shift().map(v=>v.trim().toLowerCase());for(const f of ['record_id','project_name','opportunity_type','source_url'])if(!headers.includes(f))throw Error('Missing required column: '+f);const allowedTypes=['project_signal','potential_opportunity','verified_request','business_prospect'];const existing=await all('opportunities'),ids=new Set(existing.map(x=>x.id)),sources=new Set(existing.filter(x=>x.source_record_id).map(x=>x.source_url+'|'+x.source_record_id));let added=0,duplicates=0,rejected=auditExcluded;const staged=[];const validUrl=u=>{try{const v=new URL(u);return ['https:','http:'].includes(v.protocol)}catch{return false}};
 for(const cells of rows){if(cells.length!==headers.length){rejected++;continue}const raw=Object.fromEntries(headers.map((h,i)=>[h,(cells[i]||'').trim()]));const id=raw.record_id,lat=raw.latitude?Number(raw.latitude):null,lon=raw.longitude?Number(raw.longitude):null;if(!id||id.length>150||!raw.project_name||!['verified','source_supported','unresolved'].includes(raw.evidence_status)||!allowedTypes.includes(raw.opportunity_type)||!validUrl(raw.source_url)||!raw.source_url.startsWith('https://')||!raw.source_date||!raw.verified_at||(raw.latitude&&(!Number.isFinite(lat)||Math.abs(lat)>90))||(raw.longitude&&(!Number.isFinite(lon)||Math.abs(lon)>180))||(raw.latitude&&!raw.longitude)||(!raw.latitude&&raw.longitude)){rejected++;continue}const sourceKey=raw.source_url+'|'+raw.source_record_id;if(ids.has(id)||(raw.source_record_id&&sources.has(sourceKey))){duplicates++;continue}ids.add(id);if(raw.source_record_id)sources.add(sourceKey);staged.push({...Object.fromEntries(opFields.map(f=>[f,raw[f]||''])),id,latitude:lat,longitude:lon,trade:raw.trade||'Electrical',evidence_status:raw.evidence_status||'unreviewed',status:'New',imported_at:new Date().toISOString()})}
 if(!staged.length){alert('No eligible new records. Duplicates: '+duplicates+'; invalid: '+rejected);return}
 opportunityImportDraft={records:staged,duplicates,rejected,selected:new Set(staged.map(x=>x.id)),mapLocations:true};opportunityImportTab='all';await render();return}

@@ -1,4 +1,4 @@
-const CACHE='tradeflow-lite-v26-research-template';
+const CACHE='tradeflow-lite-v27-qc-safety';
 const ASSETS=['./','./index.html','./style.css','./phase1.css','./ai-preview.css','./growth.css','./growth.js','./calendar.css','./calendar.js','./job-forms.css','./job-forms.js','./revenue.css','./revenue.js','./marketing.css','./marketing.js','./research-briefs.css','./research-briefs.js','./routes.css','./routes.js','./operations.css','./operations.js','./app.js','./manifest.webmanifest','./icons/icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('tradeflow-lite-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});
