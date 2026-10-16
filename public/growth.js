@@ -21,15 +21,31 @@ function link(tab,title,desc,icon){
  return '<button type="button" class="tf-growth-route" data-tab="'+e(tab)+'"><span class="tf-growth-route-icon">'+ico(icon)+'</span><span class="tf-growth-route-text"><strong>'+e(title)+'</strong><small>'+e(desc)+'</small></span><span class="tf-growth-chevron">›</span></button>';
 }
 function moreQuickLinks(d){
- // Compact entry points only: all existing modules remain accessible.
+ // Four specialized capability routes only. Never mirror the primary More-menu tools.
  var groups=[
-  ['Automation','mission',[['missions','Business Missions','mission'],['research','Research Briefs','target'],['integrations','Integrations','library'],['routes','Route Planner','calendar']]],
-  ['Optimization','target',[['growth','Target Customers & Buyer Personas','target'],['marketing','Marketing Studio','spark'],['profitability','Job Costing','target']]],
-  ['Communication','people',[['customers','Customers','people'],['marketing','Marketing Studio','mail'],['ai','TradeFlow AI','spark']]],
-  ['Data Intelligence','library',[['research','Research Briefs','book'],['growth','Target Customers & Buyer Personas','target'],['capabilities','Explore Capabilities','library']]]
+  ['Automation','mission','growthAutomation',['Lead discovery engine','Contact enrichment','Workflow runs','Scheduled research']],
+  ['Optimization','target','growthOptimization',['Performance analysis','Business health checks','Growth recommendations','Conversion improvements']],
+  ['Communication','people','growthCommunication',['Message templates','Scheduled communication','AI response drafting','Review requests']],
+  ['Data Intelligence','library','growthIntelligence',['Opportunity signals','Buyer-fit analysis','Source monitoring','Data quality']]
  ];
  return '<section class="tf-growth-more-shortcuts tf-growth-four" aria-label="Business growth categories"><span class="tf-growth-kicker">BUSINESS GROWTH</span>'+
- groups.map(function(group){return '<details class="tf-growth-category"><summary><span class="tf-growth-category-icon">'+ico(group[1])+'</span><strong>'+e(group[0])+'</strong><span class="tf-growth-category-arrow" aria-hidden="true">›</span></summary><div class="tf-growth-category-links">'+group[2].map(function(route){return '<button type="button" data-tab="'+e(route[0])+'"><span>'+ico(route[2])+'</span>'+e(route[1])+'<span aria-hidden="true">›</span></button>'}).join('')+'</div></details>'}).join('')+'</section>';
+ groups.map(function(group){return '<details class="tf-growth-category"><summary><span class="tf-growth-category-icon">'+ico(group[1])+'</span><strong>'+e(group[0])+'</strong><span class="tf-growth-category-arrow" aria-hidden="true">›</span></summary><div class="tf-growth-category-links">'+group[3].map(function(feature){return '<div class="tf-growth-category-feature">'+e(feature)+'</div>'}).join('')+'<button class="tf-growth-category-open" type="button" data-tab="'+e(group[2])+'">Explore '+e(group[0])+' <span aria-hidden="true">›</span></button></div></details>'}).join('')+'</section>';
+}
+function businessCapabilityPage(tab,d){
+ var specs={
+  growthAutomation:{title:'Automation',description:'Design repeatable workflows while keeping customer data and execution under your control.',items:[['Lead discovery engine','Planned','Find opportunities from approved sources using saved targeting rules.'],['Contact enrichment','Planned','Retrieve sourced public business contact details.'],['Workflow runs','Planned','Configure repeatable actions with approvals and activity logs.'],['Scheduled research','Planned','Run research tasks on a connected cloud or device.']]},
+  growthOptimization:{title:'Optimization',description:'See what your current business records show and identify areas worth improving.',items:[['Recorded conversion overview','Available','Review the ratio of quotations to customers as a basic local indicator.'],['Business health checks','Planned','Turn gaps in revenue, costs and delivery into prioritized recommendations.'],['Growth recommendations','Planned','Generate business-specific improvements from permitted data.'],['Conversion improvements','Planned','Evaluate quotation, prospecting and sales-stage efficiency.']]},
+  growthCommunication:{title:'Communication',description:'Prepare better messages without confusing drafts with messages that were sent.',items:[['Message templates','Planned','Create reusable email and SMS templates for different customer situations.'],['Scheduled communication','Planned','Queue messages for review and approved delivery.'],['AI response drafting','Planned','Use the customer-selected AI to prepare replies.'],['Review requests','Planned','Send appropriate review invitations after completed work.']]},
+  growthIntelligence:{title:'Data Intelligence',description:'Turn saved records and external evidence into reliable business signals.',items:[['Local opportunity overview','Available','See how many saved opportunities have a location and which need review.'],['Buyer-fit analysis','Planned','Assess fit using saved ICP and buying-persona criteria.'],['Source monitoring','Planned','Watch customer-approved sources for relevant changes.'],['Data quality','Planned','Track duplicates, missing contacts and verification confidence.']]}
+ };
+ var spec=specs[tab];if(!spec)return '';
+ var ops=d.opportunities||[],customers=d.customers||[],quotes=d.quotes||[];
+ var mapped=ops.filter(function(o){return Number.isFinite(Number(o.latitude))&&Number.isFinite(Number(o.longitude))&&String(o.latitude||'')!==''&&String(o.longitude||'')!==''}).length;
+ var metrics=tab==='growthIntelligence'?[['Opportunities',ops.length],['Mapped',mapped],['Unmapped',Math.max(0,ops.length-mapped)]]:tab==='growthOptimization'?[['Customers',customers.length],['Quotations',quotes.length],['Jobs',(d.jobs||[]).length]]:null;
+ return '<section class="tf-growth-page tf-growth-capability-page">'+back('settings')+head(spec.title,spec.description)+
+  (metrics?'<section class="tf-growth-capability-metrics">'+metrics.map(function(x){return '<div><small>'+e(x[0])+'</small><strong>'+e(x[1])+'</strong></div>'}).join('')+'</section>':'')+
+  '<section class="tf-growth-capability-list">'+spec.items.map(function(item){return '<article class="tf-growth-capability-card"><div><strong>'+e(item[0])+'</strong><span class="'+(item[1]==='Available'?'is-available':'is-planned')+'">'+e(item[1])+'</span></div><p>'+e(item[2])+'</p></article>'}).join('')+'</section>'+
+  '<p class="tf-growth-capability-disclosure">Available metrics use records saved on this device. Planned services do not run, contact prospects or incur charges.</p></section>';
 }
 function homePanel(d){
  var s=settings(d),active=s.icps.find(function(x){return x.id===s.activeIcpId});
@@ -342,6 +358,7 @@ function renderPage(tab,d,prefs){
  if(tab==='growth')return targetList(d,prefs||{});
  if(tab==='missions')return missions(d);
  if(tab==='capabilities')return capabilityView();
+ if(['growthAutomation','growthOptimization','growthCommunication','growthIntelligence'].includes(tab))return businessCapabilityPage(tab,d);
  return '';
 }
 global.TradeFlowGrowth={configure:init,renderPage:renderPage,moreQuickLinks:moreQuickLinks,homePanel:homePanel,contactPanel:contactPanel,
