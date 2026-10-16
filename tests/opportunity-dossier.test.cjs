@@ -21,7 +21,7 @@ const withPhoto=ux.dossier({...record,photo_url:'https://photos.example.org/buil
 assert.ok(withPhoto.includes('aspect')===false&&withPhoto.includes('photos.example.org/building.jpg'),'Licensed source photo slot');
 assert.ok(ux.dossier({...record,photo_url:'javascript:alert(1)'}).includes('tf-od-photo-fallback'),'Reject unsafe photo schemes');
 const wf=ux.workflow(record,{settings:[{id:'growth-profiles-v1',icps:[{id:'electrical',name:'Electrical contractors'}]}]});
-for(const label of ['Contact &amp; workflow','Pipeline stage','Next follow-up','Notes / next steps','Contact person / department','Phone','Email','Ideal customer profile','Save contact &amp; workflow'])assert.ok(wf.includes(label),'Field: '+label);
+for(const label of ['Contact &amp; workflow','Pipeline stage','Next follow-up','Notes / next steps','Contact person / department','Phone','Email','Ideal customer profile','Save workflow','Save contact &amp; profile'])assert.ok(wf.includes(label),'Field: '+label);
 assert.ok(wf.includes('Electrical contractors')&&wf.includes('data-calendar-action="opportunity"'),'ICP and calendar integration');
 assert.ok(app.includes("if(detail&&window.TradeFlowDossier)return"),'Only tapped record invokes new screen');
 assert.ok(app.includes("opportunityDetailScreen='workflow'"),'Navigation opens workflow');

@@ -507,7 +507,7 @@ document.addEventListener('click',event=>{
   event.preventDefault();event.stopImmediatePropagation();
  }
 },true);
-document.addEventListener('input',event=>{if(event.target.id==='tfAiQuickPrompt')tfAiPanelDraft=event.target.value});
+document.addEventListener('input',event=>{if(event.target.id==='tfAiQuickPrompt')tfAiPanelDraft=event.target.value;const form=event.target.closest?.('#tfOdContactWorkflowForm');if(form&&['contact_phone','contact_email'].includes(event.target.name))window.TradeFlowDossier?.syncQuickLinks(form)});
 document.addEventListener('change',event=>{
  if(event.target.id==='tfAiQuickContext')tfChatWithSummary=event.target.checked;
  if(event.target.id==='tfAiHaptics'){
