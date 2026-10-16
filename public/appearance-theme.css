@@ -58,7 +58,7 @@
  border-color:var(--tf-hairline,#284457);
 }
 .content .tf-op5 .tf-op3-mapcard{box-shadow:inset 0 1px 0 #ffffff08,0 8px 24px #0003}
-.content :is(.tf-op5 .tf-op5-top-actions button:not(.primary),.tf-finance-tool-row button:not(.primary),.tf-cash-outline){
+.content :is(.tf-op5 .tf-op5-top-actions button:not(.primary),.tf-finance-tool-row button:not(.primary),.tf-cash-outline:not([data-kind="expense"])){
  color:var(--tf-accent-text)!important;
  border-color:var(--tf-border)!important;
  background:#0d2938!important;
