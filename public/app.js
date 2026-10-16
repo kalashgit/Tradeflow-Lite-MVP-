@@ -1181,6 +1181,8 @@ const opportunityStageSvg=x=>{const stage=opportunityStage(x),path=({
 let opportunityDetailId=null,opportunityFilter='all';
 
 function opportunityLocationParts(r){
+ const normalized=window.TradeFlowEngine?.normalizeAddress(r);
+ if(normalized?.parsed)return {street:normalized.street,city:normalized.city,region:normalized.region,zip:normalized.postalCode};
  const rawAddress=String(r.address||r.street_address||r.site_address||r.project_address||'').trim();
  const rawCity=String(r.city||'').trim(),rawRegion=String(r.region||r.state||'').trim();
  const combined=rawAddress||rawCity;
