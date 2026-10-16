@@ -19,6 +19,19 @@ mod.configure({get,all:async s=>data[s]||[],put:async(s,row)=>{
  const rows=data[s],i=rows.findIndex(x=>x.id===row.id);if(i<0)rows.push(row);else rows[i]=row;
 },del:async(s,id)=>{data[s]=data[s].filter(x=>x.id!==id)},uid:()=>String(count++),render(){},notify:msg=>notices.push(msg)});
 assert.ok(mod.render(data).includes('No research briefs yet'));
+const personas=[
+ {id:'bp1',name:'Property manager',icpId:'icp1'},
+ {id:'bp2',name:'Builder owner',icpId:'icp2'}];
+const generated=mod._test.personaChoice(personas,'icp1','bp1');
+assert.ok(generated.includes('value="bp1"')&&generated.includes('value="bp2"'));
+assert.match(generated,/value="bp2"[^>]*disabled hidden/,'Incompatible persona hidden from dropdown');
+const option={value:'bp1',dataset:{icpId:'icp1'},selected:true,disabled:false,hidden:false};
+const option2={value:'bp2',dataset:{icpId:'icp2'},selected:false,disabled:true,hidden:true};
+const input={value:'icp2'},persona={options:[{value:'',dataset:{}},option,option2],value:'bp1'};
+mod._test.filterPersonas(input,persona);
+assert.equal(option.disabled,true,'Old ICP persona disabled after switching ICP');
+assert.equal(option2.disabled,false,'New ICP persona becomes available');
+assert.equal(persona.value,'','Incompatible selected persona cleared');
 assert.ok(mod.render(data).includes('New brief'));
 const evt=(a,id)=>({preventDefault(){},target:{closest:()=>({dataset:{researchAction:a,id}})}});
 const click=listeners.click[0],submit=listeners.submit[0];

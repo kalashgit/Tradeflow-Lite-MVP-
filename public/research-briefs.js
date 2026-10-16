@@ -22,7 +22,24 @@ function profileData(data){
 }
 function records(data){return (data.settings||[]).filter(x=>typeof x.id==='string'&&x.id.startsWith(PREFIX)&&x.kind==='research_brief');}
 function choose(name,label,list,value){
- return '<label class="tf-rb-field"><span>'+e(label)+'</span><select name="'+e(name)+'">'+list.map(([id,title])=>'<option value="'+e(id)+'"'+(id===value?' selected':'')+'>'+e(title)+'</option>').join('')+'</select></label>';
+ return '<label class="tf-rb-field"><span>'+e(label)+'</span><select name="'+e(name)+'"'+(name==='icpId'?' id="tfResearchIcp"':'')+'>'+list.map(([id,title])=>'<option value="'+e(id)+'"'+(id===value?' selected':'')+'>'+e(title)+'</option>').join('')+'</select></label>';
+}
+function personaChoice(personas,icpId,current){
+ return '<label class="tf-rb-field"><span>Buyer persona</span><select name="personaId" id="tfResearchPersona">'+
+ '<option value="">No buyer persona</option>'+
+ personas.map(x=>{
+  const disabled=!!(icpId&&x.icpId&&x.icpId!==icpId);
+  return '<option value="'+e(x.id)+'" data-icp-id="'+e(x.icpId||'')+'"'+
+   (x.id===current&&!disabled?' selected':'')+(disabled?' disabled hidden':'')+'>'+e(x.name)+'</option>';
+ }).join('')+'</select></label>';
+}
+function filterPersonas(icpSelect,personaSelect){
+ if(!icpSelect||!personaSelect)return;
+ for(const option of Array.from(personaSelect.options||[])){
+  const owner=option.dataset?.icpId||'',eligible=!option.value||!icpSelect.value||!owner||owner===icpSelect.value;
+  option.disabled=!eligible;option.hidden=!eligible;
+  if(!eligible&&option.selected)personaSelect.value='';
+ }
 }
 function input(name,label,value,max,placeholder,required=false){
  return '<label class="tf-rb-field"><span>'+e(label)+(required?' *':'')+'</span><input type="text" name="'+e(name)+'" maxlength="'+max+'" value="'+e(value||'')+'" placeholder="'+e(placeholder||'')+'"'+(required?' required':'')+'></label>';
@@ -56,12 +73,13 @@ function list(data){
 function form(data){
  const targets=profileData(data),old=records(data).find(x=>x.id===currentId)||{};
  const selected=old.icpId||targets.active||'',icp=targets.icps.find(x=>x.id===selected);
- const personaChoices=[['','No buyer persona']].concat(targets.personas.filter(x=>!selected||!x.icpId||x.icpId===selected).map(x=>[x.id,x.name]));
+ // Render all personas but disable those unrelated to the chosen ICP.
+ // When ICP changes, filtering happens on the existing form without losing edits.
  return '<section class="tf-rb-page">'+back()+header(old.id?'Update a research brief without changing already imported evidence.':'Define exactly which prospects to research and how to verify them.')+
  '<form id="tfResearchBriefForm" class="tf-rb-card tf-rb-form">'+
  input('title','Research title',old.title,120,'e.g. Austin commercial electrical renovations',true)+
  choose('icpId','Ideal customer profile',[['','Select saved ICP']].concat(targets.icps.map(x=>[x.id,x.name])),selected)+
- choose('personaId','Buyer persona',personaChoices,old.personaId||'')+
+ personaChoice(targets.personas,selected,old.personaId||'')+
  '<div class="tf-rb-two">'+input('geography','Research area',old.geography||icp?.area||'',120,'Austin, Texas',true)+
  '<label class="tf-rb-field"><span>Requested records *</span><input type="number" min="1" max="200" step="1" required name="requestedCount" value="'+e(old.requestedCount||25)+'"></label></div>'+
  choose('focus','Focus / classification',options,old.focus||'all')+
@@ -190,6 +208,15 @@ async function onClick(event){
   }
  }catch(err){alert('Research action failed: '+err.message)}
 }
-function configure(bridge){api=bridge;document.addEventListener('click',onClick);document.addEventListener('submit',onSubmit)}
-global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options}};
+function onChange(event){
+ if(event.target?.id!=='tfResearchIcp')return;
+ filterPersonas(event.target,document.getElementById('tfResearchPersona'));
+}
+function configure(bridge){
+ api=bridge;
+ document.addEventListener('click',onClick);
+ document.addEventListener('submit',onSubmit);
+ document.addEventListener('change',onChange);
+}
+global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice}};
 })(typeof window!=='undefined'?window:globalThis);
