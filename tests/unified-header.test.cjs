@@ -21,7 +21,7 @@ assert.ok(!app.includes('<div class="tf-map-brand">'),'Map avoids duplicate bran
 assert.ok(app.includes('data-action="mapFilters"'),'Map filters remain accessible');
 assert.ok(app.includes('id="mapAddress"'),'Map search remains within map');
 assert.ok(css.includes('.tf-unified-header')&&css.includes('.tf-unified-brand')&&css.includes('.tf-home-alert'));
-assert.ok(app.includes('data-tab="preferences"'),'Settings remain in More menu');
+assert.ok(app.includes("['preferences','Settings']"),'Settings remain available from the More menu configuration');
 assert.ok(app.includes('data-op-ux="import"')&&app.includes('data-op-ux="export"'),'Import/export preserved');
 assert.ok(app.includes('data-action="opportunityMapAll"'),'Map CTA preserved');
 console.log('PASS: TradeFlow unified logo header, no duplicate branding or header search/menu, map and notification actions preserved');
