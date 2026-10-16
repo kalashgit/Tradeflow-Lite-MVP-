@@ -14,8 +14,18 @@
  };
  const classification=r=>({verified_request:'Verified request',potential_opportunity:'Potential opportunity',project_signal:'Project signal',business_prospect:'Business prospect'})[r.opportunity_type]||'Project signal';
  const evidence=r=>({verified:'Verified',source_supported:'Source supported',unresolved:'Needs review'})[r.evidence_status]||'Needs review';
- function frame(title,body){
-  return '<section class="tf-od-screen"><header class="tf-od-nav"><button type="button" data-action="opportunityBack" aria-label="Back">'+glyph('back')+'</button><h1>'+esc(title)+'</h1><span class="tf-od-nav-spacer" aria-hidden="true"></span></header>'+body+'</section>';
+ function frame(title,body,record){
+  const isDossier=title==='Opportunity dossier',id=esc(record?.id||''),source=secure(record?.source_url);
+  const menu=(isDossier?
+   '<button type="button" data-action="opportunityWorkflow" data-id="'+id+'">Contact &amp; workflow →</button>':
+   '<button type="button" data-action="opportunityBack">Opportunity dossier ←</button>')+
+   (source?'<a href="'+esc(source)+'" target="_blank" rel="noopener noreferrer">Open original source ↗</a>':'');
+  return '<section class="tf-od-screen"><header class="tf-od-nav">'+
+   '<button type="button" data-action="opportunityBack" aria-label="Back">'+glyph('back')+'</button>'+
+   '<h1>'+esc(title)+'</h1>'+
+   '<details class="tf-od-more"><summary aria-label="More opportunity actions">'+glyph('more')+'</summary>'+
+   '<nav class="tf-od-more-menu" aria-label="Opportunity actions">'+menu+'</nav></details></header>'+
+   body+'</section>';
  }
  function dossier(r){
   const photo=secure(r.photo_url||r.place_photo_url||r.official_photo_url||r.project_photo_url);
@@ -29,7 +39,7 @@
   const original='<section class="tf-od-card tf-od-evidence"><h2>Evidence &amp; source</h2><p>'+esc(r.evidence_notes||r.project_description||summary)+'</p><p class="tf-od-muted">'+esc(summary)+'</p>'+
     (src?'<a class="tf-od-outline" href="'+esc(src)+'" target="_blank" rel="noopener noreferrer">Open original source ↗</a>':'<p class="tf-od-muted">No verified source link is saved.</p>')+'</section>';
   return frame('Opportunity dossier','<div class="tf-od-stack"><section class="tf-od-card tf-od-hero"><h2>'+name+'</h2><div class="tf-od-hero-layout"><p class="tf-od-address"><span aria-hidden="true">⌖</span>'+esc(normalizedPlace(r))+'</p><div class="tf-od-photo">'+image+'</div></div><div class="tf-od-tags"><span>'+esc(classification(r))+'</span><span class="tf-od-proof">'+esc(evidence(r))+'</span></div><p class="tf-od-notice">ⓘ '+esc(summary)+'</p></section>'+details+original+
-   '<div class="tf-od-cta-group"><button class="tf-od-primary" type="button" data-action="'+(Number.isFinite(Number(r.latitude))&&r.latitude!==null&&Number.isFinite(Number(r.longitude))&&r.longitude!==null?'opportunityMap':'opportunityLocate')+'" data-id="'+esc(r.id)+'">View location on map →</button><button class="tf-od-outline" type="button" data-action="opportunityWorkflow" data-id="'+esc(r.id)+'">Contact &amp; workflow →</button></div></div>');
+   '<div class="tf-od-cta-group"><button class="tf-od-primary" type="button" data-action="'+(Number.isFinite(Number(r.latitude))&&r.latitude!==null&&Number.isFinite(Number(r.longitude))&&r.longitude!==null?'opportunityMap':'opportunityLocate')+'" data-id="'+esc(r.id)+'">View location on map →</button><button class="tf-od-outline" type="button" data-action="opportunityWorkflow" data-id="'+esc(r.id)+'">Contact &amp; workflow →</button></div></div>',r);
  }
  const glyph=(kind)=>{const paths={
  back:'<path d="m15 18-6-6 6-6"/>',
@@ -85,7 +95,7 @@
    icps.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===r.icp_profile_id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+
    '</select></label><button class="tf-od-outline tf-od-secondary-save" type="submit">Save contact &amp; profile</button></section>'+
    '</form></div>';
-  return frame('Contact & workflow',body);
+  return frame('Contact & workflow',body,r);
  }
 
  root.TradeFlowDossier=Object.freeze({dossier,workflow,normalizedPlace,secure,syncQuickLinks,safeTel,safeMail});

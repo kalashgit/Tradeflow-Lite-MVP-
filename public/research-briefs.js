@@ -7,7 +7,7 @@
 let api=null,mode='list',currentId='',filter='';
 const PREFIX='tf-research-brief:';
 // Exact Opportunity import CSV schema, checked in tests.
-const OPPORTUNITY_COLUMNS=['record_id','source_record_id','project_name','trade','opportunity_type','project_description','city','region','latitude','longitude','source_url','source_date','discovered_at','verified_at','evidence_status','status','organization_name','contact_url','evidence_notes','contact_person','contact_phone','contact_email','contact_source_url','icp_profile_id','address','postal_code','country','map_location_status','map_error','map_address_result'];
+const OPPORTUNITY_COLUMNS=['record_id','source_record_id','project_name','trade','opportunity_type','project_description','city','region','latitude','longitude','source_url','source_date','discovered_at','verified_at','evidence_status','status','organization_name','contact_url','evidence_notes','contact_person','contact_phone','contact_email','contact_source_url','icp_profile_id','address','postal_code','country','map_location_status','map_error','map_address_result','photo_url','place_photo_url','official_photo_url','project_photo_url'];
 const e=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean=(v,n=500)=>String(v==null?'':v).trim().slice(0,n);
 const iso=()=>new Date().toISOString();

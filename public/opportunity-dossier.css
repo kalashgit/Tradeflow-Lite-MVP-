@@ -105,3 +105,53 @@
  .tf-od-screen .tf-od-hero-layout{grid-template-columns:minmax(0,1fr) 90px}
  .tf-od-screen .tf-od-quick :is(a,button){font-size:10px;gap:3px}
 }
+
+/* Refined two-screen dossier nav from approved high-resolution reference.
+   Scoped to detail screen only; does not affect Opportunities dashboard. */
+.tf-od-screen .tf-od-nav{
+ display:grid;grid-template-columns:42px minmax(0,1fr) 42px;gap:10px;
+ align-items:center;min-height:58px;padding:4px 0 15px;
+}
+.tf-od-screen .tf-od-nav h1{
+ display:block;min-width:0;margin:0;font-size:clamp(15px,3.8vw,17px);
+ font-weight:760;letter-spacing:-.02em;text-align:center;white-space:normal;
+}
+.tf-od-screen .tf-od-nav>button{display:grid;place-items:center;width:42px;height:42px;padding:8px;color:var(--tf-accent-text)}
+.tf-od-screen .tf-od-nav>button .tf-od-icon{width:26px;height:26px;stroke-width:2}
+.tf-od-screen .tf-od-more{position:relative;z-index:30;justify-self:end}
+.tf-od-screen .tf-od-more>summary{
+ list-style:none;display:grid;place-items:center;cursor:pointer;width:42px;height:42px;
+ padding:7px;color:var(--tf-accent-text,#10cfe1);border-radius:10px;
+}
+.tf-od-screen .tf-od-more>summary::-webkit-details-marker{display:none}
+.tf-od-screen .tf-od-more>summary .tf-od-icon{width:24px;height:24px;stroke-width:2.4}
+.tf-od-screen .tf-od-more[open]>summary,
+.tf-od-screen .tf-od-more>summary:focus-visible{
+ background:#0d3648;outline:2px solid var(--tf-accent);outline-offset:1px
+}
+.tf-od-screen .tf-od-more-menu{
+ position:absolute;right:0;top:44px;z-index:40;
+ width:min(68vw,248px);display:grid;gap:3px;padding:6px;
+ border:1px solid #30667d;border-radius:12px;background:#0b2636;
+ box-shadow:0 15px 35px #000a;
+}
+.tf-od-screen .tf-od-more-menu :is(button,a){
+ display:block;width:100%;border:0;background:transparent;
+ color:#e6f9ff;padding:11px 10px;text-align:left;text-decoration:none;
+ border-radius:8px;font-size:13px;line-height:1.3;
+}
+.tf-od-screen .tf-od-more-menu :is(button,a):focus-visible,
+.tf-od-screen .tf-od-more-menu :is(button,a):active{background:#123f53;outline:2px solid var(--tf-accent)}
+.tf-od-screen .tf-od-hero{background:linear-gradient(150deg,#082635 0%,#061b2a 90%)}
+.tf-od-screen .tf-od-hero .tf-od-photo{
+ border-color:#32788c;box-shadow:inset 0 1px 0 #ffffff18,0 5px 14px #0005;
+}
+.tf-od-screen .tf-od-hero .tf-od-address{font-size:12px;line-height:1.68}
+.tf-od-screen .tf-od-card h2{letter-spacing:-.015em}
+.tf-od-screen .tf-od-primary{font-weight:770;min-height:47px}
+.tf-od-screen .tf-od-outline{min-height:46px}
+.tf-od-screen .tf-od-notice{background:#102b3a}
+@media(max-width:370px){
+ .tf-od-screen .tf-od-nav{grid-template-columns:38px minmax(0,1fr) 38px}
+ .tf-od-screen .tf-od-more>summary{width:38px;height:40px}
+}
