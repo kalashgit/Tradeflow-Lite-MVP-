@@ -11,6 +11,7 @@ assert.ok(source.includes('const max=allRequested?queue.length'),'No arbitrary s
 assert.ok(source.includes('map_location_status='+"'needs_review'"),'Geocoded results need manual review');
 assert.ok(source.includes("map_location_status='unresolved'"),'Unmatched records not plotted');
 assert.ok(source.includes('mapOpportunityDrawnIds')&&source.includes('source.setData'),'Map pins refresh without rebuilding the map');
+assert.ok(source.includes('opportunityBulkMatch'),'Bulk mapping must validate the street number and street name');
 assert.ok(!source.includes('await render()'),'Do not interrupt a user panning or exploring the map');
 assert.ok(source.includes("get('settings',opportunityGeoCacheId)")&&source.includes("put('settings',{id:opportunityGeoCacheId,results})"),'Geocoding results are cached persistently');
 assert.ok(app.includes('nextMapRequestAt=Date.now()+1100'),'Public provider requests remain serialized below one per second');
@@ -48,6 +49,9 @@ const ctx=vm.createContext({
  notify:()=>{screenRenders++}
 });
 vm.runInContext(source,ctx,{timeout:3000});
+assert.equal(vm.runInContext('opportunityBulkMatch',ctx)({display_name:'Austin, Texas'},{address:'1001 Main St',city:'Austin',region:'Texas'}),false,'City-only result must not get a project pin');
+assert.equal(vm.runInContext('opportunityBulkMatch',ctx)({display_name:'999 Other Street, Austin, Texas'},{address:'1001 Main St',city:'Austin',region:'Texas'}),false,'Different street number and name must not be accepted');
+assert.equal(vm.runInContext('opportunityBulkMatch',ctx)({display_name:'1001 Main Street, Austin, Texas'},{address:'1001 Main St',city:'Austin',region:'Texas'}),true,'Exact project street match is eligible');
 (async()=>{
  await vm.runInContext('locateOpportunityBatch',ctx)(opportunities,{automatic:true,all:true});
  assert.equal(opportunities.filter(r=>Number.isFinite(r.latitude)).length,73,'All 65 valid unmapped records should be geocoded');

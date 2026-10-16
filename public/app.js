@@ -1232,6 +1232,17 @@ function opportunityLocationPlausible(hit,r){
 let opportunityMappingRunning=false;
 let opportunityMappingProgress=null;
 const opportunityGeoCacheId='tf-opportunity-geocode-cache-v1';
+function opportunityBulkMatch(hit,record){
+ // A city/ZIP hit alone is not a verified building or project address.
+ const {street,city,region,zip}=opportunityLocationParts(record),found=String(hit?.display_name||'').toLowerCase();
+ const site=street.split(',')[0].trim(),number=(site.match(/^(\d+[A-Za-z]?)\s+/)||[])[1];
+ if(!number||!found)return false;
+ const words=site.replace(/^\d+[A-Za-z]?\s+/,'').toLowerCase().split(/[^a-z0-9]+/)
+  .filter(w=>w.length>3&&!/^(road|street|avenue|drive|boulevard|lane|court|suite|north|south|east|west)$/.test(w));
+ const hasNumber=new RegExp('(?:^|[^0-9a-z])'+number.toLowerCase()+'(?=$|[^0-9a-z])').test(found);
+ const locationOk=zip?found.includes(zip.slice(0,5)):city?found.includes(city.toLowerCase()):region?found.includes(region.toLowerCase()):false;
+ return hasNumber&&words.length>0&&words.some(w=>found.includes(w))&&locationOk;
+}
 function opportunityGeocodeCandidate(r){
  if(!r||opportunityMapped(r))return false;
  const location=opportunityLocationParts(r);
@@ -1328,7 +1339,7 @@ async function locateOpportunityBatch(records,options={}){
       const keys=Object.keys(results);for(const stale of keys.slice(0,Math.max(0,keys.length-400)))delete results[stale];
       await put('settings',{id:opportunityGeoCacheId,results});
      }
-     hit=(Array.isArray(matches)?matches:[]).find(x=>opportunityLocationPlausible(x,record));
+     hit=(Array.isArray(matches)?matches:[]).find(x=>opportunityBulkMatch(x,record));
      if(hit)break;
     }
     const lat=Number(hit?.lat),lon=Number(hit?.lon);
