@@ -1,6 +1,6 @@
-const DB='tradeflow-lite-v1', STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments','invoices','jobCosts','marketingCampaigns','crew','routePlans','suppliers','supplyOrders','commandLog'];let db,tab='dashboard',query='',modal=null,toast='';let tfMotionNext='',tfRecordListContext=null;let prefs={company:'TradeFlow Lite',accent:'#10cfe1',primaryTrade:'',categories:[]};
+const DB='tradeflow-lite-v1', STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments','invoices','jobCosts','marketingCampaigns','crew','routePlans','suppliers','supplyOrders','commandLog','calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'];let db,tab='dashboard',query='',modal=null,toast='';let tfMotionNext='',tfRecordListContext=null;let prefs={company:'TradeFlow Lite',accent:'#10cfe1',primaryTrade:'',categories:[]};
 const $=s=>document.querySelector(s);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const euro=n=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(Number(n)||0);const today=()=>new Date().toISOString().slice(0,10);const uid=()=>crypto.randomUUID();
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,8);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,9);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function tx(store,mode,cb){return new Promise((res,rej)=>{const t=db.transaction(store,mode),s=t.objectStore(store),r=cb(s);t.oncomplete=()=>res(r?.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})}const all=s=>tx(s,'readonly',x=>x.getAll());const put=(s,v)=>tx(s,'readwrite',x=>x.put(v));const del=(s,id)=>tx(s,'readwrite',x=>x.delete(id));const get=(s,id)=>tx(s,'readonly',x=>x.get(id));
 async function tfExecuteCommand(kind,payload,requestKey){const data=Object.fromEntries(await Promise.all(STORES.map(async store=>[store,await all(store)])));return window.TradeFlowCore.execute({db,kind,payload,data,uid,requestKey});}
 async function event(text){await put('events',{id:uid(),text,date:new Date().toISOString()})}let tfToastSequence=0;
@@ -1500,7 +1500,20 @@ window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecu
 window.TradeFlowJobForms?.configure({get,put,render,uid});
 window.TradeFlowCalendar?.configure({
  get,put,all,render,notify,uid,
- navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}
+ navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
+ openRecord:async function(kind,id){
+  if(!id)return;
+  if(['task','job'].includes(kind)){
+   tab=kind==='task'?'tasks':'jobs';modal=null;tfRecordDetailId=id;query='';tfAiPanelOpen=false;tfMotionNext='forward';await render();return;
+  }
+  if(kind==='opportunity'){
+   tab='opportunities';modal=null;tfAiPanelOpen=false;await render();
+   const row=[...document.querySelectorAll('[data-action="opportunityDetail"]')].find(x=>x.dataset.id===id);
+   row?.click();return;
+  }
+  if(kind==='quote'){tab='quotes';modal=null;tfRecordDetailId=id;await render();return}
+  tab='calendar';await render();
+ }
 });
 window.TradeFlowOperations?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowRoutes?.configure({get,put,all,render,notify,uid,getPrefs:()=>prefs,focusMap:async function(lon,lat){mapLastView={center:[lon,lat],zoom:15};tab='map';await render()}});
