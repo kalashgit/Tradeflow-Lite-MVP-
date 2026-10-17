@@ -29,39 +29,143 @@ function jobLink(job,d){
  return '<span><strong>'+esc(job.title||'Untitled job')+'</strong><small>'+esc(job.date||'No scheduled date')+
  ' · '+esc(address(job,d)||'Address missing')+'</small></span>';
 }
+
+let assignmentJobId='',crewExpanded=false,unassignedExpanded=false;
+const svg=(path)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="23" height="23" aria-hidden="true">'+path+'</svg>';
+const icons={
+ calendar:svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>'),
+ job:svg('<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 13h18"/>'),
+ crew:svg('<circle cx="8.5" cy="8" r="3"/><path d="M2.5 20v-1a6 6 0 0 1 12 0v1M17 5a3 3 0 0 1 0 6m0 4c3 0 5 2 5 5"/>'),
+ alert:svg('<path d="m12 3 10 18H2L12 3Z"/><path d="M12 10v4m0 3h.01"/>'),
+ pin:svg('<path d="M12 22s8-7 8-14a8 8 0 0 0-16 0c0 7 8 14 8 14Z"/><circle cx="12" cy="9" r="2.5"/>')
+};
+const validTime=v=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v||'');
+function scheduledDate(j){return trim(j.date||j.scheduledDate||'',10)}
+function scheduledTime(j){return trim(j.startTime||j.time||'',5)}
+function duration(j){const n=Number(j.durationMinutes||j.estimatedDurationMinutes||0);return Number.isInteger(n)&&n>0&&n<=1440?n:null}
+function intervalsOverlap(a,b){return a.start<b.end&&b.start<a.end}
+function minutes(s){return Number(s.slice(0,2))*60+Number(s.slice(3,5))}
+function jobWindow(j){
+ const start=scheduledTime(j),len=duration(j);
+ if(!validTime(start)||!len)return null;
+ return {start:minutes(start),end:minutes(start)+len};
+}
+function isActive(job){return !['Completed','Cancelled','Canceled'].includes(job.status||'')}
+function conflictsFor(job,jobs){
+ if(!isActive(job)||!job.crewId||!validDate(scheduledDate(job)))return [];
+ const time=jobWindow(job);if(!time)return [];
+ return (jobs||[]).filter(other=>other.id!==job.id&&isActive(other)&&other.crewId===job.crewId&&scheduledDate(other)===scheduledDate(job)&&jobWindow(other)&&intervalsOverlap(time,jobWindow(other)));
+}
+function crewDay(crew,day,jobs){
+ const assigned=(jobs||[]).filter(x=>isActive(x)&&x.crewId===crew.id&&scheduledDate(x)===day);
+ const leave=Array.isArray(crew.daysOff)?crew.daysOff.includes(day):false;
+ const weekday=new Date(day+'T12:00:00').getDay();
+ const hasWorkDays=Array.isArray(crew.workDays)&&crew.workDays.length>0;
+ const scheduled=hasWorkDays?crew.workDays.map(Number).includes(weekday):false;
+ const availability=leave?'Off duty':!hasWorkDays?'Unknown':scheduled?(assigned.length?'Assigned':'Available'):'Off duty';
+ return {jobs:assigned.length,availability,leave,explicit:hasWorkDays};
+}
+function dispatchSummary(d,day){
+ const jobs=(d.jobs||[]).filter(x=>isActive(x)&&scheduledDate(x)===day);
+ const crew=d.crew||[],validIds=new Set(crew.map(x=>x.id));
+ const assigned=jobs.filter(x=>validIds.has(x.crewId)),unassigned=jobs.filter(x=>!validIds.has(x.crewId));
+ const states=crew.map(x=>crewDay(x,day,d.jobs||[]));
+ const available=states.filter(x=>x.availability==='Available').length;
+ const known=states.filter(x=>x.availability!=='Unknown').length;
+ const conflicts=assigned.flatMap(job=>conflictsFor(job,d.jobs||[]).map(other=>[job.id,other.id].sort().join(':')));
+ return {jobs,assigned,unassigned,crew,states,available,known,conflicts:[...new Set(conflicts)]};
+}
+function initials(name){return trim(name||'',100).split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]?.toUpperCase()).join('')||'—'}
+function dayLabel(day){return new Date(day+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}
+function shiftDay(day,n){const x=new Date(day+'T12:00:00');x.setDate(x.getDate()+n);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function memberBadge(crew,day,jobs){
+ const info=crewDay(crew,day,jobs);
+ const tone=info.availability==='Available'?'available':info.availability==='Off duty'?'off':info.availability==='Assigned'?'working':'unknown';
+ return '<span class="tf-d-v2-badge '+tone+'">'+esc(info.availability)+'</span>';
+}
+function crewEditor(members){
+ const edit=members.find(x=>x.id===crewEditId)||{};
+ const days=Array.isArray(edit.workDays)?edit.workDays.map(Number):[];
+ return '<form id="tfOpsCrewForm" class="tf-ops-panel tf-d-v2-editor"><h3>'+esc(edit.id?'Edit crew member':'Add crew member')+'</h3>'+
+ '<label>Team member name<input name="name" maxlength="90" required value="'+esc(edit.name||'')+'" placeholder="Name or display name"></label>'+
+ '<label>Role / primary skill<input name="role" maxlength="90" value="'+esc(edit.role||'')+'" placeholder="Electrician, apprentice, project manager"></label>'+
+ '<label>Skills / certifications (comma separated)<input name="skills" maxlength="240" value="'+esc((edit.skills||[]).join(', '))+'" placeholder="Panel upgrades, HVAC controls"></label>'+
+ '<label>Service area<input name="serviceArea" maxlength="140" value="'+esc(edit.serviceArea||'')+'" placeholder="Austin metro"></label>'+
+ '<fieldset class="tf-d-v2-week"><legend>Normal working days (optional)</legend>'+
+ ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day,index)=>'<label><input type="checkbox" name="workDay'+index+'" '+(days.includes(index)?'checked':'')+'><span>'+day+'</span></label>').join('')+'</fieldset>'+
+ '<p class="tf-ops-note">If working days are not defined, availability displays Unknown rather than assuming the worker is free.</p>'+
+ '<label>Days off (YYYY-MM-DD, comma separated)<input name="daysOff" maxlength="420" value="'+esc((edit.daysOff||[]).join(', '))+'" placeholder="2026-10-20, 2026-10-21"></label>'+
+ '<label>Notes (optional)<textarea name="notes" maxlength="350" rows="2">'+esc(edit.notes||'')+'</textarea></label>'+
+ '<div class="tf-ops-actions"><button type="submit" class="tf-ops-primary">Save member</button><button type="button" data-ops-action="crew-cancel" class="tf-ops-secondary">Cancel</button></div>'+
+ '<p class="tf-ops-note">Records stay local. No live location tracking, employee account, or automatic notification is created.</p></form>';
+}
+function assignmentForm(d){
+ const job=(d.jobs||[]).find(j=>j.id===assignmentJobId);
+ if(!job)return '';
+ const members=d.crew||[],date=scheduledDate(job)||activeDate,start=scheduledTime(job),len=duration(job);
+ return '<form id="tfOpsAssignForm" data-id="'+esc(job.id)+'" class="tf-ops-panel tf-d-v2-editor">'+
+ '<h3>Assign &amp; schedule job</h3><p>'+esc(job.title||'Untitled job')+'</p>'+
+ '<label>Crew member<select name="crewId">'+optionCrew(members,job.crewId||'')+'</select></label>'+
+ '<div class="tf-ops-two"><label>Service date<input type="date" required name="date" value="'+esc(date)+'"></label>'+
+ '<label>Start time (optional)<input type="time" name="startTime" value="'+esc(start)+'"></label></div>'+
+ '<label>Estimated duration (minutes)<input type="number" name="durationMinutes" min="15" max="1440" step="15" value="'+esc(len||'')+'" placeholder="120"></label>'+
+ '<p class="tf-ops-note">Time-based conflicts are checked only when dates, start times and durations are recorded. Changes are local and will appear in saved Jobs and Calendar views.</p>'+
+ '<div class="tf-ops-actions"><button type="submit" class="tf-ops-primary">Save assignment</button><button type="button" data-ops-action="assign-close" class="tf-ops-secondary">Cancel</button></div></form>';
+}
 function roster(d){
- const members=d.crew||[],jobs=d.jobs||[],assigned=jobs.filter(x=>x.crewId&&members.some(c=>c.id===x.crewId)).length;
- let content='<div class="tf-ops-page"><button data-tab="settings" class="tf-ops-back" type="button">‹ More</button>'+
- head('Crew & Dispatch','Assign work locally, build itineraries and open directions in your maps app.')+tabbar('dispatch')+
- '<div class="tf-ops-stats"><div><small>CREW PROFILES</small><strong>'+members.length+'</strong></div><div><small>ASSIGNED JOBS</small><strong>'+assigned+'</strong></div><div><small>ROUTE PLANS</small><strong>'+(d.routePlans||[]).length+'</strong></div></div>'+
- '<div class="tf-ops-switch"><button data-ops-action="section" data-section="crew" type="button" class="'+(section==='crew'?'active':'')+'">Crew assignments</button>'+
- '<button data-ops-action="section" data-section="routes" type="button" class="'+(section==='routes'?'active':'')+'">Manual route plans</button></div>';
- if(section==='routes')return content+routes(d)+'</div>';
- content+='<div class="tf-ops-rowhead"><h2>Team roster</h2><button type="button" class="tf-ops-primary" data-ops-action="crew-new">+ Crew member</button></div>';
- if(crewFormOpen){
-  const edit=members.find(x=>x.id===crewEditId)||{};
-  content+='<form id="tfOpsCrewForm" class="tf-ops-panel"><h3>'+esc(edit.id?'Edit member':'New crew member')+'</h3>'+
-   '<label>Team member name<input name="name" maxlength="90" required value="'+esc(edit.name||'')+'" placeholder="Name or display name"></label>'+
-   '<label>Role / primary skill<input name="role" maxlength="90" value="'+esc(edit.role||'')+'" placeholder="Electrician, apprentice, project manager"></label>'+
-   '<label>Notes (optional)<textarea name="notes" maxlength="350" rows="2" placeholder="Work preferences, capabilities">'+esc(edit.notes||'')+'</textarea></label>'+
-   '<div class="tf-ops-actions"><button type="submit" class="tf-ops-primary">Save member</button>'+
-   '<button type="button" data-ops-action="crew-cancel" class="tf-ops-secondary">Cancel</button></div>'+
-   '<p class="tf-ops-note">Names stay in this device’s local TradeFlow records. No employee accounts or live location access exist.</p></form>';
- }
- content+=(members.length?members.map(x=>{
- const count=jobs.filter(j=>j.crewId===x.id).length;
- return '<article class="tf-ops-listitem"><div><strong>'+esc(x.name)+'</strong><small>'+esc(x.role||'Crew member')+
- ' · '+count+' assigned job'+(count===1?'':'s')+'</small></div><div class="tf-ops-actions"><button data-ops-action="crew-edit" data-id="'+esc(x.id)+'" type="button">Edit</button>'+
- '<button data-ops-action="crew-delete" data-id="'+esc(x.id)+'" type="button">Remove</button></div></article>';
- }).join(''):'<div class="tf-ops-empty">No team members yet. Add a display name to organize local job assignments.</div>');
- content+='<div class="tf-ops-rowhead"><h2>Job assignments</h2><button data-tab="jobs" type="button" class="tf-ops-secondary">Open Jobs ↗</button></div>';
- content+=(jobs.length?jobs.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).slice(0,70).map(job=>
- '<form id="tfOpsAssignForm" data-id="'+esc(job.id)+'" class="tf-ops-listitem tf-ops-job"><div>'+jobLink(job,d)+'</div>'+
- '<label><span>Assigned to</span><select name="crewId">'+optionCrew(members,job.crewId||'')+'</select></label>'+
- '<button class="tf-ops-secondary" type="submit">Save</button></form>').join(''):
- '<div class="tf-ops-empty">No jobs yet. Create and schedule jobs to assign them to a crew member.</div>')+
- '<p class="tf-ops-note">This is a single-device planning board. Assigning a person here does not notify them or synchronize their phone.</p></div>';
- return content;
+ const crew=d.crew||[],jobs=d.jobs||[],summary=dispatchSummary(d,activeDate);
+ const sorted=summary.jobs.slice().sort((a,b)=>scheduledTime(a).localeCompare(scheduledTime(b))||String(a.title||'').localeCompare(String(b.title||'')));
+ const unscheduled=jobs.filter(j=>isActive(j)&&!scheduledDate(j));
+ const memberMap=new Map(crew.map(c=>[c.id,c]));
+ const metric=(label,value,desc,icon,tone)=>'<div class="tf-d-v2-metric"><span class="tf-d-v2-metric-icon '+(tone||'')+'">'+icons[icon]+'</span>'+
+ '<span class="tf-d-v2-metric-text"><small>'+label+'</small><strong>'+value+'</strong><em>'+desc+'</em></span></div>';
+ let out='<section class="tf-ops-page tf-dispatch-v2">'+
+ '<header class="tf-d-v2-heading"><div><span class="tf-ops-kicker">TRADEFLOW / BUSINESS OPERATIONS</span><h1>Crew &amp; Dispatch</h1>'+
+ '<p>Coordinate people, jobs and schedules in one place.</p></div><span class="tf-d-v2-hero">'+icons.crew+'</span></header>'+
+ '<div class="tf-d-v2-metrics">'+
+ metric('Scheduled '+(activeDate===today()?'today':'jobs'),String(summary.jobs.length),'Jobs on '+dayLabel(activeDate),'calendar')+
+ metric('Assigned jobs',String(summary.assigned.length),'Scheduled on selected day','job')+
+ metric('Unassigned',String(summary.unassigned.length),'Scheduled without valid crew','alert','amber')+
+ metric('Available crew',summary.available+' / '+crew.length,summary.known+' members with known status','crew')+'</div>'+
+ '<section class="tf-d-v2-panel"><div class="tf-d-v2-head"><h2>Daily dispatch</h2><div class="tf-d-v2-date">'+
+ '<button data-ops-action="day-prev" type="button" aria-label="Previous day">‹</button>'+
+ '<label><span class="sr-only">Dispatch date</span><input type="date" id="tfOpsDispatchDate" value="'+esc(activeDate)+'" aria-label="Dispatch date"></label>'+
+ '<button data-ops-action="day-next" type="button" aria-label="Next day">›</button></div>'+
+ '<button data-tab="calendar" type="button" class="tf-d-v2-link">Calendar ↗</button></div>'+
+ (sorted.length?'<div class="tf-d-v2-schedule">'+sorted.map(job=>{
+  const member=memberMap.get(job.crewId),conflicts=conflictsFor(job,jobs),time=scheduledTime(job),len=duration(job);
+  const badge=conflicts.length?'Time conflict':member?esc(job.status||'Assigned'):'Unassigned';
+  const tone=conflicts.length?'conflict':member?'working':'unassigned';
+  return '<button type="button" class="tf-d-v2-visit" data-ops-action="assign-open" data-id="'+esc(job.id)+'">'+
+  '<span class="tf-d-v2-when"><strong>'+esc(time||'—:—')+'</strong><small>'+(len?Math.floor(len/60)+'h '+(len%60?len%60+'m':''):'Time not set')+'</small></span>'+
+  '<span class="tf-d-v2-visit-line '+tone+'"></span>'+
+  '<span class="tf-d-v2-visit-main"><strong>'+esc(job.title||'Untitled job')+'</strong><small>'+icons.pin+esc(address(job,d)||'Address not recorded')+'</small></span>'+
+  '<span class="tf-d-v2-assignee"><span class="tf-d-v2-avatar">'+esc(member?initials(member.name):'—')+'</span><span class="tf-d-v2-assignee-info"><strong>'+esc(member?.name||'Unassigned')+'</strong>'+
+  '<em class="tf-d-v2-badge '+tone+'">'+esc(badge)+'</em></span></span><span class="tf-d-v2-chevron">›</span></button>';
+ }).join('')+'</div>':'<div class="tf-ops-empty">No scheduled jobs for '+esc(dayLabel(activeDate))+'. Add a date to a saved Job to see it here.</div>')+
+ '<p class="tf-d-v2-caption">Time conflicts are identified from saved job schedules. No live GPS, traffic, travel estimates or crew notifications.</p></section>'+
+ '<section class="tf-d-v2-section"><div class="tf-d-v2-head"><h2>Team roster</h2>'+
+ '<button type="button" class="tf-d-v2-link" data-ops-action="crew-toggle">'+(crewExpanded?'Show less':'View all')+' →</button></div>'+
+ (crew.length?'<div class="tf-d-v2-roster">'+(crewExpanded?crew:crew.slice(0,3)).map(member=>{
+  const info=crewDay(member,activeDate,jobs);
+  return '<button type="button" class="tf-d-v2-member" data-ops-action="crew-edit" data-id="'+esc(member.id)+'">'+
+  '<span class="tf-d-v2-avatar">'+esc(initials(member.name))+'</span><strong>'+esc(member.name)+'</strong>'+
+  '<small>'+esc(member.role||'Crew member')+'</small>'+memberBadge(member,activeDate,jobs)+
+  '<span class="tf-d-v2-member-foot">'+info.jobs+' job'+(info.jobs===1?'':'s')+' on selected day ↗</span></button>';
+ }).join('')+'</div>':'<div class="tf-ops-empty">No crew members recorded. Add your team to begin assigning work.</div>')+
+ '<button type="button" class="tf-ops-secondary tf-d-v2-small-action" data-ops-action="crew-new">+ Crew member</button></section>'+
+ '<section class="tf-d-v2-section"><div class="tf-d-v2-head"><h2>Unassigned jobs</h2><button type="button" class="tf-d-v2-link" data-ops-action="unassigned-toggle">'+(unassignedExpanded?'Show less':'View all')+' →</button></div>'+
+ '<p class="tf-d-v2-section-sub">'+summary.unassigned.length+' scheduled for '+esc(dayLabel(activeDate))+' without crew'+(unscheduled.length?' · '+unscheduled.length+' without a date':'')+'</p>'+
+ ((summary.unassigned.length||unscheduled.length)?'<div class="tf-d-v2-unassigned-list">'+
+ (unassignedExpanded?[...summary.unassigned,...unscheduled]:[...summary.unassigned,...unscheduled].slice(0,3)).map(job=>
+ '<button type="button" class="tf-d-v2-unassigned" data-ops-action="assign-open" data-id="'+esc(job.id)+'"><span class="tf-d-v2-unassigned-icon">'+icons.job+'</span>'+
+ '<span class="tf-d-v2-unassigned-copy"><strong>'+esc(job.title||'Untitled job')+'</strong><small>'+esc(scheduledDate(job)||'Not scheduled')+' · '+esc(scheduledTime(job)||'Time pending')+'</small>'+
+ '<small>'+esc(address(job,d)||'Address not recorded')+'</small></span><span class="tf-d-v2-unassigned-cta">Assign →</span></button>').join('')+
+ '</div>':'<div class="tf-ops-empty">No unassigned jobs in this view.</div>')+'</section>'+
+ (crewFormOpen?crewEditor(crew):'')+(assignmentJobId?assignmentForm(d):'')+
+ '<button type="button" data-ops-action="assign-pick" class="tf-d-v2-primary">＋ Assign job</button>'+
+ '<p class="tf-d-v2-caption">Local-first planning. Availability only becomes known after working days are entered. Updating dispatch saves to Jobs; Calendar can display those scheduled jobs. Future AI voice and silent recommendations will use the same records but are not yet active.</p></section>';
+ return out;
 }
 function routeStops(d,plan){
  const ids=Array.isArray(plan.jobIds)?plan.jobIds:[];
