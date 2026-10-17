@@ -84,6 +84,7 @@ function icpEdit(s,prefs){
  field('Project value range','projectValue',row.projectValue,{max:120,placeholder:'e.g. $2k–$50k'})+
  field('Buying signals to research','signals',row.signals,{area:true,max:500,placeholder:'Issued permits, open tenders, building upgrades'})+
  field('Exclusions and poor-fit leads','exclusions',row.exclusions,{area:true,max:500,placeholder:'Large government-only tenders, distant service areas'})+
+ sel('Validation status','validationStatus',row.validationStatus||'draft',[['draft','Draft hypothesis'],['supported','Supporting evidence collected'],['validated','Validated through direct customer evidence']])+
  '<div class="tf-growth-form-actions"><button class="tf-growth-primary" type="submit">Save ICP</button><button class="tf-growth-secondary" type="button" data-growth-action="cancel">Cancel</button></div>'+
  '<p class="tf-growth-disclosure">This is a targeting definition, not an automated lead search. Existing research results are not automatically relabeled.</p></form></div>';
 }
@@ -100,41 +101,80 @@ function personaEdit(s){
  field('Buying triggers','triggers',row.triggers,{area:true,max:500,placeholder:'Equipment failure, renovations, compliance upgrades'})+
  field('Objections and decision barriers','objections',row.objections,{area:true,max:500,placeholder:'Budget, insurance documentation, vendor approval'})+
  field('Preferred contact channels','channels',row.channels,{max:150,placeholder:'e.g. Work email and phone'})+
+ sel('Validation status','validationStatus',row.validationStatus||'draft',[['draft','Draft hypothesis'],['supported','Supporting evidence collected'],['validated','Validated through direct customer evidence']])+
  '<div class="tf-growth-form-actions"><button class="tf-growth-primary" type="submit">Save buyer persona</button><button class="tf-growth-secondary" type="button" data-growth-action="cancel">Cancel</button></div>'+
  '<p class="tf-growth-disclosure">Personas are user-defined hypotheses. Verify them with real customer conversations.</p></form></div>';
+}
+
+function profileStats(d,s){
+ var validIds=new Set(s.icps.map(function(x){return x.id}));
+ var linked=(d.opportunities||[]).filter(function(o){return validIds.has(o.icp_profile_id)}).length;
+ var unvalidated=s.icps.concat(s.personas).filter(function(x){return x.validationStatus!=='validated'}).length;
+ return {icps:s.icps.length,personas:s.personas.length,linked:linked,toValidate:unvalidated};
+}
+function growthMetric(label,value,desc,icon){
+ return '<article class="tf-target-metric"><span class="tf-target-metric-icon">'+ico(icon)+'</span><div><small>'+e(label)+'</small><strong>'+e(value)+'</strong><span>'+e(desc)+'</span></div></article>';
+}
+function targetCard(x,linked,s){
+ var active=x.id===s.activeIcpId;
+ return '<article class="tf-target-profile-card"><span class="tf-target-profile-icon">'+ico(x.segment==='B2C'?'people':'library')+'</span>'+
+ '<div class="tf-target-profile-copy"><strong>'+e(x.name)+'</strong>'+
+ '<p>'+e(x.orgTypes||x.area||'Organization types not entered')+'</p>'+
+ '<div class="tf-target-chips"><span>'+e(x.trade||'Trade unspecified')+'</span><span>'+e(x.segment||'B2B')+'</span>'+
+ (x.area?'<span>'+e(x.area)+'</span>':'')+'</div></div>'+
+ '<button type="button" data-growth-action="edit" data-type="icp" data-id="'+e(x.id)+'" class="tf-target-view">View →</button>'+
+ (active?'<span class="tf-target-profile-active">Active</span>':'')+
+ '</article>';
+}
+function personaCard(x,s){
+ var parent=s.icps.find(function(y){return y.id===x.icpId});
+ return '<article class="tf-target-profile-card"><span class="tf-target-profile-icon">'+ico('people')+'</span>'+
+ '<div class="tf-target-profile-copy"><strong>'+e(x.name)+'</strong><p>'+e(x.role||'Decision-maker role not recorded')+'</p>'+
+ '<div class="tf-target-chips"><span>'+e(parent?.name||'No linked ICP')+'</span>'+
+ '<span>'+e(x.validationStatus==='validated'?'Validated':x.validationStatus==='supported'?'Evidence recorded':'To validate')+'</span></div></div>'+
+ '<button type="button" data-growth-action="edit" data-type="persona" data-id="'+e(x.id)+'" class="tf-target-view">View →</button></article>';
 }
 function targetList(d,prefs){
  var s=settings(d);
  if(editor==='icp')return icpEdit(s,prefs);
  if(editor==='persona')return personaEdit(s);
  var current=s.icps.find(function(x){return x.id===s.activeIcpId});
- var content='';
- if(section==='icps'){
-  content='<div class="tf-growth-sectiontop"><div><h2>Ideal customer profiles</h2><p>Define who to research and which work fits your capacity.</p></div><button class="tf-growth-primary" type="button" data-growth-action="new" data-type="icp">+ New ICP</button></div>';
-  content+=s.icps.length?s.icps.map(function(x){
-   var count=s.personas.filter(function(p){return p.icpId===x.id}).length;
-   return '<article class="tf-growth-card tf-growth-profile"><div class="tf-growth-profile-head"><strong>'+e(x.name)+'</strong>'+(x.id===s.activeIcpId?'<span class="tf-growth-label">ACTIVE</span>':'')+'</div>'+
-   '<p>'+e(x.trade)+' · '+e(x.area)+' · '+e(x.segment)+'</p>'+
-   '<small>'+e(x.orgTypes||'No organization types specified')+'</small>'+
-   '<div class="tf-growth-small-meta">'+count+' linked buyer persona'+(count===1?'':'s')+'</div>'+
-   '<div class="tf-growth-buttons">'+(x.id===s.activeIcpId?'':'<button data-growth-action="activate" data-id="'+e(x.id)+'" type="button">Set active</button>')+
-   '<button data-growth-action="edit" data-type="icp" data-id="'+e(x.id)+'" type="button">Edit</button>'+
-   '<button data-growth-action="delete" data-type="icp" data-id="'+e(x.id)+'" type="button">Delete</button></div></article>';
-  }).join(''):'<div class="tf-growth-empty">No targeting profiles yet. Create one to describe your ideal customers.</div>';
- }else{
-  content='<div class="tf-growth-sectiontop"><div><h2>Buyer personas</h2><p>Describe the decision-makers within your ideal customers.</p></div><button class="tf-growth-primary" type="button" data-growth-action="new" data-type="persona">+ New persona</button></div>';
-  content+=s.personas.length?s.personas.map(function(x){
-   var linked=s.icps.find(function(p){return p.id===x.icpId});
-   return '<article class="tf-growth-card tf-growth-profile"><div class="tf-growth-profile-head"><strong>'+e(x.name)+'</strong></div><p>'+e(x.role||'Role not specified')+'</p><small>ICP: '+e(linked?linked.name:'Not linked')+'</small>'+
-   '<div class="tf-growth-buttons"><button data-growth-action="edit" data-type="persona" data-id="'+e(x.id)+'" type="button">Edit</button><button data-growth-action="delete" data-type="persona" data-id="'+e(x.id)+'" type="button">Delete</button></div></article>';
-  }).join(''):'<div class="tf-growth-empty">No buyer personas yet. Add the decision-makers you want to understand.</div>';
- }
- return '<div class="tf-growth-page">'+back('settings')+head('Growth Intelligence','Set up who you serve before researching your next opportunities.')+
- '<div class="tf-growth-summary"><span>ACTIVE TARGET</span><strong>'+e(current?current.name:'Not configured')+'</strong><small>'+(current?'Profiles are editable at any time.':'Choose or create an ideal customer profile to get started.')+'</small></div>'+
- tabs(s)+content+
- '<div class="tf-growth-next">'+ico('target')+'<div><strong>Opportunity matching</strong><p>Saved ICPs can be associated with opportunity records. Automated research, enrichment and lead scoring are planned—not active.</p></div></div>'+
- '<div class="tf-growth-related">'+link('opportunities','Open Opportunities','View imported, evidence-backed project and prospect records','target')+
- link('missions','Business Missions','Turn next steps into trackable tasks','mission')+'</div></div>';
+ var summary=profileStats(d,s);
+ var content=(section==='icps'?s.icps:s.personas).map(function(x){
+  return section==='icps'?targetCard(x,null,s):personaCard(x,s);
+ }).join('');
+ var label=section==='icps'?'profile':'persona',empty=section==='icps'?'No ideal customer profiles yet. Define your target market to start.':'No buyer personas yet. Describe the people who make buying decisions.';
+ return '<section class="tf-growth-page tf-target-v2">'+back('settings')+
+ '<header class="tf-target-heading"><div><span class="tf-growth-kicker">TRADEFLOW / GROWTH</span><h1>Target Customers</h1>'+
+ '<p>Define who you want to win and the work worth pursuing.</p></div><span class="tf-target-hero">'+ico('target')+'</span></header>'+
+ '<div class="tf-target-metrics">'+
+ growthMetric('Ideal customer profiles',summary.icps,'Key target markets','people')+
+ growthMetric('Buyer personas',summary.personas,'Decision-makers and users','people')+
+ growthMetric('Linked opportunities',summary.linked,'Assigned to saved ICPs','target')+
+ growthMetric('Profiles to validate',summary.toValidate,'Not marked validated','book')+'</div>'+
+ '<section class="tf-target-active"><div class="tf-target-active-top"><strong>Active target</strong>'+
+ (current?'<span class="tf-target-active-pill">● Active</span>':'<span class="tf-target-active-pill none">Not configured</span>')+'</div>'+
+ (current?'<div class="tf-target-active-main"><span class="tf-target-active-icon">'+ico('library')+'</span><div><h2>'+e(current.name)+'</h2>'+
+ '<div class="tf-target-chips"><span>'+e(current.trade)+'</span><span>'+e(current.segment)+'</span>'+
+ '<span>'+e(current.area)+'</span>'+(current.radius?'<span>'+e(current.radius)+' mi</span>':'')+'</div>'+
+ '<p>'+e([current.jobTypes,current.projectValue].filter(Boolean).join(' · ')||'Add preferred job types and project values to complete this target.')+'</p></div></div>':
+ '<p class="tf-target-active-empty">Create an ICP to make it your active target across Research and Marketing.</p>')+
+ '<div class="tf-target-active-buttons">'+
+ (current?'<button type="button" data-growth-action="edit" data-type="icp" data-id="'+e(current.id)+'">View profile →</button>'+
+ '<button type="button" data-tab="research">⌕ Use in research</button>':
+ '<button type="button" data-growth-action="new" data-type="icp">＋ Create your first ICP</button>'+
+ '<button type="button" data-tab="research">Research Briefs →</button>')+'</div></section>'+
+ '<section class="tf-target-collection"><div class="tf-target-section-title"><h2>Customer profiles</h2>'+
+ '<button type="button" data-growth-action="new" data-type="'+(section==='icps'?'icp':'persona')+'">＋ New '+label+'</button></div>'+
+ '<div class="tf-target-switch" role="group" aria-label="Profile type">'+
+ '<button data-growth-action="section" data-section="icps" type="button" aria-pressed="'+(section==='icps')+'" class="'+(section==='icps'?'active':'')+'">Ideal customers ('+s.icps.length+')</button>'+
+ '<button data-growth-action="section" data-section="personas" type="button" aria-pressed="'+(section==='personas')+'" class="'+(section==='personas'?'active':'')+'">Buyer personas ('+s.personas.length+')</button></div>'+
+ '<div class="tf-target-profile-list">'+(content||'<div class="tf-growth-empty">'+empty+'</div>')+'</div></section>'+
+ '<section class="tf-target-workspaces"><h2>Connected workspaces</h2><div>'+
+ '<button type="button" data-tab="research"><span>'+ico('book')+'</span><strong>Research Briefs</strong><small>Find targeted opportunities</small><em>→</em></button>'+
+ '<button type="button" data-tab="marketing"><span>'+ico('mail')+'</span><strong>Marketing Studio</strong><small>Create campaigns for your ICPs</small><em>→</em></button>'+
+ '<button type="button" data-tab="opportunities"><span>'+ico('target')+'</span><strong>Opportunities</strong><small>Track and manage leads</small><em>→</em></button></div></section>'+
+ '<p class="tf-target-footer">Metrics reflect saved local records. Profiles are targeting hypotheses; no automatic validation or research is performed.</p></section>';
 }
 function missionSuggestions(d){
  var profile=settings(d),active=profile.icps.find(function(x){return x.id===profile.activeIcpId});
@@ -323,7 +363,7 @@ async function submit(event){
    var radius=Number(f('radius',4));if(!Number.isInteger(radius)||radius<1||radius>500)throw Error('Radius must be between 1 and 500 miles.');
    if(!editId&&(row.icps||[]).length>=50)throw Error('Maximum 50 ICP profiles.');
    var profile={id:editId||bridge.uid(),name:f('name',80),trade:f('trade',80),segment:f('segment',10),area:f('area',120),radius:String(radius),
-    companySize:f('companySize',80),orgTypes:f('orgTypes',500),jobTypes:f('jobTypes',500),projectValue:f('projectValue',120),signals:f('signals',500),exclusions:f('exclusions',500),
+    companySize:f('companySize',80),orgTypes:f('orgTypes',500),jobTypes:f('jobTypes',500),projectValue:f('projectValue',120),signals:f('signals',500),exclusions:f('exclusions',500),validationStatus:f('validationStatus',20)||'draft',
     updatedAt:new Date().toISOString()};
    if(editId&&!(row.icps||[]).some(function(x){return x.id===editId}))throw Error('This ICP no longer exists.');
    row.icps=(row.icps||[]).filter(function(x){return x.id!==profile.id}).concat([profile]);
@@ -333,7 +373,7 @@ async function submit(event){
    var link=f('icpId',120);if(link&&!(row.icps||[]).some(function(x){return x.id===link}))throw Error('Select a saved ICP.');
    if(!editId&&(row.personas||[]).length>=100)throw Error('Maximum 100 buyer personas.');
    var persona={id:editId||bridge.uid(),name:f('name',80),icpId:link,role:f('role',120),motivations:f('motivations',500),painPoints:f('painPoints',500),
-    triggers:f('triggers',500),objections:f('objections',500),channels:f('channels',150),updatedAt:new Date().toISOString()};
+    triggers:f('triggers',500),objections:f('objections',500),channels:f('channels',150),validationStatus:f('validationStatus',20)||'draft',updatedAt:new Date().toISOString()};
    if(editId&&!(row.personas||[]).some(function(x){return x.id===editId}))throw Error('This persona no longer exists.');
    row.personas=(row.personas||[]).filter(function(x){return x.id!==persona.id}).concat([persona]);
   }
@@ -362,5 +402,5 @@ function renderPage(tab,d,prefs){
  return '';
 }
 global.TradeFlowGrowth={configure:init,renderPage:renderPage,moreQuickLinks:moreQuickLinks,homePanel:homePanel,contactPanel:contactPanel,
- _test:{settings:settings,missionSuggestions:missionSuggestions,escape:e}};
+ _test:{settings:settings,missionSuggestions:missionSuggestions,profileStats:profileStats,escape:e}};
 })(typeof window!=='undefined'?window:globalThis);
