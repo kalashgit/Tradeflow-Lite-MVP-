@@ -77,7 +77,55 @@
    if(!validDate(plannedDate))throw Error('Invalid supply delivery date');
    const description=brief(body.description,240);
    if(!description)throw Error('Describe the materials or equipment');
-   return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,opportunityId,description,status,destinationKind,destinationId,destinationAddress,latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,mapLocationStatus:point?'needs_review':destinationKind==='custom'?'unmapped':'linked_destination',notes:brief(body.notes,900),updatedAt:when}}]};
+   if(existing?.documentStatus==='Issued')throw Error('Issued purchase orders are locked; create a new purchase order to revise commercial terms');
+   const providedLines=Array.isArray(body.lineItems)?body.lineItems:null;
+   const inputLines=providedLines||[{description,quantity:1,unit:'unit',unitPrice:0}];
+   if(inputLines.length<1||inputLines.length>35)throw Error('Add between 1 and 35 purchase order items');
+   const lineItems=inputLines.map((row,i)=>{
+    const title=brief(row.description,240),quantity=Number(row.quantity),unitPrice=Number(row.unitPrice);
+    if(!title)throw Error('Item '+(i+1)+' needs a description');
+    if(!Number.isFinite(quantity)||quantity<=0||quantity>1000000||Math.round(quantity*1000)/1000!==quantity)
+     throw Error('Item '+(i+1)+' needs a valid quantity (up to 3 decimal places)');
+    if(!Number.isFinite(unitPrice)||unitPrice<0||unitPrice>100000000||Math.round(unitPrice*100)/100!==unitPrice)
+     throw Error('Item '+(i+1)+' needs a valid unit price');
+    return {description:title,quantity,unit:brief(row.unit,20)||'unit',unitPrice};
+   });
+   const currency=brief(body.currency||existing?.currency,3)||'EUR';
+   if(!['EUR','USD','GBP','AUD','CAD'].includes(currency))throw Error('Choose a supported currency');
+   const taxRate=Number(body.taxRate||0),shipping=Number(body.shipping||0);
+   if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100||!Number.isFinite(shipping)||shipping<0||shipping>10000000)
+    throw Error('Invalid tax or shipping value');
+   const subtotal=Math.round(lineItems.reduce((sum,row)=>sum+row.quantity*row.unitPrice,0)*100)/100;
+   const tax=Math.round(subtotal*taxRate)/100,shippingAmount=Math.round(shipping*100)/100;
+   const total=Math.round((subtotal+tax+shippingAmount)*100)/100;
+   const poNumber=existing?.poNumber||'PO-'+String(when).slice(0,4)+'-'+String(existing?.id||id).replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase();
+   const paymentTerms=brief(body.paymentTerms,350);
+   return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,
+    poNumber,documentStatus:'Draft',pricingConfirmed:!!providedLines,createdAt:existing?.createdAt||when,
+    lineItems,currency,taxRate,shipping:shippingAmount,subtotal,tax,total,paymentTerms,
+    opportunityId,description:lineItems.map(x=>x.description).join(', ').slice(0,240),status,destinationKind,destinationId,destinationAddress,
+    latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,
+    mapLocationStatus:point?'needs_review':destinationKind==='custom'?'unmapped':'linked_destination',notes:brief(body.notes,900),updatedAt:when}}]};
+  }
+  if(kind==='supplyOrder.issue'){
+   const order=get('supplyOrders',brief(body.id,100));
+   if(!order)throw Error('Purchase order not found');
+   if(order.documentStatus==='Issued')return {resultId:order.id,writes:[],reused:true};
+   if(!get('suppliers',order.supplierId))throw Error('Supplier no longer exists');
+   if(!order.pricingConfirmed||!Array.isArray(order.lineItems)||!order.lineItems.length)throw Error('Add and verify item prices before issuing the purchase order');
+   const business=(data.settings||[]).find(x=>x.id==='business')||{};
+   if(!brief(business.company,150)||!brief(business.businessAddress,300))
+    throw Error('Complete the business name and address in Settings before issuing');
+   if(!order.poNumber||!order.destinationAddress)throw Error('Purchase order is incomplete');
+   return {resultId:order.id,writes:[{store:'supplyOrders',record:{...order,documentStatus:'Issued',issuedAt:when,updatedAt:when}}]};
+  }
+  if(kind==='supplyOrder.progress'){
+   const order=get('supplyOrders',brief(body.id,100));
+   if(!order)throw Error('Purchase order not found');
+   const status=brief(body.status,24);
+   if(!['Planned','Ordered','In transit','Delivered','Cancelled'].includes(status))throw Error('Invalid supply order status');
+   return {resultId:order.id,writes:[{store:'supplyOrders',record:{...order,status,updatedAt:when}}]};
+
   }
   if(kind==='quotation.convert'){
    const quote=get('quotes',body.quoteId);
