@@ -301,7 +301,7 @@ function openDirect(date,time){
   root.querySelector?.('.tf-cal-direct-editor')?.remove?.();
   root.insertAdjacentHTML('beforeend',directEditor(lastData||{}));
   updateDirectGhost();
-  root.querySelector?.('#tfCalDirectTitle')?.focus?.({preventScroll:true});
+  if(!(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches))root.querySelector?.('#tfCalDirectTitle')?.focus?.({preventScroll:true});
  }else bridge?.render?.();
 }
 function directInput(ev){
