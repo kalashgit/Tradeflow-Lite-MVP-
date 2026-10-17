@@ -122,7 +122,9 @@ function targetCard(x,linked,s){
  '<p>'+e(x.orgTypes||x.area||'Organization types not entered')+'</p>'+
  '<div class="tf-target-chips"><span>'+e(x.trade||'Trade unspecified')+'</span><span>'+e(x.segment||'B2B')+'</span>'+
  (x.area?'<span>'+e(x.area)+'</span>':'')+'</div></div>'+
- '<button type="button" data-growth-action="edit" data-type="icp" data-id="'+e(x.id)+'" class="tf-target-view">View →</button>'+
+ '<div class="tf-target-card-actions"><button type="button" data-growth-action="edit" data-type="icp" data-id="'+e(x.id)+'" class="tf-target-view">View →</button>'+
+ (!active?'<button type="button" data-growth-action="activate" data-id="'+e(x.id)+'" class="tf-target-minor">Activate</button>':'')+
+ '<button type="button" data-growth-action="delete" data-type="icp" data-id="'+e(x.id)+'" class="tf-target-minor delete" aria-label="Delete '+e(x.name)+'">×</button></div>'+
  (active?'<span class="tf-target-profile-active">Active</span>':'')+
  '</article>';
 }
@@ -132,7 +134,8 @@ function personaCard(x,s){
  '<div class="tf-target-profile-copy"><strong>'+e(x.name)+'</strong><p>'+e(x.role||'Decision-maker role not recorded')+'</p>'+
  '<div class="tf-target-chips"><span>'+e(parent?.name||'No linked ICP')+'</span>'+
  '<span>'+e(x.validationStatus==='validated'?'Validated':x.validationStatus==='supported'?'Evidence recorded':'To validate')+'</span></div></div>'+
- '<button type="button" data-growth-action="edit" data-type="persona" data-id="'+e(x.id)+'" class="tf-target-view">View →</button></article>';
+ '<div class="tf-target-card-actions"><button type="button" data-growth-action="edit" data-type="persona" data-id="'+e(x.id)+'" class="tf-target-view">View →</button>'+
+ '<button type="button" data-growth-action="delete" data-type="persona" data-id="'+e(x.id)+'" class="tf-target-minor delete" aria-label="Delete '+e(x.name)+'">×</button></div></article>';
 }
 function targetList(d,prefs){
  var s=settings(d);
