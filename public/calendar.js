@@ -349,6 +349,36 @@ function render(d){
  (queueVisible?'<aside class="tf-cal-mobile-queue">'+queue(lastData)+'</aside>':'')+
  (activeKey?eventPreview(lastData):'')+(directDraft?directEditor(lastData):'')+'</main>';
 }
+
+var draftMove=null,draftHold=null;
+function draftPointerDown(ev){
+ const el=ev.target.closest?.('.tf-cal-direct-preview');
+ if(!el||!directDraft||ev.isPrimary===false)return;
+ draftMove={id:ev.pointerId,el,startY:ev.clientY,startMinutes:minutes(directDraft.time),active:false};
+ clearTimeout(draftHold);
+ draftHold=setTimeout(()=>{
+  if(!draftMove||draftMove.id!==ev.pointerId)return;
+  draftMove.active=true;el.classList.add('is-dragging');
+  try{el.setPointerCapture(ev.pointerId)}catch(error){}
+ },240);
+}
+function draftPointerMove(ev){
+ const drag=draftMove;if(!drag||drag.id!==ev.pointerId)return;
+ if(!drag.active){
+  if(Math.abs(ev.clientY-drag.startY)>10){clearTimeout(draftHold);draftMove=null}
+  return;
+ }
+ ev.preventDefault();
+ const change=Math.round(((ev.clientY-drag.startY)/64*60)/15)*15;
+ const n=Math.max(0,Math.min(1440-directDraft.duration,drag.startMinutes+change));
+ directDraft.time=String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+ directError='';refreshDirect();
+}
+function draftPointerEnd(ev){
+ if(!draftMove||draftMove.id!==ev.pointerId)return;
+ clearTimeout(draftHold);draftMove.el?.classList.remove('is-dragging');draftMove=null;
+}
+
 function mount(context){
  bridge=context;
  if(typeof document!=='undefined'){
@@ -356,6 +386,10 @@ function mount(context){
   document.addEventListener('change',change);
   document.addEventListener('submit',submit);
   document.addEventListener('input',directInput);
+  document.addEventListener('pointerdown',draftPointerDown);
+  document.addEventListener('pointermove',draftPointerMove,{passive:false});
+  document.addEventListener('pointerup',draftPointerEnd);
+  document.addEventListener('pointercancel',draftPointerEnd);
   document.addEventListener('change',directInput);
   document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&directDraft)closeDirect()});
  }
