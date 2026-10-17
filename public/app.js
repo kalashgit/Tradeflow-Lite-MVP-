@@ -1969,7 +1969,7 @@ function tfUnifiedHeader(d){
   {key:'proposals',name:'Proposals',count:stats.proposals,icon:'✧',kind:'proposal'}
  ].map(x=>'<button type="button" class="tf-intel-chip tf-intel-'+x.kind+'" data-intel-action="'+x.key+'" aria-label="'+x.count+' '+x.name+'"><span class="tf-intel-symbol">'+x.icon+'</span><span class="tf-intel-number">'+x.count+'</span><span class="tf-intel-name">'+x.name+'</span>'+arrow+'</button>').join('');
  return '<header class="tf-unified-header" aria-label="TradeFlow app header"><div class="tf-unified-inner">'+
-  '<div class="tf-unified-brand">'+wordmark+'</div>'+
+  '<button type="button" class="tf-unified-brand" data-intel-action="toggle" aria-label="Toggle TradeFlow intelligence actions" aria-expanded="'+tfIntelligenceExpanded+'">'+wordmark+'</button>'+
   '<div class="tf-intel-space"><button type="button" class="tf-intel-summary" data-intel-action="toggle" aria-expanded="'+tfIntelligenceExpanded+'" aria-label="Business intelligence: '+esc(concise)+'. '+(tfIntelligenceExpanded?'Collapse':'Expand')+' actions" '+(tfIntelligenceExpanded?'hidden':'')+'><span>'+esc(concise)+'</span>'+arrow+'</button>'+
   '<div class="tf-intel-actions" aria-label="Business intelligence actions" '+(tfIntelligenceExpanded?'':'hidden')+'>'+chips+'<button type="button" data-intel-action="toggle" class="tf-intel-collapse" aria-label="Collapse intelligence actions">‹</button></div></div>'+
   (window.TradeFlowNotifications?.home(d,tfHomeIcons.bell)||'<button type="button" class="tf-home-alert" data-tab="tasks" aria-label="Notifications">'+tfHomeIcons.bell+'</button>')+
@@ -1988,7 +1988,6 @@ document.addEventListener('click',async function(e){
   (tfIntelligenceExpanded?actions?.querySelector('.tf-intel-chip'):summary)?.focus({preventScroll:true});
   return;
  }
- tfIntelligenceExpanded=false;
  if(action==='tasks'){tab='tasks';modal=null;await render();return}
  if(action==='conflicts'||action==='proposals'){
   tab='calendar';modal=null;window.TradeFlowCalendar?.focusIntelligence?.(action);await render();
