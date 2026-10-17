@@ -74,8 +74,8 @@ function base(){return {tasks:[],jobs:[],calendarEntries:[],calendarProposals:[]
  d.tasks.push({id:'uncertain',title:'Critical quotation',due:monday,durationMinutes:60});
  d.jobs.push({id:'unknown-duration',date:monday,scheduleTime:'10:00'});
  const result=engine.analyze(d,{today:monday});
- assert.ok(result.proposals.length===1);
- assert.ok(!result.proposals[0].slots.some(s=>s.time>='10:00'),'Unknown-duration commitment protects the entire day');
+ assert.equal(result.proposals.length,0,'Unknown-duration commitment must not be treated as free time');
+ assert.ok(result.risks.some(x=>x.taskId==='uncertain'),'An unplaceable task is surfaced for review');
 }
 
 console.log('PASS: TradeFlow local scheduling engine, buffer, splitting, deadlines, dependencies, settings and dismissals');
