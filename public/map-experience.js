@@ -106,7 +106,7 @@
    '<div class="tf-exp-body">'+
      '<div class="tf-exp-actions">'+
        '<button type="button" class="tf-exp-action tf-exp-directions" data-exp-action="route">'+navIcon+'<span>Directions<small id="tfExpRouteCaption">Preview driving route</small></span></button>'+
-       '<button type="button" class="tf-exp-action" data-exp-action="save"><span class="tf-exp-action-symbol">♧</span><span>'+escape(type==='supplier'?'View supplier':type==='headquarters'?'Business profile':'Save')+'</span></button>'+
+       '<button type="button" class="tf-exp-action" data-exp-action="save"><span class="tf-exp-action-symbol">♧</span><span>'+escape(type==='supplier'?'Supplier':type==='headquarters'?'Profile':type==='opportunity'?'Opportunity':type==='customer'?'Customer':type==='job'?'Job':type==='pin'?'Saved':'Save')+'</span></button>'+
        '<button type="button" class="tf-exp-action" data-exp-action="create"><span class="tf-exp-action-symbol">＋</span><span>Create</span></button>'+
        '<button type="button" class="tf-exp-action" data-exp-action="share"><span class="tf-exp-action-symbol">↥</span><span>Share</span></button>'+
        '<button type="button" class="tf-exp-action" data-exp-action="full"><span class="tf-exp-action-symbol">•••</span><span>More</span></button>'+
@@ -204,7 +204,11 @@
    updateRouteStatus('Road route unavailable. Use external navigation instead.');
   }
  }
- function clear(){clearRoute();sheet?.remove();document.getElementById('tfSheetShade')?.remove();opened=null;sheet=null}
+ function clear(){
+  // Dismissing a location card must not erase an already calculated driving route.
+  ++routeSerial;requestController?.abort();requestController=null;
+  sheet?.remove();document.getElementById('tfSheetShade')?.remove();opened=null;sheet=null;
+ }
  function open(input){
   clear();opened=sheetData(input);
   if(typeof document==='undefined')return opened;
@@ -214,6 +218,9 @@
   sheet.dataset.stage=window.matchMedia?.('(max-width:650px)')?.matches?'half':'full';
   sheet.innerHTML=markup(input);
   document.body.appendChild(sheet);
+  const caption=sheet.querySelector('#tfExpRouteCaption');
+  const origin=selectedOrigin(),headquarters=bridge?.getPrefs?.()?.company||'headquarters';
+  if(caption)caption.textContent=origin?(startOverride?'From '+startOverride.label:'From '+headquarters):'Set route start';
   const handle=sheet.querySelector('.tf-exp-handle');
   handle.addEventListener('pointerdown',event=>{
    if(event.button!==undefined&&event.button!==0)return;
@@ -224,17 +231,20 @@
    if(!drag||drag.pointerId!==event.pointerId)return;
    const dy=event.clientY-drag.start;
    if(Math.abs(dy)>8)drag.moved=true;
+   // Follow the finger while dragging; snap to a known stage on pointerup.
+   if(drag.moved)sheet.style.setProperty('--tf-drag-offset',Math.max(-125,Math.min(150,dy))+'px');
   });
   handle.addEventListener('pointerup',event=>{
    if(!drag||drag.pointerId!==event.pointerId)return;
    const delta=event.clientY-drag.start;
+   sheet.style.removeProperty('--tf-drag-offset');
    if(Math.abs(delta)>45){
     const order=['peek','half','full'],i=order.indexOf(drag.stage);
     if(delta<0)setStage(order[Math.min(i+1,2)]);else setStage(order[Math.max(0,i-1)]);
    }else if(!drag.moved){const order=['peek','half','full'],i=order.indexOf(sheet.dataset.stage);setStage(order[(i+1)%3])}
    drag=null;
   });
-  handle.addEventListener('pointercancel',()=>{drag=null});
+  handle.addEventListener('pointercancel',()=>{drag=null;sheet?.style.removeProperty('--tf-drag-offset')});
   sheet.addEventListener('click',async e=>{
    const el=e.target.closest('[data-exp-action]');if(!el||el.classList.contains('tf-exp-handle'))return;
    const action=el.dataset.expAction;
@@ -245,8 +255,9 @@
    if(action==='set-origin'){if(opened.point){startOverride={...opened.point,label:opened.name};updateRouteStatus('Route start set: '+opened.name+'. Select another location to get directions.');clearRoute()}return}
    if(action==='use-hq'){startOverride=null;updateRouteStatus('Route start reset to headquarters.');clearRoute();return}
    if(action==='save'){
-    if(opened.type==='supplier'){await bridge?.navigate?.('suppliers');clear();return}
-    if(opened.type==='headquarters'){await bridge?.navigate?.('preferences');clear();return}
+    const page={supplier:'suppliers',headquarters:'preferences',opportunity:'opportunities',customer:'customers',job:'jobs'}[opened.type];
+    if(page){await bridge?.navigate?.(page);clear();return}
+    if(opened.type==='pin'){updateRouteStatus('This location is already saved.');return}
     await bridge?.onAction?.('save',opened);return
    }
    if(action==='create'){await bridge?.onAction?.('opportunity',opened);return}

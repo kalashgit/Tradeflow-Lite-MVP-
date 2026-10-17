@@ -44,3 +44,8 @@ The card displays only a photo URL or user-uploaded picture stored in the suppli
 
 \`node tests/map-experience.test.cjs\` checks route geometry validation, API errors, URL encoding, XSS-safe cards, source honesty, new supplier details, and wiring.
 The preview deployment workflow runs this test and the existing suite.
+
+## Interaction refinement v0.9.38
+- The handle translates with a pointer gesture before snapping to peek / half / full.
+- A plotted route stays on the map when the location card is dismissed. The right-side Clear Route control explicitly removes it.
+- Saved customer/job/opportunity/supplier actions open the existing record module rather than duplicating a new map pin.
