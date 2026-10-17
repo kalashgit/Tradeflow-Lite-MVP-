@@ -48,7 +48,7 @@ function entryFromSource(x,type){
  return {key:type+':'+x.id,id:x.id,kind:type,sourceKind:type,sourceId:x.id,calendarId:x.calendarId||category,
  title:String(x.title||x.name||'Untitled '+type),date:validDate(date||'')?date:'',time:validTime(at)?at:'',
  duration:Number(x.durationMinutes)||0,location:String(x.location||x.address||''),notes:String(x.description||x.notes||''),
- done:x.status==='Done'||x.status==='Completed',priority:x.priority||'',assignedTo:x.assignedTo||x.assigneeId||'',
+ done:x.status==='Done'||x.status==='Completed',priority:x.priority||'',splittable:x.splittable===true,minBlockMinutes:Number(x.minBlockMinutes)||0,assignedTo:x.assignedTo||x.assigneeId||'',
  customerId:x.customerId||'',jobId:type==='job'?x.id:x.jobId||'',status:x.status||'',linked:true};
 }
 function entryFromCalendar(x){
@@ -279,6 +279,12 @@ function mount(context){
 }
 async function change(evt){
  if(!bridge)return;
+ if(evt.target?.name==='kind'&&evt.target.closest?.('#tfCalendarForm')){
+  const calendar=evt.target.closest('#tfCalendarForm').querySelector?.('select[name="calendarId"]');
+  if(calendar&&evt.target.value==='task'&&calendar.value==='internal')calendar.value='tasks';
+  else if(calendar&&evt.target.value==='event'&&calendar.value==='tasks')calendar.value='internal';
+  return;
+ }
  const option=evt.target.closest?.('[data-calendar-pref]');
  if(option){
   const previous=await bridge.get('calendarPreferences','local-owner')||{id:'local-owner'};
@@ -401,7 +407,7 @@ async function submit(evt){
  if(evt.target.id!=='tfCalendarForm')return;
  evt.preventDefault();
  var f=new FormData(evt.target),text=function(k,n){return String(f.get(k)||'').trim().slice(0,n||180)};
- var title=text('title',150),date=text('date',10),time=text('time',5),duration=Number(f.get('duration')||60),kind=text('kind',15)||'task',calendarId=text('calendarId',80)||'internal';
+ var title=text('title',150),date=text('date',10),time=text('time',5),duration=Number(f.get('duration')||60),kind=text('kind',15)||'event',calendarId=text('calendarId',80)||(kind==='task'?'tasks':'internal');
  if(!title||!validDate(date)||(time&&!validTime(time))||!Number.isInteger(duration)||duration<15||duration>1440){
   alert('Enter a title, valid date, optional time and duration (15–1440 minutes).');return;
  }
