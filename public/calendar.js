@@ -5,7 +5,7 @@
 (function(global){
 'use strict';
 var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
-var hiddenLayers=new Set();
+var hiddenLayers=new Set(),preferencesHydrated=false;
 var baseLayers=[
  {id:'jobs',name:'Jobs / Site Work',color:'#16c784',kind:'job'},
  {id:'clients',name:'Customer Appointments',color:'#208be6',kind:'appointment'},
@@ -113,7 +113,7 @@ function timedColumns(d,days,forceDay){
  var count=hours.length*64;
  var axes='<div class="tf-cal-time-axis"><div class="tf-cal-all-day-axis">All day</div>'+hours.map(function(h){return '<div class="tf-cal-time-label">'+(h%12||12)+(h>=12?' PM':' AM')+'</div>'}).join('')+'</div>';
  var cols=days.map(function(date){
-  var items=list.filter(function(x){return x.date===date}),timed=items.filter(function(x){return x.time}),allDay=items.filter(function(x){return !x.time&&x.kind==='event'});
+  var items=list.filter(function(x){return x.date===date}),timed=items.filter(function(x){return x.time}),allDay=items.filter(function(x){return !x.time&&(x.kind==='event'||x.kind==='job')});
   // Overlaps use side-by-side slots rather than hiding another event behind a card.
   var placed=timed.map(function(x,i){var start=minutes(x.time),finish=start+(x.duration||30);var rivals=timed.filter(function(y){return minutes(y.time)<finish&&minutes(y.time)+(y.duration||30)>start});var lane=rivals.findIndex(function(y){return y.key===x.key});var lanes=Math.max(1,rivals.length);return {item:x,lane:Math.max(0,lane),lanes:lanes}});
   return '<div class="tf-cal-day-column"><div class="tf-cal-day-heading"><button data-calendar-action="select-day" data-date="'+date+'" class="'+(selected===date?'active':'')+'">'+e(label(date,{weekday:'short'}))+' <strong>'+asDate(date).getDate()+'</strong></button><small>'+items.length+' item'+(items.length===1?'':'s')+'</small></div>'+
@@ -154,7 +154,7 @@ function sidebar(d){
  '<button type="button" class="tf-cal-new-layer-btn" data-calendar-action="new-calendar">+ New calendar</button>')+'</div>';
 }
 function queue(d){
- var list=eventList(d).filter(function(x){return !x.time&&!x.done&&x.kind==='task'});
+ var list=eventList(d).filter(function(x){return !x.time&&!x.done&&(x.kind==='task'||x.kind==='job')});
  return '<div class="tf-cal-queue"><header><strong>Unscheduled work</strong><span>'+list.length+' tasks</span></header>'+
  (list.length?list.slice(0,18).map(function(x){return '<button type="button" data-calendar-action="event" data-key="'+e(x.key)+'" class="tf-cal-queue-row"><span class="tf-cal-queue-mark">'+glyph('task')+'</span><span><strong>'+e(x.title)+'</strong><small>'+(x.date?'Due '+e(label(x.date)):'No deadline')+'</small></span><span>›</span></button>'}).join(''):'<p class="tf-cal-queue-empty">No unscheduled tasks. New Tasks appear here automatically.</p>')+'</div>';
 }
@@ -189,6 +189,7 @@ function appointmentForm(){
 }
 function render(d){
  lastData=d||{};
+ if(!preferencesHydrated){var pref=(lastData.calendarPreferences||[]).find(function(p){return p.id==='local-owner'});hiddenLayers=new Set(pref?.hiddenLayerIds||[]);preferencesHydrated=true}
  var list=eventList(lastData),period=mode==='month'?label(selected,{month:'long',year:'numeric'}):mode==='week'?label(monday(selected),{month:'short',day:'numeric'})+' – '+label(shift(monday(selected),6),{month:'short',day:'numeric',year:'numeric'}):label(selected,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
  var current=mode==='day'?renderDay(list):mode==='month'?renderMonth(list):renderWeek(list);
  var issues=conflicts(lastData);
