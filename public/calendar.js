@@ -154,8 +154,21 @@ function sidebar(d){
  '<button type="button" class="tf-cal-new-layer-btn" data-calendar-action="new-calendar">+ New calendar</button>')+
  '<label class="tf-cal-horizon"><span>Planning horizon</span><select data-calendar-pref="horizonDays" aria-label="Scheduling planning horizon">'+[7,14,21,30].map(function(n){return '<option value="'+n+'" '+(schedulingPlan(d).preferences.horizonDays===n?'selected':'')+'>'+n+' days</option>'}).join('')+'</select></label></div>';
 }
+function unscheduledWork(d){
+ const allocated=new Map();
+ (d.calendarEntries||[]).filter(function(x){return x.sourceKind==='task'&&x.sourceId&&!['Cancelled','Completed'].includes(x.status)}).forEach(function(x){
+  allocated.set(x.sourceId,(allocated.get(x.sourceId)||0)+(Number(x.durationMinutes)||0));
+ });
+ return eventList(d).filter(function(x){
+  if(x.time||x.done||!['task','job'].includes(x.kind))return false;
+  if(x.kind==='job')return true;
+  var task=(d.tasks||[]).find(function(t){return t.id===x.id});
+  var remaining=(Number(task?.durationMinutes)||0)-(Number(task?.completedMinutes)||0)-(allocated.get(x.id)||0);
+  return !task?.durationMinutes||remaining>0;
+ });
+}
 function queue(d){
- var list=eventList(d).filter(function(x){return !x.time&&!x.done&&(x.kind==='task'||x.kind==='job')});
+ var list=unscheduledWork(d);
  return '<div class="tf-cal-queue"><header><strong>Unscheduled work</strong><span>'+list.length+' tasks</span></header>'+
  (list.length?list.slice(0,18).map(function(x){return '<button type="button" data-calendar-action="event" data-key="'+e(x.key)+'" class="tf-cal-queue-row"><span class="tf-cal-queue-mark">'+glyph('task')+'</span><span><strong>'+e(x.title)+'</strong><small>'+(x.date?'Due '+e(label(x.date)):'No deadline')+'</small></span><span>›</span></button>'}).join(''):'<p class="tf-cal-queue-empty">No unscheduled tasks. New Tasks appear here automatically.</p>')+'</div>';
 }
@@ -175,7 +188,7 @@ function eventPreview(d){
  '<button type="button" class="tf-cal-open-record" data-calendar-action="'+(linked?'open-record':'edit-event')+'" data-key="'+e(x.key)+'">'+
  (linked?'↗ Open '+kindLabel+' Record':'Edit Event')+'</button>'+
  '<div class="tf-cal-quick-actions"><button type="button" data-calendar-action="reschedule" data-key="'+e(x.key)+'">'+glyph('calendar')+' Reschedule</button>'+
- (!x.done?'<button type="button" data-calendar-action="complete" data-key="'+e(x.key)+'">✓ Complete</button>':'<span class="tf-cal-completed">✓ Completed</span>')+'</div></aside>';
+ (!x.done&&x.kind!=='event'?'<button type="button" data-calendar-action="complete" data-key="'+e(x.key)+'">✓ Complete</button>':x.done?'<span class="tf-cal-completed">✓ Completed</span>':'')+'</div></aside>';
 }
 
 function schedulingPlan(d){
@@ -222,7 +235,7 @@ function render(d){
  '<div class="tf-cal-toolbar-right"><div class="tf-cal-modes">'+['day','week','month'].map(function(x){return '<button type="button" data-calendar-action="mode" data-mode="'+x+'" class="'+(mode===x?'active':'')+'">'+x[0].toUpperCase()+x.slice(1)+'</button>'}).join('')+'</div>'+
  (report.proposals.length?'<button type="button" class="tf-cal-proposals-link" data-calendar-action="review-proposals">'+report.proposals.length+' proposals</button>':'')+'<button class="tf-cal-primary" type="button" data-calendar-action="new">+ Event</button><button class="tf-cal-layer-toggle" type="button" data-calendar-action="layers" aria-label="Calendar filters">'+glyph('calendar')+'</button></div></div>'+
  (issues.length&&intelligenceFocus!=='conflicts'?'<div class="tf-cal-conflict-banner"><span>⚠ '+issues.length+' overlapping commitment'+(issues.length===1?'':'s')+' identified in the current records</span><button data-calendar-action="conflicts">Review</button></div>':'')+
- '<div class="tf-cal-mobile-queue-control"><button type="button" data-calendar-action="queue">'+(queueVisible?'Hide':'Show')+' unscheduled tasks · '+list.filter(function(x){return x.kind==='task'&&!x.time&&!x.done}).length+'</button></div>'+
+ '<div class="tf-cal-mobile-queue-control"><button type="button" data-calendar-action="queue">'+(queueVisible?'Hide':'Show')+' unscheduled tasks · '+unscheduledWork(lastData).length+'</button></div>'+
  (draft?appointmentForm():current)+
  (intelligenceFocus?'':'<div class="tf-cal-queue-desktop">'+queue(lastData)+'</div>')+
  '</section>'+(layerDrawer?'<div class="tf-cal-drawer-shade" data-calendar-action="layers"></div><aside class="tf-cal-mobile-drawer"><div class="tf-cal-drawer-head"><strong>Calendar layers</strong><button data-calendar-action="layers">×</button></div>'+sidebar(lastData)+'</aside>':'')+
@@ -348,5 +361,5 @@ async function submit(evt){
 }
 global.TradeFlowCalendar={configure:mount,render:render,records:records,conflicts:conflicts,prepareOpportunity:function(item){
  selected=day();mode='day';draft={kind:'task',date:selected,title:'Contact: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,140),
- location:[item.city,item.region].filter(Boolean).join(', ')};},focusIntelligence:function(kind){intelligenceFocus=kind;},_test:{validDate:validDate,shift:shift,monday:monday,validTime:validTime,clock:clock}};
+ location:[item.city,item.region].filter(Boolean).join(', ')};},focusIntelligence:function(kind){intelligenceFocus=kind;draft=null;activeKey='';},_test:{validDate:validDate,shift:shift,monday:monday,validTime:validTime,clock:clock}};
 })(typeof window!=='undefined'?window:globalThis);
