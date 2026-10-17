@@ -22,7 +22,9 @@ assert.ok(!/data-tab="(?:routes|customers|marketing|research|integrations|growth
 for(const tab of ['growthAutomation','growthOptimization','growthCommunication','growthIntelligence'])assert.match(g.renderPage(tab,d,{}),/Planned/);
 for(const name of ['Automation','Optimization','Communication','Data Intelligence'])assert.ok(g.moreQuickLinks(d).includes(name));
 assert.equal((g.moreQuickLinks(d).match(/<details class="tf-growth-category"/g)||[]).length,4);
-assert.match(g.homePanel(d),/data-tab="missions"/);
+assert.doesNotMatch(g.homePanel(d),/data-tab="missions"/,'Retired Missions must not appear on the Growth home panel');
+assert.doesNotMatch(app,/\['missions','Business Missions'\]/,'Retired Missions must not appear in More navigation');
+assert.doesNotMatch(g.renderPage('capabilities',d,{}),/Business Missions/,'Retired Missions must not appear in the capabilities list');
 assert.match(g.contactPanel({id:'x',project_name:'<img src=x>'},d),/No valid phone saved/);
 assert.ok(!g.contactPanel({id:'x',contact_email:'bad<script>'},d).includes('href="mailto:bad'),'unsafe email must not become link');
 assert.ok(g.contactPanel({id:'x',contact_phone:'+1 (512) 555-0100',contact_email:'owner@example.com'},d).includes('href="tel:+15125550100"'));
