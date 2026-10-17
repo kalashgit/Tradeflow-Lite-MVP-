@@ -23,7 +23,7 @@ function profiles(d){const x=(d.settings||[]).find(z=>z.id==='growth-profiles-v1
 
 const marketingChannels=['Google Search','Referrals','Email','Social','Paid Ads','Direct','Other'];
 const SOURCE_KEY='marketing-attribution-v2';
-let sourceCustomerId='';
+let sourceCustomerId='',spendCampaignId='';
 const number=v=>Number.isFinite(Number(v))?Number(v):0;
 const euro=v=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(number(v));
 function sourceData(d){
@@ -143,7 +143,7 @@ function spendForm(d){
  '<form id="tfMarketingSpendForm" class="tf-marketing-card tf-marketing-form">'+
  '<label><span>Expense description</span><input name="title" required maxlength="120" placeholder="Google Ads invoice · October"></label>'+
  select('channel','Channel',marketingChannels.map(x=>[x,x]),'Paid Ads')+
- select('campaignId','Linked campaign (optional)',[['','No campaign']].concat(all.map(x=>[x.id,x.title])),'')+
+ select('campaignId','Linked campaign (optional)',[['','No campaign']].concat(all.map(x=>[x.id,x.title])),spendCampaignId)+
  '<div class="tf-marketing-pair"><label><span>Amount paid (€)</span><input type="number" step=".01" min=".01" max="100000000" required name="amount"></label>'+
  '<label><span>Payment date</span><input type="date" name="date" value="'+today()+'" required></label></div>'+
  '<p class="tf-marketing-note">Creates one actual marketing expense in Finance. Do not add it again in Finance or costs will be duplicated. No ad platform is connected.</p>'+
@@ -200,7 +200,7 @@ function list(d){
  '<p class="tf-ms-caption">Local-first preparation and manually recorded attribution only. No automated outreach, publishing, provider analytics or verified marketing ROI is active.</p></section>';
  return output;
 }
-function render(tab,d){return tab==='marketing'?(mode==='edit'?editForm(d):mode==='detail'?detail(d):list(d)):''}
+function render(tab,d){return tab==='marketing'?(mode==='edit'?editForm(d):mode==='detail'?detail(d):mode==='source'?sourceForm(d):mode==='spend'?spendForm(d):list(d)):''}
 async function onClick(event){
  if(!api)return;const button=event.target.closest?.('[data-marketing-action]');if(!button)return;
  event.preventDefault();
@@ -208,6 +208,9 @@ async function onClick(event){
  try{
   if(action==='list'){mode='list';draftId='';api.render();return}
   if(action==='new'){mode='edit';draftId='';api.render();return}
+  if(action==='source-new'){sourceCustomerId='';mode='source';api.render();return}
+  if(action==='source-edit'){sourceCustomerId=id;mode='source';api.render();return}
+  if(action==='spend-new'){spendCampaignId=id||'';mode='spend';api.render();return}
   if(action==='filter'){filter=['Draft','Ready','Archived'].includes(button.dataset.filter)?button.dataset.filter:'all';api.render();return}
   if(action==='edit'){draftId=id;mode='edit';api.render();return}
   if(action==='open'){draftId=id;mode='detail';api.render();return}
