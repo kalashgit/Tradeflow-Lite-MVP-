@@ -1349,3 +1349,12 @@ html,body,#app{overscroll-behavior-x:none;-webkit-text-size-adjust:100%;text-siz
 #app input,#app textarea,#app select,#app [contenteditable="true"],#app .tf-allow-selection,#app .tf-allow-selection *{-webkit-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important}
 #app button,#app a,#app [role="button"]{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 #app .territory-map,#app .maplibregl-canvas-container,#app .maplibregl-canvas{touch-action:none!important}
+
+/* Prevent iOS focus zoom and mobile map search horizontal overflow. */
+@media(max-width:767px){
+ #mapAddress,.tf-map-search input{font-size:16px!important;min-width:0!important;width:100%!important}
+ .tf-map-search-wrap,.tf-map-search{min-width:0!important;max-width:100%!important;box-sizing:border-box}
+ .tf-map-search{display:flex;align-items:center;overflow:hidden}
+ .tf-map-search input{flex:1 1 0!important}
+ .tf-map-search button{flex:0 0 auto}
+}
