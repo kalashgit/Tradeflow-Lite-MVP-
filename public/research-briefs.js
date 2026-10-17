@@ -23,6 +23,77 @@ function profileData(data){
  return {icps:Array.isArray(p.icps)?p.icps:[],personas:Array.isArray(p.personas)?p.personas:[],active:p.activeIcpId||''};
 }
 function records(data){return (data.settings||[]).filter(x=>typeof x.id==='string'&&x.id.startsWith(PREFIX)&&x.kind==='research_brief');}
+
+const CLASSES=[
+ {key:'verified_request',label:'Verified demand',tone:'green'},
+ {key:'potential_opportunity',label:'Potential opportunity',tone:'cyan'},
+ {key:'project_signal',label:'Project signals',tone:'amber'},
+ {key:'business_prospect',label:'Business prospects',tone:'violet'}
+];
+let statusFilter='All',reviewOnly=false;
+const validDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'').slice(0,10))&&
+ !Number.isNaN(Date.parse(String(v).slice(0,10)+'T12:00:00Z'))&&
+ new Date(String(v).slice(0,10)+'T12:00:00Z').toISOString().slice(0,10)===String(v).slice(0,10);
+const safeSource=v=>/^https:\/\/[^\s<>"']+$/i.test(String(v||'').trim());
+function linkedItems(brief,data){
+ const indexed=new Map((data.opportunities||[]).map(o=>[o.id,o]));
+ return (Array.isArray(brief.researchItems)?brief.researchItems:[]).filter(x=>x&&x.opportunityId)
+  .map(x=>({...x,record:indexed.get(x.opportunityId)})).filter(x=>x.record);
+}
+function validEvidence(opp){
+ if(!opp||!CLASSES.some(x=>x.key===opp.opportunity_type))return false;
+ if(!safeSource(opp.source_url)||!validDate(opp.source_date))return false;
+ if(opp.opportunity_type==='verified_request')return opp.evidence_status==='verified'&&validDate(opp.verified_at);
+ return opp.evidence_status==='verified'||opp.evidence_status==='source_supported';
+}
+function effectiveDecision(item){
+ if(item.decision==='rejected')return 'rejected';
+ if(item.decision==='approved'&&validEvidence(item.record))return 'approved';
+ return 'pending';
+}
+function briefMetrics(brief,data){
+ const items=linkedItems(brief,data);
+ const approved=items.filter(x=>effectiveDecision(x)==='approved');
+ const rejected=items.filter(x=>effectiveDecision(x)==='rejected');
+ const pending=items.filter(x=>effectiveDecision(x)==='pending');
+ const classifications=Object.fromEntries(CLASSES.map(x=>[x.key,approved.filter(v=>v.record.opportunity_type===x.key).length]));
+ const reviewed=approved.length+rejected.length;
+ return {items,approved,rejected,pending,reviewed,linked:items.length,verified:classifications.verified_request,
+  classifications};
+}
+function stageOf(brief,data){
+ const m=briefMetrics(brief,data);
+ if(brief.reviewStage==='completed'&&m.linked>0&&m.reviewed>0&&m.pending.length===0)return 'Completed';
+ return m.linked>0?'In review':'Draft';
+}
+function researchOverview(data){
+ const briefs=records(data),counts=Object.fromEntries(CLASSES.map(x=>[x.key,0]));
+ const unique=new Map();
+ for(const brief of briefs)for(const item of linkedItems(brief,data))if(!unique.has(item.opportunityId))unique.set(item.opportunityId,item);
+ let approved=0,rejected=0,pending=0;
+ for(const item of unique.values()){
+  const d=effectiveDecision(item);
+  if(d==='approved'){approved++;if(Object.prototype.hasOwnProperty.call(counts,item.record.opportunity_type))counts[item.record.opportunity_type]++}
+  else if(d==='rejected')rejected++;
+  else pending++;
+ }
+ return {briefs,linked:unique.size,reviewed:approved+rejected,approved,rejected,pending,verified:counts.verified_request,
+  classifications:counts,classified:approved};
+}
+function svgIcon(kind){
+ const paths={
+  brief:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  database:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
+  chart:'<path d="M4 20V12m6 8V8m6 12V4m4 16H2"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 3"/>',
+  people:'<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5"/>',
+  map:'<path d="M12 22s8-7 8-14a8 8 0 0 0-16 0c0 7 8 14 8 14Z"/><circle cx="12" cy="9" r="2.5"/>',
+  search:'<circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/>',
+  import:'<path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/>',
+  arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>'
+ };
+ return '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[kind]||paths.brief)+'</svg>';
+}
 function choose(name,label,list,value){
  return '<label class="tf-rb-field"><span>'+e(label)+'</span><select name="'+e(name)+'"'+(name==='icpId'?' id="tfResearchIcp"':'')+'>'+list.map(([id,title])=>'<option value="'+e(id)+'"'+(id===value?' selected':'')+'>'+e(title)+'</option>').join('')+'</select></label>';
 }
