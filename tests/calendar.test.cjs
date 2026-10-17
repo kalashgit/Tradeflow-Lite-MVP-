@@ -87,6 +87,8 @@ async function run(){
  assert.ok(quick.includes('value="14:00"'),'Default direct-slot duration is 60 minutes');
  assert.ok(quick.includes('type="time"'),'Native time picker is available');
  assert.ok(quick.includes('name="durationSlider"')&&quick.includes('type="range"'),'Duration slider replaces separate action buttons');
+ assert.ok(quick.includes('tf-cal-direct-slider-bubble')&&quick.includes('data-direct-duration-label'),'Duration slider uses single bubble visualization with live value');
+ assert.ok(!quick.includes('1h ▼')&&!quick.includes('name="durationPreset"'),'No redundant hour dropdown in compact editor');
  assert.ok(quick.includes('data-calendar-action="direct-kind"')&&quick.includes('tf-cal-type-site-visit'),'Color-coded event type buttons are available');
  await submit({preventDefault(){},target:{id:'tfCalDirectForm',fields:{title:'',start:'13:00',end:'14:00',kind:'event'}}});
  const created=Object.values(stores.calendarEntries).find(x=>x.date==='2026-10-21'&&x.time==='13:00');
