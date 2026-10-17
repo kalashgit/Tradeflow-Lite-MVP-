@@ -525,3 +525,16 @@
 .tf-cal-direct-editor .tf-cal-direct-time input{box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;overflow:hidden;text-align:center;padding:4px!important}
 .tf-cal-direct-editor .tf-cal-direct-time-arrow{max-width:16px;min-width:0!important;flex:0 0 16px!important}
 @media(max-width:700px){.tf-cal-date-tools strong{font-size:14px;flex:1;min-width:0}}
+
+
+/* R10: persisted instant events open an auto-saving, compact editing card.
+   There is deliberately no submit/Create action in this editor. */
+.tf-cal-direct-editor{overflow-x:hidden!important;max-width:calc(100vw - 24px)}
+.tf-cal-direct-editor form{min-width:0!important}
+.tf-cal-direct-editor .tf-cal-direct-time{box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr)!important;gap:7px!important;width:100%!important;min-width:0!important}
+.tf-cal-direct-editor .tf-cal-direct-time label{min-width:0!important;max-width:100%!important;overflow:hidden}
+.tf-cal-direct-editor .tf-cal-direct-time input{display:block!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;font-size:clamp(11px,3vw,14px)!important;padding:4px 3px!important;border-radius:7px!important}
+.tf-cal-direct-editor .tf-cal-direct-time-arrow{width:14px!important;max-width:14px!important;min-width:0!important;display:flex!important;justify-content:center;align-items:center;margin:0!important}
+.tf-cal-direct-editor .tf-cal-direct-types{width:100%!important;max-width:100%!important;gap:6px!important}
+.tf-cal-direct-editor .tf-cal-direct-types button{min-width:0!important;padding:6px 2px!important}
+@media(max-width:700px){.tf-cal-direct-editor{max-height:min(36dvh,272px)!important;bottom:calc(108px + env(safe-area-inset-bottom))!important;padding:12px!important}.tf-cal-direct-editor form{gap:10px!important}}
