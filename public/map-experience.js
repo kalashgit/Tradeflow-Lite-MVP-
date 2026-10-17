@@ -153,10 +153,18 @@
   const y=s==='peek'?80:s==='half'?Math.min(160,Math.round(sheet.getBoundingClientRect().height/2)):Math.min(240,Math.round(sheet.getBoundingClientRect().height/3));
   try{map.easeTo({center:[point.lon,point.lat],offset:[0,-y],duration:280})}catch{}
  }
+ function sheetHeights(){
+  const vh=window.visualViewport?.height||window.innerHeight;
+  const mobile=window.matchMedia?.('(max-width:850px)')?.matches;
+  const max=Math.max(180,vh-(mobile?185:90));
+  return mobile?{peek:117,half:Math.min(405,Math.max(160,vh-220)),full:max}:{peek:122,half:350,full:Math.min(600,vh*.76)};
+ }
  function setStage(stage,focus=true){
   if(!sheet)return;
   const next=['peek','half','full'].includes(stage)?stage:'half';
   sheet.dataset.stage=next;
+  // Keep a definite height throughout the transition so the sheet never jumps off screen.
+  sheet.style.height=Math.min(sheetHeights()[next],Math.max(110,(window.visualViewport?.height||window.innerHeight)-130))+'px';
   const h=sheet.querySelector('.tf-exp-handle');
   if(h)h.setAttribute('aria-expanded',String(next!=='peek'));
   if(focus)mapFit();
@@ -234,43 +242,53 @@
   const caption=sheet.querySelector('#tfExpRouteCaption');
   const origin=selectedOrigin(),headquarters=bridge?.getPrefs?.()?.company||'headquarters';
   if(caption)caption.textContent=origin?(startOverride?'From '+startOverride.label:'From '+headquarters):'Set route start';
-  // The entire top region (including both edges) is a grab surface, except controls.
-  const grabSurfaces=[sheet.querySelector('.tf-exp-handle'),sheet.querySelector('.tf-exp-head')].filter(Boolean);
-  const stageHeight=()=>sheet.getBoundingClientRect().height;
-  const maxHeight=()=>Math.max(220,window.innerHeight-170);
-  const clearDrag=()=>{sheet.style.removeProperty('height');sheet.classList.remove('tf-exp-dragging');drag=null};
-  const beginDrag=event=>{
+  // The compact card is one continuous grab surface, right down to its bottom edge.
+  // Expanded cards grab from the whole header while body content remains scrollable.
+  const interactive='button:not(.tf-exp-handle),a,input,select,textarea,[contenteditable],summary';
+  const heights=()=>sheetHeights();
+  const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
+  const resetDrag=()=>{sheet.classList.remove('tf-exp-dragging');drag=null};
+  const startDrag=event=>{
    if(event.button!==undefined&&event.button!==0)return;
-   if(event.target.closest('button:not(.tf-exp-handle),a,input,select,textarea,[data-exp-action="close"]'))return;
-   drag={start:event.clientY,height:stageHeight(),stage:sheet.dataset.stage,pointerId:event.pointerId,moved:false};
-   try{event.currentTarget.setPointerCapture(event.pointerId)}catch{}
+   if(event.target.closest(interactive))return;
+   if(sheet.dataset.stage!=='peek'&&!event.target.closest('.tf-exp-head,.tf-exp-handle'))return;
+   const current=sheet.getBoundingClientRect().height;
+   drag={pointerId:event.pointerId,y:event.clientY,height:current,lastY:event.clientY,lastTime:performance.now(),velocity:0,moved:false};
+   try{sheet.setPointerCapture(event.pointerId)}catch{}
   };
-  const moveDrag=event=>{
+  sheet.addEventListener('pointerdown',startDrag);
+  sheet.addEventListener('pointermove',event=>{
    if(!drag||drag.pointerId!==event.pointerId)return;
-   const delta=event.clientY-drag.start;
-   if(Math.abs(delta)>7)drag.moved=true;
-   if(!drag.moved)return;
+   const delta=event.clientY-drag.y;
+   if(!drag.moved&&Math.abs(delta)<5)return;
+   drag.moved=true;
    event.preventDefault();
-   // Resize from the fixed bottom edge, never translate the card off its dock.
    sheet.classList.add('tf-exp-dragging');
-   sheet.style.height=Math.max(110,Math.min(maxHeight(),drag.height-delta))+'px';
-  };
-  const finishDrag=event=>{
+   const now=performance.now(),elapsed=Math.max(8,now-drag.lastTime);
+   drag.velocity=(event.clientY-drag.lastY)/elapsed;
+   drag.lastY=event.clientY;drag.lastTime=now;
+   const h=heights();
+   sheet.style.height=clamp(drag.height-delta,h.peek,h.full)+'px';
+  });
+  sheet.addEventListener('pointerup',event=>{
    if(!drag||drag.pointerId!==event.pointerId)return;
-   const delta=event.clientY-drag.start,moved=drag.moved,origin=drag.stage;
-   clearDrag();
-   const order=['peek','half','full'],i=Math.max(0,order.indexOf(origin));
-   if(delta< -45)setStage(order[Math.min(i+1,2)]);
-   else if(delta>45)setStage(order[Math.max(0,i-1)]);
-   else if(!moved&&event.currentTarget.classList.contains('tf-exp-handle'))setStage(order[(i+1)%3]);
-  };
-  for(const surface of grabSurfaces){
-   surface.addEventListener('pointerdown',beginDrag);
-   surface.addEventListener('pointermove',moveDrag);
-   surface.addEventListener('pointerup',finishDrag);
-   surface.addEventListener('pointercancel',clearDrag);
-   surface.addEventListener('lostpointercapture',()=>{if(drag)clearDrag()});
-  }
+   const g=drag,actual=sheet.getBoundingClientRect().height,moved=g.moved;
+   resetDrag();
+   if(!moved){
+    if(event.target.closest('.tf-exp-handle')){
+     const sequence=['peek','half','full'];setStage(sequence[(sequence.indexOf(sheet.dataset.stage)+1)%3]);
+    }
+    return;
+   }
+   const h=heights();
+   const projected=clamp(actual-g.velocity*140,h.peek,h.full);
+   const next=Object.keys(h).reduce((best,key)=>Math.abs(h[key]-projected)<Math.abs(h[best]-projected)?key:best,'peek');
+   setStage(next);
+   // Avoid treating a completed swipe as a click on sheet content.
+   sheet.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()},{capture:true,once:true});
+  });
+  sheet.addEventListener('pointercancel',()=>{if(!drag)return;resetDrag();setStage(sheet.dataset.stage,false)});
+  sheet.addEventListener('lostpointercapture',()=>{if(drag){resetDrag();setStage(sheet.dataset.stage,false)}});
   sheet.addEventListener('click',async e=>{
    const el=e.target.closest('[data-exp-action]');if(!el||el.classList.contains('tf-exp-handle'))return;
    const action=el.dataset.expAction;
