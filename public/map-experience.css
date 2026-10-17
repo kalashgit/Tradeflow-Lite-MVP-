@@ -137,3 +137,8 @@ body>.tf-experience-sheet[data-stage=full]{height:min(600px,76dvh)}
 }
 @media(max-width:370px){.tf-experience-sheet .tf-exp-head{grid-template-columns:80px minmax(0,1fr)}.tf-experience-sheet .tf-exp-typeicon{display:none}.tf-experience-sheet .tf-exp-action{font-size:9px}}
 @media(prefers-reduced-motion:reduce){body>.tf-experience-sheet{transition:none}}
+
+/* Tactile map pin placement: deliberate touch feedback without blocking map gestures. */
+.territory-map .tf-map-placing{pointer-events:none;filter:drop-shadow(0 7px 13px rgba(0,0,0,.42));animation:tf-pin-lift .18s ease-out both}
+@keyframes tf-pin-lift{from{transform:translateY(9px) scale(.83);opacity:.6}to{transform:translateY(0) scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){.territory-map .tf-map-placing{animation:none}}
