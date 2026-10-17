@@ -86,7 +86,9 @@
 .tf-d-v2-head{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}
 .tf-d-v2-head h2{font-size:16px;margin:0;color:#f1fcff;letter-spacing:-.02em}
 .tf-d-v2-link{border:0;background:transparent;color:#1cdbf0;font-size:11px;white-space:nowrap;padding:6px 0}
-.tf-d-v2-date{display:flex;align-items:center;gap:5px;margin-left:auto}
+.tf-d-v2-date{display:flex;align-items:center;justify-content:center;gap:12px;margin-left:auto;min-width:0}
+.tf-d-v2-date-field{display:flex;align-items:center;gap:16px;min-width:0}
+.tf-d-v2-date-label{font-size:12px;color:#c4dce8;white-space:nowrap}
 .tf-d-v2-date button{border:0;background:transparent;color:#20d9ed;font-size:26px;line-height:1;width:21px;padding:0}
 .tf-d-v2-date input{background:#0d3144;color:#37dbea;border:1px solid #297a94;border-radius:30px;font-size:11px;padding:7px 8px;min-width:0;max-width:132px;color-scheme:dark}
 .tf-d-v2-schedule{display:flex;flex-direction:column}
@@ -142,7 +144,12 @@
 .tf-d-v2-metric strong{font-size:23px}
 .tf-d-v2-panel{padding:11px}
 .tf-d-v2-head{gap:7px}
-.tf-d-v2-date{margin-left:0}
+.tf-d-v2-date{margin-left:0;gap:9px;flex:1 1 100%;justify-content:flex-start;order:2}
+.tf-d-v2-date-field{gap:14px}
+.tf-d-v2-date-label{font-size:12px}
+.tf-d-v2-head:has(.tf-d-v2-date)>h2{flex:1}
+.tf-d-v2-head:has(.tf-d-v2-date)>.tf-d-v2-link{order:1}
+.tf-d-v2-date input{width:132px}
 .tf-d-v2-date input{max-width:126px}
 .tf-d-v2-visit{gap:6px}
 .tf-d-v2-assignee{max-width:75px}
