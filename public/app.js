@@ -1853,13 +1853,53 @@ function applyTradeFlowAccent(value){
  root.style.setProperty('--tf-accent-contrast','#041b29');
  return {accent};
 }
+let tfIntelligenceExpanded=false;
+function tfIntelligenceStats(d){
+ const localDate=(()=>{const x=new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')})();
+ const active=(d.tasks||[]).filter(x=>x.status!=='Done'&&x.status!=='Completed'&&x.status!=='Cancelled');
+ const urgent=active.filter(x=>['p1','p2','high','critical','urgent'].includes(String(x.priority||'').toLowerCase())&&(!x.due||x.due<=localDate)).length;
+ const overdue=active.filter(x=>x.due&&x.due<localDate).length;
+ const conflicts=window.TradeFlowCalendar?.conflicts?.(d)?.length||0;
+ const proposals=(d.calendarProposals||[]).filter(x=>x.status==='pending').length;
+ return {urgent,overdue,conflicts,proposals};
+}
 function tfUnifiedHeader(d){
  const wordmark='<span class="tf-home-logo" aria-hidden="true"><svg viewBox="0 0 46 40"><path fill="#f0faff" d="M1 3h43l-5 9H27v25H17V12H6z"/><path fill="var(--tf-accent)" d="M28 15h15v10H28z"/></svg></span><span class="tf-unified-wordmark">TRADEFLOW</span>';
- return '<header class="tf-unified-header" aria-label="TradeFlow app header"><div class="tf-unified-inner"><div class="tf-unified-brand">'+wordmark+'</div>'+
- (tab==='dashboard'?(window.TradeFlowNotifications?.home(d,tfHomeIcons.bell)||
- '<button class="tf-home-alert" type="button" data-tab="tasks" aria-label="View tasks">'+tfHomeIcons.bell+'</button>'):'')+
- '</div></header>';
+ const stats=tfIntelligenceStats(d);
+ const concise=stats.conflicts?stats.conflicts+' scheduling conflict'+(stats.conflicts===1?'':'s'):stats.urgent?stats.urgent+' priority task'+(stats.urgent===1?'':'s')+' today':stats.overdue?stats.overdue+' overdue task'+(stats.overdue===1?'':'s'):'No urgent actions';
+ const arrow='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg>';
+ const chips=[
+  {key:'tasks',name:'Priority tasks',count:stats.urgent||stats.overdue,icon:'☷',kind:'task'},
+  {key:'conflicts',name:'Conflicts',count:stats.conflicts,icon:'!',kind:'conflict'},
+  {key:'proposals',name:'Proposals',count:stats.proposals,icon:'✧',kind:'proposal'}
+ ].map(x=>'<button type="button" class="tf-intel-chip tf-intel-'+x.kind+'" data-intel-action="'+x.key+'" aria-label="'+x.count+' '+x.name+'"><span class="tf-intel-symbol">'+x.icon+'</span><span class="tf-intel-number">'+x.count+'</span><span class="tf-intel-name">'+x.name+'</span>'+arrow+'</button>').join('');
+ return '<header class="tf-unified-header" aria-label="TradeFlow app header"><div class="tf-unified-inner">'+
+  '<div class="tf-unified-brand">'+wordmark+'</div>'+
+  '<div class="tf-intel-space"><button type="button" class="tf-intel-summary" data-intel-action="toggle" aria-expanded="'+tfIntelligenceExpanded+'" aria-label="Business intelligence: '+esc(concise)+'. '+(tfIntelligenceExpanded?'Collapse':'Expand')+' actions" '+(tfIntelligenceExpanded?'hidden':'')+'><span>'+esc(concise)+'</span>'+arrow+'</button>'+
+  '<div class="tf-intel-actions" aria-label="Business intelligence actions" '+(tfIntelligenceExpanded?'':'hidden')+'>'+chips+'<button type="button" data-intel-action="toggle" class="tf-intel-collapse" aria-label="Collapse intelligence actions">‹</button></div></div>'+
+  (window.TradeFlowNotifications?.home(d,tfHomeIcons.bell)||'<button type="button" class="tf-home-alert" data-tab="tasks" aria-label="Notifications">'+tfHomeIcons.bell+'</button>')+
+  '</div></header>';
 }
+document.addEventListener('click',async function(e){
+ const control=e.target.closest?.('[data-intel-action]');if(!control)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const action=control.dataset.intelAction;
+ if(action==='toggle'){
+  tfIntelligenceExpanded=!tfIntelligenceExpanded;
+  const header=control.closest('.tf-unified-header');
+  const summary=header?.querySelector('.tf-intel-summary'),actions=header?.querySelector('.tf-intel-actions');
+  if(summary){summary.hidden=tfIntelligenceExpanded;summary.setAttribute('aria-expanded',String(tfIntelligenceExpanded))}
+  if(actions)actions.hidden=!tfIntelligenceExpanded;
+  (tfIntelligenceExpanded?actions?.querySelector('.tf-intel-chip'):summary)?.focus({preventScroll:true});
+  return;
+ }
+ tfIntelligenceExpanded=false;
+ if(action==='tasks'){tab='tasks';modal=null;await render();return}
+ if(action==='conflicts'||action==='proposals'){
+  tab='calendar';modal=null;window.TradeFlowCalendar?.focusIntelligence?.(action);await render();
+ }
+});
+
 async function render(){if(tab!=='map')window.TradeFlowMapExperience?.close();const tfActiveMotion=tfMotionNext;tfMotionNext='';const savedSettings=await get('settings','business')||{};prefs={...prefs,...savedSettings};if(!savedSettings.accentCustomized&&String(prefs.accent||'').toLowerCase()==='#087f91')prefs.accent='#10cfe1';applyTradeFlowAccent(prefs.accent);const data=Object.fromEntries(await Promise.all(STORES.map(async store=>[store,await all(store)])));if(tfOnboardingNeeded(savedSettings)){$('#app').innerHTML=tfOnboardingView(data);return}await window.TradeFlowNotifications?.bootstrap(data);const nav=Object.keys(names).map(key=>`<button class="nav ${tab===key?'active':''}" data-tab="${key}">${icons[key]} &nbsp; ${names[key]}</button>`).join(''),mobile=[['dashboard','Home',tfNavIcons.dashboard],['map','Map',tfNavIcons.map],['opportunities','Opportunities',tfNavIcons.opportunities],['expenses','Finance',tfNavIcons.expenses],['settings','More',tfNavIcons.settings]].map(([key,label,icon])=>`<button data-tab="${key}" class="${tab===key?'active':''}"><span class="navicon" aria-hidden="true">${icon}</span><span>${label}</span></button>`).join('');$('#app').innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${esc(prefs.company)} <small style="font-size:10px;color:#a4bdc8">LITE</small></div>${nav}</aside><div class="main">${tfUnifiedHeader(data)}<main class="content">${toast?`<div class="notice" role="status">${esc(toast)}</div>`:''}${view(data)}</main><nav class="mobilebar">${mobile}</nav></div></div>${modal?formModal(data):''}${tfImportDraft?tfUniversalImportView(data):''}${tfCapture?tfCaptureView():''}<div id="tfAiOverlayRoot">${tfAiOverlayView()}</div>`;if(tab==='map')setTimeout(()=>initializeMap(data),0)}
 // Touch acknowledgement uses transform/opacity only. Never delays an action or a data write.
 const tfPressTarget='button:not(:disabled),a[href],label[for]';
