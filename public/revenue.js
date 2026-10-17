@@ -41,21 +41,55 @@ function relatedName(id,rows,label){
  if(!id)return 'None';return esc(rows.find(r=>r.id===id)?.name||rows.find(r=>r.id===id)?.title||label||'Record no longer present');
 }
 function statusBadge(status){return '<span class="tf-revenue-status tf-revenue-'+status.toLowerCase().replace(/[^a-z]/g,'')+'">'+esc(status)+'</span>'}
+let invoiceFilter='All';
+function invoiceDisplayState(inv,payments){
+ const s=state(inv,payments);
+ if(s==='Issued'&&inv.dueDate&&inv.dueDate<today())return 'Overdue';
+ return s==='Issued'?'Unpaid':s;
+}
 function invoicesPage(d){
- let existing=d.invoices||[],payments=d.payments||[];
+ const existing=d.invoices||[],payments=d.payments||[];
  if(mode==='edit')return editor(d);
  if(mode==='detail'){const current=existing.find(x=>x.id===invoiceId);if(current)return dossier(d,current);mode='list'}
- const open=existing.filter(x=>['Draft','Issued','Part-paid'].includes(state(x,payments))).length;
  const outstanding=existing.filter(x=>x.status==='Issued').reduce((v,x)=>v+Math.max(0,totals(x).total-collected(x,payments)),0);
- return '<div class="tf-revenue-page">'+sectionHeading('Invoices','Create and manage local invoice drafts linked to your customers and jobs.')+
- topNav('invoices')+
- '<div class="tf-revenue-stats"><div><small>INVOICES</small><strong>'+existing.length+'</strong></div><div><small>OPEN</small><strong>'+open+'</strong></div><div><small>ISSUED / UNPAID</small><strong>'+money(outstanding)+'</strong></div></div>'+
- '<div class="tf-revenue-sectionhead"><h2>Invoices</h2><button type="button" class="tf-revenue-primary" data-revenue-action="new">+ New invoice</button></div>'+
- (existing.length?existing.slice().sort((a,b)=>String(b.issuedDate||b.createdAt||'').localeCompare(String(a.issuedDate||a.createdAt||''))).map(inv=>{
- const c=d.customers.find(x=>x.id===inv.customerId),s=state(inv,payments);
- return '<button type="button" class="tf-revenue-listitem" data-revenue-action="open" data-id="'+esc(inv.id)+'"><span><strong>'+esc(inv.reference||inv.id)+'</strong><small>'+esc(c?.name||'Customer unavailable')+' · '+esc(inv.issuedDate||'Undated')+'</small></span><span class="tf-revenue-listvalue"><strong>'+money(totals(inv).total)+'</strong>'+statusBadge(s)+'</span><span aria-hidden="true">›</span></button>';
- }).join(''):'<div class="tf-revenue-empty"><strong>No invoices recorded yet</strong><p>Start with a draft. Issuing an invoice here does not send it to a customer or charge their card.</p></div>')+
- '<p class="tf-revenue-warning">Local draft system. TradeFlow does not yet issue regulated tax invoices, send emails automatically, charge cards, or verify bank payments. Finance values currently use EUR; do not relabel USD figures as euros.</p></div>';
+ const overdue=existing.filter(x=>invoiceDisplayState(x,payments)==='Overdue');
+ const overdueValue=overdue.reduce((v,x)=>v+Math.max(0,totals(x).total-collected(x,payments)),0);
+ const thisMonth=today().slice(0,7);
+ const paidThisMonth=(payments||[]).filter(x=>(x.date||'').slice(0,7)===thisMonth&&x.invoiceId&&existing.some(i=>i.id===x.invoiceId)).reduce((v,x)=>v+Math.max(0,Number(x.amount)||0),0);
+ const drafts=existing.filter(x=>state(x,payments)==='Draft');
+ const draftValue=drafts.reduce((v,x)=>v+totals(x).total,0);
+ const filtered=existing.filter(x=>invoiceFilter==='All'||invoiceDisplayState(x,payments)===invoiceFilter||
+ (invoiceFilter==='Unpaid'&&invoiceDisplayState(x,payments)==='Part-paid'));
+ const ordered=filtered.slice().sort((a,b)=>String(b.issuedDate||b.createdAt||'').localeCompare(String(a.issuedDate||a.createdAt||'')));
+ const metric=(title,value,icon,color)=>'<div class="tf-inv-metric"><div class="tf-inv-metric-label"><span>'+title+'</span><span class="tf-inv-icon tf-inv-'+color+'">'+icon+'</span></div><strong>'+value+'</strong></div>';
+ const invoiceIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>';
+ const alertIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/></svg>';
+ const paidIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9"/></svg>';
+ const walletIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9V6a2 2 0 0 1 2-2h12m-1 10h5m-4 0h.01"/></svg>';
+ let result='<section class="tf-revenue-page tf-invoices-v2">'+
+  '<header class="tf-inv-heading"><div><span class="tf-inv-kicker">TRADEFLOW / FINANCE</span><h1>Invoices</h1><p>Track billing, payments and outstanding balances.</p></div><span class="tf-inv-heading-icon">'+invoiceIcon+'</span></header>'+
+  '<div class="tf-inv-metrics">'+
+  metric('Outstanding',money(outstanding),walletIcon,'cyan')+
+  metric('Overdue',money(overdueValue),alertIcon,'amber')+
+  metric('Paid this month',money(paidThisMonth),paidIcon,'green')+
+  metric('Draft invoices',String(drafts.length),invoiceIcon,'muted')+'</div>';
+ if(overdue.length||drafts.length)result+='<section class="tf-inv-attention"><div class="tf-inv-panel-head"><h2>Needs attention</h2><button type="button" data-revenue-action="attention">View all →</button></div>'+
+  '<div class="tf-inv-attention-row"><span class="tf-inv-alert">⚠</span><div><strong>'+overdue.length+' invoice'+(overdue.length===1?'':'s')+' overdue</strong><small>Follow up on '+money(overdueValue)+' outstanding'+(drafts.length?' · '+drafts.length+' draft'+(drafts.length===1?'':'s')+' awaiting review':'')+'</small></div></div></section>';
+ result+='<section class="tf-inv-records"><div class="tf-inv-panel-head"><h2>Invoices</h2><button type="button" data-revenue-action="filter" data-filter="All">See all</button></div>'+
+ '<div class="tf-inv-filters" aria-label="Invoice status filters">'+['All','Draft','Unpaid','Overdue','Paid'].map(x=>
+ '<button type="button" data-revenue-action="filter" data-filter="'+x+'" aria-pressed="'+(invoiceFilter===x)+'" class="'+(invoiceFilter===x?'active':'')+'">'+x+'</button>').join('')+'</div>';
+ result+=ordered.length?'<div class="tf-inv-list">'+ordered.map(inv=>{
+  const c=(d.customers||[]).find(x=>x.id===inv.customerId),status=invoiceDisplayState(inv,payments);
+  const statusClass=status.toLowerCase().replace(/[^a-z]/g,'');
+  const job=(d.jobs||[]).find(x=>x.id===inv.jobId);
+  return '<button type="button" class="tf-inv-row" data-revenue-action="open" data-id="'+esc(inv.id)+'">'+
+   '<span class="tf-inv-row-icon">'+invoiceIcon+'</span><span class="tf-inv-row-detail"><strong>'+esc(c?.name||'Customer unavailable')+'</strong>'+
+   '<small>'+esc(inv.reference||inv.id)+(job?' · '+esc(job.title||'Job'):'')+' · <em class="tf-inv-status-'+statusClass+'">'+esc(status)+'</em></small></span>'+
+   '<span class="tf-inv-row-amount">'+money(totals(inv).total)+'</span><span class="tf-inv-chevron">›</span></button>';
+ }).join('')+'</div>':'<div class="tf-inv-empty"><strong>'+(existing.length?'No '+invoiceFilter.toLowerCase()+' invoices':'No invoices yet')+'</strong><p>'+(existing.length?'Choose another filter to see your records.':'Create a draft linked to a customer or job. Nothing is sent or charged automatically.')+'</p></div>';
+ result+='</section><button class="tf-inv-create" type="button" data-revenue-action="new"><span>＋</span> Create new invoice</button>'+
+ '<p class="tf-inv-disclaimer">Local financial records only. Issuing here is not a certified tax invoice, proof of sending, or payment confirmation. Values are recorded in EUR.</p></section>';
+ return result;
 }
 function defaultLine(inv){return Array.isArray(inv?.lines)&&inv.lines.length?inv.lines:[{description:'',qty:1,unitPrice:0}]}
 function lineMarkup(line){
@@ -235,6 +269,8 @@ async function onClick(event){
  event.preventDefault();
  const a=b.dataset.revenueAction,id=b.dataset.id;
  try{
+ if(a==='filter'){invoiceFilter=b.dataset.filter||'All';api.render();return}
+ if(a==='attention'){invoiceFilter='Overdue';mode='list';api.render();return}
  if(a==='new'){newInvoice();return}
  if(a==='list'){mode='list';invoiceId='';api.render();return}
  if(a==='open'){mode='detail';invoiceId=id;api.render();return}
