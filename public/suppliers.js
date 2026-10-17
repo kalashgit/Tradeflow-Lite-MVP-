@@ -178,34 +178,125 @@
    document.addEventListener('click',click);
    document.addEventListener('submit',submit);
    document.addEventListener('change',change);
+   document.addEventListener('input',input);
   }
  }
- function change(e){
-  if(e.target?.id!=='tfSupplierDestinationKind')return;
-  const formEl=e.target.closest('form');if(!formEl)return;
-  formEl.querySelectorAll('[data-supply-destination]').forEach(el=>el.hidden=el.dataset.supplyDestination!==e.target.value);
+ function recalcPurchaseForm(formEl){
+  if(!formEl||!po)return;
+  const lines=[...formEl.querySelectorAll?.('[data-po-line]')||[]].map(el=>({
+   description:el.querySelector('[name="lineDescription"]')?.value||'',
+   quantity:Number(el.querySelector('[name="lineQty"]')?.value)||0,
+   unitPrice:Number(el.querySelector('[name="linePrice"]')?.value)||0
+  }));
+  const currency=formEl.querySelector('[name="currency"]')?.value||'EUR';
+  const {subtotal,tax,shipping,total}=po.totals({lineItems:lines,currency,taxRate:Number(formEl.querySelector('[name="taxRate"]')?.value)||0,shipping:Number(formEl.querySelector('[name="shipping"]')?.value)||0});
+  for(const [name,number] of Object.entries({subtotal,tax,shipping,total})){
+   const out=formEl.querySelector('[data-po-'+name+']');
+   if(out)out.textContent=po.money(number,currency);
+  }
+ }
+ function input(e){
+  if(e.target?.id==='tfSupplierSearch'){
+   supplierQuery=e.target.value.trim().slice(0,140);
+   const query=supplierQuery.toLowerCase();
+   let shown=0;
+   document.querySelectorAll?.('.tf-supplier-row').forEach(row=>{
+    const match=!query||row.textContent.toLowerCase().includes(query);
+    row.hidden=!match;if(match)shown++;
+   });
+   const empty=document.querySelector?.('#tfSupplierLiveEmpty');
+   if(empty)empty.hidden=shown>0;
+  }
+  const formEl=e.target.closest?.('#tfSupplyOrderForm');
+  if(formEl)recalcPurchaseForm(formEl);
+ }
+ async function change(e){
+  if(e.target?.id==='tfSupplierSort'){supplierSort=e.target.value;await bridge?.render?.();return}
+  if(e.target?.dataset?.supplyProgress){
+   const id=e.target.dataset.supplyProgress,record=await bridge.get('supplyOrders',id);
+   if(!record)return;
+   try{await bridge.execute('supplyOrder.progress',{id,status:e.target.value});await bridge.render();bridge.notify('Delivery progress updated')}
+   catch(error){window.alert(String(error.message||error))}
+   return;
+  }
+  if(e.target?.id==='tfSupplierDestinationKind'){
+   const formEl=e.target.closest('form');if(!formEl)return;
+   formEl.querySelectorAll('[data-supply-destination]').forEach(el=>el.hidden=el.dataset.supplyDestination!==e.target.value);
+  }
+  const formEl=e.target.closest?.('#tfSupplyOrderForm');if(formEl)recalcPurchaseForm(formEl);
+ }
+ async function prepareNativeMail(id,issue){
+  const order=await bridge.get('supplyOrders',id);
+  if(!order)throw Error('Purchase order not found');
+  const supplier=await bridge.get('suppliers',order.supplierId);
+  if(!supplier)throw Error('Supplier record is missing');
+  const prefs=await bridge.get('settings','business')||{};
+  const data={customers:await bridge.all('customers'),jobs:await bridge.all('jobs'),opportunities:await bridge.all('opportunities')};
+  // Check buyer details, supplier email and Mail link length before issuing.
+  const url=po.mailto({...order,issuedAt:order.issuedAt||new Date().toISOString()},supplier,prefs,purchaseRefs(order,data));
+  if(issue&&order.documentStatus!=='Issued'){
+   if(typeof window!=='undefined'&&!window.confirm('Issue purchase order '+order.poNumber+'? This locks its commercial terms. Mail will open with a draft; you must press Send yourself.'))return;
+   await bridge.execute('supplyOrder.issue',{id});
+  }
+  await bridge.render();
+  // This navigation happens only following an explicit tap. TradeFlow cannot detect Send.
+  if(typeof window!=='undefined')window.location.href=url;
  }
  async function click(e){
   const button=e.target.closest?.('[data-supply-action]');if(!button||!bridge)return;
   e.preventDefault();e.stopPropagation();
-  const action=button.dataset.supplyAction;
-  if(action==='cancel'){form='';editId=''}
-  else if(action==='newSupplier'){form='supplier';editId=''}
-  else if(action==='newOrder'){form='order';editId=''}
-  else if(action==='editSupplier'){form='supplier';editId=button.dataset.id}
-  else if(action==='editOrder'){form='order';editId=button.dataset.id}
-  else if(action==='resolve'||action==='viewNetwork'){
+  const action=button.dataset.supplyAction,id=button.dataset.id;
+  if(action==='home'){
+   if(form){form='';editId='';orderSupplierId=''}
+   else if(detailOrderId)detailOrderId='';
+   else if(detailSupplierId)detailSupplierId='';
+   else{await bridge.navigate('settings');return}
+  }else if(action==='cancel'){form='';editId=''}
+  else if(action==='newSupplier'){form='supplier';editId='';detailSupplierId='';detailOrderId=''}
+  else if(action==='newOrder'){form='order';editId='';orderSupplierId=button.dataset.supplierId||'';detailOrderId=''}
+  else if(action==='editSupplier'){form='supplier';editId=id}
+  else if(action==='editOrder'){form='order';editId=id}
+  else if(action==='supplierOpen'){detailSupplierId=id;detailOrderId='';form=''}
+  else if(action==='orderOpen'){detailOrderId=id;form=''}
+  else if(action==='filter'){supplierFilter=button.dataset.filter||'all'}
+  else if(action==='addLine'){
+   const container=document.getElementById('tfPoLines'),count=container?.querySelectorAll('[data-po-line]').length||0;
+   if(!container||count>=35){bridge.notify('Maximum 35 items per purchase order');return}
+   container.insertAdjacentHTML('beforeend',lineRow({},count));
+   recalcPurchaseForm(container.closest('form'));
+   return;
+  }else if(action==='removeLine'){
+   const container=button.closest('#tfPoLines'),line=button.closest('[data-po-line]');
+   if(!container||!line)return;
+   if(container.querySelectorAll('[data-po-line]').length<=1){bridge.notify('A purchase order needs at least one item');return}
+   line.remove();container.querySelectorAll('[data-po-line]').forEach((row,i)=>{const label=row.querySelector('.tf-po-line-description');if(label)label.firstChild.textContent='Item '+(i+1)});
+   recalcPurchaseForm(container.closest('form'));return;
+  }else if(action==='composeMail'||action==='issueCompose'){
+   try{await prepareNativeMail(id,action==='issueCompose')}catch(error){window.alert('Cannot open Mail: '+String(error.message||error))}
+   return;
+  }else if(action==='copyOrder'||action==='printOrder'){
+   const order=await bridge.get('supplyOrders',id),supplier=order&&await bridge.get('suppliers',order.supplierId),prefs=await bridge.get('settings','business')||{};
+   const data={customers:await bridge.all('customers'),jobs:await bridge.all('jobs'),opportunities:await bridge.all('opportunities')};
+   try{
+    const text=po.documentText(order,supplier,prefs,purchaseRefs(order,data));
+    if(action==='printOrder'){if(typeof window!=='undefined')window.print();return}
+    if(typeof navigator==='undefined'||!navigator.clipboard?.writeText)throw Error('Clipboard unavailable on this device. Use Print / Save PDF instead');
+    await navigator.clipboard.writeText(text);bridge.notify('Purchase order copied');
+   }catch(error){window.alert(String(error.message||error))}
+   return;
+  }else if(action==='resolve'||action==='viewNetwork'){
    if(repairBusy)return;
    repairBusy=true;repairStatus='Checking saved addresses…';await bridge.render();
-   try{const result=await bridge.resolveLocations({max:3,interactive:action==='resolve'});
+   try{
+    const result=await bridge.resolveLocations({max:3,interactive:action==='resolve'});
     repairStatus=result.checked?result.located+' located · '+result.unresolved+' need review'+(result.offline?' · '+result.offline+' lookup unavailable':'')+(result.remaining?' · '+result.remaining+' waiting':''):'No new addresses to locate';
     if(result.lastError&&result.located===0)repairStatus=result.lastError;
    }catch(err){repairStatus='Lookup unavailable: '+String(err.message||err).slice(0,110)}
    finally{repairBusy=false}
    if(action==='viewNetwork'){await bridge.navigate('map',{network:true});return}
-   await bridge.render();return;
   }
   await bridge.render();
+  if(form==='order')recalcPurchaseForm(document.getElementById('tfSupplyOrderForm'));
  }
  async function tfSupplierPhoto(file){
   if(!/^image\/(?:jpeg|png|webp)$/.test(file.type)||file.size>8000000)throw Error('Choose a JPG, PNG or WebP photo smaller than 8 MB');
