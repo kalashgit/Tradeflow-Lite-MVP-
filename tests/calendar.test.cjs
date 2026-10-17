@@ -78,6 +78,28 @@ async function run(){
  assert.ok(flexible&&flexible.splittable===true&&flexible.minBlockMinutes===60,'Task-level split rules persist without a separate appointment');
  assert.equal(flexible.calendarId,'tasks','New calendar tasks default to the semantic Task layer');
 
+ const slot={dataset:{calendarAction:'direct-slot',date:'2026-10-21',firstHour:'7'},
+  getBoundingClientRect(){return {top:0}},closest(){return this}};
+ await click({clientY:384,preventDefault(){},target:slot});
+ const quick=cal.render({tasks:[],jobs:[],calendarEntries:[],calendars:[],calendarPreferences:[]});
+ assert.ok(quick.includes('tfCalDirectForm'),'Direct time-grid tap opens compact editor');
+ assert.ok(quick.includes('value="13:00"'),'Tapping 13:00 selects the correct time');
+ assert.ok(quick.includes('value="13:30"'),'Default direct-slot duration is 30 minutes');
+ assert.ok(quick.includes('type="time"'),'Native time picker is available');
+ assert.ok(quick.includes('data-duration="60"'),'Quick duration controls exist');
+ await submit({preventDefault(){},target:{id:'tfCalDirectForm',fields:{title:'',start:'13:00',end:'13:30'}}});
+ const created=Object.values(stores.calendarEntries).find(x=>x.date==='2026-10-21'&&x.time==='13:00');
+ assert.ok(created,'Direct-slot creation writes a real local calendar event');
+ assert.equal(created.title,'Event','Blank titles safely use an editable Event default');
+ assert.equal(created.durationMinutes,30);
+ assert.equal(created.status,'Scheduled');
+ await click({clientY:384,preventDefault(){},target:slot});
+ await submit({preventDefault(){},target:{id:'tfCalDirectForm',fields:{title:'Overlapping',start:'13:00',end:'13:30'}}});
+ assert.equal(Object.values(stores.calendarEntries).filter(x=>x.date==='2026-10-21'&&x.time==='13:00').length,1,'Overlaps must not silently create another event');
+ await click({preventDefault(){},target:{dataset:{calendarAction:'direct-close'},closest(){return this}}});
+ const dismissed=cal.render({tasks:[],jobs:[],calendarEntries:[],calendars:[],calendarPreferences:[]});
+ assert.ok(!dismissed.includes('id="tfCalDirectForm"'),'Dismissing a draft removes the editor');
+
  console.log('PASS: TradeFlow Calendar R03 timeline, linked quick cards, layers, conflict detection and standalone events');
 }
 run().catch(err=>{console.error(err);process.exitCode=1});
