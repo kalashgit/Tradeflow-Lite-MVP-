@@ -157,14 +157,14 @@
   const vh=window.visualViewport?.height||window.innerHeight;
   const mobile=window.matchMedia?.('(max-width:850px)')?.matches;
   const max=Math.max(180,vh-(mobile?185:90));
-  return mobile?{peek:117,half:Math.min(405,Math.max(160,vh-220)),full:max}:{peek:122,half:350,full:Math.min(600,vh*.76)};
+  return mobile?{peek:Math.min(117,max),half:Math.min(405,Math.max(160,vh-220),max),full:max}:{peek:122,half:350,full:Math.min(600,vh*.76)};
  }
  function setStage(stage,focus=true){
   if(!sheet)return;
   const next=['peek','half','full'].includes(stage)?stage:'half';
   sheet.dataset.stage=next;
   // Keep a definite height throughout the transition so the sheet never jumps off screen.
-  sheet.style.height=Math.min(sheetHeights()[next],Math.max(110,(window.visualViewport?.height||window.innerHeight)-130))+'px';
+  sheet.style.height=sheetHeights()[next]+'px';
   const h=sheet.querySelector('.tf-exp-handle');
   if(h)h.setAttribute('aria-expanded',String(next!=='peek'));
   if(focus)mapFit();
@@ -228,6 +228,7 @@
  function clear(){
   // Dismissing a location card must not erase an already calculated driving route.
   ++routeSerial;requestController?.abort();requestController=null;
+  sheet?.dispatchEvent(new Event('tf-sheet-dispose'));
   sheet?.remove();document.getElementById('tfSheetShade')?.remove();opened=null;sheet=null;
  }
  function open(input){
@@ -236,7 +237,7 @@
   sheet=document.createElement('section');
   sheet.id='tfLocationSheet';sheet.className='tf-location-sheet tf-experience-sheet';
   sheet.setAttribute('role','region');sheet.setAttribute('aria-label','Location details for '+opened.name);
-  sheet.dataset.stage=window.matchMedia?.('(max-width:650px)')?.matches?'half':'full';
+  sheet.dataset.stage=window.matchMedia?.('(max-width:850px)')?.matches?'peek':'full';
   sheet.innerHTML=markup(input);
   document.body.appendChild(sheet);
   const caption=sheet.querySelector('#tfExpRouteCaption');
@@ -314,6 +315,10 @@
    }
   });
   setStage(sheet.dataset.stage,false);
+  const syncViewport=()=>{if(!sheet?.isConnected)return;setStage(sheet.dataset.stage,false)};
+  window.visualViewport?.addEventListener('resize',syncViewport);
+  window.addEventListener('orientationchange',syncViewport);
+  sheet.addEventListener('tf-sheet-dispose',()=>{window.visualViewport?.removeEventListener('resize',syncViewport);window.removeEventListener('orientationchange',syncViewport)},{once:true});
   // Allow the map to remain interactive behind the non-modal sheet.
   if(window.requestAnimationFrame)window.requestAnimationFrame(()=>mapFit());
   return opened;
