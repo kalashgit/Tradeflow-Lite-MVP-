@@ -94,13 +94,14 @@
    ['Hours',d.hours,'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>','']
   ].filter(row=>!!row[1]).map(([label,value,image,action])=>'<div class="tf-exp-contact">'+image+'<div><small>'+escape(label)+'</small><span>'+escape(label==='Website'?value.replace(/^https?:\/\//,'').replace(/\/$/,''):value)+'</span></div>'+action+'</div>').join('');
   const coord=p?Number(p.lat).toFixed(5)+', '+Number(p.lon).toFixed(5):'Coordinates missing';
+  const addressHint=d.temp&&!d.address?'<span class="tf-exp-address-hint" role="status">Looking up nearby address…</span>':'';
   return '<div class="tf-exp-layout">'+
    '<button class="tf-exp-handle" type="button" data-exp-action="stage" aria-label="Drag or tap to resize location sheet" aria-expanded="true"><span></span></button>'+
    '<button class="tf-exp-close" type="button" data-exp-action="close" aria-label="Close location card">×</button>'+
    '<div class="tf-exp-head">'+
      '<div class="tf-exp-thumb tf-exp-thumb-'+escape(type)+'">'+svg(type,32)+photoMarkup+'</div>'+
      '<div class="tf-exp-heading"><div class="tf-exp-titleline"><span class="tf-exp-typeicon tf-exp-type-'+escape(type)+'">'+svg(type,23)+'</span><h2>'+escape(d.name)+'</h2></div>'+
-      '<p>'+escape(d.address||coord)+'</p><div class="tf-exp-tags">'+tags+'</div>'+
+      '<p>'+escape(d.address||coord)+'</p>'+addressHint+'<div class="tf-exp-tags">'+tags+'</div>'+
       '<span class="tf-exp-peek-route" id="tfExpPeekRoute"></span>'+
      '</div></div>'+
    '<div class="tf-exp-body">'+
@@ -135,6 +136,7 @@
   opened.record.address=value;
   const summary=sheet.querySelector('.tf-exp-heading>p');
   if(summary)summary.textContent=value;
+  sheet.querySelector('.tf-exp-address-hint')?.remove();
   const addressRow=[...sheet.querySelectorAll('.tf-exp-contact')].find(row=>row.querySelector('small')?.textContent==='Address');
   if(addressRow){const span=addressRow.querySelector('span');if(span)span.textContent=value}
   sheet.querySelectorAll('[data-address]').forEach(el=>{el.dataset.address=value});
