@@ -83,11 +83,11 @@ function appCard(p){
  return '<article class="tf-int-app-card" data-int-search="'+esc([p.name,p.category,p.description,p.id].join(' ').toLowerCase())+'">'+
  '<span class="tf-int-brand">'+logo(p)+'</span>'+
  '<div class="tf-int-app-copy"><strong>'+esc(p.name)+'</strong><small>'+esc(p.description)+'</small>'+
- '<span class="tf-int-app-meta">'+esc(p.category)+' · OAuth connector planned</span></div>'+
+ '<span class="tf-int-app-meta">'+esc(p.category)+' · Official connection not active</span></div>'+
  '<button type="button" data-int-action="detail" data-id="'+esc(p.id)+'" class="tf-int-details">Details <span>›</span></button></article>';
 }
 function catalog(){
- const matches=category==='Connected'?[]:PROVIDERS.filter(p=>category==='All'||p.category===category);
+ const matches=category==='Connected'?[]:PROVIDERS.filter(p=>(category==='All'||p.category===category)&&(!searchTerm||[p.name,p.category,p.description,p.id].join(' ').toLowerCase().includes(searchTerm)));
  return '<section class="tf-int-v2"><button type="button" data-tab="settings" class="tf-int-back">‹ More</button>'+
  '<header class="tf-int-heading"><div><span class="tf-int-kicker">TRADEFLOW / CONNECTIONS</span><h1>Integrations</h1>'+
  '<p>Bring your business tools together. Keep full control of what you connect.</p></div>'+
@@ -197,7 +197,7 @@ async function onClick(event){
   if(action==='calendar-export'){
    const data=calendarIcs(await bridge.all('jobs'),new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'').slice(0,15)+'Z');
    if(!data.count){bridge.notify('No timed jobs to export. Add a scheduled date, start time and duration first.');return}
-   if(!confirm('Export '+data.count+' timed job'+(data.count===1?'':'s')+' as an .ics calendar snapshot? These records may contain job titles and addresses. This does not synchronize a calendar account.'))return;
+   if(!confirm('Export '+data.count+' timed job'+(data.count===1?'':'s')+' as an .ics calendar snapshot? Titles and addresses may be included. Imported times are interpreted in the destination calendar timezone. This does not synchronize an account.'))return;
    download('tradeflow-jobs-'+today()+'.ics',data.content,'text/calendar;charset=utf-8');
    bridge.notify('Local calendar file downloaded; no live calendar account was connected.');return;
   }
