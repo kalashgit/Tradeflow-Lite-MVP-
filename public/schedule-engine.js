@@ -19,7 +19,7 @@ function preferences(d){
  const start=minutes(p.workdayStart||'08:00'),end=minutes(p.workdayEnd||'17:00');
  return {horizonDays:horizon,workdayStart:start===null?480:start,workdayEnd:end===null?1020:end,
   workingDays:Array.isArray(p.workingDays)?p.workingDays.filter(x=>Number.isInteger(x)&&x>=0&&x<=6):[1,2,3,4,5],
-  bufferMinutes:Math.max(0,Math.min(90,number(p.bufferMinutes,15)))};
+  bufferMinutes:Math.max(0,Math.min(90,number(p.bufferMinutes,15))),minBlockMinutes:Math.max(15,Math.min(240,number(p.minBlockMinutes,45)))};
 }
 function fingerprint(task){
  return [task.id||'',task.updatedAt||'',task.due||'',task.durationMinutes||'',task.completedMinutes||'',task.splittable?'yes':'no',task.minBlockMinutes||''].join('~');
@@ -76,7 +76,7 @@ function allocate(task,available,pref,startDate,minimumToday=0){
  const length=Math.max(0,number(task.durationMinutes)-completed);
  if(length<15)return null;
  const isSplit=task.splittable===true||task.splittable==='true';
- const minBlock=Math.max(15,Math.min(length,number(task.minBlockMinutes,30)||30));
+ const minBlock=Math.max(15,Math.min(length,number(task.minBlockMinutes,pref.minBlockMinutes)||pref.minBlockMinutes));
  const who=resource(task),candidates=[];
  for(let n=0;n<pref.horizonDays;n++){
   const date=dateAdd(startDate,n);
