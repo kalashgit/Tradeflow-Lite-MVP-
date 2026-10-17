@@ -631,3 +631,28 @@
  touch-action:none;
 }
 .tf-cal-direct-editor #tfCalDirectTitle{user-select:text;-webkit-user-select:text}
+
+
+/* R14 Notion-style continuous touch: card follows finger, snaps on release. */
+.tf-cal-direct-editor{
+ touch-action:none!important;
+ overscroll-behavior:contain!important;
+}
+.tf-cal-direct-editor.is-dragging{
+ transition:none!important;
+ will-change:height;
+ user-select:none;
+ -webkit-user-select:none;
+}
+.tf-cal-direct-editor:not(.is-dragging){
+ transition:height 220ms cubic-bezier(.22,.75,.32,1)!important;
+}
+.tf-cal-direct-editor.is-expanded{
+ max-height:calc(100dvh - 126px)!important;
+}
+.tf-cal-direct-editor .tf-cal-direct-extra-fields{
+ touch-action:pan-y;
+}
+@media(prefers-reduced-motion:reduce){
+ .tf-cal-direct-editor:not(.is-dragging){transition:none!important}
+}
