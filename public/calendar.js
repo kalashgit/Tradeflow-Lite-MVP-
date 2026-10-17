@@ -285,24 +285,30 @@ function sizeDirectPeek(){
 function editorSwipeDown(ev){
  const sheet=ev.target.closest?.('.tf-cal-direct-editor');
  if(!sheet||ev.isPrimary===false)return;
- const handle=ev.target.closest?.('.tf-cal-editor-grip,.tf-cal-direct-head');
- if(!handle)return;
- editorSwipe={id:ev.pointerId,startY:ev.clientY,endY:ev.clientY,moved:false};
+ // The entire upper part of the card is a drag surface, down to but not
+ // including Start/End. Time, category and advanced controls remain untouched.
+ const upper=ev.target.closest?.('.tf-cal-editor-grip,.tf-cal-direct-head,.tf-cal-direct-field');
+ if(!upper||ev.target.closest?.('[data-calendar-action="direct-close"]'))return;
+ const bounds=sheet.querySelector?.('.tf-cal-direct-time')?.getBoundingClientRect?.();
+ if(bounds&&ev.clientY>=bounds.top)return;
+ editorSwipe={id:ev.pointerId,startY:ev.clientY,endY:ev.clientY,active:false,
+  grip:!!ev.target.closest?.('.tf-cal-editor-grip')};
 }
 function editorSwipeMove(ev){
  const state=editorSwipe;
  if(!state||state.id!==ev.pointerId)return;
  state.endY=ev.clientY;
- if(Math.abs(state.endY-state.startY)>8)state.moved=true;
- if(state.moved)ev.preventDefault();
+ if(!state.active&&Math.abs(state.endY-state.startY)>=14)state.active=true;
+ if(state.active)ev.preventDefault();
 }
 function editorSwipeEnd(ev){
  const state=editorSwipe;
  if(!state||state.id!==ev.pointerId)return;
  editorSwipe=null;
  const dy=state.endY-state.startY;
- if(dy< -35){suppressGripClick=true;setDirectExpanded(true);return}
- if(dy>35){suppressGripClick=true;setDirectExpanded(false);return}
+ if(!state.active||Math.abs(dy)<35)return;
+ if(state.grip)suppressGripClick=true;
+ setDirectExpanded(dy<0);
 }
 function updateDirectGhost(){
  // An existing event is already visible in the timeline. Never layer a
