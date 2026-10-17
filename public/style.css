@@ -1342,3 +1342,10 @@ button,a[href],label[for]{-webkit-tap-highlight-color:transparent;touch-action:m
 .tf-cash .tf-cash-numbers .balance.positive strong{color:var(--tf-income-neon)!important}
 .tf-cash .tf-cash-numbers .balance.negative strong{color:var(--tf-expense-neon)!important}
 @media(max-width:370px){.tf-finance-tool-options{gap:6px}.tf-finance-tool-row .tf-op5-action{padding:8px 9px}}
+
+/* TradeFlow installed-app interaction lock: UI is tactile, not selectable. */
+html,body,#app{overscroll-behavior-x:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+#app,#app *:not(input):not(textarea):not(select):not([contenteditable="true"]):not(.tf-allow-selection){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app input,#app textarea,#app select,#app [contenteditable="true"],#app .tf-allow-selection,#app .tf-allow-selection *{-webkit-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important}
+#app button,#app a,#app [role="button"]{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#app .territory-map,#app .maplibregl-canvas-container,#app .maplibregl-canvas{touch-action:none!important}
