@@ -20,6 +20,61 @@ const templates=[
   message:'Service: [Your trade]\nService area: [City]\nWho we help: [Ideal customer]\nHeadline: Reliable [trade] services in [city]\nOffer: Request a clear quotation\nProof to verify: Licenses, insurance, project examples, customer reviews',cta:'Request a quotation'}
 ];
 function profiles(d){const x=(d.settings||[]).find(z=>z.id==='growth-profiles-v1')||{};return {icps:Array.isArray(x.icps)?x.icps:[],personas:Array.isArray(x.personas)?x.personas:[],active:x.activeIcpId||''}}
+
+const marketingChannels=['Google Search','Referrals','Email','Social','Paid Ads','Direct','Other'];
+const SOURCE_KEY='marketing-attribution-v2';
+let sourceCustomerId='';
+const number=v=>Number.isFinite(Number(v))?Number(v):0;
+const euro=v=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(number(v));
+function sourceData(d){
+ const saved=(d.settings||[]).find(x=>x.id===SOURCE_KEY);
+ return Array.isArray(saved?.entries)?saved.entries.filter(x=>x&&x.customerId):[];
+}
+function marketingSummary(d){
+ const customers=d.customers||[],jobs=d.jobs||[],quotes=d.quotes||[],payments=d.payments||[],invoices=d.invoices||[],expenses=d.expenses||[];
+ const customerIds=new Set(customers.map(c=>c.id));
+ const entries=sourceData(d).filter(x=>customerIds.has(x.customerId));
+ const byCustomer=new Map(entries.map(x=>[x.customerId,x]));
+ const linkedJobs=jobs.filter(x=>byCustomer.has(x.customerId));
+ const quoted=new Set(quotes.filter(x=>byCustomer.has(x.customerId)).map(x=>x.customerId));
+ const booked=new Set(linkedJobs.map(x=>x.customerId));
+ const invoiceCustomers=new Map(invoices.map(x=>[x.id,x.customerId]));
+ const jobCustomers=new Map(jobs.map(x=>[x.id,x.customerId]));
+ const trackedPayments=payments.filter(x=>{
+  const owner=x.invoiceId?invoiceCustomers.get(x.invoiceId):x.customerId||jobCustomers.get(x.jobId||x.relatedId);
+  return byCustomer.has(owner);
+ });
+ const paidCustomers=new Set(trackedPayments.map(x=>x.invoiceId?invoiceCustomers.get(x.invoiceId):x.customerId||jobCustomers.get(x.jobId||x.relatedId)));
+ const cash=trackedPayments.reduce((sum,p)=>sum+Math.max(0,number(p.amount)),0);
+ const spendEntries=expenses.filter(x=>x.marketingSpend===true&&number(x.amount)>0);
+ const spend=spendEntries.reduce((sum,x)=>sum+number(x.amount),0);
+ const channels=marketingChannels.map(name=>{
+  const sourceCustomers=entries.filter(x=>x.channel===name);
+  const ids=new Set(sourceCustomers.map(x=>x.customerId));
+  const associatedJobs=jobs.filter(x=>ids.has(x.customerId));
+  const cashFromChannel=trackedPayments.filter(x=>ids.has(x.invoiceId?invoiceCustomers.get(x.invoiceId):x.customerId||jobCustomers.get(x.jobId||x.relatedId))).reduce((sum,p)=>sum+Math.max(0,number(p.amount)),0);
+  const recordedSpend=spendEntries.filter(x=>x.marketingChannel===name);
+  return {name,customers:ids.size,jobs:associatedJobs.length,cash:cashFromChannel,
+    spend:recordedSpend.reduce((sum,x)=>sum+number(x.amount),0),spendCount:recordedSpend.length};
+ });
+ return {tracked:byCustomer.size,linkedJobs:linkedJobs.length,quotedCustomers:quoted.size,bookedCustomers:booked.size,
+   paidCustomers:paidCustomers.size,spend,cash,spendCount:spendEntries.length,entries,channels};
+}
+function marketingIcon(name){
+ const paths={
+  people:'<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M17 14c2.5 0 4 2 4 6"/>',
+  job:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 13h18"/>',
+  ads:'<path d="M3 10v4l12 4V6L3 10Zm12-4 5-2v16l-5-2M6 15v5h4v-4"/>',
+  chart:'<path d="M3 3v18h18M7 17v-5m5 5V8m5 9V5"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 8 9 6 9-6"/>',
+  star:'<path d="m12 2 3.2 6.5 7.2 1.1-5.2 5.1 1.3 7.2-6.5-3.4-6.5 3.4 1.2-7.2-5.2-5.1 7.3-1.1z"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  search:'<circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
+  arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>'
+ };
+ return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[name]||paths.chart)+'</svg>';
+}
 function header(){return '<header class="tf-marketing-head"><span class="tf-marketing-kicker">TRADEFLOW / GROWTH</span><h1>Marketing Studio</h1><p>Plan and prepare campaigns. Nothing gets sent, published or billed without a separate service and your explicit action.</p></header>'}
 function nav(){return '<button type="button" class="tf-marketing-back" data-tab="settings">‹ More</button>'}
 function badge(status){return '<span class="tf-marketing-badge '+(status==='Ready'?'ready':'')+'">'+e(status||'Draft')+'</span>'}
