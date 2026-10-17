@@ -252,8 +252,8 @@ function directEditor(data){
  '<div class="tf-cal-direct-head"><i></i><strong>New event</strong><button type="button" data-calendar-action="direct-close" aria-label="Discard event draft">×</button></div>'+
  '<input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="Event title" value="'+e(q.title)+'">'+
  '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
- '<div class="tf-cal-direct-shortcuts"><div class="tf-cal-direct-durations" aria-label="Quick durations">'+[30,60,90,120].map(n=>'<button type="button" data-calendar-action="direct-duration" data-duration="'+n+'" class="'+(q.duration===n?'active':'')+'">'+n+'m</button>').join('')+'</div>'+
- '<label class="tf-cal-direct-kind-control"><span class="sr-only">Event type</span><select name="kind" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<option value="'+e(name.toLowerCase())+'" '+(q.kind===name.toLowerCase()?'selected':'')+'>'+e(name)+'</option>').join('')+'</select></label></div>'+
+ '<div class="tf-cal-direct-duration-control"><label for="tfCalDirectDuration">Duration <strong data-direct-duration-label="true">'+q.duration+' min</strong></label><input id="tfCalDirectDuration" name="durationSlider" type="range" min="30" max="120" step="30" value="'+q.duration+'" aria-label="Duration minutes"><div class="tf-cal-duration-marks"><span>30</span><span>60</span><span>90</span><span>120</span></div></div>'+
+ '<div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+e(name)+'</button>').join('')+'</div>'+
  '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label><label>Location<input name="location" maxlength="220" placeholder="Optional" value="'+e(q.location)+'"></label><label>Notes<textarea name="notes" rows="2" maxlength="1600" placeholder="Optional">'+e(q.notes)+'</textarea></label></details>'+
  '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div>'+
  '<button type="submit" class="tf-cal-direct-save">Create event</button></form></aside>';
@@ -287,7 +287,7 @@ function refreshDirect(){
  const q=directDraft;
  const start=form.querySelector?.('[name="start"]'),end=form.querySelector?.('[name="end"]');
  if(start)start.value=q.time;if(end)end.value=plusTime(q.time,q.duration);
- form.querySelectorAll?.('[data-duration]').forEach(b=>b.classList.toggle('active',Number(b.dataset.duration)===q.duration));
+ const slider=form.querySelector?.('[name="durationSlider"]'),label=form.querySelector?.('[data-direct-duration-label]');if(slider)slider.value=String(q.duration);if(label)label.textContent=q.duration+' min';
  const issues=directConflicts(lastData||{},q.date,q.time,q.duration);
  const feedback=form.querySelector?.('.tf-cal-direct-feedback');
  if(feedback)feedback.textContent=directError||(issues.length?'Overlaps '+issues[0].title+'. Choose another time.':'');
@@ -311,6 +311,7 @@ function directInput(ev){
  if(x.name==='location')q.location=x.value.slice(0,220);
  if(x.name==='notes')q.notes=x.value.slice(0,1600);
  if(x.name==='calendarId')q.calendarId=x.value;
+ if(x.name==='durationSlider'){q.duration=Number(x.value)||60;directError='';refreshDirect()}
  if(x.name==='kind'){q.kind=x.value;q.calendarId=q.kind==='task'?'tasks':q.kind==='site visit'?'jobs':'internal';const c=x.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(c)c.value=q.calendarId;}
  if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect()}
  if(x.name==='end'&&validTime(x.value)){
