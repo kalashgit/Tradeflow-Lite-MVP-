@@ -162,36 +162,109 @@ function paymentForm(d,inv){
  '<p class="tf-revenue-warning">Only record money genuinely received. This form does not initiate or verify transfers.</p>'+
  '<button class="tf-revenue-primary" type="submit">Record received payment</button></form></div>';
 }
-function profitPage(d){
- const jobs=(d.jobs||[]),selected=jobs.find(x=>x.id===jobId),linked=d.jobCosts||[],expenses=d.expenses||[],payments=d.payments||[],quotes=d.quotes||[],invoices=d.invoices||[];
- if(!selected)return '<div class="tf-revenue-page">'+sectionHeading('Job Costing','Review cash collected and known costs by job.')+topNav('profitability')+
- '<div class="tf-revenue-sectionhead"><h2>Select a job</h2></div>'+
- (jobs.length?jobs.map(x=>'<button type="button" class="tf-revenue-listitem" data-revenue-action="job" data-id="'+esc(x.id)+'"><span><strong>'+esc(x.title||'Job')+'</strong><small>'+esc(x.status||'')+' · '+esc(x.date||'Unscheduled')+'</small></span><span>›</span></button>').join(''):'<div class="tf-revenue-empty">No jobs yet. Create one under More → Jobs.</div>')+'</div>';
- const cost=linked.filter(x=>x.jobId===selected.id);
- const estimated=cost.filter(x=>x.type==='estimate').reduce((n,x)=>n+Number(x.amount||0),0);
- const manualActual=cost.filter(x=>x.type==='actual').reduce((n,x)=>n+Number(x.amount||0),0);
- const financeExpenses=expenses.filter(x=>x.relatedId===selected.id||x.jobId===selected.id).reduce((n,x)=>n+Number(x.amount||0),0);
- const relatedInvoiceIds=new Set(invoices.filter(x=>x.jobId===selected.id).map(x=>x.id));
- const received=payments.filter(x=>x.jobId===selected.id||x.relatedId===selected.id||(x.invoiceId&&relatedInvoiceIds.has(x.invoiceId))).reduce((n,x)=>n+Number(x.amount||0),0);
- const quoted=quotes.find(q=>q.id===selected.quoteId);
- const expected=Number(quoted?.amount)||0;
- const spent=manualActual+financeExpenses;
- return '<div class="tf-revenue-page"><button type="button" class="tf-revenue-back" data-revenue-action="job-back">‹ All jobs</button>'+
- sectionHeading(selected.title||'Job profitability','Recorded amounts; incomplete costs do not represent final profit.')+topNav('profitability')+
- '<div class="tf-revenue-stats tf-revenue-stats-grid"><div><small>LINKED QUOTATION</small><strong>'+money(expected)+'</strong></div><div><small>PLANNED COSTS</small><strong>'+money(estimated)+'</strong></div><div><small>CASH RECEIVED</small><strong>'+money(received)+'</strong></div><div><small>RECORDED COSTS</small><strong>'+money(spent)+'</strong></div></div>'+
- '<section class="tf-revenue-card"><h2>Cash contribution (incomplete)</h2><div class="tf-revenue-highlight">'+money(received-spent)+'</div>'+
- '<p>This is money recorded as received for this job minus linked Finance expenses and manually recorded direct costs. It excludes missing wages, overhead, taxes and unrecorded spending. It is not an audited profit or margin.</p>'+
- '<div class="tf-revenue-smallstats"><span>Finance expenses: '+money(financeExpenses)+'</span><span>Manual actual costs: '+money(manualActual)+'</span></div></section>'+
- '<div class="tf-revenue-sectionhead"><h2>Job cost entries</h2></div>'+
- '<form id="tfRevenueCostForm" data-id="'+esc(selected.id)+'" class="tf-revenue-card tf-revenue-form">'+
- '<label>Cost description<input name="title" maxlength="150" required placeholder="Labor hours / planned materials"></label>'+
+
+let jobCostFilter='Active',jobCostQuery='',costFormOpen=false;
+const value=n=>Number.isFinite(Number(n))?Number(n):0;
+const costKinds=['Labor','Materials','Subcontractors','Equipment','Permits','Transport','Overhead','Other'];
+function jobSummary(job,d){
+ const cost=(d.jobCosts||[]).filter(x=>x.jobId===job.id),expense=(d.expenses||[]).filter(x=>x.jobId===job.id||x.relatedId===job.id);
+ const budget=cost.filter(x=>x.type==='estimate').reduce((v,x)=>v+Math.max(0,value(x.amount)),0);
+ const actualManual=cost.filter(x=>x.type==='actual').reduce((v,x)=>v+Math.max(0,value(x.amount)),0);
+ const actualFinance=expense.reduce((v,x)=>v+Math.max(0,value(x.amount)),0);
+ const actual=actualManual+actualFinance;
+ const jobOrders=(d.supplyOrders||[]).filter(x=>x.jobId===job.id&&x.documentStatus==='Issued'&&x.deliveryStatus!=='Cancelled'&&x.status!=='Cancelled');
+ const committed=jobOrders.reduce((v,x)=>v+Math.max(0,value(x.total)),0);
+ const quote=(d.quotes||[]).find(x=>x.id===job.quoteId),contract=value(job.contractValue)||value(quote?.amount);
+ const invoices=(d.invoices||[]).filter(x=>x.jobId===job.id&&x.status!=='Void');
+ const invoiceIds=new Set(invoices.map(x=>x.id));
+ const billed=invoices.filter(x=>x.status==='Issued').reduce((v,x)=>v+totals(x).total,0);
+ const receipts=(d.payments||[]).filter(p=>p.invoiceId?invoiceIds.has(p.invoiceId):p.jobId===job.id||p.relatedId===job.id).reduce((v,x)=>v+value(x.amount),0);
+ const risk=budget>0&&actual>budget;
+ const categories={};
+ for(const x of cost.filter(x=>x.type==='actual'))categories[x.category||'Other']=(categories[x.category||'Other']||0)+value(x.amount);
+ for(const x of expense)categories[x.category||'Other']=(categories[x.category||'Other']||0)+value(x.amount);
+ return {job,cost,expense,budget,actual,actualManual,actualFinance,committed,jobOrders,contract,billed,receipts,risk,categories,
+   cashContribution:receipts-actual,remainingBudget:budget>0?budget-actual:null,
+   provisionalMargin:contract>0?(contract-actual)/contract*100:null,
+   forecast:null};
+}
+function costIcon(path){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>'}
+function jobCostOverview(d){
+ const jobs=d.jobs||[],summaries=jobs.map(j=>jobSummary(j,d));
+ const active=summaries.filter(x=>!['Completed','Cancelled','Canceled'].includes(x.job.status||''));
+ const budgeted=active.filter(x=>x.budget>0),budgetTotal=budgeted.reduce((s,x)=>s+x.budget,0),spentBudgeted=budgeted.reduce((s,x)=>s+x.actual,0);
+ const riskCount=active.filter(x=>x.risk).length;
+ const contractTotal=active.reduce((s,x)=>s+x.contract,0),actualTotal=active.reduce((s,x)=>s+x.actual,0);
+ const selected=summaries.filter(x=>(jobCostFilter==='All'||jobCostFilter==='Active'&&!['Completed','Cancelled','Canceled'].includes(x.job.status||'')||
+ jobCostFilter==='At risk'&&x.risk||jobCostFilter==='Completed'&&x.job.status==='Completed')&&
+ (x.job.title||'').toLowerCase().includes(jobCostQuery.toLowerCase()));
+ const iconChart=costIcon('<path d="M3 3v18h18M7 17v-5m5 5V7m5 10V5"/>');
+ const iconWallet=costIcon('<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M16 14h5"/>');
+ const iconAlert=costIcon('<path d="m12 3 10 18H2L12 3Z"/><path d="M12 10v4m0 3h.01"/>');
+ const iconJobs=costIcon('<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 13h18"/>');
+ const tile=(label,num,icon,style,sub)=>'<div class="tf-jc-tile"><div class="tf-jc-tile-label"><span>'+label+'</span><span class="tf-jc-icon tf-jc-'+style+'">'+icon+'</span></div><strong>'+num+'</strong><small>'+sub+'</small></div>';
+ const percent=budgetTotal>0?Math.min(100,spentBudgeted/budgetTotal*100):0;
+ let out='<section class="tf-revenue-page tf-jc-v2"><header class="tf-jc-heading"><div><span class="tf-jc-kicker">TRADEFLOW / FINANCE</span><h1>Job Costing</h1><p>Budgets, recorded spending and job-level cash performance.</p></div><span class="tf-jc-heading-icon">'+iconChart+'</span></header>'+topNav('profitability')+
+ '<div class="tf-jc-metrics">'+tile('Active job value',money(contractTotal),iconJobs,'cyan','Linked contract / quote values')+
+ tile('Recorded costs',money(actualTotal),iconWallet,'teal','Active jobs · known costs only')+
+ tile('Budget coverage',budgeted.length+' / '+active.length,iconChart,'green','Active jobs with estimates')+
+ tile('Jobs over budget',String(riskCount),iconAlert,riskCount?'amber':'green','Recorded costs exceed budget')+'</div>'+
+ '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Budget vs. actual</h2><span>Recorded</span></div>'+
+ '<div class="tf-jc-chart-numbers"><div><small>ESTIMATED BUDGET</small><strong>'+money(budgetTotal)+'</strong></div><div><small>ACTUAL COSTS</small><strong>'+money(spentBudgeted)+'</strong></div></div>'+
+ '<div class="tf-jc-track" role="progressbar" aria-label="Budget consumed" aria-valuenow="'+Math.round(percent)+'" aria-valuemin="0" aria-valuemax="100"><div style="width:'+percent+'%"></div></div>'+
+ '<p>'+ (budgeted.length?Math.round(spentBudgeted/budgetTotal*100)+'% of the budgets with estimates has been spent.':'Add planned costs to see meaningful budget comparisons.')+
+ ' Figures exclude jobs without budgets and do not estimate unfinished work.</p></section>'+
+ '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Active jobs</h2><span>'+selected.length+' shown</span></div>'+
+ '<div class="tf-jc-filters">'+['Active','All','At risk','Completed'].map(x=>'<button type="button" data-revenue-action="cost-filter" data-filter="'+x+'" class="'+(jobCostFilter===x?'active':'')+'" aria-pressed="'+(jobCostFilter===x)+'">'+x+'</button>').join('')+'</div>'+
+ '<label class="tf-jc-search-label">Find a job<input type="search" id="tfJobCostSearch" placeholder="Search job name" value="'+esc(jobCostQuery)+'" autocomplete="off"></label>'+
+ (selected.length?'<div class="tf-jc-job-list">'+selected.sort((a,b)=>Number(b.risk)-Number(a.risk)).slice(0,80).map(x=>{
+ const covered=x.budget>0,ratio=covered?Math.min(100,x.actual/x.budget*100):0;
+ return '<button class="tf-jc-job-row" data-revenue-action="job" data-id="'+esc(x.job.id)+'" type="button"><div class="tf-jc-job-top"><span><strong>'+esc(x.job.title||'Untitled job')+'</strong><small>'+esc((d.customers||[]).find(c=>c.id===x.job.customerId)?.name||'Customer not linked')+' · '+esc(x.job.status||'Unscheduled')+'</small></span><span class="tf-jc-risk '+(x.risk?'over':'')+'">'+(x.risk?'Over budget':covered?'Budget tracked':'Incomplete')+'</span></div>'+
+ '<div class="tf-jc-job-values"><span><small>Budget</small><strong>'+(covered?money(x.budget):'Not set')+'</strong></span><span><small>Spent</small><strong>'+money(x.actual)+'</strong></span><span><small>Remaining</small><strong>'+(covered?money(x.remainingBudget):'—')+'</strong></span></div>'+
+ '<div class="tf-jc-track slim"><div class="'+(x.risk?'over':'')+'" style="width:'+ratio+'%"></div></div>'+
+ '<div class="tf-jc-job-footer"><span>'+x.jobOrders.length+' linked issued PO'+(x.jobOrders.length===1?'':'s')+'</span><span>Review job →</span></div></button>';
+ }).join('')+'</div>':'<div class="tf-jc-empty">'+(jobs.length?'No jobs match this filter.':'No jobs yet. Create your first job to begin tracking its costs.')+'</div>')+
+ '</section><button class="tf-jc-primary" type="button" data-revenue-action="cost-quick">＋ Add job cost</button>'+
+ '<p class="tf-jc-footnote">All figures reflect local records. Commitments from issued purchase orders are displayed separately in job detail; they are not treated as paid costs. No profit forecast is asserted without remaining-cost estimates.</p></section>';
+ return out;
+}
+function jobCostDetail(d,selected){
+ const x=jobSummary(selected,d),entries=x.cost,actualEntries=entries.filter(c=>c.type==='actual');
+ const breakdown=Object.entries(x.categories).sort((a,b)=>b[1]-a[1]);
+ const covered=x.budget>0,ratio=covered?Math.min(100,x.actual/x.budget*100):0;
+ return '<section class="tf-revenue-page tf-jc-v2"><button type="button" class="tf-revenue-back" data-revenue-action="job-back">‹ Job costing</button>'+
+ '<header class="tf-jc-heading"><div><span class="tf-jc-kicker">JOB FINANCIAL DOSSIER</span><h1>'+esc(selected.title||'Job')+'</h1><p>'+esc(selected.status||'Unscheduled')+' · '+esc((d.customers||[]).find(c=>c.id===selected.customerId)?.name||'No customer')+'</p></div></header>'+
+ '<div class="tf-jc-metrics">'+
+ '<div class="tf-jc-tile"><div class="tf-jc-tile-label">Contract / quote</div><strong>'+money(x.contract)+'</strong><small>'+(x.contract?'Linked value':'Not specified')+'</small></div>'+
+ '<div class="tf-jc-tile"><div class="tf-jc-tile-label">Cost budget</div><strong>'+(covered?money(x.budget):'Not set')+'</strong><small>Planned cost entries</small></div>'+
+ '<div class="tf-jc-tile"><div class="tf-jc-tile-label">Actual cost</div><strong>'+money(x.actual)+'</strong><small>Manual costs + Finance expenses</small></div>'+
+ '<div class="tf-jc-tile"><div class="tf-jc-tile-label">Committed POs</div><strong>'+money(x.committed)+'</strong><small>May overlap recorded costs</small></div></div>'+
+ '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Cost control</h2><span>'+(covered?(x.risk?'Over budget':'Within recorded budget'):'Budget missing')+'</span></div>'+
+ '<div class="tf-jc-chart-numbers"><div><small>REMAINING BUDGET</small><strong>'+(covered?money(x.remainingBudget):'—')+'</strong></div><div><small>BUDGET USED</small><strong>'+(covered?Math.round(x.actual/x.budget*100)+'%':'—')+'</strong></div></div>'+
+ '<div class="tf-jc-track"><div class="'+(x.risk?'over':'')+'" style="width:'+ratio+'%"></div></div>'+
+ '<p>Cost-to-complete is not recorded yet. Remaining budget is not a profit forecast. Committed POs are shown separately to avoid counting unreceived purchases as expenses.</p></section>'+
+ '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Billing & cash</h2><span>Linked records</span></div>'+
+ '<div class="tf-jc-chart-numbers"><div><small>INVOICED</small><strong>'+money(x.billed)+'</strong></div><div><small>CASH RECEIVED</small><strong>'+money(x.receipts)+'</strong></div></div>'+
+ '<div class="tf-jc-chart-numbers"><div><small>RECORDED COSTS</small><strong>'+money(x.actual)+'</strong></div><div><small>CASH CONTRIBUTION</small><strong>'+money(x.cashContribution)+'</strong></div></div>'+
+ '<p>Cash contribution excludes unrecorded payroll, overhead, taxes and pending costs. It is not final profit.</p></section>'+
+ '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Cost categories</h2><span>'+breakdown.length+' tracked</span></div>'+
+ (breakdown.length?breakdown.map(([name,amount])=>'<div class="tf-jc-category"><span>'+esc(name)+'</span><strong>'+money(amount)+'</strong></div>').join(''):'<p>No actual costs recorded in this job yet.</p>')+'</section>'+
+ '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Cost entries</h2><button data-revenue-action="cost-toggle" type="button">'+(costFormOpen?'Close form':'+ Add cost')+'</button></div>'+
+ (costFormOpen?'<form id="tfRevenueCostForm" data-id="'+esc(selected.id)+'" class="tf-revenue-form tf-jc-form">'+
+ '<label>Cost description<input name="title" maxlength="150" required placeholder="4 hours field labor, cable, permit"></label>'+
  '<div class="tf-revenue-two"><label>Amount (€)<input name="amount" type="number" min=".01" max="100000000" step=".01" required></label>'+
- '<label>Classification<select name="type"><option value="estimate">Planned / estimate</option><option value="actual">Actual direct cost</option></select></label></div>'+
- '<label>Cost category<select name="category"><option>Labor</option><option>Materials</option><option>Subcontractors</option><option>Overhead</option><option>Other</option></select></label>'+
- '<p class="tf-revenue-warning">Do not enter the same actual cost here if it already exists as a job-linked expense in Finance, or it will be counted twice.</p>'+
- '<button class="tf-revenue-primary" type="submit">Add cost</button></form>'+
- (cost.length?cost.map(c=>'<article class="tf-revenue-listitem"><span><strong>'+esc(c.title)+'</strong><small>'+esc(c.type==='estimate'?'Planned':'Actual')+' · '+esc(c.category)+'</small></span><span><strong>'+money(c.amount)+'</strong><button class="tf-revenue-textdanger" type="button" data-revenue-action="remove-cost" data-id="'+esc(c.id)+'">Remove</button></span></article>').join(''):'')+
- '</div>';
+ '<label>Record type<select name="type"><option value="actual">Actual cost</option><option value="estimate">Planned budget</option></select></label></div>'+
+ '<label>Cost category<select name="category">'+costKinds.map(k=>'<option>'+k+'</option>').join('')+'</select></label>'+
+ '<p class="tf-jc-footnote">Do not duplicate Finance expenses or supplier bills already recorded for this job.</p>'+
+ '<button class="tf-jc-primary" type="submit">Save cost entry</button></form>':'')+
+ (entries.length?entries.slice().reverse().map(c=>'<div class="tf-jc-entry"><span><strong>'+esc(c.title)+'</strong><small>'+esc(c.type==='estimate'?'Budget':'Actual')+' · '+esc(c.category||'Other')+'</small></span><span><strong>'+money(c.amount)+'</strong><button type="button" data-revenue-action="remove-cost" data-id="'+esc(c.id)+'" class="tf-revenue-textdanger">Remove</button></span></div>').join(''):'<p>No manual cost entries yet.</p>')+'</section>'+
+ (x.expense.length?'<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Linked Finance expenses</h2><span>'+x.expense.length+'</span></div>'+x.expense.map(e=>'<div class="tf-jc-category"><span>'+esc(e.title||e.vendor||e.category||'Expense')+'</span><strong>'+money(e.amount)+'</strong></div>').join('')+'</section>':'')+
+ (x.jobOrders.length?'<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Issued purchase orders</h2><span>'+x.jobOrders.length+'</span></div>'+x.jobOrders.map(o=>'<div class="tf-jc-category"><span>'+esc(o.poNumber||'Purchase order')+'</span><strong>'+money(o.total)+'</strong></div>').join('')+'<p>Orders are commitments, not evidence of payment or expense recognition.</p></section>':'')+
+ '<button class="tf-jc-secondary" type="button" data-revenue-action="cost-csv" data-id="'+esc(selected.id)+'">Export job costs CSV</button></section>';
+}
+function profitPage(d){
+ const selected=(d.jobs||[]).find(x=>x.id===jobId);
+ return selected?jobCostDetail(d,selected):jobCostOverview(d);
 }
 function view(tab,d){
  if(tab==='invoices'){
@@ -259,7 +332,7 @@ async function onSubmit(event){
    const title=trim(fd.get('title'),150);if(!title)throw Error('Cost description is required.');
    await api.put('jobCosts',{id:api.uid(),jobId:job.id,title,amount:Math.round(amount*100)/100,
       type,category:trim(fd.get('category'),80),createdAt:new Date().toISOString()});
-   api.notify('Job cost saved');
+   costFormOpen=false;api.notify('Job cost saved');
   }
  }catch(err){alert('Could not save: '+err.message)}
 }
@@ -295,8 +368,12 @@ async function onClick(event){
  }
  if(a==='record'){mode='payment';invoiceId=id;api.render();return}
  if(a==='print'){window.print?.();return}
+ if(a==='cost-filter'){jobCostFilter=b.dataset.filter||'Active';api.render();return}
+ if(a==='cost-toggle'){costFormOpen=!costFormOpen;api.render();return}
+ if(a==='cost-quick'){const jobs=await api.all('jobs');if(!jobs.length){api.navigate?.('jobs');return}jobId=jobs[0].id;costFormOpen=true;api.render();return}
+ if(a==='cost-csv'){const job=await api.get('jobs',id);if(!job)return;const costs=(await api.all('jobCosts')).filter(x=>x.jobId===id);const expenses=(await api.all('expenses')).filter(x=>x.jobId===id||x.relatedId===id);const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Source','Title','Type','Category','Amount EUR'],...costs.map(x=>['Job Cost',x.title,x.type,x.category,x.amount]),...expenses.map(x=>['Finance',x.title||x.vendor||'Expense','actual',x.category,x.amount])];const blob=new Blob([rows.map(x=>x.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const link=URL.createObjectURL(blob),el=document.createElement('a');el.href=link;el.download='tradeflow-job-costs-'+id+'.csv';document.body.appendChild(el);el.click();el.remove();setTimeout(()=>URL.revokeObjectURL(link),1000);return}
  if(a==='job'){jobId=id;api.render();return}
- if(a==='job-back'){jobId='';api.render();return}
+ if(a==='job-back'){jobId='';costFormOpen=false;api.render();return}
  if(a==='remove-cost'){
   const cost=await api.get('jobCosts',id);if(!cost||!confirm('Delete this local job cost entry?'))return;
   await api.del('jobCosts',id);api.notify('Job cost removed');return;
@@ -306,5 +383,6 @@ async function onClick(event){
 function init(bridge){
  api=bridge;document.addEventListener('submit',onSubmit);document.addEventListener('click',onClick);
 }
-global.TradeFlowRevenue={configure:init,render:view,_test:{totals,collected,state,esc,parseLines}};
+document.addEventListener('change',event=>{if(event.target?.id==='tfJobCostSearch'){jobCostQuery=trim(event.target.value,100);api?.render()}});
+global.TradeFlowRevenue={configure:init,render:view,_test:{totals,collected,state,esc,parseLines,jobSummary}};
 })(typeof window!=='undefined'?window:globalThis);
