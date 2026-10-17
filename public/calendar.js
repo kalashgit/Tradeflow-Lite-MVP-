@@ -248,16 +248,18 @@ function directConflicts(data,date,time,duration){
 }
 function directEditor(data){
  if(!directDraft)return '';
- const q=directDraft,issues=directConflicts(data,q.date,q.time,q.duration);
- const warnings=directError||(issues.filter(x=>x.id!==q.id).length?'Time overlaps another commitment. Adjust time.':'');
- return '<aside class="tf-cal-direct-editor" aria-label="Edit calendar event" role="dialog"><form id="tfCalDirectForm" novalidate>'+
+ const q=directDraft,issues=directConflicts(data,q.date,q.time,q.duration).filter(x=>x.id!==q.id);
+ const warnings=directError||(issues.length?'Overlaps '+issues[0].title+'. Adjust time.':'');
+ const symbols={event:glyph('calendar'),task:glyph('task'),'site visit':glyph('map'),meeting:glyph('user')};
+ return '<aside class="tf-cal-direct-editor" aria-label="Edit calendar event" role="dialog"><div class="tf-cal-editor-grip" aria-hidden="true"></div><form id="tfCalDirectForm" novalidate>'+
  '<div class="tf-cal-direct-head"><i></i><strong>Edit event</strong><button type="button" data-calendar-action="direct-close" aria-label="Close event editor">×</button></div>'+
- '<input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="Event title" value="'+e(q.title)+'">'+
- '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
- '<div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+e(name)+'</button>').join('')+'</div>'+
- '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label><label>Location<input name="location" maxlength="220" placeholder="Optional" value="'+e(q.location)+'"></label><label>Notes<textarea name="notes" rows="2" maxlength="1600" placeholder="Optional">'+e(q.notes)+'</textarea></label></details>'+
- '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div>'+
- '</form></aside>';
+ '<label class="tf-cal-direct-field"><span>Title</span><input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="New event" value="'+e(q.title||'New event')+'"></label>'+
+ '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label><div class="tf-cal-direct-duration-readout"><span>Duration</span><strong data-cal-duration>'+Math.floor(q.duration/60)+'h '+q.duration%60+'m</strong></div></div>'+
+ '<div class="tf-cal-direct-section"><span class="tf-cal-direct-label">Event type</span><div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+symbols[name.toLowerCase()]+'<span>'+e(name)+'</span></button>').join('')+'</div></div>'+
+ '<label class="tf-cal-direct-field"><span>Location</span><div class="tf-cal-input-icon">'+glyph('map')+'<input name="location" maxlength="220" placeholder="Add location" value="'+e(q.location)+'"></div></label>'+
+ '<label class="tf-cal-direct-field"><span>Description</span><div class="tf-cal-input-icon">'+glyph('brief')+'<input name="notes" maxlength="1600" placeholder="Add description (optional)" value="'+e(q.notes)+'"></div></label>'+
+ '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label></details>'+
+ '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div></form></aside>';
 }
 function updateDirectGhost(){
  // An existing event is already visible in the timeline. Never layer a
@@ -267,6 +269,21 @@ function updateDirectGhost(){
  for(const track of root.querySelectorAll?.('.tf-cal-day-track')||[]){
   const node=track.querySelector?.('.tf-cal-direct-preview');
   node?.remove();
+ }
+}
+function updateDirectEventVisual(q){
+ if(!q?.id||typeof document==='undefined')return;
+ const root=document.querySelector?.('.tf-cal-page');if(!root)return;
+ const tint=q.kind==='task'?'#ff9f1c':q.kind==='site visit'?'#16c784':q.kind==='meeting'?'#ac76ff':'#12cfe6';
+ const icon=q.kind==='task'?'task':q.kind==='site visit'?'map':q.kind==='meeting'?'user':'calendar';
+ for(const btn of root.querySelectorAll?.('.tf-cal-event[data-key]')||[]){
+  if(btn.dataset.key!=='event:'+q.id)continue;
+  btn.style.setProperty('--event-color',tint);
+  const heading=btn.querySelector?.('.tf-cal-event-details strong');if(heading)heading.textContent=q.title||'New event';
+  const sub=btn.querySelector?.('.tf-cal-event-details small');if(sub)sub.textContent=clock(q.time)+' – '+clock(plusTime(q.time,q.duration));
+  const symbol=btn.querySelector?.('.tf-cal-event-icon');if(symbol)symbol.innerHTML=glyph(icon);
+  const position=btn.closest?.('.tf-cal-event-position'),track=position?.closest?.('.tf-cal-day-track');
+  if(position&&track){const first=Number(track.dataset.firstHour)||7;position.style.top=((minutes(q.time)-first*60)/60*64)+'px';position.style.height=Math.max(29,q.duration/60*64-3)+'px'}
  }
 }
 async function persistDirect(){
@@ -284,7 +301,7 @@ async function persistDirect(){
   const current=await bridge.get('calendarEntries',q.id);
   if(!current)return;
   const updated={...current,title:(q.title||'New event').trim()||'New event',date:q.date,time:q.time,durationMinutes:length,
-   kind:q.kind,calendarId:q.calendarId,location:q.location||'',notes:q.notes||'',updatedAt:new Date().toISOString(),version:(current.version||1)+1};
+   kind:q.kind,eventType:q.kind,calendarId:q.calendarId,location:q.location||'',notes:q.notes||'',updatedAt:new Date().toISOString(),version:(current.version||1)+1};
   await bridge.put('calendarEntries',updated);
   const cache=(lastData?.calendarEntries||[]),i=cache.findIndex(x=>x.id===q.id);
   if(i>=0)cache[i]=updated;else cache.push(updated);
@@ -318,13 +335,14 @@ function refreshDirect(){
  const start=form.querySelector?.('[name="start"]'),end=form.querySelector?.('[name="end"]');
  if(start)start.value=q.time;if(end)end.value=plusTime(q.time,q.duration);
  const issues=directConflicts(lastData||{},q.date,q.time,q.duration).filter(x=>x.id!==q.id);
+ const readout=form.querySelector?.('[data-cal-duration]');if(readout)readout.textContent=Math.floor(q.duration/60)+'h '+(q.duration%60)+'m';
  const feedback=form.querySelector?.('.tf-cal-direct-feedback');
  if(feedback)feedback.textContent=directError||(issues.length?'Overlaps '+issues[0].title+'. Choose another time.':'');
 }
 function openDirect(record){
  if(!record||record.kind!=='event')return;
  directDraft={id:record.id,date:record.date,time:record.time,title:record.title==='New event'?'':record.title,
-  duration:record.duration||60,kind:record.calendarId==='tasks'?'task':record.calendarId==='jobs'?'site visit':record.calendarId==='meetings'?'meeting':'event',
+  duration:record.duration||60,kind:['event','task','site visit','meeting'].includes(record.eventType||record.savedKind)?(record.eventType||record.savedKind):record.calendarId==='tasks'?'task':record.calendarId==='jobs'?'site visit':record.calendarId==='meetings'?'meeting':'event',
   calendarId:record.calendarId||'events',location:record.location||'',notes:record.notes||''};
  directError='';activeKey='';
  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
@@ -336,16 +354,16 @@ function openDirect(record){
 function directInput(ev){
  if(!directDraft||!ev.target.closest?.('#tfCalDirectForm'))return;
  const x=ev.target,q=directDraft;
- if(x.name==='title'){q.title=x.value.slice(0,150);queueDirectSave()}
+ if(x.name==='title'){q.title=x.value.slice(0,150);updateDirectEventVisual(q);queueDirectSave()}
  if(x.name==='location'){q.location=x.value.slice(0,220);queueDirectSave()}
  if(x.name==='notes'){q.notes=x.value.slice(0,1600);queueDirectSave()}
  if(x.name==='calendarId'){q.calendarId=x.value;queueDirectSave(true)}
  
  if(x.name==='kind'){q.kind=x.value;q.calendarId=q.kind==='task'?'tasks':q.kind==='site visit'?'jobs':'internal';const c=x.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(c)c.value=q.calendarId;}
- if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect();queueDirectSave(true)}
+ if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect();updateDirectEventVisual(q);queueDirectSave(true)}
  if(x.name==='end'&&validTime(x.value)){
   const difference=minutes(x.value)-minutes(q.time);
-  if(difference>=15&&difference<=720){q.duration=difference;directError='';queueDirectSave(true)}
+  if(difference>=15&&difference<=720){q.duration=difference;directError='';updateDirectEventVisual(q);queueDirectSave(true)}
   else directError='End must be 15 minutes to 12 hours after start.';
   refreshDirect();
  }
@@ -524,6 +542,7 @@ async function click(evt){
   directDraft.kind=b.dataset.kind;
   directDraft.calendarId=directDraft.kind==='task'?'tasks':directDraft.kind==='site visit'?'jobs':directDraft.kind==='meeting'?'meetings':'events';
   const picker=b.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(picker)picker.value=directDraft.calendarId;
+  updateDirectEventVisual(directDraft);
   queueDirectSave(true);
   b.closest?.('.tf-cal-direct-types')?.querySelectorAll?.('[data-kind]').forEach(x=>x.classList.toggle('active',x.dataset.kind===directDraft.kind));
   return;
