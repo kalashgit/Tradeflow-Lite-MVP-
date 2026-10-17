@@ -32,6 +32,7 @@ async function run(){
  assert.ok(notice.includes('Calendar'));assert.ok(cal.render({tasks:[saved],jobs:[]}).includes('Site visit'));
  await click({preventDefault(){},target:{dataset:{calendarAction:'opportunity',id:'abc'},closest(){return this}}});
  assert.equal(lastTab,'calendar');assert.ok(cal.render({tasks:[],jobs:[]}).includes('Office Plaza'));assert.ok(renderCount>=2);
+ await click({preventDefault(){},target:{dataset:{calendarAction:'cancel'},closest(){return this}}});
  const live={
   tasks:[{id:'flex',title:'Draft quotation',due:'2026-10-20',status:'Open',priority:'High'}],
   jobs:[{id:'job-1',title:'Site inspection',date:'2026-10-19',scheduleTime:'09:00',durationMinutes:90,assignedTo:'Owner'},
