@@ -261,6 +261,37 @@ async function onSubmit(event){
   await api.put('marketingCampaigns',campaign);draftId=campaign.id;mode='detail';api.notify('Marketing draft saved');
  }catch(err){alert('Could not save marketing draft: '+err.message)}
 }
-function configure(bridge){api=bridge;document.addEventListener('click',onClick);document.addEventListener('submit',onSubmit)}
+
+async function onMarketingDataSubmit(event){
+ if(!api)return;
+ const form=event.target;
+ if(!['tfMarketingSourceForm','tfMarketingSpendForm'].includes(form.id))return;
+ event.preventDefault();
+ const fd=new FormData(form),field=(k,n)=>clean(fd.get(k),n);
+ try{
+  const channel=field('channel',60),date=field('date',10),campaignId=field('campaignId',120);
+  if(!marketingChannels.includes(channel))throw Error('Choose a valid marketing channel.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(new Date(date+'T12:00:00Z').getTime())||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date)throw Error('Enter a valid calendar date.');
+  if(campaignId&&!(await api.all('marketingCampaigns')).some(x=>x.id===campaignId))throw Error('Campaign no longer exists.');
+  if(form.id==='tfMarketingSourceForm'){
+   const customerId=field('customerId',120);
+   if(!(await api.all('customers')).some(x=>x.id===customerId))throw Error('Select a saved customer.');
+   const saved=await api.get('settings',SOURCE_KEY)||{id:SOURCE_KEY,entries:[]};
+   const entries=Array.isArray(saved.entries)?saved.entries.filter(x=>x.customerId!==customerId):[];
+   if(entries.length>=2000)throw Error('Maximum 2,000 manually tracked customer sources.');
+   entries.push({customerId,channel,date,campaignId,note:field('note',300),manual:true,updatedAt:new Date().toISOString()});
+   await api.put('settings',{...saved,id:SOURCE_KEY,entries,updatedAt:new Date().toISOString()});
+   sourceCustomerId='';mode='list';api.notify('Customer source recorded locally');return;
+  }
+  const amount=Number(fd.get('amount')),title=field('title',120);
+  if(!title)throw Error('Describe the marketing expense.');
+  if(!Number.isFinite(amount)||amount<=0||amount>100000000||Math.abs(amount*100-Math.round(amount*100))>1e-6)throw Error('Enter an amount with up to two decimal places.');
+  await api.put('expenses',{id:api.uid(),title,category:'Marketing',amount:Math.round(amount*100)/100,date,
+    marketingSpend:true,marketingChannel:channel,marketingCampaignId:campaignId,currency:'EUR',
+    createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  spendCampaignId='';mode='list';api.notify('Marketing expense recorded in Finance');return;
+ }catch(error){alert('Could not save marketing record: '+error.message)}
+}
+function configure(bridge){api=bridge;document.addEventListener('click',onClick);document.addEventListener('submit',onSubmit);document.addEventListener('submit',onMarketingDataSubmit)}
 global.TradeFlowMarketing={configure,render,_test:{templates,esc:e,profiles}};
 })(typeof window!=='undefined'?window:globalThis);
