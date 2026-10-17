@@ -1952,7 +1952,7 @@ let tfIntelligenceExpanded=false;
 function tfIntelligenceStats(d){
  const localDate=(()=>{const x=new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')})();
  const active=(d.tasks||[]).filter(x=>x.status!=='Done'&&x.status!=='Completed'&&x.status!=='Cancelled');
- const urgent=active.filter(x=>['p1','p2','high','critical','urgent'].includes(String(x.priority||'').toLowerCase())&&(!x.due||x.due<=localDate)).length;
+ const urgent=active.filter(x=>['p1','p2','high','critical','urgent'].includes(String(x.priority||'').toLowerCase())&&x.due&&x.due<=localDate).length;
  const overdue=active.filter(x=>x.due&&x.due<localDate).length;
  const conflicts=window.TradeFlowCalendar?.conflicts?.(d)?.length||0;
  const proposals=window.TradeFlowScheduler?.analyze(d).proposals.length||0;
