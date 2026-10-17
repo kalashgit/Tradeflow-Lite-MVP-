@@ -244,6 +244,8 @@
   if(caption)caption.textContent=origin?(startOverride?'From '+startOverride.label:'From '+headquarters):'Set route start';
   // The compact card is one continuous grab surface, right down to its bottom edge.
   // Expanded cards grab from the whole header while body content remains scrollable.
+  let blockClickUntil=0;
+  sheet.addEventListener('click',event=>{if(performance.now()<blockClickUntil){event.preventDefault();event.stopImmediatePropagation()}},true);
   const interactive='button:not(.tf-exp-handle),a,input,select,textarea,[contenteditable],summary';
   const heights=()=>sheetHeights();
   const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
@@ -284,8 +286,8 @@
    const projected=clamp(actual-g.velocity*140,h.peek,h.full);
    const next=Object.keys(h).reduce((best,key)=>Math.abs(h[key]-projected)<Math.abs(h[best]-projected)?key:best,'peek');
    setStage(next);
-   // Avoid treating a completed swipe as a click on sheet content.
-   sheet.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()},{capture:true,once:true});
+   // Suppress only the synthetic click associated with this swipe, not later taps.
+   blockClickUntil=performance.now()+260;
   });
   sheet.addEventListener('pointercancel',()=>{if(!drag)return;resetDrag();setStage(sheet.dataset.stage,false)});
   sheet.addEventListener('lostpointercapture',()=>{if(drag){resetDrag();setStage(sheet.dataset.stage,false)}});
