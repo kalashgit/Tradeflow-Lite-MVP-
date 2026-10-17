@@ -16,11 +16,11 @@
  function formSupplier(rec){
   return '<section class="tf-supplier-edit"><h2>'+(rec?.id?'Edit supplier':'Add supplier')+'</h2><form id="tfSupplierForm" data-id="'+value(rec,'id')+'">'+
    '<label>Supplier business name *<input required maxlength="140" name="name" value="'+value(rec,'name')+'" placeholder="Supplier name"></label>'+
-   '<label>Business / dispatch address<input maxlength="300" name="address" value="'+value(rec,'address')+'" placeholder="Street address or full Google Maps link"></label>'+
-   '<div class="tf-supplier-grid"><label>Latitude<input name="latitude" type="number" step="any" min="-90" max="90" value="'+value(rec,'latitude')+'" placeholder="Optional"></label>'+
+   '<label>Email for purchase orders<input type="email" maxlength="180" name="email" value="'+value(rec,'email')+'" placeholder="purchasing@supplier.com"></label>'+
+   '<label>Public business phone<input maxlength="80" name="phone" value="'+value(rec,'phone')+'"></label>'+
+   '<label>Business / dispatch address<input maxlength="300" name="address" value="'+value(rec,'address')+'" placeholder="Street, city, region"></label>'+
+   '<details><summary>Advanced supplier details</summary><div class="tf-supplier-grid"><label>Latitude<input name="latitude" type="number" step="any" min="-90" max="90" value="'+value(rec,'latitude')+'" placeholder="Optional"></label>'+
    '<label>Longitude<input name="longitude" type="number" step="any" min="-180" max="180" value="'+value(rec,'longitude')+'" placeholder="Optional"></label></div>'+
-   '<details><summary>Contact and notes</summary><label>Public business phone<input maxlength="80" name="phone" value="'+value(rec,'phone')+'"></label>'+
-   '<label>Public business email<input type="email" maxlength="180" name="email" value="'+value(rec,'email')+'"></label>'+
    '<label>Official website<input type="url" maxlength="400" name="website" value="'+value(rec,'website')+'"></label>'+
    '<label>Business category<input name="category" maxlength="70" value="'+value(rec,'category')+'" placeholder="e.g. Electrical materials"></label>'+
    '<label>Business hours<input name="businessHours" maxlength="160" value="'+value(rec,'businessHours')+'" placeholder="e.g. Mon–Fri, 7 AM–5 PM"></label>'+
@@ -47,9 +47,11 @@
   const jobList=(data.jobs||[]).map(x=>[x.id,x.title||'Job']);
   const opportunityList=(data.opportunities||[]).map(x=>[x.id,x.project_name||'Opportunity']);
   const destination=rec?.destinationKind||'business';
+  const business=(data.settings||[]).find(x=>x.id==='business')||{};
   const items=(Array.isArray(rec?.lineItems)&&rec.lineItems.length)?rec.lineItems:[{description:rec?.description||'',quantity:1,unit:'unit',unitPrice:0}];
   return '<section class="tf-supplier-edit tf-po-form"><header class="tf-po-form-header"><span class="tf-po-overline">PURCHASING / DRAFT</span><h2>'+(rec?.id?'Edit purchase order':'New purchase order')+'</h2><p>'+esc(rec?.poNumber||'A unique PO number is assigned on save')+'</p></header>'+
    '<form id="tfSupplyOrderForm" data-id="'+value(rec,'id')+'">'+
+   (!business.company||!business.businessAddress?'<p class="tf-po-warning">Add your business name and address in Settings before issuing a formal purchase order.</p>':'')+
    '<label>Supplier *<select name="supplierId" required>'+opts(suppliers.map(x=>[x.id,x.name]),rec?.supplierId||orderSupplierId)+'</select></label>'+
    '<div class="tf-po-section-label"><strong>Items & prices</strong><span>Editable order lines</span></div>'+
    '<div id="tfPoLines">'+items.map(lineRow).join('')+'</div>'+
