@@ -7,7 +7,7 @@
 var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
 var hiddenLayers=new Set(),preferencesHydrated=false,scheduleSettingsOpen=false;
 var calendarViewport={top:0,left:0};
-var directDraft=null,directError='',directSaving=false;
+var directDraft=null,directError='',directSaving=false,directSaveTimer=null;
 function rememberViewport(){const node=typeof document!=='undefined'?document.querySelector?.('.tf-cal-timeline'):null;if(node)calendarViewport={top:node.scrollTop,left:node.scrollLeft}}
 function restoreViewport(){if(typeof document==='undefined')return;const work=()=>{const node=document.querySelector?.('.tf-cal-timeline');if(node){node.scrollTop=calendarViewport.top;node.scrollLeft=calendarViewport.left}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(work);else work()}
 
@@ -249,34 +249,67 @@ function directConflicts(data,date,time,duration){
 function directEditor(data){
  if(!directDraft)return '';
  const q=directDraft,issues=directConflicts(data,q.date,q.time,q.duration);
- const warnings=directError||(issues.length?'Overlaps '+issues[0].title+'. Adjust time.':'');
- return '<aside class="tf-cal-direct-editor" aria-label="Quick event creation" role="dialog"><form id="tfCalDirectForm" novalidate>'+
- '<div class="tf-cal-direct-head"><i></i><strong>New event</strong><button type="button" data-calendar-action="direct-close" aria-label="Discard event draft">×</button></div>'+
+ const warnings=directError||(issues.filter(x=>x.id!==q.id).length?'Time overlaps another commitment. Adjust time.':'');
+ return '<aside class="tf-cal-direct-editor" aria-label="Edit calendar event" role="dialog"><form id="tfCalDirectForm" novalidate>'+
+ '<div class="tf-cal-direct-head"><i></i><strong>Event</strong><button type="button" data-calendar-action="direct-close" aria-label="Close event editor">×</button></div>'+
  '<input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="Event title" value="'+e(q.title)+'">'+
  '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
  '<div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+e(name)+'</button>').join('')+'</div>'+
  '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label><label>Location<input name="location" maxlength="220" placeholder="Optional" value="'+e(q.location)+'"></label><label>Notes<textarea name="notes" rows="2" maxlength="1600" placeholder="Optional">'+e(q.notes)+'</textarea></label></details>'+
  '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div>'+
- '<button type="submit" class="tf-cal-direct-save">Create event</button></form></aside>';
+ '</form></aside>';
 }
 function updateDirectGhost(){
- if(typeof document==='undefined')return;
+ // An existing event is already visible in the timeline. Never layer a
+ // second temporary rectangle on top of a saved record.
+ if(!directDraft||directDraft.id||typeof document==='undefined')return;
  const root=document.querySelector?.('.tf-cal-page');if(!root)return;
  for(const track of root.querySelectorAll?.('.tf-cal-day-track')||[]){
-  let node=track.querySelector?.('.tf-cal-direct-preview');
-  const q=directDraft;
-  if(!q||track.dataset.date!==q.date){node?.remove();continue}
-  const first=Number(track.dataset.firstHour)||7,top=(minutes(q.time)-first*60)/60*64;
-  if(top<0||top>track.offsetHeight){node?.remove();continue}
-  if(!node){node=document.createElement('div');node.className='tf-cal-direct-preview';track.appendChild(node)}
-  node.style.top=top+'px';node.style.height=Math.max(30,q.duration/60*64-3)+'px';
-  node.style.setProperty('--draft-color',q.kind==='task'?'#ff9f1c':q.kind==='site visit'?'#16c784':q.kind==='meeting'?'#ac76ff':'#12cfe6');
-  node.innerHTML='<span>⠿ '+e(q.title||'New event')+'</span><small>'+e(clock(q.time))+' · '+q.duration+'m · hold to move</small>';
+  const node=track.querySelector?.('.tf-cal-direct-preview');
+  node?.remove();
  }
 }
-function closeDirect(){
+async function persistDirect(){
+ if(!directDraft||!directDraft.id||!bridge)return;
+ const q=directDraft;
+ const length=Number(q.duration);
+ if(!validTime(q.time)||!Number.isFinite(length)||length<15||length>720){
+  directError='Choose a valid time range.';refreshDirect();return;
+ }
+ try{
+  const snapshot={...lastData};
+  for(const store of ['tasks','jobs','calendarEntries'])snapshot[store]=await bridge.all(store);
+  const overlaps=directConflicts(snapshot,q.date,q.time,length).filter(x=>x.id!==q.id);
+  if(overlaps.length){directError='Overlaps '+overlaps[0].title+'. Choose another time.';refreshDirect();return}
+  const current=await bridge.get('calendarEntries',q.id);
+  if(!current)return;
+  const updated={...current,title:(q.title||'New event').trim()||'New event',date:q.date,time:q.time,durationMinutes:length,
+   kind:q.kind,calendarId:q.calendarId,location:q.location||'',notes:q.notes||'',updatedAt:new Date().toISOString(),version:(current.version||1)+1};
+  await bridge.put('calendarEntries',updated);
+  const cache=(lastData?.calendarEntries||[]),i=cache.findIndex(x=>x.id===q.id);
+  if(i>=0)cache[i]=updated;else cache.push(updated);
+  directError='';
+  const editor=document.querySelector?.('#tfCalDirectForm');
+  if(editor){const feedback=editor.querySelector?.('.tf-cal-direct-feedback');if(feedback)feedback.textContent=''}
+ }catch(error){directError='Could not save changes: '+String(error.message||error);refreshDirect()}
+}
+function queueDirectSave(immediate=false){
+ if(directSaveTimer!==null)clearTimeout(directSaveTimer);
+ directSaveTimer=setTimeout(()=>{directSaveTimer=null;void persistDirect()},immediate?0:350);
+}
+function closeDirectSilently(){
+ if(directSaveTimer!==null){clearTimeout(directSaveTimer);directSaveTimer=null;void persistDirect()}
  directDraft=null;directError='';
- if(typeof document!=='undefined'){const root=document.querySelector?.('.tf-cal-page');root?.querySelector?.('.tf-cal-direct-editor')?.remove?.();root?.querySelectorAll?.('.tf-cal-direct-preview').forEach(node=>node.remove());}
+ if(typeof document!=='undefined')document.querySelector?.('.tf-cal-direct-editor')?.remove?.();
+}
+function closeDirect(){
+ if(directSaveTimer!==null){clearTimeout(directSaveTimer);directSaveTimer=null;void persistDirect()}
+ directDraft=null;directError='';
+ const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
+ root?.querySelector?.('.tf-cal-direct-editor')?.remove?.();
+ root?.querySelectorAll?.('.tf-cal-direct-preview').forEach(n=>n.remove());
+ // Repaint saved title, category, and position only after the editor closes.
+ if(bridge){rememberViewport();void bridge.render().then(restoreViewport)}
 }
 function refreshDirect(){
  if(!directDraft||typeof document==='undefined')return;
@@ -284,36 +317,35 @@ function refreshDirect(){
  const q=directDraft;
  const start=form.querySelector?.('[name="start"]'),end=form.querySelector?.('[name="end"]');
  if(start)start.value=q.time;if(end)end.value=plusTime(q.time,q.duration);
- 
- const issues=directConflicts(lastData||{},q.date,q.time,q.duration);
+ const issues=directConflicts(lastData||{},q.date,q.time,q.duration).filter(x=>x.id!==q.id);
  const feedback=form.querySelector?.('.tf-cal-direct-feedback');
  if(feedback)feedback.textContent=directError||(issues.length?'Overlaps '+issues[0].title+'. Choose another time.':'');
- updateDirectGhost();
 }
-function openDirect(date,time){
- directDraft={date,time,title:'',duration:60,kind:'event',calendarId:'events',location:'',notes:''};
+function openDirect(record){
+ if(!record||record.kind!=='event')return;
+ directDraft={id:record.id,date:record.date,time:record.time,title:record.title==='New event'?'':record.title,
+  duration:record.duration||60,kind:record.calendarId==='tasks'?'task':record.calendarId==='jobs'?'site visit':record.calendarId==='meetings'?'meeting':'event',
+  calendarId:record.calendarId||'events',location:record.location||'',notes:record.notes||''};
  directError='';activeKey='';
  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
  if(root?.insertAdjacentHTML){
   root.querySelector?.('.tf-cal-direct-editor')?.remove?.();
   root.insertAdjacentHTML('beforeend',directEditor(lastData||{}));
-  updateDirectGhost();
-  if(!(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches))root.querySelector?.('#tfCalDirectTitle')?.focus?.({preventScroll:true});
- }else bridge?.render?.();
+ }else void bridge?.render?.();
 }
 function directInput(ev){
  if(!directDraft||!ev.target.closest?.('#tfCalDirectForm'))return;
  const x=ev.target,q=directDraft;
- if(x.name==='title'){q.title=x.value.slice(0,150);updateDirectGhost()}
- if(x.name==='location')q.location=x.value.slice(0,220);
- if(x.name==='notes')q.notes=x.value.slice(0,1600);
- if(x.name==='calendarId')q.calendarId=x.value;
+ if(x.name==='title'){q.title=x.value.slice(0,150);queueDirectSave()}
+ if(x.name==='location'){q.location=x.value.slice(0,220);queueDirectSave()}
+ if(x.name==='notes'){q.notes=x.value.slice(0,1600);queueDirectSave()}
+ if(x.name==='calendarId'){q.calendarId=x.value;queueDirectSave(true)}
  
  if(x.name==='kind'){q.kind=x.value;q.calendarId=q.kind==='task'?'tasks':q.kind==='site visit'?'jobs':'internal';const c=x.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(c)c.value=q.calendarId;}
- if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect()}
+ if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect();queueDirectSave(true)}
  if(x.name==='end'&&validTime(x.value)){
   const difference=minutes(x.value)-minutes(q.time);
-  if(difference>=15&&difference<=720){q.duration=difference;directError=''}
+  if(difference>=15&&difference<=720){q.duration=difference;directError='';queueDirectSave(true)}
   else directError='End must be 15 minutes to 12 hours after start.';
   refreshDirect();
  }
@@ -469,6 +501,7 @@ async function click(evt){
    rememberViewport();
    await bridge.put('calendarEntries',entry);
    await bridge.render();restoreViewport();
+   openDirect({id:entry.id,kind:'event',date,time,title:entry.title,duration:60,calendarId:'events'});
   }catch(error){bridge.notify('Could not create event: '+String(error.message||error))}
   finally{directSaving=false}
   return;
@@ -491,7 +524,7 @@ async function click(evt){
   directDraft.kind=b.dataset.kind;
   directDraft.calendarId=directDraft.kind==='task'?'tasks':directDraft.kind==='site visit'?'jobs':directDraft.kind==='meeting'?'meetings':'events';
   const picker=b.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(picker)picker.value=directDraft.calendarId;
-  updateDirectGhost();
+  queueDirectSave(true);
   b.closest?.('.tf-cal-direct-types')?.querySelectorAll?.('[data-kind]').forEach(x=>x.classList.toggle('active',x.dataset.kind===directDraft.kind));
   return;
  }
@@ -505,6 +538,13 @@ async function click(evt){
   selected=dateString(d);draft=null;activeKey='';await bridge.render();return;
  }
  if(action==='event'){
+  const selectedRecord=records(lastData||{}).find(x=>x.key===b.dataset.key);
+  if(selectedRecord?.kind==='event'&&!selectedRecord.linked){
+   closeDirectSilently();
+   const host=b.closest?.('.tf-cal-event-position');
+   if(host){host.classList.add('tf-cal-delete-ready');const delButton=host.querySelector?.('.tf-cal-event-delete');if(delButton)delButton.hidden=false}
+   openDirect(selectedRecord);return;
+  }
   activeKey=b.dataset.key;draft=null;rememberViewport();
   const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
   if(root&&typeof root.insertAdjacentHTML==='function'){
