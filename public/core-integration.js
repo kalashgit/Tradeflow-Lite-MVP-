@@ -75,7 +75,7 @@
    if(!['Planned','Ordered','In transit','Delivered','Cancelled'].includes(status))throw Error('Invalid supply order status');
    const plannedDate=brief(body.plannedDate,10);
    if(!validDate(plannedDate))throw Error('Invalid supply delivery date');
-   const description=brief(body.description,240);
+   const description=brief(body.description,240)||(Array.isArray(body.lineItems)?brief(body.lineItems.map(x=>brief(x.description,240)).filter(Boolean).join(', '),240):'');
    if(!description)throw Error('Describe the materials or equipment');
    if(existing?.documentStatus==='Issued')throw Error('Issued purchase orders are locked; create a new purchase order to revise commercial terms');
    const providedLines=Array.isArray(body.lineItems)?body.lineItems:null;
