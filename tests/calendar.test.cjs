@@ -95,6 +95,7 @@ async function run(){
  assert.ok(current.includes('data-calendar-action="delete-event"'),'Standalone calendar blocks contain hold-to-reveal delete control');
  assert.ok(!current.includes('data-calendar-action="today"'),'Redundant Today button removed');
  assert.ok(current.includes('id="tfCalDirectForm"'),'Instant creation also opens the compact editing card');
+ assert.ok(current.includes('placeholder="New event" value=""'),'Default event title is a placeholder, not text users must erase');
  assert.ok(!current.includes('tf-cal-direct-save')&&!current.includes('Create event</button>'),'Auto-saving editor needs no Create button');
  assert.ok(current.includes('data-calendar-action="direct-kind"'),'Event type choices remain available in the editor');
  assert.ok(current.includes('tf-cal-direct-extra-fields'),'Optional event details exist below compact cutoff');
