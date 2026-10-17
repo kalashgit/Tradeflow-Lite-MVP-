@@ -322,3 +322,8 @@
  .tf-cal-direct-time input{font-size:14px}
  .tf-cal-day-track{touch-action:pan-y}
 }
+
+
+.tf-cal-direct-preview{position:absolute;z-index:4;left:2px;right:2px;pointer-events:none;border:1px dashed #24e0f3;border-left:4px solid #0ed7ed;border-radius:8px;background:linear-gradient(125deg,#0b536c,#0b394b);padding:7px 8px;display:flex;flex-direction:column;gap:4px;overflow:hidden;box-shadow:0 0 16px #00cbeb35}
+.tf-cal-direct-preview span{font-size:11px;font-weight:750;color:#effcff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-cal-direct-preview small{font-size:10px;color:#a4e5ed}
