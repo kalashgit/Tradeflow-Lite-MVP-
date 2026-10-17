@@ -198,6 +198,35 @@ function form(data){
  '</form></section>';
 }
 function csvTemplate(){return OPPORTUNITY_COLUMNS.join(',')+'\r\n'}
+
+function csvCell(value){
+ const raw=String(value==null?'':value);
+ // Quote and neutralize spreadsheet formula injection in text fields.
+ const safe=/^[=+@]/.test(raw)||/^-[^\d.]/.test(raw)?"'"+raw:raw;
+ return '"'+safe.replace(/"/g,'""')+'"';
+}
+function approvedResultsCsv(row,data){
+ const approved=briefMetrics(row,data).approved;
+ const rows=[OPPORTUNITY_COLUMNS];
+ for(const item of approved){
+  const op=item.record;
+  rows.push(OPPORTUNITY_COLUMNS.map(field=>{
+   if(field==='record_id')return op.record_id||op.id;
+   return op[field]??'';
+  }));
+ }
+ return rows.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';
+}
+function reviewLogCsv(row,data){
+ const rows=[['opportunity_id','project_name','source_url','source_date','opportunity_type',
+   'evidence_status','qc_decision','reviewed_at','review_notes']];
+ for(const item of briefMetrics(row,data).items){
+  rows.push([item.opportunityId,item.record.project_name||item.record.organization_name||'',item.record.source_url||'',
+   item.record.source_date||'',item.record.opportunity_type||'',item.record.evidence_status||'',
+   effectiveDecision(item),item.reviewedAt||'',item.reviewNotes||'']);
+ }
+ return rows.map(x=>x.map(csvCell).join(',')).join('\r\n')+'\r\n';
+}
 function spec(row){
  const snapshot=row.snapshot||{},icp=snapshot.icp||null,persona=snapshot.persona||null;
  return {
@@ -265,6 +294,8 @@ function detail(data){
  '<span>Verification requirements</span><strong>'+e(row.verification||'Original source and status review required')+'</strong></div>'+
  '<div class="tf-rb-actions"><button class="tf-rb-primary" type="button" data-research-action="export" data-id="'+e(row.id)+'">Export JSON brief</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="template" data-id="'+e(row.id)+'">Download blank CSV template</button>'+
+ '<button class="tf-rb-secondary" type="button" data-research-action="approved-export" data-id="'+e(row.id)+'">Export approved results CSV</button>'+ 
+ '<button class="tf-rb-secondary" type="button" data-research-action="review-export" data-id="'+e(row.id)+'">Export QC log CSV</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="copy" data-id="'+e(row.id)+'">Copy instructions</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="task" data-id="'+e(row.id)+'">Create review Task</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="edit" data-id="'+e(row.id)+'">Edit</button>'+
@@ -429,6 +460,15 @@ async function onClick(event){
    if(!confirm('Delete this saved research brief? No opportunity records will be changed.'))return;
    await api.del('settings',id);currentId='';mode='list';api.notify('Research brief deleted');return;
   }
+  if(action==='approved-export'||action==='review-export'){
+   const data={settings:await api.all('settings'),opportunities:await api.all('opportunities')},m=briefMetrics(row,data);
+   if(action==='approved-export'&&!m.approved.length)throw Error('No approved, source-supported records are available to export.');
+   if(action==='review-export'&&!m.items.length)throw Error('No linked records are available for the review log.');
+   const filename=action==='approved-export'?'tradeflow-research-approved-':'tradeflow-research-qc-';
+   download(filename+row.id.slice(PREFIX.length)+'.csv',
+    action==='approved-export'?approvedResultsCsv(row,data):reviewLogCsv(row,data),'text/csv;charset=utf-8');
+   api.notify(action==='approved-export'?'Approved results exported (not newly generated).':'Research QC log exported');return;
+  }
   if(action==='template'){
    download('tradeflow-opportunities-template-'+row.id.slice(PREFIX.length)+'.csv',csvTemplate(),'text/csv;charset=utf-8');
    api.notify('Blank CSV template downloaded. No leads were generated.');return;
@@ -477,5 +517,5 @@ function configure(bridge){
  document.addEventListener('change',onChange);
  document.addEventListener('input',onInput);
 }
-global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice,csvTemplate,opportunityColumns:OPPORTUNITY_COLUMNS,researchOverview,briefMetrics,stageOf,validEvidence,effectiveDecision}};
+global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice,csvTemplate,opportunityColumns:OPPORTUNITY_COLUMNS,researchOverview,briefMetrics,stageOf,validEvidence,effectiveDecision,approvedResultsCsv,reviewLogCsv}};
 })(typeof window!=='undefined'?window:globalThis);
