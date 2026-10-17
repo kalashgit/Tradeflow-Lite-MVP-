@@ -82,3 +82,52 @@
  body:has(.tf-revenue-page) .tf-revenue-page,body:has(.tf-revenue-page) .tf-revenue-page *{color:#111!important;background:#fff!important;box-shadow:none!important;text-shadow:none!important}
  body:has(.tf-revenue-page) .tf-revenue-card{border-color:#ccc!important}
 }
+
+/* Invoices V2 — exact design direction: navy cards, cyan contours, tight mobile rhythm. */
+.tf-invoices-v2{--inv-line:#28586b;--inv-bg:#092638;--inv-cyan:#2bd8ed;display:flex;flex-direction:column;gap:14px;max-width:920px;margin:0 auto;padding-bottom:45px}
+.tf-invoices-v2 *{box-sizing:border-box}
+.tf-inv-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tf-inv-heading h1{font-size:clamp(25px,5.5vw,33px);color:#f4fcff;line-height:1.1;letter-spacing:-.035em;margin:5px 0 10px}
+.tf-inv-heading p{font-size:12px;color:#adc8d6;line-height:1.48;margin:0;max-width:430px}
+.tf-inv-kicker{color:#20cde4;font-size:10px;font-weight:750;letter-spacing:.11em}
+.tf-inv-heading-icon{width:47px;height:47px;flex:0 0 47px;border-radius:12px;background:#15394b;display:grid;place-items:center;color:var(--inv-cyan)}
+.tf-inv-heading-icon svg{width:25px;height:25px}
+.tf-inv-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tf-inv-metric{background:linear-gradient(150deg,#123242,#0e2c3c);border:1px solid #315e74;border-radius:13px;min-width:0;padding:14px;min-height:101px;display:flex;flex-direction:column;justify-content:space-between;gap:13px}
+.tf-inv-metric-label{display:flex;align-items:center;justify-content:space-between;gap:6px;color:#a9c4d3;font-size:12px}
+.tf-inv-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px}
+.tf-inv-icon svg{height:21px;width:21px}
+.tf-inv-cyan{color:#24d1eb}.tf-inv-amber{color:#ffa962}.tf-inv-green{color:#46d6a3}.tf-inv-muted{color:#a9c9d9}
+.tf-inv-metric>strong{font-size:clamp(20px,5.4vw,30px);color:#f3fbff;font-weight:760;letter-spacing:-.035em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tf-inv-attention,.tf-inv-records{background:linear-gradient(155deg,#123548,#0b293a);border:1px solid #23566c;border-radius:14px;padding:14px}
+.tf-inv-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.tf-inv-panel-head h2{color:#f5fdff;font-size:17px;font-weight:720;margin:0;letter-spacing:-.025em}
+.tf-inv-panel-head button{color:#27cee8;background:transparent;border:0;white-space:nowrap;font-size:12px}
+.tf-inv-attention-row{display:flex;gap:10px;align-items:center}
+.tf-inv-alert{color:#f6ab65;font-size:22px}
+.tf-inv-attention-row>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tf-inv-attention-row strong{font-size:12px;font-weight:720;color:#f4fcff}
+.tf-inv-attention-row small{font-size:11px;line-height:1.4;color:#aec8d6}
+.tf-inv-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px}
+.tf-inv-filters::-webkit-scrollbar{display:none}
+.tf-inv-filters button{flex:0 0 auto;border-radius:999px;border:1px solid transparent;padding:6px 11px;background:#27485a;color:#c5d6df;font-size:11px;min-height:31px}
+.tf-inv-filters button.active{border-color:#15ccea;color:#f8fdff;background:#11394b;box-shadow:0 0 0 1px #0ccbe638}
+.tf-inv-list{display:flex;flex-direction:column}
+.tf-inv-row{display:flex;gap:9px;align-items:center;width:100%;min-width:0;text-align:left;padding:12px 0;background:transparent;border:0;border-bottom:1px solid #254c61;color:#f5fcff}
+.tf-inv-row:last-child{border-bottom:0}
+.tf-inv-row-icon{display:grid;place-items:center;width:37px;height:41px;flex:0 0 37px;border-radius:10px;background:#174359;color:#26d6ed}
+.tf-inv-row-icon svg{height:22px;width:22px}
+.tf-inv-row-detail{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.tf-inv-row-detail strong{font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.tf-inv-row-detail small{font-size:10px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:#a4c5d5}
+.tf-inv-row-detail em{font-style:normal}
+.tf-inv-status-overdue{color:#ffb16b}.tf-inv-status-unpaid,.tf-inv-status-partpaid{color:#1dd1ea}.tf-inv-status-paid{color:#52deb0}.tf-inv-status-draft{color:#a5c1d0}.tf-inv-status-void{color:#ea93a1}
+.tf-inv-row-amount{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px;font-weight:730}
+.tf-inv-chevron{color:#87aebd;font-size:23px;line-height:1}
+.tf-inv-empty{border:1px dashed #375f72;border-radius:11px;padding:20px 14px;text-align:center;color:#bed4dd;font-size:12px}
+.tf-inv-empty strong{font-size:13px;color:#f4fdff}
+.tf-inv-empty p{line-height:1.55;margin:8px 0 0}
+.tf-inv-create{display:flex;gap:9px;align-items:center;justify-content:center;width:100%;min-height:46px;background:#10cee4;border:1px solid #36e8f5;border-radius:11px;color:#062934;font-size:13px;font-weight:780}
+.tf-inv-create span{font-size:22px;font-weight:500}
+.tf-inv-disclaimer{font-size:10px;color:#7e9ead;line-height:1.45;margin:0 2px}
+@media(max-width:380px){.tf-inv-metric{padding:10px}.tf-inv-metric>strong{font-size:21px}.tf-inv-heading-icon{height:38px;width:38px;flex-basis:38px}.tf-inv-attention,.tf-inv-records{padding:12px}.tf-inv-row-detail strong{font-size:11px}}
