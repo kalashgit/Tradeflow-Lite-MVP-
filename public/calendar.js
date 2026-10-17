@@ -251,7 +251,7 @@ function directEditor(data){
  const q=directDraft,issues=directConflicts(data,q.date,q.time,q.duration);
  const warnings=directError||(issues.filter(x=>x.id!==q.id).length?'Time overlaps another commitment. Adjust time.':'');
  return '<aside class="tf-cal-direct-editor" aria-label="Edit calendar event" role="dialog"><form id="tfCalDirectForm" novalidate>'+
- '<div class="tf-cal-direct-head"><i></i><strong>Event</strong><button type="button" data-calendar-action="direct-close" aria-label="Close event editor">×</button></div>'+
+ '<div class="tf-cal-direct-head"><i></i><strong>Edit event</strong><button type="button" data-calendar-action="direct-close" aria-label="Close event editor">×</button></div>'+
  '<input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="Event title" value="'+e(q.title)+'">'+
  '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
  '<div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+e(name)+'</button>').join('')+'</div>'+
@@ -637,30 +637,8 @@ async function submit(evt){
   calendarDraft=false;layerDrawer=false;await bridge.render();return;
  }
  if(evt.target.id==='tfCalDirectForm'){
-  evt.preventDefault();if(!directDraft||directSaving)return;
-  const q=directDraft,form=new FormData(evt.target);
-  q.title=String(form.get('title')||'').trim().slice(0,150);
-  q.location=String(form.get('location')||'').trim().slice(0,220);
-  q.notes=String(form.get('notes')||'').trim().slice(0,1600);
-  q.kind=String(q.kind||'event').slice(0,24);
-  q.calendarId=String(form.get('calendarId')||q.calendarId).slice(0,80);
-  const start=String(form.get('start')||q.time),end=String(form.get('end')||plusTime(q.time,q.duration));
-  const length=minutes(end)-minutes(start);
-  if(!validTime(start)||!validTime(end)||length<15||length>720){
-   directError='Select a valid time range, 15 minutes to 12 hours.';refreshDirect();return;
-  }
-  q.time=start;q.duration=length;directSaving=true;
-  try{
-   const latest={...lastData};
-   for(const store of ['tasks','jobs','calendarEntries'])latest[store]=await bridge.all(store);
-   const issues=directConflicts(latest,q.date,q.time,q.duration);
-   if(issues.length){directError='Overlaps '+issues[0].title+'. Choose another time.';refreshDirect();return}
-   const now=new Date().toISOString(),title=q.title||'Event';
-   if(q.kind==='task')await bridge.put('tasks',{id:bridge.uid(),title,due:q.date,scheduleTime:q.time,durationMinutes:q.duration,kind:'task',status:'Open',calendarId:'tasks',location:q.location,description:q.notes,createdAt:now,updatedAt:now});
-   else await bridge.put('calendarEntries',{id:bridge.uid(),title,date:q.date,time:q.time,durationMinutes:q.duration,calendarId:q.calendarId,kind:q.kind,location:q.location,notes:q.notes,status:'Scheduled',ownerId:'local-owner',businessId:'local-business',version:1,createdAt:now,updatedAt:now});
-   selected=q.date;closeDirect();bridge.notify('Calendar entry created');
-  }catch(error){directError='Could not save: '+error.message;refreshDirect()}
-  finally{directSaving=false}
+  evt.preventDefault();
+  if(directDraft)queueDirectSave(true);
   return;
  }
  if(evt.target.id!=='tfCalendarForm')return;
