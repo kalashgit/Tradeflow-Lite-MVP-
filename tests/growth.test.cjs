@@ -10,7 +10,11 @@ vm.runInNewContext(src,{window:fakeWindow,document,FormData:MockFormData,alert()
 const g=fakeWindow.TradeFlowGrowth;
 assert.ok(g&&typeof g.renderPage==='function','Growth module must expose screens');
 const d={settings:[],tasks:[],quotes:[],jobs:[],opportunities:[],customers:[]};
-assert.match(g.renderPage('growth',d,{primaryTrade:'Electrical',serviceArea:'Austin, TX'}),/New ICP/);
+assert.match(g.renderPage('growth',d,{primaryTrade:'Electrical',serviceArea:'Austin, TX'}),/Create your first ICP/);
+assert.match(g.renderPage('growth',d,{}),/Target Customers/);
+assert.match(g.renderPage('growth',d,{}),/Linked opportunities/);
+assert.match(g.renderPage('growth',d,{}),/Connected workspaces/);
+assert.equal(g._test.profileStats(d,g._test.settings(d)).toValidate,0);
 assert.match(g.renderPage('missions',d,{}),/Suggested next actions/);
 assert.match(g.renderPage('capabilities',d,{}),/Invoice drafts/);
 assert.match(g.moreQuickLinks(d),/data-tab="growthAutomation"/);
@@ -39,10 +43,13 @@ async function run(){
  const saved=records.settings['growth-profiles-v1'];
  assert.equal(saved.icps.length,1);assert.equal(saved.activeIcpId,saved.icps[0].id);
  assert.match(g.renderPage('growth',{...d,settings:[saved]},{}),/Commercial maintenance/);
+ assert.match(g.renderPage('growth',{...d,settings:[saved]},{}),/Use in research/);
+ assert.equal(g._test.profileStats({...d,settings:[saved]},g._test.settings({...d,settings:[saved]})).toValidate,1);
  await click({preventDefault(){},target:{dataset:{growthAction:'section',section:'personas'},closest(){return this}}});
  await submit({preventDefault(){},target:{id:'tfGrowthPersonaForm',fields:{name:'Facilities lead',role:'Facilities director',icpId:saved.icps[0].id,objections:'Vendor vetting'}}});
  assert.equal(records.settings['growth-profiles-v1'].personas.length,1);
  assert.equal(records.settings['growth-profiles-v1'].personas[0].icpId,saved.icps[0].id);
+ assert.equal(g._test.profileStats({...d,settings:[records.settings['growth-profiles-v1']]},g._test.settings({...d,settings:[records.settings['growth-profiles-v1']]})).toValidate,2);
  await click({preventDefault(){},target:{dataset:{growthAction:'add-mission',key:'review-target'},closest(){return this}}});
  assert.equal(Object.values(records.tasks).length,1);
  const mission=Object.values(records.tasks)[0];
@@ -54,6 +61,7 @@ async function run(){
  records.opportunities.o1={id:'o1',project_name:'Transformer upgrade',status:'New'};
  await submit({preventDefault(){},target:{id:'tfGrowthOpportunityForm',dataset:{id:'o1'},fields:{contact_person:'Admin desk',contact_phone:'+1 512 555 0100',contact_email:'contact@example.com',contact_source_url:'https://example.com/contact',icp_profile_id:saved.icps[0].id}}});
  assert.equal(records.opportunities.o1.icp_profile_id,saved.icps[0].id);
+ assert.equal(g._test.profileStats({...d,opportunities:Object.values(records.opportunities),settings:[records.settings['growth-profiles-v1']]},g._test.settings({...d,settings:[records.settings['growth-profiles-v1']]})).linked,1);
  assert.equal(records.opportunities.o1.contact_email,'contact@example.com');
  assert.ok(renders>0);
  console.log('PASS: Release 01 Growth Intelligence ICP, persona, missions, contacts, navigation and data persistence');
