@@ -94,7 +94,9 @@ async function run(){
  const current=cal.render({...d,calendarEntries:Object.values(stores.calendarEntries)});
  assert.ok(current.includes('data-calendar-action="delete-event"'),'Standalone calendar blocks contain hold-to-reveal delete control');
  assert.ok(!current.includes('data-calendar-action="today"'),'Redundant Today button removed');
- assert.ok(!current.includes('id="tfCalDirectForm"'),'Direct slot creation never opens a form');
+ assert.ok(current.includes('id="tfCalDirectForm"'),'Instant creation also opens the compact editing card');
+ assert.ok(!current.includes('tf-cal-direct-save')&&!current.includes('Create event</button>'),'Auto-saving editor needs no Create button');
+ assert.ok(current.includes('data-calendar-action="direct-kind"'),'Event type choices remain available in the editor');
  await click({preventDefault(){},target:{dataset:{calendarAction:'delete-event',key:'event:'+created.id},closest(){return this}}});
  assert.ok(!stores.calendarEntries[created.id],'Delete control removes the persisted event after approval');
 
