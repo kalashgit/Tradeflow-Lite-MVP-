@@ -14,7 +14,7 @@ function head(title,subtitle){
 }
 function tabbar(current){
  return '<nav class="tf-ops-nav" aria-label="Operations hub">'+
- '<button type="button" data-tab="dispatch" class="'+(current==='dispatch'?'active':'')+'">Crew & routes</button>'+
+ '<button type="button" data-tab="dispatch" class="'+(current==='dispatch'?'active':'')+'">Crew &amp; Dispatch</button>'+
  '<button type="button" data-tab="integrations" class="'+(current==='integrations'?'active':'')+'">Integrations</button>'+
  '<button type="button" data-tab="calendar">Calendar ↗</button></nav>';
 }
