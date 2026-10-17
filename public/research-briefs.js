@@ -31,7 +31,7 @@ const CLASSES=[
  {key:'business_prospect',label:'Business prospects',tone:'violet'}
 ];
 let statusFilter='All',availableForAttach=[];
-const validDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'').slice(0,10))&&
+const validDate=v=>/^\d{4}-\d{2}-\d{2}(?:T[\d:.+-Z]+)?$/.test(String(v||''))&&
  !Number.isNaN(Date.parse(String(v).slice(0,10)+'T12:00:00Z'))&&
  new Date(String(v).slice(0,10)+'T12:00:00Z').toISOString().slice(0,10)===String(v).slice(0,10);
 const safeSource=v=>/^https:\/\/[^\s<>"']+$/i.test(String(v||'').trim());
@@ -219,11 +219,11 @@ function approvedResultsCsv(row,data){
 }
 function reviewLogCsv(row,data){
  const rows=[['opportunity_id','project_name','source_url','source_date','opportunity_type',
-   'evidence_status','qc_decision','reviewed_at','review_notes']];
+   'evidence_status','saved_qc_decision','effective_qc_status','reviewed_at','review_notes']];
  for(const item of briefMetrics(row,data).items){
   rows.push([item.opportunityId,item.record.project_name||item.record.organization_name||'',item.record.source_url||'',
    item.record.source_date||'',item.record.opportunity_type||'',item.record.evidence_status||'',
-   effectiveDecision(item),item.reviewedAt||'',item.reviewNotes||'']);
+   item.decision||'pending',effectiveDecision(item),item.reviewedAt||'',item.reviewNotes||'']);
  }
  return rows.map(x=>x.map(csvCell).join(',')).join('\r\n')+'\r\n';
 }
@@ -370,6 +370,8 @@ async function reviewOpportunity(event){
   if(!['pending','approved','rejected'].includes(decision))throw Error('Choose a supported quality-control decision.');
   if(fd.get('reviewConfirmed')!=='yes')throw Error('Confirm that you personally reviewed the available evidence.');
   if(decision!=='pending'&&notes.length<12)throw Error('Include at least 12 characters of evidence or rejection notes.');
+  if(decision==='approved'&&brief.focus&&brief.focus!=='all'&&brief.focus!==opp.opportunity_type)
+   throw Error('This opportunity does not match the brief’s classification focus. Reject it or change the brief scope.');
   if(decision==='approved'&&!validEvidence(opp)){
    throw Error('Cannot approve: check the original HTTPS source URL, source date, classification and evidence status in Opportunities first.');
   }
