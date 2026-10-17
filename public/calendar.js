@@ -119,7 +119,7 @@ function eventButton(x,compact){
  var id=e(x.key);
  return '<button type="button" class="tf-cal-event tf-cal-layer-'+e(x.calendarId)+(x.done?' tf-cal-event-done':'')+(compact?' is-compact':'')+'" data-calendar-action="event" data-key="'+id+'" style="--event-color:'+e(color)+'" aria-label="'+e(x.title)+' '+e(text)+'">'+
   '<span class="tf-cal-event-icon">'+itemIcon(x)+'</span><span class="tf-cal-event-details"><strong>'+e(x.title)+'</strong><small>'+e(text)+'</small>'+
-  (!compact&&x.location?'<small>'+e(x.location)+'</small>':'')+'</span></button>';
+  (!compact&&x.location?'<small>'+e(x.location)+'</small>':'')+'</span></button>'+(x.kind==='event'&&!compact?'<button type="button" class="tf-cal-event-delete" data-calendar-action="delete-event" data-key="'+id+'" aria-label="Delete '+e(x.title)+'" hidden>×</button>':'');
 }
 function timeBounds(list,dateList){
  var timed=list.filter(function(x){return x.time&&dateList.includes(x.date)});
@@ -340,7 +340,7 @@ function render(d){
  if(intelligenceFocus==='proposals')current=renderSchedulingReview(lastData,report);
  if(intelligenceFocus==='conflicts')current=renderConflictReview(lastData,issues);
  return '<main class="tf-cal-page" aria-label="Calendar"><aside class="tf-cal-sidebar">'+sidebar(lastData)+'</aside><section class="tf-cal-work">'+
- '<div class="tf-cal-toolbar"><div class="tf-cal-date-tools"><button type="button" data-calendar-action="prev" aria-label="Previous">‹</button><button type="button" data-calendar-action="next" aria-label="Next">›</button><button type="button" data-calendar-action="today">Today</button><strong>'+e(period)+'</strong></div>'+
+ '<div class="tf-cal-toolbar"><div class="tf-cal-date-tools"><button type="button" data-calendar-action="prev" aria-label="Previous">‹</button><button type="button" data-calendar-action="next" aria-label="Next">›</button><strong>'+e(period)+'</strong></div>'+
  '<div class="tf-cal-toolbar-right"><div class="tf-cal-modes">'+['day','week','month'].map(function(x){return '<button type="button" data-calendar-action="mode" data-mode="'+x+'" class="'+(mode===x?'active':'')+'">'+x[0].toUpperCase()+x.slice(1)+'</button>'}).join('')+'</div>'+
  (report.proposals.length?'<button type="button" class="tf-cal-proposals-link" data-calendar-action="review-proposals">'+report.proposals.length+' proposals</button>':'')+'<button class="tf-cal-primary" type="button" data-calendar-action="new">+ Event</button><button class="tf-cal-layer-toggle" type="button" data-calendar-action="layers" aria-label="Calendar filters">'+glyph('calendar')+'</button></div></div>'+
  (issues.length&&intelligenceFocus!=='conflicts'?'<div class="tf-cal-conflict-banner"><span>⚠ '+issues.length+' overlapping commitment'+(issues.length===1?'':'s')+' identified in the current records</span><button data-calendar-action="conflicts">Review</button></div>':'')+
@@ -381,6 +381,30 @@ function draftPointerEnd(ev){
  clearTimeout(draftHold);draftMove.el?.classList.remove('is-dragging');draftMove=null;
 }
 
+let calEventHold=null,calSuppressClick=false;
+function calendarEventHoldStart(ev){
+ const target=ev.target.closest?.('.tf-cal-event');
+ if(!target||ev.target.closest?.('.tf-cal-event-delete')||ev.isPrimary===false)return;
+ const host=target.closest?.('.tf-cal-event-position');
+ if(!host||!host.querySelector?.('.tf-cal-event-delete'))return;
+ const hold={pointerId:ev.pointerId,x:ev.clientX,y:ev.clientY,host,activated:false};
+ calEventHold=hold;
+ hold.timer=setTimeout(()=>{
+  if(calEventHold!==hold)return;
+  hold.activated=true;host.classList.add('tf-cal-delete-ready');
+  host.querySelector('.tf-cal-event-delete').hidden=false;
+  calSuppressClick=true;
+ },480);
+}
+function calendarEventHoldMove(ev){
+ const h=calEventHold;if(!h||h.pointerId!==ev.pointerId)return;
+ if(Math.hypot(ev.clientX-h.x,ev.clientY-h.y)>10){clearTimeout(h.timer);calEventHold=null}
+}
+function calendarEventHoldEnd(ev){
+ const h=calEventHold;if(!h||h.pointerId!==ev.pointerId)return;
+ clearTimeout(h.timer);calEventHold=null;
+}
+
 function mount(context){
  bridge=context;
  if(typeof document!=='undefined'){
@@ -392,6 +416,10 @@ function mount(context){
   document.addEventListener('pointermove',draftPointerMove,{passive:false});
   document.addEventListener('pointerup',draftPointerEnd);
   document.addEventListener('pointercancel',draftPointerEnd);
+  document.addEventListener('pointerdown',calendarEventHoldStart);
+  document.addEventListener('pointermove',calendarEventHoldMove);
+  document.addEventListener('pointerup',calendarEventHoldEnd);
+  document.addEventListener('pointercancel',calendarEventHoldEnd);
   document.addEventListener('change',directInput);
   document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&directDraft)closeDirect()});
  }
@@ -421,13 +449,37 @@ async function click(evt){
  if(!bridge)return;
  var b=evt.target.closest&&evt.target.closest('[data-calendar-action]');if(!b)return;
  evt.preventDefault();
+ if(calSuppressClick&&b.dataset.calendarAction==='event'){calSuppressClick=false;return}
  var action=b.dataset.calendarAction;
  if(action==='direct-slot'){
   if(evt.target!==b&&evt.target.closest?.('.tf-cal-direct-preview'))return;
   const rect=b.getBoundingClientRect?.();if(!rect)return;
   const raw=(Number(b.dataset.firstHour)||7)*60+((evt.clientY-rect.top)/64)*60;
   const n=Math.min(1380,Math.max(0,Math.floor(raw/30)*30));
-  openDirect(b.dataset.date,String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0'));return;
+  const date=b.dataset.date,time=String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+  if(directSaving)return;
+  directSaving=true;
+  try{
+   const data={...lastData};
+   for(const store of ['tasks','jobs','calendarEntries'])data[store]=await bridge.all(store);
+   const collisions=directConflicts(data,date,time,60);
+   if(collisions.length){bridge.notify('Time occupied · choose a free slot');return}
+   const now=new Date().toISOString();
+   const entry={id:bridge.uid(),title:'New event',date,time,durationMinutes:60,calendarId:'events',kind:'event',status:'Scheduled',ownerId:'local-owner',businessId:'local-business',createdAt:now,updatedAt:now,version:1};
+   rememberViewport();
+   await bridge.put('calendarEntries',entry);
+   await bridge.render();restoreViewport();
+  }catch(error){bridge.notify('Could not create event: '+String(error.message||error))}
+  finally{directSaving=false}
+  return;
+ }
+ if(action==='delete-event'){
+  const key=b.dataset.key,record=records(lastData||{}).find(x=>x.key===key);
+  if(!record||record.kind!=='event'||record.linked){bridge.notify('Open the linked record to manage it');return}
+  if(typeof confirm==='function'&&!confirm('Delete this calendar event?'))return;
+  try{await bridge.del('calendarEntries',record.id);activeKey='';rememberViewport();await bridge.render();restoreViewport()}
+  catch(error){bridge.notify('Could not delete event: '+String(error.message||error))}
+  return;
  }
  if(action==='direct-close'){closeDirect();return}
  if(action==='direct-duration'){
