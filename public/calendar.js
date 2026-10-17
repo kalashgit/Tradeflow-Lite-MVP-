@@ -247,14 +247,15 @@ function directConflicts(data,date,time,duration){
 function directEditor(data){
  if(!directDraft)return '';
  const q=directDraft,issues=directConflicts(data,q.date,q.time,q.duration);
- return '<aside class="tf-cal-direct-editor" aria-label="New calendar event" role="dialog"><form id="tfCalDirectForm" novalidate>'+
- '<header class="tf-cal-direct-head"><i></i><strong>New event</strong><button type="button" data-calendar-action="direct-close" aria-label="Close draft">×</button></header>'+
+ const warnings=directError||(issues.length?'Overlaps '+issues[0].title+'. Adjust time.':'');
+ return '<aside class="tf-cal-direct-editor" aria-label="Quick event creation" role="dialog"><form id="tfCalDirectForm" novalidate>'+
+ '<div class="tf-cal-direct-head"><i></i><strong>New event</strong><button type="button" data-calendar-action="direct-close" aria-label="Discard event draft">×</button></div>'+
  '<input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="Event title" value="'+e(q.title)+'">'+
- '<div class="tf-cal-direct-time"><label>Start<input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span>→</span><label>End<input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
- '<div class="tf-cal-direct-durations">'+[30,60,90,120].map(n=>'<button type="button" data-calendar-action="direct-duration" data-duration="'+n+'" class="'+(q.duration===n?'active':'')+'">'+n+'m</button>').join('')+'</div>'+
- '<div class="tf-cal-direct-types">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="'+(q.kind===name.toLowerCase()?'active':'')+'">'+e(name)+'</button>').join('')+'</div>'+
+ '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
+ '<div class="tf-cal-direct-shortcuts"><div class="tf-cal-direct-durations" aria-label="Quick durations">'+[30,60,90,120].map(n=>'<button type="button" data-calendar-action="direct-duration" data-duration="'+n+'" class="'+(q.duration===n?'active':'')+'">'+n+'m</button>').join('')+'</div>'+
+ '<label class="tf-cal-direct-kind-control"><span class="sr-only">Event type</span><select name="kind" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<option value="'+e(name.toLowerCase())+'" '+(q.kind===name.toLowerCase()?'selected':'')+'>'+e(name)+'</option>').join('')+'</select></label></div>'+
  '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label><label>Location<input name="location" maxlength="220" placeholder="Optional" value="'+e(q.location)+'"></label><label>Notes<textarea name="notes" rows="2" maxlength="1600" placeholder="Optional">'+e(q.notes)+'</textarea></label></details>'+
- '<div class="tf-cal-direct-feedback" role="status">'+(directError||issues.length?'<p>'+e(directError||('Overlaps '+issues[0].title+'. Choose another time.'))+'</p>':'')+'</div>'+
+ '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div>'+
  '<button type="submit" class="tf-cal-direct-save">Create event</button></form></aside>';
 }
 function updateDirectGhost(){
@@ -293,7 +294,7 @@ function refreshDirect(){
  updateDirectGhost();
 }
 function openDirect(date,time){
- directDraft={date,time,title:'',duration:30,kind:'event',calendarId:'internal',location:'',notes:''};
+ directDraft={date,time,title:'',duration:60,kind:'event',calendarId:'internal',location:'',notes:''};
  directError='';activeKey='';
  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
  if(root?.insertAdjacentHTML){
@@ -310,6 +311,7 @@ function directInput(ev){
  if(x.name==='location')q.location=x.value.slice(0,220);
  if(x.name==='notes')q.notes=x.value.slice(0,1600);
  if(x.name==='calendarId')q.calendarId=x.value;
+ if(x.name==='kind'){q.kind=x.value;q.calendarId=q.kind==='task'?'tasks':q.kind==='site visit'?'jobs':'internal';const c=x.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(c)c.value=q.calendarId;}
  if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect()}
  if(x.name==='end'&&validTime(x.value)){
   const difference=minutes(x.value)-minutes(q.time);
@@ -513,6 +515,7 @@ async function submit(evt){
   q.title=String(form.get('title')||'').trim().slice(0,150);
   q.location=String(form.get('location')||'').trim().slice(0,220);
   q.notes=String(form.get('notes')||'').trim().slice(0,1600);
+  q.kind=String(form.get('kind')||q.kind).slice(0,24);
   q.calendarId=String(form.get('calendarId')||q.calendarId).slice(0,80);
   const start=String(form.get('start')||q.time),end=String(form.get('end')||plusTime(q.time,q.duration));
   const length=minutes(end)-minutes(start);
