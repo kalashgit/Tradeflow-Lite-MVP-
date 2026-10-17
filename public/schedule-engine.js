@@ -28,8 +28,11 @@ function resource(record){return String(record.assignedTo||record.assigneeId||re
 function buildBusy(d,buffer){
  const busy={};
  function push(date,start,length,who){
-  if(!isDay(date)||start===null||!(length>0))return;
+  if(!isDay(date)||start===null)return;
   const key=who+'|'+date;
+  // Unknown appointment duration is not permission to treat its time as free.
+  // Protect that day rather than inventing a length for the commitment.
+  if(!(length>0)){(busy[key]||(busy[key]=[])).push([0,1440]);return}
   (busy[key]||(busy[key]=[])).push([Math.max(0,start-buffer),Math.min(1440,start+length+buffer)]);
  }
  for(const task of (d.tasks||[])){
@@ -111,7 +114,8 @@ function analyze(d,options={}){
  const minimumToday=startDate===today?Math.ceil((clockNow.getHours()*60+clockNow.getMinutes())/15)*15:0;
  const busy=buildBusy(d,pref.bufferMinutes),risks=[],proposals=[];
  const taskMap=new Map((d.tasks||[]).map(x=>[x.id,x]));
- const sessions=(d.calendarEntries||[]).filter(x=>x.sourceKind==='task'&&x.sourceId&&!['Cancelled','Completed'].includes(x.status));
+ const sessions=(d.calendarEntries||[]).filter(x=>x.sourceKind==='task'&&x.sourceId&&!['Cancelled','Completed'].includes(x.status)&&
+  (x.date>startDate||(x.date===startDate&&minutes(x.time)!==null&&minutes(x.time)+number(x.durationMinutes)>minimumToday)));
  const dismissed=new Set((d.calendarProposals||[]).filter(x=>x.status==='dismissed').map(x=>x.proposalKey));
  const optionsList=(d.tasks||[]).filter(t=>!['Done','Completed','Cancelled'].includes(t.status)&&!t.scheduleTime)
   .sort((a,b)=>rank(a)-rank(b)||String(a.due||'9999').localeCompare(String(b.due||'9999'))||String(a.id).localeCompare(String(b.id)));
@@ -122,7 +126,7 @@ function analyze(d,options={}){
   if(remaining<15)continue;
   if(isDay(task.due)&&task.due<startDate){risks.push({taskId:task.id,reason:'Task deadline has passed'});continue}
   const deps=Array.isArray(task.dependencies)?task.dependencies:[];
-  if(deps.some(id=>taskMap.has(id)&&!['Done','Completed'].includes(taskMap.get(id).status))){risks.push({taskId:task.id,reason:'Waiting for prerequisite work'});continue}
+  if(deps.some(id=>!taskMap.has(id)||!['Done','Completed'].includes(taskMap.get(id).status))){risks.push({taskId:task.id,reason:'Waiting for prerequisite work'});continue}
   const proposalKey='task:'+task.id+':'+fingerprint(task)+':'+taken;
   if(dismissed.has(proposalKey))continue;
   const pending={...task,durationMinutes:remaining,completedMinutes:0};
