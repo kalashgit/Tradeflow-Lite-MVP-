@@ -189,3 +189,5 @@ body>.tf-experience-sheet{overflow:hidden!important;display:flex;flex-direction:
 body>.tf-experience-sheet[data-stage=peek] .tf-exp-layout{overflow:hidden}
 body>.tf-experience-sheet[data-stage=peek] .tf-exp-body{display:none!important}
 body>.tf-experience-sheet.tf-exp-dragging .tf-exp-body{overflow:hidden}
+
+.tf-experience-sheet .tf-exp-address-hint{display:block;margin:2px 0 5px;color:#8dbacb;font-size:11px;line-height:1.3}
