@@ -143,6 +143,7 @@ function sourceForm(d){
  '<label><span>Date recorded</span><input type="date" name="date" value="'+e(existing.date||today())+'" required></label>'+
  '<label><span>Source note (optional)</span><textarea name="note" maxlength="300" rows="3" placeholder="Customer mentioned finding us on Google">'+e(existing.note||'')+'</textarea></label>'+
  '<p class="tf-marketing-note">One manually reported source per customer. This does not prove the campaign caused a sale. Changing a source updates future dashboard summaries.</p>'+
+ (existing.customerId?'<button type="button" class="tf-marketing-danger" data-marketing-action="source-remove" data-id="'+e(existing.customerId)+'">Remove source attribution</button>':'')+
  '<div class="tf-marketing-actions"><button class="tf-marketing-primary" type="submit">Save customer source</button><button class="tf-marketing-secondary" data-marketing-action="list" type="button">Cancel</button></div></form></div>';
 }
 function spendForm(d){
@@ -178,7 +179,9 @@ function list(d){
  '<div class="tf-ms-funnel">'+steps.map(([label,count],i)=>'<div class="tf-ms-funnel-step step-'+i+'"><strong>'+count+'</strong><small>'+e(label)+'</small></div>').join('')+'</div>'+
  (!summary.tracked?'<div class="tf-ms-empty-inline">No customer sources recorded yet. Start by tagging the acquisition source of an existing customer.</div>':
  '<p class="tf-ms-caption">These are associations, not proof that marketing caused the job or payment. Counts are customers, not campaign clicks.</p>')+
- '<div class="tf-ms-inline-actions"><button type="button" data-marketing-action="source-new">+ Record customer source</button><button type="button" data-marketing-action="spend-new">+ Record spend</button></div></section>'+
+ '<div class="tf-ms-inline-actions"><button type="button" data-marketing-action="source-new">+ Record customer source</button><button type="button" data-marketing-action="spend-new">+ Record spend</button></div>'+
+ (summary.entries.length?'<details class="tf-ms-templates"><summary>Manage customer sources <span>'+summary.entries.length+' recorded →</span></summary><div>'+
+ summary.entries.slice(0,100).map(x=>{const cust=(d.customers||[]).find(c=>c.id===x.customerId);return '<div class="tf-ms-source-row"><span><strong>'+e(cust?.name||'Customer')+'</strong><small>'+e(x.channel)+' · '+e(x.date||'Undated')+'</small></span><button data-marketing-action="source-edit" data-id="'+e(x.customerId)+'" type="button">Edit</button></div>'}).join('')+'</div></details>':'')+'</section>'+
  '<section class="tf-ms-panel"><div class="tf-ms-panel-head"><h2>Channel performance</h2><span>Recorded sources</span></div>'+
  (channels.length?'<div class="tf-ms-channels">'+channels.map(c=>{
   const width=Math.max(3,Math.round(c.customers/maxChannel*100));
@@ -219,6 +222,12 @@ async function onClick(event){
   if(action==='new'){mode='edit';draftId='';api.render();return}
   if(action==='source-new'){sourceCustomerId='';mode='source';api.render();return}
   if(action==='source-edit'){sourceCustomerId=id;mode='source';api.render();return}
+  if(action==='source-remove'){
+   if(!id||!confirm('Remove the marketing attribution for this customer? The customer itself stays saved.'))return;
+   const saved=await api.get('settings',SOURCE_KEY);if(!saved)return;
+   await api.put('settings',{...saved,entries:(saved.entries||[]).filter(x=>x.customerId!==id),updatedAt:new Date().toISOString()});
+   sourceCustomerId='';mode='list';api.notify('Customer attribution removed');return;
+  }
   if(action==='spend-new'){spendCampaignId=id||'';mode='spend';api.render();return}
   if(action==='filter'){filter=['Draft','Ready','Archived'].includes(button.dataset.filter)?button.dataset.filter:'all';api.render();return}
   if(action==='edit'){draftId=id;mode='edit';api.render();return}
