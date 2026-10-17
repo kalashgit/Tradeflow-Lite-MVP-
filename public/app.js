@@ -707,6 +707,7 @@ return tfRecordHubView(d)}
 
 /* Compact record command cards and context panels, shared across the four record types. */
 let tfRecordDetailId=null;
+let tfCalendarLinkedReturn=false;
 /* Keep the list exactly where the user left it when viewing a record.
    The record ID and on-screen offset provide a fallback if the list changes. */
 function tfRecordListTarget(recordId){
@@ -813,7 +814,7 @@ function tfRecordDetailView(d,record,type){
  }
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
  sections+=tfRecordPhotoSection(record,type);if(!tfSafeImage(record.photoData))sections+='<button type="button" class="tf-record-attach-btn" data-action="tfPhotoStart" data-target="'+type+'" data-id="'+esc(record.id)+'">'+tfRecordIcon('camera',19)+' Add photo from camera or gallery</button>';
- return '<section class="tf-record-dossier" aria-label="'+esc(type)+' details"><header class="tf-record-dossier-head"><button type="button" data-action="tfRecordClose" aria-label="Back to '+esc(tfRecordTypes[type].label)+'">‹ <span>'+esc(tfRecordTypes[type].label)+'</span></button></header><div class="tf-record-dossier-identity"><span class="tf-record-card-icon">'+tfRecordIcon(type,28)+'</span><div><h2>'+esc(title)+'</h2>'+((record.category&&type!=='customers')||status?'<div class="tf-record-dossier-badges">'+(record.category&&type!=='customers'?'<span>'+esc(record.category)+'</span>':'')+(status?'<span>'+esc(status)+'</span>':'')+'</div>':'')+'</div></div>'+sections+'<div class="tf-record-dossier-footer"><button type="button" class="tf-record-dossier-primary" data-action="tfRecordEdit" data-id="'+esc(record.id)+'">'+tfRecordIcon('edit',20)+' Edit '+esc(tfRecordTypes[type].singular)+'</button><button type="button" class="tf-record-dossier-delete" data-delete="'+esc(record.id)+'">Delete</button></div></section>';
+ return '<section class="tf-record-dossier" aria-label="'+esc(type)+' details"><header class="tf-record-dossier-head"><button type="button" data-action="tfRecordClose" aria-label="Back to '+(tfCalendarLinkedReturn?'Calendar':esc(tfRecordTypes[type].label))+'">‹ <span>'+(tfCalendarLinkedReturn?'Calendar':esc(tfRecordTypes[type].label))+'</span></button></header><div class="tf-record-dossier-identity"><span class="tf-record-card-icon">'+tfRecordIcon(type,28)+'</span><div><h2>'+esc(title)+'</h2>'+((record.category&&type!=='customers')||status?'<div class="tf-record-dossier-badges">'+(record.category&&type!=='customers'?'<span>'+esc(record.category)+'</span>':'')+(status?'<span>'+esc(status)+'</span>':'')+'</div>':'')+'</div></div>'+sections+'<div class="tf-record-dossier-footer"><button type="button" class="tf-record-dossier-primary" data-action="tfRecordEdit" data-id="'+esc(record.id)+'">'+tfRecordIcon('edit',20)+' Edit '+esc(tfRecordTypes[type].singular)+'</button><button type="button" class="tf-record-dossier-delete" data-delete="'+esc(record.id)+'">Delete</button></div></section>';
 }
 function tfRecordHubView(d){
  const type=tab,spec=tfRecordTypes[type];if(!spec)return '';
@@ -964,6 +965,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordClose'){
+  if(tfCalendarLinkedReturn){tfCalendarLinkedReturn=false;tfRecordListContext=null;tfMotionNext='back';tfRecordDetailId=null;tab='calendar';query='';await render();return}
   const previous=tfRecordListContext;
   tfMotionNext='back';tfRecordDetailId=null;query=previous?.query||'';
   await render();
@@ -1056,7 +1058,7 @@ if(el.dataset.action==='mapMyLocation'){
  await tfResolveSupplyLocations({onlyBusiness:true,max:1,interactive:true});
  const now=window.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon});
  if(now){mapLastView={center:[now.lon,now.lat],zoom:15};await render()}return;
-}if(el.dataset.action==='mapHome'){setMapHome();return}if(el.dataset.action==='mapPinDelete'){if(confirm('Delete this saved map pin?')){await del('pins',el.dataset.id);render()}return}if(el.dataset.action==='mapPinView'){focusMapPin(el.dataset.id);return}if(el.dataset.action==='opportunityReviewClose'){opportunityImportDraft=null;render();return}if(el.dataset.action==='opportunityReviewTab'){opportunityImportTab=el.dataset.filter;render();return}if(el.dataset.action==='opportunityReviewSave'){await saveOpportunityImportDraft();return}if(el.dataset.action==='opportunityMapAll'){mapLastView=null;tab='map';await render();void locateOpportunityBatch(await all('opportunities'),{automatic:true,all:true}).catch(err=>console.warn('Mapping skipped:',err));return}if(el.dataset.action==='opportunityMapRemaining'){await locateOpportunityBatch(await all('opportunities'));return}if(el.dataset.action==='opportunityLocate'){const r=await get('opportunities',el.dataset.id);if(!r)return;const address=[r.address,r.city,r.region].filter(Boolean).join(', ')||[r.project_name,r.city,r.region].filter(Boolean).join(', ');if(!address)return alert('No address available for this record.');if(!confirm('Look up the location for '+r.project_name+'? Internet is required. Please verify the result on the map.'))return;try{const result=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address));if(!result.length)throw Error('No matching address');const lat=Number(result[0].lat),lon=Number(result[0].lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw Error('Invalid location');r.latitude=lat;r.longitude=lon;r.map_enabled=true;r.map_address_result=String(result[0].display_name||'');r.map_location_status='needs_review';await put('opportunities',r);mapLastView={center:[lon,lat],zoom:14};tab='map';await render();notify('Approximate location plotted — verify the pin before relying on it.')}catch(err){alert('Could not locate record: '+err.message)}return}if(el.dataset.action==='opportunityMapFilters'){opportunityFilter=opportunityFilter==='unmapped'?'all':'unmapped';opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityImportToggle'){const box=document.getElementById('opportunityImportTools');if(box)box.hidden=!box.hidden;return}if(el.dataset.action==='opportunityFilter'){opportunityFilter=el.dataset.filter;opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityDetail'){opportunityDetailId=el.dataset.id;opportunityDetailScreen='dossier';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityWorkflow'){opportunityDetailId=el.dataset.id||opportunityDetailId;opportunityDetailScreen='workflow';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityBack'){if(opportunityDetailScreen==='workflow'){opportunityDetailScreen='dossier'}else{opportunityDetailId=null;opportunityDetailScreen='dossier'}await render();return}if(el.dataset.action==='opportunityClose'){opportunityDetailId=null;opportunityDetailScreen='dossier';render();return}if(el.dataset.action==='opportunityMap'){const r=await get('opportunities',el.dataset.id);if(r&&opportunityMapped(r)){mapLastView={center:[r.longitude,r.latitude],zoom:15};tab='map';render()}return}if(el.dataset.action==='importOpportunities'){document.getElementById('opportunityFile')?.click();return}if(el.dataset.action==='exportOpportunities'){exportOpportunities();return}if(el.dataset.action==='opportunityStatus'){const r=await get('opportunities',el.dataset.id);if(r){r.status=el.dataset.status;await put('opportunities',r);notify('Opportunity updated')}return}if(el.dataset.tab){tfAiPanelOpen=false;if(tab!==el.dataset.tab)tfMotionNext=el.dataset.tab==='map'?'':'tab';tab=el.dataset.tab;query='';tfRecordListContext=null;modal=null;tfRecordDetailId=null;tfPhotoPending=null;tfCapture=null;render()}else if(el.dataset.action==='new'){if(['quotes','jobs','tasks'].includes(tab)&&(await all('customers')).length===0){alert('Create a customer first.');tab='customers';render();return}modal={};render()}else if(el.dataset.action==='close'){modal=null;tfPhotoPending=null;render()}else if(el.dataset.action==='export')exportData();else if(el.dataset.edit){modal={id:el.dataset.edit};render()}else if(el.dataset.delete){if(!confirm('Delete this record? This cannot be undone.'))return;const id=el.dataset.delete;if(tab==='customers'){const refs=await Promise.all(['quotes','jobs','tasks'].map(all));if(refs.some(a=>a.some(x=>x.customerId===id))){alert('This customer has linked records. Remove or reassign those first.');return}}await del(tab,id);tfRecordDetailId=null;await event(`Deleted ${tab.slice(0,-1)}`);notify('Record deleted')}else if(el.dataset.convert){const q=await get('quotes',el.dataset.convert);if(q?.status!=='Accepted')return;const jobs=await all('jobs');if(jobs.some(j=>j.quoteId===q.id))return;await tfExecuteCommand('quotation.convert',{quoteId:q.id},'quotation:convert:'+q.id);await event(`Created job from accepted quotation: ${q.title}`);notify('Job created')}});
+}if(el.dataset.action==='mapHome'){setMapHome();return}if(el.dataset.action==='mapPinDelete'){if(confirm('Delete this saved map pin?')){await del('pins',el.dataset.id);render()}return}if(el.dataset.action==='mapPinView'){focusMapPin(el.dataset.id);return}if(el.dataset.action==='opportunityReviewClose'){opportunityImportDraft=null;render();return}if(el.dataset.action==='opportunityReviewTab'){opportunityImportTab=el.dataset.filter;render();return}if(el.dataset.action==='opportunityReviewSave'){await saveOpportunityImportDraft();return}if(el.dataset.action==='opportunityMapAll'){mapLastView=null;tab='map';await render();void locateOpportunityBatch(await all('opportunities'),{automatic:true,all:true}).catch(err=>console.warn('Mapping skipped:',err));return}if(el.dataset.action==='opportunityMapRemaining'){await locateOpportunityBatch(await all('opportunities'));return}if(el.dataset.action==='opportunityLocate'){const r=await get('opportunities',el.dataset.id);if(!r)return;const address=[r.address,r.city,r.region].filter(Boolean).join(', ')||[r.project_name,r.city,r.region].filter(Boolean).join(', ');if(!address)return alert('No address available for this record.');if(!confirm('Look up the location for '+r.project_name+'? Internet is required. Please verify the result on the map.'))return;try{const result=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address));if(!result.length)throw Error('No matching address');const lat=Number(result[0].lat),lon=Number(result[0].lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw Error('Invalid location');r.latitude=lat;r.longitude=lon;r.map_enabled=true;r.map_address_result=String(result[0].display_name||'');r.map_location_status='needs_review';await put('opportunities',r);mapLastView={center:[lon,lat],zoom:14};tab='map';await render();notify('Approximate location plotted — verify the pin before relying on it.')}catch(err){alert('Could not locate record: '+err.message)}return}if(el.dataset.action==='opportunityMapFilters'){opportunityFilter=opportunityFilter==='unmapped'?'all':'unmapped';opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityImportToggle'){const box=document.getElementById('opportunityImportTools');if(box)box.hidden=!box.hidden;return}if(el.dataset.action==='opportunityFilter'){opportunityFilter=el.dataset.filter;opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityDetail'){opportunityDetailId=el.dataset.id;opportunityDetailScreen='dossier';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityWorkflow'){opportunityDetailId=el.dataset.id||opportunityDetailId;opportunityDetailScreen='workflow';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityBack'){if(opportunityDetailScreen==='workflow'){opportunityDetailScreen='dossier'}else{opportunityDetailId=null;opportunityDetailScreen='dossier'}await render();return}if(el.dataset.action==='opportunityClose'){opportunityDetailId=null;opportunityDetailScreen='dossier';render();return}if(el.dataset.action==='opportunityMap'){const r=await get('opportunities',el.dataset.id);if(r&&opportunityMapped(r)){mapLastView={center:[r.longitude,r.latitude],zoom:15};tab='map';render()}return}if(el.dataset.action==='importOpportunities'){document.getElementById('opportunityFile')?.click();return}if(el.dataset.action==='exportOpportunities'){exportOpportunities();return}if(el.dataset.action==='opportunityStatus'){const r=await get('opportunities',el.dataset.id);if(r){r.status=el.dataset.status;await put('opportunities',r);notify('Opportunity updated')}return}if(el.dataset.tab){tfCalendarLinkedReturn=false;tfAiPanelOpen=false;if(tab!==el.dataset.tab)tfMotionNext=el.dataset.tab==='map'?'':'tab';tab=el.dataset.tab;query='';tfRecordListContext=null;modal=null;tfRecordDetailId=null;tfPhotoPending=null;tfCapture=null;render()}else if(el.dataset.action==='new'){if(['quotes','jobs','tasks'].includes(tab)&&(await all('customers')).length===0){alert('Create a customer first.');tab='customers';render();return}modal={};render()}else if(el.dataset.action==='close'){modal=null;tfPhotoPending=null;render()}else if(el.dataset.action==='export')exportData();else if(el.dataset.edit){modal={id:el.dataset.edit};render()}else if(el.dataset.delete){if(!confirm('Delete this record? This cannot be undone.'))return;const id=el.dataset.delete;if(tab==='customers'){const refs=await Promise.all(['quotes','jobs','tasks'].map(all));if(refs.some(a=>a.some(x=>x.customerId===id))){alert('This customer has linked records. Remove or reassign those first.');return}}await del(tab,id);tfRecordDetailId=null;await event(`Deleted ${tab.slice(0,-1)}`);notify('Record deleted')}else if(el.dataset.convert){const q=await get('quotes',el.dataset.convert);if(q?.status!=='Accepted')return;const jobs=await all('jobs');if(jobs.some(j=>j.quoteId===q.id))return;await tfExecuteCommand('quotation.convert',{quoteId:q.id},'quotation:convert:'+q.id);await event(`Created job from accepted quotation: ${q.title}`);notify('Job created')}});
 document.addEventListener('change',e=>{if(e.target.id==='tfFinancePeriod'){tfFinancePeriod=e.target.value;render();return}});
 document.addEventListener('input',e=>{if(e.target.id==='tfFinanceSearch'){tfFinanceSearch=e.target.value;const cursor=e.target.selectionStart;render().then(()=>{const input=document.getElementById('tfFinanceSearch');if(input){input.focus();input.setSelectionRange(cursor,cursor)}})}});
 document.addEventListener('change',e=>{if(e.target.id==='tfImportMapChoice'&&opportunityImportDraft)opportunityImportDraft.mapLocations=e.target.checked});
@@ -1545,20 +1547,53 @@ function tfApproveCalendarProposal(requested){
  });
 }
 
+function tfCompleteCalendarSession(sessionId){
+ return new Promise((resolve,reject)=>{
+  const t=db.transaction(['calendarEntries','tasks','calendarAudit'],'readwrite');
+  let error='';
+  t.onerror=()=>reject(t.error||Error(error||'Could not complete session'));
+  t.onabort=()=>reject(Error(error||'Session completion aborted'));
+  t.oncomplete=()=>resolve();
+  const getSession=t.objectStore('calendarEntries').get(sessionId);
+  getSession.onsuccess=()=>{
+   const session=getSession.result;
+   if(!session){error='Session not found';t.abort();return}
+   if(session.status==='Completed')return; // idempotent
+   const now=new Date().toISOString();
+   const updated={...session,status:'Completed',updatedAt:now,version:(Number(session.version)||0)+1};
+   t.objectStore('calendarEntries').put(updated);
+   const audit={id:uid(),kind:'calendar.session.completed',sourceKind:session.sourceKind||'event',
+    sourceId:session.sourceId||session.id,sessionId,actor:'local-owner',createdAt:now};
+   t.objectStore('calendarAudit').put(audit);
+   if(session.sourceKind!=='task'||!session.sourceId)return;
+   const getTask=t.objectStore('tasks').get(session.sourceId);
+   getTask.onsuccess=()=>{
+    const task=getTask.result;
+    if(!task||['Done','Completed','Cancelled'].includes(task.status))return;
+    const total=Number(task.durationMinutes)||0;
+    const earned=Number(session.actualMinutes)>0?Number(session.actualMinutes):(Number(session.durationMinutes)||0);
+    const nextMinutes=Math.max(0,(Number(task.completedMinutes)||0)+earned);
+    t.objectStore('tasks').put({...task,completedMinutes:total?Math.min(total,nextMinutes):nextMinutes,
+     status:total&&nextMinutes>=total?'Done':task.status,updatedAt:now});
+   };
+  };
+ });
+}
+
 window.TradeFlowCalendar?.configure({
- get,put,all,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,
+ get,put,all,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openRecord:async function(kind,id){
   if(!id)return;
   if(['task','job'].includes(kind)){
-   tab=kind==='task'?'tasks':'jobs';modal=null;tfRecordDetailId=id;query='';tfAiPanelOpen=false;tfMotionNext='forward';await render();return;
+   tfCalendarLinkedReturn=true;tab=kind==='task'?'tasks':'jobs';modal=null;tfRecordDetailId=id;query='';tfAiPanelOpen=false;tfMotionNext='forward';await render();return;
   }
   if(kind==='opportunity'){
    tab='opportunities';modal=null;tfAiPanelOpen=false;await render();
    const row=[...document.querySelectorAll('[data-action="opportunityDetail"]')].find(x=>x.dataset.id===id);
    row?.click();return;
   }
-  if(kind==='quote'){tab='quotes';modal=null;tfRecordDetailId=id;await render();return}
+  if(kind==='quote'){tfCalendarLinkedReturn=true;tab='quotes';modal=null;tfRecordDetailId=id;await render();return}
   tab='calendar';await render();
  }
 });
