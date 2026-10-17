@@ -582,3 +582,42 @@
  .tf-cal-direct-editor .tf-cal-direct-types{gap:5px!important}
  .tf-cal-direct-editor .tf-cal-direct-types button{font-size:9px}
 }
+
+
+/* R12: measured two-position event sheet. The collapsed cutoff is after Event type. */
+.tf-cal-direct-editor .tf-cal-editor-grip{
+ appearance:none!important;display:flex!important;align-items:center;justify-content:center;
+ width:92px!important;height:18px!important;min-height:18px!important;margin:-7px auto 4px!important;
+ padding:0!important;background:transparent!important;border:0!important;cursor:grab;touch-action:none;
+}
+.tf-cal-direct-editor .tf-cal-editor-grip span{display:block;width:43px;height:5px;background:#466b82;border-radius:8px}
+.tf-cal-direct-editor .tf-cal-editor-grip:active{cursor:grabbing}
+.tf-cal-direct-editor .tf-cal-direct-head{touch-action:none}
+.tf-cal-direct-editor .tf-cal-direct-extra-fields{display:flex;flex-direction:column;gap:11px;padding:12px 0 2px;border-top:1px solid #264b60;min-width:0}
+.tf-cal-direct-editor{
+ overflow-x:hidden!important;overflow-y:hidden!important;
+ height:min(var(--tf-editor-peek,350px),calc(100dvh - 190px))!important;
+ max-height:calc(100dvh - 155px)!important;
+ transition:height 190ms ease;
+}
+.tf-cal-direct-editor.is-expanded{
+ height:min(79dvh,calc(100dvh - 132px))!important;
+ overflow-y:auto!important;overscroll-behavior:contain;
+}
+.tf-cal-direct-editor .tf-cal-direct-types{margin-bottom:0}
+.tf-cal-direct-editor .tf-cal-direct-section{margin-bottom:0}
+@media(max-width:700px){
+ .tf-cal-direct-editor{
+  left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;
+  bottom:calc(79px + env(safe-area-inset-bottom))!important;
+  padding:12px!important;
+  height:min(var(--tf-editor-peek,350px),calc(100dvh - 190px))!important;
+  max-height:calc(100dvh - 154px)!important;
+  border-radius:18px 18px 0 0!important;
+ }
+ .tf-cal-direct-editor.is-expanded{
+  height:min(79dvh,calc(100dvh - 132px))!important;
+  overflow-y:auto!important;
+ }
+}
+@media(prefers-reduced-motion:reduce){.tf-cal-direct-editor{transition:none!important}}
