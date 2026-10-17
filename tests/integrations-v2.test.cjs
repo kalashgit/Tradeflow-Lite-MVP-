@@ -21,9 +21,14 @@ const mod=win.TradeFlowIntegrations;
 assert.ok(mod?.configure&&mod?.render,'Standalone Integration Hub loads');
 assert.ok(win.TradeFlowBrandIcons.icon('stripe','Stripe').includes('<svg'));
 assert.ok(win.TradeFlowBrandIcons.icon('quickbooks','QuickBooks').includes('<svg'));
-assert.ok(win.TradeFlowBrandIcons.icon('googlecalendar','Google Calendar').includes('<svg'));
-assert.ok(win.TradeFlowBrandIcons.icon('microsoft','Microsoft Outlook').includes('#F25022'));
+assert.ok(win.TradeFlowBrandIcons.icon('googlecalendar','Google Calendar').includes('./brand-icons/calendar.svg'));
+assert.ok(win.TradeFlowBrandIcons.icon('microsoft','Microsoft Outlook').includes('./brand-icons/outlook.svg'));
 assert.ok(win.TradeFlowBrandIcons.ids.length>=10,'Offline brand assets bundled');
+assert.ok(fs.readFileSync('public/brand-icons/outlook.svg','utf8').startsWith('<svg'));
+assert.ok(fs.readFileSync('public/brand-icons/calendar.svg','utf8').startsWith('<svg'));
+assert.ok(win.TradeFlowBrandIcons.icon('gmail','Gmail').includes('./brand-icons/gmail.svg'));
+assert.ok(win.TradeFlowBrandIcons.icon('googleanalytics','Google Analytics').includes('./brand-icons/analytics.svg'));
+
 const providers=mod._test.providers;
 assert.ok(providers.length>=12,'Provider catalog is useful');
 assert.equal(new Set(providers.map(x=>x.id)).size,providers.length,'No duplicate provider IDs');
@@ -90,6 +95,7 @@ const click=listeners.click[0],evt=(action,fields={})=>({preventDefault(){},targ
  assert.ok(app.includes("TradeFlowIntegrations?.render(d)")&&app.includes("TradeFlowIntegrations?.configure"));
  assert.ok(html.includes('integration-logos.js')&&html.includes('integrations-v2.js')&&html.includes('integrations-v2.css'));
  assert.ok(sw.includes('integration-logos.js')&&sw.includes('integrations-v2.js'));
+assert.ok(sw.includes('brand-icons/calendar.svg')&&sw.includes('brand-icons/outlook.svg'),'Full color marks cached for offline mode');
  assert.ok(calls>1,'Filters and details render as interactive screens');
  console.log('PASS: Integration Hub V2 branded offline catalog, honest connection states, details, setup tasks, CSV and ICS exports');
 })().catch(e=>{console.error(e);process.exitCode=1});
