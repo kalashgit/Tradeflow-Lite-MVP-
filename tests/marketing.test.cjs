@@ -35,6 +35,6 @@ const form=(fields)=>({preventDefault(){},target:{id:'tfMarketingForm',fields}})
  assert.ok(html.includes('marketing.js')&&html.includes('marketing.css')&&sw.includes('marketing.js'));
  assert.ok(app.includes("tab==='marketing'"));
  assert.ok(app.includes("'marketingCampaigns','crew','routePlans'"),'Marketing must have a real database store');
- assert.ok(app.includes('indexedDB.open(DB,8)'),'Marketing requires a browser storage migration');
+ assert.ok(app.includes('indexedDB.open(DB,9)'),'Marketing requires a browser storage migration');
  console.log('PASS: Marketing R04 offline drafts, ICP and persona links, review-request copy, real Tasks, no external send');
 })().catch(err=>{console.error(err);process.exitCode=1});
