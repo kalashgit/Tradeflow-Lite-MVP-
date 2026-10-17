@@ -74,7 +74,7 @@ jobs:
             try{
              response=await fetch(root+'/api/ai/health?probe='+Date.now()+'-'+i,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
              health=await response.json().catch(()=>({}));
-             if(response.status===200&&health.version==='v0.9.38')break;
+             if(response.status===200&&health.version==='v0.9.39')break;
              console.log('Waiting for deployed Worker version: HTTP',response.status,'version:',health.version||'unknown');
             }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
             await new Promise(resolve=>setTimeout(resolve,4500));
@@ -82,7 +82,7 @@ jobs:
            assert.ok(response,'Live AI endpoint did not respond');
            assert.equal(response.status,200,'AI health endpoint status');
            assert.equal(health.online,true,'AI health endpoint must respond as JSON');
-           assert.equal(health.version,'v0.9.38','Wait for new AI version instead of accepting stale deployment');
+           assert.equal(health.version,'v0.9.39','Wait for new AI version instead of accepting stale deployment');
            assert.equal(health.aiBound,true,'Workers AI binding must be attached');
            console.log('Live Worker health:',JSON.stringify(health));
            response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
@@ -187,6 +187,16 @@ jobs:
            const opHome=await fetch(root+'/?v5='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
            const opHtml=await opHome.text();
            assert.ok(opHtml.includes('./opportunities-v5.js')&&opHtml.includes('./opportunities-v5.css'),'Preview index must load v5 resources');
+           const sheetJS=await fetch(root+'/map-experience.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const sheetCode=await sheetJS.text();
+           assert.equal(sheetJS.status,200,'TradeFlow map experience script reachable');
+           assert.ok(sheetCode.includes('TradeFlow Map Experience M01')&&sheetCode.includes('pointerdown'),'Correct map sheet and drag code deployed');
+           const sheetCSS=await fetch(root+'/map-experience.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const sheetStyle=await sheetCSS.text();
+           assert.equal(sheetCSS.status,200,'TradeFlow map experience stylesheet reachable');
+           assert.ok(sheetStyle.includes('tf-exp-directions')&&sheetStyle.includes('tf-exp-handle'),'Correct map sheet styling deployed');
+           assert.ok(opHtml.includes('./map-experience.js')&&opHtml.includes('./map-experience.css'),'Live preview loads map module and styling');
+           console.log('PASS: Map M01 draggable sheet, route preview and smoked-glass assets are live');
            console.log('PASS: Opportunities v5 Import Export sheets and map overview deployed');
            const brandCss=await fetch(root+'/unified-header.css?check='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
            const brandSource=await brandCss.text();
