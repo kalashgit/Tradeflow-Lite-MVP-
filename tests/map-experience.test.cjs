@@ -10,7 +10,7 @@ const from={lat:30.2672,lon:-97.7431},to={lat:30.3500,lon:-97.6500};
 const url=ui.routeURL(from,to);
 assert.ok(url.startsWith('https://router.project-osrm.org/route/v1/driving/-97.743100,30.267200;-97.650000,30.350000'));
 assert.ok(url.includes('overview=full&geometries=geojson'));
-assert.throws(()=>ui.routeURL(null,to),/both route points/);
+assert.throws(()=>ui.routeURL(null,to),/Both route points/);
 assert.throws(()=>ui.routeURL(from,to,'http://router.example'),/HTTPS/);
 const real={code:'Ok',routes:[{distance:18920,duration:1680,geometry:{type:'LineString',coordinates:[[-97.7431,30.2672],[-97.71,30.31],[-97.65,30.35]]}}]};
 let calls=0;
