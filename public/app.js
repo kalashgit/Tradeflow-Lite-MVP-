@@ -1498,8 +1498,55 @@ ${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article clas
 
 window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,resolveLocations:tfResolveSupplyLocations,navigate:async function(next,options={}){if(next==='map'&&options.network)tfMapNetworkFocus=true;tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowJobForms?.configure({get,put,render,uid});
+
+/* Atomic local calendar approval: recompute from authoritative records while
+ * the IndexedDB write transaction holds the scheduling stores. */
+function tfApproveCalendarProposal(requested){
+ if(!window.TradeFlowScheduler||!requested?.id)return Promise.reject(Error('Scheduler unavailable'));
+ const names=['tasks','jobs','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'];
+ return new Promise((resolve,reject)=>{
+  let t;try{t=db.transaction(names,'readwrite')}catch(error){reject(error);return}
+  let errorMessage='',written=0,complete=false;
+  t.onerror=()=>{if(!complete){complete=true;reject(t.error||Error(errorMessage||'Calendar transaction failed'))}};
+  t.onabort=()=>{if(!complete){complete=true;reject(Error(errorMessage||'Calendar approval aborted'))}};
+  t.oncomplete=()=>{complete=true;resolve({sessionsCreated:written})};
+  const snapshot={},readNames=names.filter(x=>x!=='calendarAudit');
+  let pending=readNames.length;
+  for(const name of readNames){
+   const request=t.objectStore(name).getAll();
+   request.onsuccess=()=>{
+    snapshot[name]=request.result||[];
+    if(--pending!==0)return;
+    try{
+     const canonical=window.TradeFlowScheduler.analyze(snapshot).proposals.find(p=>p.id===requested.id);
+     if(!canonical||canonical.fingerprint!==requested.fingerprint||JSON.stringify(canonical.slots)!==JSON.stringify(requested.slots)){
+      errorMessage='The schedule changed; recalculate this proposal';t.abort();return;
+     }
+     const task=snapshot.tasks.find(x=>x.id===canonical.taskId);
+     if(!task||['Done','Completed','Cancelled'].includes(task.status)){
+      errorMessage='The task is no longer schedulable';t.abort();return;
+     }
+     const now=new Date().toISOString(),created=[];
+     for(const [index,slot] of canonical.slots.entries()){
+      const id=uid();
+      const record={id,title:String(task.title||'Scheduled task'),date:slot.date,time:slot.time,durationMinutes:slot.durationMinutes,
+       calendarId:task.calendarId||'tasks',sourceKind:'task',sourceId:task.id,assignedTo:slot.assignedTo,
+       customerId:task.customerId||'',jobId:task.jobId||'',location:task.location||'',status:'Scheduled',
+       ownerId:'local-owner',businessId:'local-business',version:1,createdAt:now,updatedAt:now};
+      t.objectStore('calendarEntries').put(record);created.push(id);written++;
+     }
+     t.objectStore('calendarProposals').put({id:'approved:'+canonical.proposalKey,proposalKey:canonical.proposalKey,taskId:task.id,
+      status:'approved',sessionIds:created,approvedAt:now,ownerId:'local-owner'});
+     t.objectStore('calendarAudit').put({id:uid(),kind:'proposal.approved',proposalId:canonical.id,
+      sourceKind:'task',sourceId:task.id,sessionIds:created,actor:'local-owner',createdAt:now});
+    }catch(err){errorMessage=err.message||'Invalid proposal';t.abort()}
+   };
+  }
+ });
+}
+
 window.TradeFlowCalendar?.configure({
- get,put,all,render,notify,uid,
+ get,put,all,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openRecord:async function(kind,id){
   if(!id)return;
@@ -1873,13 +1920,13 @@ function tfIntelligenceStats(d){
  const urgent=active.filter(x=>['p1','p2','high','critical','urgent'].includes(String(x.priority||'').toLowerCase())&&(!x.due||x.due<=localDate)).length;
  const overdue=active.filter(x=>x.due&&x.due<localDate).length;
  const conflicts=window.TradeFlowCalendar?.conflicts?.(d)?.length||0;
- const proposals=(d.calendarProposals||[]).filter(x=>x.status==='pending').length;
+ const proposals=window.TradeFlowScheduler?.analyze(d).proposals.length||0;
  return {urgent,overdue,conflicts,proposals};
 }
 function tfUnifiedHeader(d){
  const wordmark='<span class="tf-home-logo" aria-hidden="true"><svg viewBox="0 0 46 40"><path fill="#f0faff" d="M1 3h43l-5 9H27v25H17V12H6z"/><path fill="var(--tf-accent)" d="M28 15h15v10H28z"/></svg></span><span class="tf-unified-wordmark">TRADEFLOW</span>';
  const stats=tfIntelligenceStats(d);
- const concise=stats.conflicts?stats.conflicts+' scheduling conflict'+(stats.conflicts===1?'':'s'):stats.urgent?stats.urgent+' priority task'+(stats.urgent===1?'':'s')+' today':stats.overdue?stats.overdue+' overdue task'+(stats.overdue===1?'':'s'):'No urgent actions';
+ const concise=stats.conflicts?stats.conflicts+' scheduling conflict'+(stats.conflicts===1?'':'s'):stats.urgent?stats.urgent+' priority task'+(stats.urgent===1?'':'s')+' today':stats.overdue?stats.overdue+' overdue task'+(stats.overdue===1?'':'s'):stats.proposals?stats.proposals+' scheduling proposal'+(stats.proposals===1?'':'s'):'No urgent actions';
  const arrow='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg>';
  const chips=[
   {key:'tasks',name:'Priority tasks',count:stats.urgent||stats.overdue,icon:'☷',kind:'task'},
