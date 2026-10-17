@@ -1565,36 +1565,71 @@ const center=mapLastView||(mapHQ?{center:[mapHQ.lon,mapHQ.lat],zoom:11}:mapped.l
    paint:{'line-color':['match',['get','status'],'Delivered','#31ef91','In transit','#ffca40','Ordered','#00d9e8','Network','#44d5ff','#b987fc'],
      'line-width':2.8,'line-opacity':.86,'line-dasharray':[1.5,1]}});
 });
-// A stationary long press uses the original screen point, not the map center.
-// Cancel on movement, multitouch, or release so map panning remains native.
+// Long-press placement: hold to pick up a pin, drag to refine, release to inspect.
+// Preserve map gestures on ordinary touches and invalidate stale address lookups.
 {
  const canvas=liveMap.getCanvas(),mapForPress=liveMap;
- let holdTimer=null,holdStart=null,holdFired=false;
- const cancelHold=()=>{if(holdTimer!==null)clearTimeout(holdTimer);holdTimer=null;holdStart=null};
+ let holdTimer=null,startPoint=null,placing=false,placedPoint=null,suppressClickUntil=0;
+ let dragWasEnabled=false;
+ const clearHold=()=>{if(holdTimer!==null)clearTimeout(holdTimer);holdTimer=null;startPoint=null};
+ const restorePan=()=>{if(placing&&dragWasEnabled)mapForPress.dragPan.enable();placing=false};
+ const coordsAt=t=>{const rect=canvas.getBoundingClientRect();return mapForPress.unproject([t.clientX-rect.left,t.clientY-rect.top])};
+ const updatePin=t=>{
+  const geo=coordsAt(t);
+  if(!Number.isFinite(geo.lat)||!Number.isFinite(geo.lng))return;
+  placedPoint={lat:geo.lat,lon:geo.lng};
+  pendingMapMarker?.setLngLat([geo.lng,geo.lat]);
+ };
+ const finishHold=e=>{
+  if(placing){
+   e.preventDefault();suppressClickUntil=Date.now()+750;lastMapTap=Date.now();
+   const p=placedPoint;
+   restorePan();clearHold();
+   if(!p||liveMap!==mapForPress)return;
+   const request=++mapClickRequest;
+   showTemporaryMapLocation(mapForPress,d,p.lat,p.lon,'');
+   void reverseMapAddress(p.lat,p.lon).then(address=>{
+    if(request!==mapClickRequest||liveMap!==mapForPress||!pendingMapMarker||!address)return;
+    window.TradeFlowMapExperience?.updateAddress?.(address);
+    document.querySelectorAll('#tfLocationSheet [data-address]').forEach(el=>{el.dataset.address=address});
+   }).catch(()=>{});
+  }else clearHold();
+ };
  canvas.addEventListener('touchstart',e=>{
-  cancelHold();if(e.touches.length!==1)return;
-  const t=e.touches[0];holdStart={x:t.clientX,y:t.clientY};holdFired=false;
-  holdTimer=setTimeout(async()=>{
-   if(!holdStart||liveMap!==mapForPress)return;
-   const point=holdStart;holdTimer=null;holdFired=true;holdStart=null;
-   lastMapTap=Date.now();const request=++mapClickRequest;
-   const rect=canvas.getBoundingClientRect();
-   const geo=mapForPress.unproject([point.x-rect.left,point.y-rect.top]);
+  if(placing){if(e.touches.length!==1){restorePan();clearHold()}return}
+  clearHold();if(e.touches.length!==1)return;
+  const t=e.touches[0];startPoint={x:t.clientX,y:t.clientY};
+  holdTimer=setTimeout(()=>{
+   if(!startPoint||liveMap!==mapForPress)return;
+   const p=startPoint;holdTimer=null;
+   const rect=canvas.getBoundingClientRect();const geo=mapForPress.unproject([p.x-rect.left,p.y-rect.top]);
    if(!Number.isFinite(geo.lat)||!Number.isFinite(geo.lng))return;
-   if(navigator.vibrate)navigator.vibrate(20);
-   showTemporaryMapLocation(mapForPress,d,geo.lat,geo.lng,'');
-   const address=await reverseMapAddress(geo.lat,geo.lng).catch(()=>null);
-   if(request!==mapClickRequest||liveMap!==mapForPress||!pendingMapMarker)return;
-   // Do not replace the card after the user starts entering details.
-   if(address){const heading=document.querySelector('#tfLocationSheet .tf-exp-heading p');if(heading)heading.textContent=address;}
-  },600);
+   placing=true;dragWasEnabled=mapForPress.dragPan.isEnabled();
+   if(dragWasEnabled)mapForPress.dragPan.disable();
+   placedPoint={lat:geo.lat,lon:geo.lng};
+   pendingMapMarker?.remove();
+   const el=tradeFlowMarker('var(--tf-accent)');el.classList.add('tradeflow-map-marker-temp','tf-map-placing');
+   pendingMapMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([geo.lng,geo.lat]).addTo(mapForPress);
+   if(navigator.vibrate)navigator.vibrate(12);
+  },460);
  },{passive:true});
- canvas.addEventListener('touchmove',e=>{if(!holdStart||e.touches.length!==1){cancelHold();return}const t=e.touches[0];if(Math.hypot(t.clientX-holdStart.x,t.clientY-holdStart.y)>12)cancelHold()},{passive:true});
- canvas.addEventListener('touchend',cancelHold,{passive:true});
- canvas.addEventListener('touchcancel',cancelHold,{passive:true});
- liveMap.on('contextmenu',e=>{e.preventDefault?.();lastMapTap=Date.now();const request=++mapClickRequest;showTemporaryMapLocation(liveMap,d,e.lngLat.lat,e.lngLat.lng,'');void reverseMapAddress(e.lngLat.lat,e.lngLat.lng).then(address=>{if(request===mapClickRequest&&address){const heading=document.querySelector('#tfLocationSheet .tf-exp-heading p');if(heading)heading.textContent=address}}).catch(()=>{})});
- liveMap.on('click',async e=>{if(holdFired){holdFired=false;return}const target=e.originalEvent&&e.originalEvent.target;if(target&&target.closest&&target.closest('.maplibregl-marker,.maplibregl-popup'))return;if(e.originalEvent&&e.originalEvent.detail>1)return;const now=Date.now();if(now-lastMapTap<350)return;lastMapTap=now;const request=++mapClickRequest,lat=e.lngLat.lat,longitude=e.lngLat.lng,address=await reverseMapAddress(lat,longitude);if(request!==mapClickRequest)return;showTemporaryMapLocation(liveMap,d,lat,longitude,address||'Address unavailable')});
-}const opportunities=activeOpportunityRecords.filter(opportunityMapped);const locations=[...(d.pins||[]).map(x=>({...x,mapKind:'pin'})),...opportunities.map(x=>({...x,longitude:x.longitude,mapKind:'opportunity'}))];for(const customer of d.customers||[]){let point=parseSavedCoordinates(customer.coordinates);if(!point&&customer.address){const result=await geocodeMapAddress(customer.address);if(result)point={latitude:result.lat,longitude:result.lon}}if(point)locations.push({id:customer.id,title:customer.name||'Customer',address:customer.address,latitude:point.latitude,longitude:point.longitude,mapKind:'customer'})}for(const job of d.jobs||[]){const point=parseSavedCoordinates(job.coordinates);if(point)locations.push({id:job.id,title:job.title||'Job',address:job.address,latitude:point.latitude,longitude:point.longitude,mapKind:'job'})}for(const supplier of d.suppliers||[]){const point=window.TradeFlowCore?.position(supplier);if(point)locations.push({...supplier,id:supplier.id,title:supplier.name||'Supplier',address:supplier.address,latitude:point.lat,longitude:point.lon,mapKind:'supplier'})}
+ canvas.addEventListener('touchmove',e=>{
+  if(placing){
+   e.preventDefault();if(e.touches.length!==1){restorePan();clearHold();pendingMapMarker?.remove();pendingMapMarker=null;return}
+   updatePin(e.touches[0]);return;
+  }
+  if(!startPoint||e.touches.length!==1){clearHold();return}
+  const t=e.touches[0];if(Math.hypot(t.clientX-startPoint.x,t.clientY-startPoint.y)>10)clearHold();
+ },{passive:false});
+ canvas.addEventListener('touchend',finishHold,{passive:false});
+ canvas.addEventListener('touchcancel',()=>{if(placing){restorePan();pendingMapMarker?.remove();pendingMapMarker=null}suppressClickUntil=Date.now()+750;clearHold()},{passive:true});
+ liveMap.on('contextmenu',e=>{e.preventDefault?.();lastMapTap=Date.now();const request=++mapClickRequest;showTemporaryMapLocation(mapForPress,d,e.lngLat.lat,e.lngLat.lng,'');void reverseMapAddress(e.lngLat.lat,e.lngLat.lng).then(address=>{if(request===mapClickRequest&&address){window.TradeFlowMapExperience?.updateAddress?.(address);document.querySelectorAll('#tfLocationSheet [data-address]').forEach(el=>{el.dataset.address=address})}}).catch(()=>{})});
+ liveMap.on('click',async e=>{if(Date.now()<suppressClickUntil)return;const target=e.originalEvent&&e.originalEvent.target;if(target&&target.closest&&target.closest('.maplibregl-marker,.maplibregl-popup'))return;if(e.originalEvent&&e.originalEvent.detail>1)return;const now=Date.now();if(now-lastMapTap<350)return;lastMapTap=now;const request=++mapClickRequest,lat=e.lngLat.lat,longitude=e.lngLat.lng;
+  showTemporaryMapLocation(mapForPress,d,lat,longitude,'');
+  const address=await reverseMapAddress(lat,longitude).catch(()=>null);
+  if(request===mapClickRequest&&address){window.TradeFlowMapExperience?.updateAddress?.(address);document.querySelectorAll('#tfLocationSheet [data-address]').forEach(el=>{el.dataset.address=address})}
+ });
+}}const opportunities=activeOpportunityRecords.filter(opportunityMapped);const locations=[...(d.pins||[]).map(x=>({...x,mapKind:'pin'})),...opportunities.map(x=>({...x,longitude:x.longitude,mapKind:'opportunity'}))];for(const customer of d.customers||[]){let point=parseSavedCoordinates(customer.coordinates);if(!point&&customer.address){const result=await geocodeMapAddress(customer.address);if(result)point={latitude:result.lat,longitude:result.lon}}if(point)locations.push({id:customer.id,title:customer.name||'Customer',address:customer.address,latitude:point.latitude,longitude:point.longitude,mapKind:'customer'})}for(const job of d.jobs||[]){const point=parseSavedCoordinates(job.coordinates);if(point)locations.push({id:job.id,title:job.title||'Job',address:job.address,latitude:point.latitude,longitude:point.longitude,mapKind:'job'})}for(const supplier of d.suppliers||[]){const point=window.TradeFlowCore?.position(supplier);if(point)locations.push({...supplier,id:supplier.id,title:supplier.name||'Supplier',address:supplier.address,latitude:point.lat,longitude:point.lon,mapKind:'supplier'})}
 const hq=window.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon});
 if(hq)locations.unshift({id:'tradeflow-hq',title:prefs.company||'Business headquarters',address:prefs.businessAddress,phone:prefs.contactPhone||'',website:prefs.businessWebsite||'',businessHours:prefs.businessHours||'',photoUrl:prefs.businessPhotoUrl||'',latitude:hq.lat,longitude:hq.lon,mapKind:'headquarters'});mapSuggestionRecords=locations.filter(x=>Number.isFinite(x.latitude)&&Number.isFinite(x.longitude)).map(x=>({label:x.title||x.project_name||x.name||x.address||'Location',type:x.mapKind,latitude:x.latitude,longitude:x.longitude}));for(const x of locations.slice(0,600)){if(!Number.isFinite(x.latitude)||!Number.isFinite(x.longitude)||Math.abs(x.latitude)>90||Math.abs(x.longitude)>180)continue;const color=x.mapKind==='opportunity'?'var(--tf-accent)':'#22c0b3',markerEl=x.mapKind==='opportunity'?opportunityMapMarker(x):x.mapKind==='supplier'?tfSupplierMapMarker():x.mapKind==='headquarters'?tfHeadquartersMapMarker():tradeFlowMarker(color),title=x.title||x.project_name||'Map location',detail=x.address||x.city||x.opportunity_type||'Saved location',marker=new maplibregl.Marker({element:markerEl,anchor:'bottom'}).setLngLat([x.longitude,x.latitude]).addTo(liveMap);markerEl.addEventListener('click',e=>{e.stopPropagation();showExistingMapLocation(x)});mapMarkers.push(marker);if(x.mapKind==='opportunity')mapOpportunityDrawnIds.add(String(x.id))}updateOpportunityGeocodeStatus()}catch(err){const status=document.getElementById('mapStatus');if(status)status.textContent=`Map unavailable: ${err.message}. Your records remain available locally.`}}
 async function searchMapAddressLegacy(){const q=document.getElementById('mapAddress')?.value.trim();if(!q)return;const status=document.getElementById('mapStatus');if(status)status.textContent='Searching…';try{const response=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept':'application/json'}});if(!response.ok)throw Error('Search unavailable');const results=await response.json();if(!results.length)throw Error('No matching location');liveMap?.flyTo({center:[Number(results[0].lon),Number(results[0].lat)],zoom:14});if(status)status.textContent='Location found. Tap the map to save a pin.'}catch(err){if(status)status.textContent=err.message}}
