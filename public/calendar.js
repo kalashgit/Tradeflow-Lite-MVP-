@@ -7,7 +7,7 @@
 var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
 var hiddenLayers=new Set(),preferencesHydrated=false,scheduleSettingsOpen=false;
 var calendarViewport={top:0,left:0};
-var directDraft=null,directError='',directSaving=false,directSaveTimer=null;
+var directDraft=null,directError='',directSaving=false,directSaveTimer=null,directExpanded=false,editorSwipe=null;
 function rememberViewport(){const node=typeof document!=='undefined'?document.querySelector?.('.tf-cal-timeline'):null;if(node)calendarViewport={top:node.scrollTop,left:node.scrollLeft}}
 function restoreViewport(){if(typeof document==='undefined')return;const work=()=>{const node=document.querySelector?.('.tf-cal-timeline');if(node){node.scrollTop=calendarViewport.top;node.scrollLeft=calendarViewport.left}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(work);else work()}
 
@@ -251,15 +251,58 @@ function directEditor(data){
  const q=directDraft,issues=directConflicts(data,q.date,q.time,q.duration).filter(x=>x.id!==q.id);
  const warnings=directError||(issues.length?'Overlaps '+issues[0].title+'. Adjust time.':'');
  const symbols={event:glyph('calendar'),task:glyph('task'),'site visit':glyph('map'),meeting:glyph('user')};
- return '<aside class="tf-cal-direct-editor" aria-label="Edit calendar event" role="dialog"><div class="tf-cal-editor-grip" aria-hidden="true"></div><form id="tfCalDirectForm" novalidate>'+
+ return '<aside class="tf-cal-direct-editor" aria-label="Edit calendar event" role="dialog"><button type="button" class="tf-cal-editor-grip" data-calendar-action="direct-expand" aria-label="Expand event details" aria-expanded="false"><span></span></button><form id="tfCalDirectForm" novalidate>'+
  '<div class="tf-cal-direct-head"><i></i><strong>Edit event</strong><button type="button" data-calendar-action="direct-close" aria-label="Close event editor">×</button></div>'+
  '<label class="tf-cal-direct-field"><span>Title</span><input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="New event" value="'+e(q.title||'New event')+'"></label>'+
  '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label><div class="tf-cal-direct-duration-readout"><span>Duration</span><strong data-cal-duration>'+Math.floor(q.duration/60)+'h '+q.duration%60+'m</strong></div></div>'+
  '<div class="tf-cal-direct-section"><span class="tf-cal-direct-label">Event type</span><div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+symbols[name.toLowerCase()]+'<span>'+e(name)+'</span></button>').join('')+'</div></div>'+
- '<label class="tf-cal-direct-field"><span>Location</span><div class="tf-cal-input-icon">'+glyph('map')+'<input name="location" maxlength="220" placeholder="Add location" value="'+e(q.location)+'"></div></label>'+
+ '<div class="tf-cal-direct-extra-fields"><label class="tf-cal-direct-field"><span>Location</span><div class="tf-cal-input-icon">'+glyph('map')+'<input name="location" maxlength="220" placeholder="Add location" value="'+e(q.location)+'"></div></label>'+
  '<label class="tf-cal-direct-field"><span>Description</span><div class="tf-cal-input-icon">'+glyph('brief')+'<input name="notes" maxlength="1600" placeholder="Add description (optional)" value="'+e(q.notes)+'"></div></label>'+
  '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label></details>'+
- '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div></form></aside>';
+ '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div></div></form></aside>';
+}
+
+function setDirectExpanded(value){
+ directExpanded=!!value;
+ const sheet=typeof document!=='undefined'?document.querySelector?.('.tf-cal-direct-editor'):null;
+ if(!sheet)return;
+ sheet.classList.toggle('is-expanded',directExpanded);
+ const handle=sheet.querySelector?.('[data-calendar-action="direct-expand"]');
+ if(handle){handle.setAttribute('aria-expanded',String(directExpanded));handle.setAttribute('aria-label',directExpanded?'Collapse event details':'Expand event details')}
+ if(!directExpanded){sheet.scrollTop=0;sizeDirectPeek()}
+ else{sheet.style.removeProperty('--tf-editor-peek');sheet.style.height='min(79dvh, calc(100dvh - 132px))'}
+}
+function sizeDirectPeek(){
+ const sheet=typeof document!=='undefined'?document.querySelector?.('.tf-cal-direct-editor'):null;
+ const extra=sheet?.querySelector?.('.tf-cal-direct-extra-fields');
+ if(!sheet||!extra||directExpanded)return;
+ // Measure content position instead of hardcoding a height: the cut falls immediately
+ // below Event type, regardless of iPhone viewport, font metrics, or localization.
+ const pixels=Math.ceil(extra.getBoundingClientRect().top-sheet.getBoundingClientRect().top+3);
+ sheet.style.setProperty('--tf-editor-peek',Math.max(190,pixels)+'px');
+ sheet.style.height='min(var(--tf-editor-peek), calc(100dvh - 190px))';
+}
+function editorSwipeDown(ev){
+ const sheet=ev.target.closest?.('.tf-cal-direct-editor');
+ if(!sheet||ev.isPrimary===false)return;
+ const handle=ev.target.closest?.('.tf-cal-editor-grip,.tf-cal-direct-head');
+ if(!handle)return;
+ editorSwipe={id:ev.pointerId,startY:ev.clientY,endY:ev.clientY,moved:false};
+}
+function editorSwipeMove(ev){
+ const state=editorSwipe;
+ if(!state||state.id!==ev.pointerId)return;
+ state.endY=ev.clientY;
+ if(Math.abs(state.endY-state.startY)>8)state.moved=true;
+ if(state.moved)ev.preventDefault();
+}
+function editorSwipeEnd(ev){
+ const state=editorSwipe;
+ if(!state||state.id!==ev.pointerId)return;
+ editorSwipe=null;
+ const dy=state.endY-state.startY;
+ if(dy< -35){setDirectExpanded(true);return}
+ if(dy>35){setDirectExpanded(false);return}
 }
 function updateDirectGhost(){
  // An existing event is already visible in the timeline. Never layer a
@@ -321,7 +364,7 @@ function closeDirectSilently(){
 }
 function closeDirect(){
  if(directSaveTimer!==null){clearTimeout(directSaveTimer);directSaveTimer=null;void persistDirect()}
- directDraft=null;directError='';
+ directDraft=null;directError='';directExpanded=false;
  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
  root?.querySelector?.('.tf-cal-direct-editor')?.remove?.();
  root?.querySelectorAll?.('.tf-cal-direct-preview').forEach(n=>n.remove());
@@ -344,11 +387,12 @@ function openDirect(record){
  directDraft={id:record.id,date:record.date,time:record.time,title:record.title==='New event'?'':record.title,
   duration:record.duration||60,kind:['event','task','site visit','meeting'].includes(record.eventType||record.savedKind)?(record.eventType||record.savedKind):record.calendarId==='tasks'?'task':record.calendarId==='jobs'?'site visit':record.calendarId==='meetings'?'meeting':'event',
   calendarId:record.calendarId||'events',location:record.location||'',notes:record.notes||''};
- directError='';activeKey='';
+ directError='';activeKey='';directExpanded=false;
  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
  if(root?.insertAdjacentHTML){
   root.querySelector?.('.tf-cal-direct-editor')?.remove?.();
   root.insertAdjacentHTML('beforeend',directEditor(lastData||{}));
+  sizeDirectPeek();
  }else void bridge?.render?.();
 }
 function directInput(ev){
@@ -462,6 +506,10 @@ function mount(context){
   document.addEventListener('change',change);
   document.addEventListener('submit',submit);
   document.addEventListener('input',directInput);
+  document.addEventListener('pointerdown',editorSwipeDown);
+  document.addEventListener('pointermove',editorSwipeMove,{passive:false});
+  document.addEventListener('pointerup',editorSwipeEnd);
+  document.addEventListener('pointercancel',editorSwipeEnd);
   document.addEventListener('pointerdown',draftPointerDown);
   document.addEventListener('pointermove',draftPointerMove,{passive:false});
   document.addEventListener('pointerup',draftPointerEnd);
@@ -533,6 +581,7 @@ async function click(evt){
   return;
  }
  if(action==='direct-close'){closeDirect();return}
+ if(action==='direct-expand'){setDirectExpanded(!directExpanded);return}
  if(action==='direct-duration'){
   if(!directDraft)return;
   directDraft.duration=Number(b.dataset.duration)||30;directError='';refreshDirect();return;
