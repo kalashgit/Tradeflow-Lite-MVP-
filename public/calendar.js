@@ -421,7 +421,7 @@ async function click(evt){
  evt.preventDefault();
  var action=b.dataset.calendarAction;
  if(action==='direct-slot'){
-  if(evt.target.closest?.('.tf-cal-direct-preview'))return;
+  if(evt.target!==b&&evt.target.closest?.('.tf-cal-direct-preview'))return;
   const rect=b.getBoundingClientRect?.();if(!rect)return;
   const raw=(Number(b.dataset.firstHour)||7)*60+((evt.clientY-rect.top)/64)*60;
   const n=Math.min(1380,Math.max(0,Math.floor(raw/30)*30));
