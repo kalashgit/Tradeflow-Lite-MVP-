@@ -206,3 +206,10 @@ button[data-growth-action]:focus-visible,.tf-growth-page button:focus-visible,.t
 .tf-target-workspaces button>em{position:absolute;bottom:8px;right:7px;color:#2bd4ea;font-style:normal}
 .tf-target-footer{color:#91acba;font-size:10px;line-height:1.5;margin:0}
 @media(max-width:410px){.tf-target-metric{min-height:105px;padding:10px 8px;gap:7px}.tf-target-metric-icon{width:31px;height:35px;flex-basis:31px}.tf-target-metric-icon svg{width:21px;height:21px}.tf-target-metric small{font-size:10px}.tf-target-metric strong{font-size:24px}.tf-target-active{padding:12px}.tf-target-active-main{gap:8px}.tf-target-profile-card{padding:10px 8px;gap:7px}.tf-target-profile-icon{flex-basis:33px;width:33px;height:38px}.tf-target-profile-icon svg{width:20px;height:20px}.tf-target-view{font-size:10px}}
+
+/* Keep all profile controls usable without stretching narrow iPhone cards. */
+.tf-target-card-actions{display:flex;flex:0 0 auto;flex-direction:column;align-items:flex-end;gap:2px;max-width:71px}
+.tf-target-card-actions .tf-target-view{padding:5px 1px}
+.tf-target-minor{border:0;background:transparent;color:#a2d2df;padding:4px 2px;font-size:10px;white-space:nowrap}
+.tf-target-minor.delete{color:#e6a6a6;font-size:17px;line-height:1.1}
+.tf-target-v2 :is(button,a,input):focus-visible{outline:2px solid #79eaf6;outline-offset:2px}
