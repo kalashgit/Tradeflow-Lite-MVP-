@@ -621,3 +621,13 @@
  }
 }
 @media(prefers-reduced-motion:reduce){.tf-cal-direct-editor{transition:none!important}}
+
+
+/* R13: whole compact upper card is a deliberate swipe handle, up to Start/End. */
+.tf-cal-direct-editor .tf-cal-editor-grip,
+.tf-cal-direct-editor .tf-cal-direct-head,
+.tf-cal-direct-editor .tf-cal-direct-field:has(#tfCalDirectTitle),
+.tf-cal-direct-editor #tfCalDirectTitle{
+ touch-action:none;
+}
+.tf-cal-direct-editor #tfCalDirectTitle{user-select:text;-webkit-user-select:text}
