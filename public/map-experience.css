@@ -139,9 +139,10 @@ body>.tf-experience-sheet[data-stage=full]{height:min(600px,76dvh)}
 @media(prefers-reduced-motion:reduce){body>.tf-experience-sheet{transition:none}}
 
 /* Tactile map pin placement: deliberate touch feedback without blocking map gestures. */
-.territory-map .tf-map-placing{pointer-events:none;filter:drop-shadow(0 7px 13px rgba(0,0,0,.42));animation:tf-pin-lift .18s ease-out both}
+.territory-map .tf-map-placing{pointer-events:none;filter:drop-shadow(0 7px 13px rgba(0,0,0,.42))}
+.territory-map .tf-map-placing svg{animation:tf-pin-lift .18s ease-out both;transform-origin:50% 100%}
 @keyframes tf-pin-lift{from{transform:translateY(9px) scale(.83);opacity:.6}to{transform:translateY(0) scale(1);opacity:1}}
-@media(prefers-reduced-motion:reduce){.territory-map .tf-map-placing{animation:none}}
+@media(prefers-reduced-motion:reduce){.territory-map .tf-map-placing svg{animation:none}}
 
 /* Map-sheet docking and full-width header dragging */
 body>.tf-experience-sheet{z-index:1100!important;translate:none!important;touch-action:pan-y}
