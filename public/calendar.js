@@ -193,7 +193,7 @@ function render(d){
  var list=eventList(lastData),period=mode==='month'?label(selected,{month:'long',year:'numeric'}):mode==='week'?label(monday(selected),{month:'short',day:'numeric'})+' – '+label(shift(monday(selected),6),{month:'short',day:'numeric',year:'numeric'}):label(selected,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
  var current=mode==='day'?renderDay(list):mode==='month'?renderMonth(list):renderWeek(list);
  var issues=conflicts(lastData);
- return '<main class="tf-cal-page"><aside class="tf-cal-sidebar">'+sidebar(lastData)+'</aside><section class="tf-cal-work">'+
+ return '<main class="tf-cal-page" aria-label="Calendar"><aside class="tf-cal-sidebar">'+sidebar(lastData)+'</aside><section class="tf-cal-work">'+
  '<div class="tf-cal-toolbar"><div class="tf-cal-date-tools"><button type="button" data-calendar-action="prev" aria-label="Previous">‹</button><button type="button" data-calendar-action="next" aria-label="Next">›</button><button type="button" data-calendar-action="today">Today</button><strong>'+e(period)+'</strong></div>'+
  '<div class="tf-cal-toolbar-right"><div class="tf-cal-modes">'+['day','week','month'].map(function(x){return '<button type="button" data-calendar-action="mode" data-mode="'+x+'" class="'+(mode===x?'active':'')+'">'+x[0].toUpperCase()+x.slice(1)+'</button>'}).join('')+'</div>'+
  '<button class="tf-cal-primary" type="button" data-calendar-action="new">+ Event</button><button class="tf-cal-layer-toggle" type="button" data-calendar-action="layers" aria-label="Calendar filters">'+glyph('calendar')+'</button></div></div>'+
