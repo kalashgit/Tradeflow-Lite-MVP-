@@ -178,3 +178,13 @@ body>.tf-experience-sheet .tf-exp-handle{touch-action:none!important}
  body>.tf-experience-sheet[data-stage=peek]{min-height:0!important}
 }
 @media(prefers-reduced-motion:reduce){body>.tf-experience-sheet{transition:none!important}}
+
+/* M05: the dock owns the height; only the details section scrolls. */
+body>.tf-experience-sheet{overflow:hidden!important;display:flex;flex-direction:column;contain:layout}
+.tf-experience-sheet .tf-exp-layout{display:flex;flex-direction:column;min-height:0;height:100%;width:100%;overflow:hidden}
+.tf-experience-sheet .tf-exp-handle{position:relative;flex:0 0 18px}
+.tf-experience-sheet .tf-exp-head{flex:0 0 auto}
+.tf-experience-sheet .tf-exp-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y}
+body>.tf-experience-sheet[data-stage=peek] .tf-exp-layout{overflow:hidden}
+body>.tf-experience-sheet[data-stage=peek] .tf-exp-body{display:none!important}
+body>.tf-experience-sheet.tf-exp-dragging .tf-exp-body{overflow:hidden}
