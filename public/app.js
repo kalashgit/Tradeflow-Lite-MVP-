@@ -1581,7 +1581,7 @@ function tfCompleteCalendarSession(sessionId){
 }
 
 window.TradeFlowCalendar?.configure({
- get,put,all,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
+ get,put,all,del,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openRecord:async function(kind,id){
   if(!id)return;
