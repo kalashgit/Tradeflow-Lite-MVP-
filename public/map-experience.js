@@ -147,11 +147,9 @@
   return pos({lat:prefs.homeLat,lon:prefs.homeLon});
  }
  function mapFit(){
-  const map=bridge?.getMap?.();if(!map||!opened||!sheet)return;
-  const point=opened.point;if(!point)return;
-  const s=sheet.dataset.stage||'half';
-  const y=s==='peek'?80:s==='half'?Math.min(160,Math.round(sheet.getBoundingClientRect().height/2)):Math.min(240,Math.round(sheet.getBoundingClientRect().height/3));
-  try{map.easeTo({center:[point.lon,point.lat],offset:[0,-y],duration:280})}catch{}
+  // Keep the selected coordinate fixed on screen as cards open and resize.
+  // Auto camera eases were moving the pin toward the top corner on mobile.
+  return;
  }
  function sheetHeights(){
   const vh=window.visualViewport?.height||window.innerHeight;
@@ -247,7 +245,7 @@
   // Expanded cards grab from the whole header while body content remains scrollable.
   let blockClickUntil=0;
   sheet.addEventListener('click',event=>{if(performance.now()<blockClickUntil){event.preventDefault();event.stopImmediatePropagation()}},true);
-  const interactive='button:not(.tf-exp-handle),a,input,select,textarea,[contenteditable],summary';
+  const interactive='button:not(.tf-exp-handle),a,input,select,textarea,[contenteditable],summary,.tf-exp-body,.tf-exp-body *';
   const heights=()=>sheetHeights();
   const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
   const resetDrag=()=>{sheet.classList.remove('tf-exp-dragging');drag=null};
@@ -320,7 +318,7 @@
   window.addEventListener('orientationchange',syncViewport);
   sheet.addEventListener('tf-sheet-dispose',()=>{window.visualViewport?.removeEventListener('resize',syncViewport);window.removeEventListener('orientationchange',syncViewport)},{once:true});
   // Allow the map to remain interactive behind the non-modal sheet.
-  if(window.requestAnimationFrame)window.requestAnimationFrame(()=>mapFit());
+  // Do not pan the map when a new location card appears.
   return opened;
  }
  return Object.freeze({configure,open,updateAddress,close:clear,setStage,route,clearRoute,routeURL,fetchRoadRoute,markup,sheetData,formatDistance:fmtDist,formatTime:fmtTime});
