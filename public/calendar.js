@@ -1,9 +1,20 @@
-/* TradeFlow Calendar Release 02 — local scheduling foundation.
-   Uses existing Tasks and Jobs; never assumes live crew locations or online sync. */
+/* TradeFlow Calendar R03 — connected, local-first scheduling workspace.
+ * Legacy Task / Job records are read, not copied or migrated. New standalone events
+ * have their own records. The activity log 'events' store is deliberately untouched.
+ */
 (function(global){
 'use strict';
-var bridge=null,mode='week',selected='',draft=null;
-function day(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
+var hiddenLayers=new Set();
+var baseLayers=[
+ {id:'jobs',name:'Jobs / Site Work',color:'#16c784',kind:'job'},
+ {id:'clients',name:'Customer Appointments',color:'#208be6',kind:'appointment'},
+ {id:'proposals',name:'Proposals',color:'#974bf0',kind:'proposal'},
+ {id:'tasks',name:'Tasks',color:'#ff9f1c',kind:'task'},
+ {id:'personal',name:'Personal',color:'#e64a99',kind:'personal'},
+ {id:'internal',name:'Team / Meetings',color:'#91a8c2',kind:'internal'}
+];
+function day(){var d=new Date();return dateString(d)}
 selected=day();
 function e(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]})}
 function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(new Date(v+'T12:00:00').getTime())&&new Date(v+'T12:00:00').toISOString().slice(0,10)===v}
@@ -12,124 +23,283 @@ function dateString(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStar
 function shift(v,n){var d=asDate(v);d.setDate(d.getDate()+n);return dateString(d)}
 function monday(v){var d=asDate(v);d.setDate(d.getDate()-((d.getDay()+6)%7));return dateString(d)}
 function label(v,opts){return asDate(v).toLocaleDateString('en-US',opts||{month:'short',day:'numeric',year:'numeric'})}
+function validTime(v){return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v||'')}
+function minutes(v){return validTime(v)?Number(v.slice(0,2))*60+Number(v.slice(3)):null}
+function clock(v){var m=minutes(v);if(m===null)return 'Time not assigned';var h=Math.floor(m/60);return (h%12||12)+':'+String(m%60).padStart(2,'0')+' '+(h>=12?'PM':'AM')}
+function plusTime(v,delta){var n=minutes(v);if(n===null)return '';n+=Number(delta)||0;return String(Math.floor(n/60)%24).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+function recordCategory(x,type){
+ var category=String(x.calendarCategory||x.category||x.eventType||x.kind||'').toLowerCase();
+ if(category==='personal')return 'personal';
+ if(type==='job')return 'jobs';
+ if(category.includes('propos')||category.includes('quotation')||category==='quote')return 'proposals';
+ if(category.includes('visit')||category.includes('site'))return 'jobs';
+ if(category.includes('appointment')||category.includes('customer')||category.includes('call'))return 'clients';
+ if(category.includes('meeting')||category.includes('internal')||category==='event')return 'internal';
+ return 'tasks';
+}
+function defaultLayer(type){return type==='job'?'jobs':type==='task'?'tasks':'internal'}
+function entryFromSource(x,type){
+ var date=type==='job'?x.date:x.due;
+ var at=x.scheduleTime||'',category=recordCategory(x,type);
+ return {key:type+':'+x.id,id:x.id,kind:type,sourceKind:type,sourceId:x.id,calendarId:x.calendarId||category,
+ title:String(x.title||x.name||'Untitled '+type),date:validDate(date||'')?date:'',time:validTime(at)?at:'',
+ duration:Number(x.durationMinutes)||0,location:String(x.location||x.address||''),notes:String(x.description||x.notes||''),
+ done:x.status==='Done'||x.status==='Completed',priority:x.priority||'',assignedTo:x.assignedTo||x.assigneeId||'',
+ customerId:x.customerId||'',jobId:type==='job'?x.id:x.jobId||'',status:x.status||'',linked:true};
+}
+function entryFromCalendar(x){
+ var rawDate=x.date||(x.startAt?String(x.startAt).slice(0,10):'');
+ var time=x.time||((x.startAt&&/T\d\d:\d\d/.test(x.startAt))?String(x.startAt).slice(11,16):'');
+ return {key:'event:'+x.id,id:x.id,kind:'event',sourceKind:x.sourceKind||'event',sourceId:x.sourceId||x.id,
+ calendarId:x.calendarId||'internal',title:String(x.title||'Event'),date:validDate(rawDate)?rawDate:'',
+ time:validTime(time)?time:'',duration:Number(x.durationMinutes)||0,location:String(x.location||''),
+ notes:String(x.notes||''),done:x.status==='Done'||x.status==='Completed',
+ priority:x.priority||'',assignedTo:x.assignedTo||'',customerId:x.customerId||'',jobId:x.jobId||'',status:x.status||'',
+ linked:!!(x.sourceId&&x.sourceKind&&x.sourceKind!=='event')};
+}
 function records(d){
- var all=[];
- (d.tasks||[]).filter(function(t){return validDate(t.due||'')}).forEach(function(t){
-  all.push({id:t.id,kind:'task',title:String(t.title||'Task'),date:t.due,time:t.scheduleTime||'',duration:Number(t.durationMinutes)||0,
-  location:t.location||'',done:t.status==='Done',notes:t.description||''});
- });
- (d.jobs||[]).filter(function(j){return validDate(j.date||'')}).forEach(function(j){
-  all.push({id:j.id,kind:'job',title:String(j.title||'Job'),date:j.date,time:j.scheduleTime||'',duration:Number(j.durationMinutes)||0,
-  location:j.address||'',done:j.status==='Completed',notes:j.description||''});
- });
- return all.sort(function(a,b){return (a.date+' '+(a.time||'99:99')+' '+a.title).localeCompare(b.date+' '+(b.time||'99:99')+' '+b.title)});
+ var entries=[];
+ (d.tasks||[]).forEach(function(t){entries.push(entryFromSource(t,'task'))});
+ (d.jobs||[]).forEach(function(j){entries.push(entryFromSource(j,'job'))});
+ (d.calendarEntries||[]).forEach(function(x){entries.push(entryFromCalendar(x))});
+ var linked=new Set((d.calendarEntries||[]).filter(function(x){return x.sourceId&&['task','job'].includes(x.sourceKind)&&x.status!=='Cancelled'}).map(function(x){return x.sourceKind+':'+x.sourceId}));
+ // Linked task sessions are authoritative for their own time slots; retain one
+ // source record in planning so deadline and remaining work cannot disappear.
+ entries=entries.filter(function(x){return !(x.kind==='task'&&x.time&&linked.has(x.key))});
+ return entries.sort(function(a,b){return (a.date+' '+(a.time||'99:99')+' '+a.title).localeCompare(b.date+' '+(b.time||'99:99')+' '+b.title)});
 }
+function conflicts(d){
+ var timed=records(d).filter(function(x){return x.date&&x.time&&x.duration>0&&!x.done&&x.status!=='Cancelled'});
+ var issues=[];
+ for(var i=0;i<timed.length;i++)for(var j=i+1;j<timed.length;j++){
+  var a=timed[i],b=timed[j];if(a.date!==b.date)continue;
+  var ownerA=a.assignedTo||'local-owner',ownerB=b.assignedTo||'local-owner';
+  if(ownerA!==ownerB)continue;
+  if(a.key===b.key)continue;
+  if(minutes(a.time)<minutes(b.time)+b.duration&&minutes(b.time)<minutes(a.time)+a.duration)
+   issues.push({id:a.key+'|'+b.key,date:a.date,a:a,b:b});
+ }
+ return issues;
+}
+function layers(d){
+ return baseLayers.concat((d.calendars||[]).filter(function(x){return !baseLayers.some(function(b){return b.id===x.id})&&x.archived!==true}).map(function(x){
+  return {id:x.id,name:String(x.name||'Calendar'),color:String(x.color||'#18c9e4'),kind:'custom'};
+ }));
+}
+function categoryColor(x,ds){var l=layers(ds).find(function(y){return y.id===x.calendarId});return l?.color||'#8fb8cb'}
+function eventList(d){return records(d).filter(function(x){return !hiddenLayers.has(x.calendarId)})}
 function glyph(name){
- var paths={calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
- map:'<path d="M12 22s8-6 8-12a8 8 0 1 0-16 0c0 6 8 12 8 12Z"/><circle cx="12" cy="10" r="2.5"/>',
- task:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>',
- job:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M9 7V4h6v3M3 12h18"/>',
- clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>'};
- return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[name]||paths.calendar)+'</svg>';
+ var paths={calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',map:'<path d="M12 22s8-6 8-12a8 8 0 1 0-16 0c0 6 8 12 8 12Z"/><circle cx="12" cy="10" r="2.5"/>',
+ task:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>',job:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M9 7V4h6v3M3 12h18"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
+ brief:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>',link:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/>'};
+ return '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[name]||paths.calendar)+'</svg>';
 }
-function item(x){
- return '<article class="tf-cal-item"><span class="tf-cal-item-icon">'+glyph(x.kind==='job'?'job':'task')+'</span><div class="tf-cal-item-data"><strong>'+e(x.title)+'</strong><small>'+e(x.kind==='job'?'Job':'Task')+' · '+e(x.time?x.time:'Time not assigned')+
- (x.duration?' · '+x.duration+' min':'')+(x.done?' · Completed':'')+'</small>'+
- (x.location?'<small>'+glyph('map')+' '+e(x.location)+'</small>':'')+'</div>'+
- '<button type="button" data-tab="'+(x.kind==='job'?'jobs':'tasks')+'" aria-label="Open '+e(x.title)+'">View ›</button></article>';
+function itemIcon(x){return glyph(x.calendarId==='jobs'?'map':x.calendarId==='clients'?'user':x.calendarId==='proposals'?'brief':x.kind==='task'?'task':'calendar')}
+function eventButton(x,compact){
+ var color=categoryColor(x,lastData||{});
+ var text=x.time?clock(x.time)+(x.duration?' – '+clock(plusTime(x.time,x.duration)):' · duration not set'):'Not timed';
+ var id=e(x.key);
+ return '<button type="button" class="tf-cal-event tf-cal-layer-'+e(x.calendarId)+(x.done?' tf-cal-event-done':'')+(compact?' is-compact':'')+'" data-calendar-action="event" data-key="'+id+'" style="--event-color:'+e(color)+'" aria-label="'+e(x.title)+' '+e(text)+'">'+
+  '<span class="tf-cal-event-icon">'+itemIcon(x)+'</span><span class="tf-cal-event-details"><strong>'+e(x.title)+'</strong><small>'+e(text)+'</small>'+
+  (!compact&&x.location?'<small>'+e(x.location)+'</small>':'')+'</span></button>';
 }
-function dateEvents(list,date){
- var items=list.filter(function(x){return x.date===date});
- return '<section class="tf-cal-day-list"><header><h2>'+e(label(date,{weekday:'long',month:'short',day:'numeric'}))+'</h2><small>'+items.length+' scheduled record'+(items.length===1?'':'s')+'</small></header>'+
- (items.length?items.map(item).join(''):'<div class="tf-cal-empty">No Tasks or Jobs scheduled for this date.</div>')+'</section>';
+function timeBounds(list,dateList){
+ var timed=list.filter(function(x){return x.time&&dateList.includes(x.date)});
+ var earlier=timed.map(function(x){return Math.floor(minutes(x.time)/60)}),later=timed.map(function(x){return Math.ceil((minutes(x.time)+(x.duration||30))/60)});
+ return {first:Math.max(0,Math.min(7,...earlier)),last:Math.min(24,Math.max(19,...later))};
 }
-function renderDay(list){return dateEvents(list,selected)}
+function timedColumns(d,days,forceDay){
+ var list=eventList(d),bounds=timeBounds(list,days),hours=Array.from({length:bounds.last-bounds.first},function(_,i){return i+bounds.first});
+ var count=hours.length*64;
+ var axes='<div class="tf-cal-time-axis"><div class="tf-cal-all-day-axis">All day</div>'+hours.map(function(h){return '<div class="tf-cal-time-label">'+(h%12||12)+(h>=12?' PM':' AM')+'</div>'}).join('')+'</div>';
+ var cols=days.map(function(date){
+  var items=list.filter(function(x){return x.date===date}),timed=items.filter(function(x){return x.time}),allDay=items.filter(function(x){return !x.time&&x.kind==='event'});
+  // Overlaps use side-by-side slots rather than hiding another event behind a card.
+  var placed=timed.map(function(x,i){var start=minutes(x.time),finish=start+(x.duration||30);var rivals=timed.filter(function(y){return minutes(y.time)<finish&&minutes(y.time)+(y.duration||30)>start});var lane=rivals.findIndex(function(y){return y.key===x.key});var lanes=Math.max(1,rivals.length);return {item:x,lane:Math.max(0,lane),lanes:lanes}});
+  return '<div class="tf-cal-day-column"><div class="tf-cal-day-heading"><button data-calendar-action="select-day" data-date="'+date+'" class="'+(selected===date?'active':'')+'">'+e(label(date,{weekday:'short'}))+' <strong>'+asDate(date).getDate()+'</strong></button><small>'+items.length+' item'+(items.length===1?'':'s')+'</small></div>'+
+   '<div class="tf-cal-all-day">'+allDay.slice(0,2).map(function(x){return eventButton(x,true)}).join('')+'</div>'+
+   '<div class="tf-cal-day-track" style="height:'+count+'px">'+placed.map(function(p){
+    var x=p.item,top=(minutes(x.time)-bounds.first*60)/60*64,ht=Math.max(29,(x.duration||30)/60*64-3);
+    var left=100*p.lane/p.lanes,w=100/p.lanes;
+    return '<div class="tf-cal-event-position" style="top:'+top+'px;height:'+ht+'px;left:'+left+'%;width:'+w+'%">'+eventButton(x,false)+'</div>';
+   }).join('')+'</div></div>';
+ }).join('');
+ return '<div class="tf-cal-timeline" aria-label="Time-based calendar"><div class="tf-cal-timeline-inner '+(forceDay?'tf-cal-single-day':'')+'">'+axes+'<div class="tf-cal-timeline-days" style="--visible-days:'+days.length+'">'+cols+'</div></div></div>';
+}
+function renderDay(list){return timedColumns(lastData||{},[selected],true)}
 function renderWeek(list){
  var start=monday(selected),days=Array.from({length:7},function(_,i){return shift(start,i)});
- return '<section class="tf-cal-week"><div class="tf-cal-week-grid">'+days.map(function(date){
-  var todays=list.filter(function(x){return x.date===date}),picked=date===selected;
-  return '<button type="button" class="tf-cal-day-button '+(picked?'active':'')+'" data-calendar-action="select-day" data-date="'+date+'"><span>'+e(label(date,{weekday:'short'}))+'</span><strong>'+asDate(date).getDate()+'</strong><small>'+(todays.length?todays.length+' planned':'—')+'</small></button>';
- }).join('')+'</div></section>'+dateEvents(list,selected);
+ return timedColumns(lastData||{},days,false);
 }
 function renderMonth(list){
- var d=asDate(selected),first=dateString(new Date(d.getFullYear(),d.getMonth(),1));
- var start=monday(first),cells=Array.from({length:42},function(_,i){return shift(start,i)});
- return '<section class="tf-cal-month"><div class="tf-cal-month-labels">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(x){return '<span>'+x+'</span>'}).join('')+'</div>'+
- '<div class="tf-cal-month-grid">'+cells.map(function(date){
-  var current=date.slice(0,7)===selected.slice(0,7),cnt=list.filter(function(x){return x.date===date}).length;
-  return '<button type="button" data-calendar-action="select-day" data-date="'+date+'" class="'+(current?'':'other ')+(date===selected?'active':'')+'"><span>'+asDate(date).getDate()+'</span>'+(cnt?'<small>'+cnt+'</small>':'')+'</button>';
- }).join('')+'</div></section>'+dateEvents(list,selected);
+ var d=asDate(selected),first=dateString(new Date(d.getFullYear(),d.getMonth(),1)),start=monday(first),cells=Array.from({length:42},function(_,i){return shift(start,i)});
+ return '<section class="tf-cal-month-layout"><div class="tf-cal-month-labels">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(x){return '<span>'+x+'</span>'}).join('')+'</div><div class="tf-cal-month-grid">'+cells.map(function(date){
+  var current=date.slice(0,7)===selected.slice(0,7),items=list.filter(function(x){return x.date===date});
+  return '<button type="button" data-calendar-action="select-day" data-date="'+date+'" class="'+(current?'':'other ')+(date===selected?'active':'')+'"><span>'+asDate(date).getDate()+'</span>'+items.slice(0,2).map(function(x){return '<small style="--event-color:'+e(categoryColor(x,lastData||{}))+'">'+e(x.title)+'</small>'}).join('')+(items.length>2?'<em>+'+(items.length-2)+'</em>':'')+'</button>';
+ }).join('')+'</div></section>';
+}
+function miniMonth(date){
+ var d=asDate(date),first=dateString(new Date(d.getFullYear(),d.getMonth(),1)),start=monday(first),cells=Array.from({length:42},function(_,i){return shift(start,i)});
+ return '<div class="tf-cal-mini-head"><strong>'+e(label(date,{month:'long',year:'numeric'}))+'</strong><span><button type="button" data-calendar-action="mini-prev" aria-label="Previous month">‹</button><button type="button" data-calendar-action="mini-next" aria-label="Next month">›</button></span></div>'+
+ '<div class="tf-cal-mini-grid">'+['M','T','W','T','F','S','S'].map(function(n){return '<small>'+n+'</small>'}).join('')+
+ cells.map(function(v){return '<button type="button" data-calendar-action="select-day" data-date="'+v+'" class="'+(v===selected?'active ':'')+(v.slice(0,7)!==selected.slice(0,7)?'other':'')+'">'+asDate(v).getDate()+'</button>'}).join('')+'</div>';
+}
+function sidebar(d){
+ return '<div class="tf-cal-sidebar-inner">'+miniMonth(selected)+
+ '<div class="tf-cal-layer-top"><strong>My calendars</strong><button type="button" data-calendar-action="new-calendar" aria-label="Create calendar">+</button></div>'+
+ layers(d).map(function(layer){
+  return '<label class="tf-cal-layer"><input type="checkbox" data-calendar-layer="'+e(layer.id)+'" '+(!hiddenLayers.has(layer.id)?'checked':'')+'><span class="tf-cal-layer-dot" style="background:'+e(layer.color)+'"></span><span>'+e(layer.name)+'</span></label>';
+ }).join('')+
+ (calendarDraft?'<form id="tfCalNewCalendarForm" class="tf-cal-new-layer"><input name="name" maxlength="70" required placeholder="Calendar name" aria-label="Calendar name"><button type="submit">Create</button></form>':
+ '<button type="button" class="tf-cal-new-layer-btn" data-calendar-action="new-calendar">+ New calendar</button>')+'</div>';
+}
+function queue(d){
+ var list=eventList(d).filter(function(x){return !x.time&&!x.done&&x.kind==='task'});
+ return '<div class="tf-cal-queue"><header><strong>Unscheduled work</strong><span>'+list.length+' tasks</span></header>'+
+ (list.length?list.slice(0,18).map(function(x){return '<button type="button" data-calendar-action="event" data-key="'+e(x.key)+'" class="tf-cal-queue-row"><span class="tf-cal-queue-mark">'+glyph('task')+'</span><span><strong>'+e(x.title)+'</strong><small>'+(x.date?'Due '+e(label(x.date)):'No deadline')+'</small></span><span>›</span></button>'}).join(''):'<p class="tf-cal-queue-empty">No unscheduled tasks. New Tasks appear here automatically.</p>')+'</div>';
+}
+function activeEvent(d){return records(d).find(function(x){return x.key===activeKey})}
+function eventPreview(d){
+ var x=activeEvent(d);if(!x)return '';
+ var linked=x.kind==='task'||x.kind==='job'||x.linked;
+ var color=categoryColor(x,d);
+ var time=x.time?clock(x.time)+(x.duration?' – '+clock(plusTime(x.time,x.duration)):' · duration not set'):'Unscheduled';
+ var kindLabel=x.kind==='task'?'Task':x.kind==='job'?'Job':'Event';
+ return '<div class="tf-cal-quick-backdrop" data-calendar-action="close-card"></div><aside class="tf-cal-quick-card" role="dialog" aria-label="Calendar event details" style="--event-color:'+e(color)+'">'+
+ '<div class="tf-cal-quick-title"><div><span class="tf-cal-quick-category">'+e(kindLabel)+' · '+e((layers(d).find(function(y){return y.id===x.calendarId})||{}).name||x.calendarId)+'</span><h2>'+e(x.title)+'</h2></div><button type="button" data-calendar-action="close-card" aria-label="Close preview">×</button></div>'+
+ '<div class="tf-cal-quick-line">'+glyph('clock')+'<span>'+e(x.date?label(x.date,{weekday:'short',month:'short',day:'numeric',year:'numeric'}):'No date')+' · '+e(time)+'</span></div>'+
+ (x.location?'<div class="tf-cal-quick-line">'+glyph('map')+'<span>'+e(x.location)+'</span></div>':'')+
+ (x.assignedTo?'<div class="tf-cal-quick-line">'+glyph('user')+'<span>'+e(x.assignedTo)+'</span></div>':'')+
+ (x.notes?'<p class="tf-cal-quick-notes">'+e(x.notes)+'</p>':'')+
+ '<button type="button" class="tf-cal-open-record" data-calendar-action="'+(linked?'open-record':'edit-event')+'" data-key="'+e(x.key)+'">'+
+ (linked?'↗ Open '+kindLabel+' Record':'Edit Event')+'</button>'+
+ '<div class="tf-cal-quick-actions"><button type="button" data-calendar-action="reschedule" data-key="'+e(x.key)+'">'+glyph('calendar')+' Reschedule</button>'+
+ (!x.done?'<button type="button" data-calendar-action="complete" data-key="'+e(x.key)+'">✓ Complete</button>':'<span class="tf-cal-completed">✓ Completed</span>')+'</div></aside>';
 }
 function appointmentForm(){
- return '<section class="tf-cal-formpanel" aria-label="New appointment"><div class="tf-cal-section-head"><div><h2>New appointment</h2><p>Saves as a Task, visible in both the calendar and Tasks.</p></div><button type="button" data-calendar-action="cancel">×</button></div>'+
+ return '<section class="tf-cal-formpanel" aria-label="Create or edit calendar entry"><div class="tf-cal-section-head"><div><h2>'+e(draft?.id?'Edit schedule':'New calendar entry')+'</h2><p>Connected tasks and events update across TradeFlow.</p></div><button type="button" data-calendar-action="cancel">×</button></div>'+
  '<form id="tfCalendarForm"><label>Title *<input name="title" required maxlength="150" value="'+e(draft?.title||'')+'" placeholder="e.g. Site visit with property manager"></label>'+
- '<div class="tf-cal-twocol"><label>Date *<input type="date" name="date" required value="'+e(draft?.date||selected)+'"></label><label>Start time <input type="time" name="time" value="'+e(draft?.time||'')+'"></label></div>'+
- '<div class="tf-cal-twocol"><label>Estimated duration (minutes)<input type="number" min="15" max="1440" step="15" name="duration" value="'+e(draft?.duration||60)+'"></label>'+
- '<label>Assigned to (notes)<input name="assignedTo" maxlength="100" placeholder="e.g. Owner" value=""></label></div>'+
- '<label>Location / address<input name="location" maxlength="220" value="'+e(draft?.location||'')+'" placeholder="Optional"></label>'+
- '<label>Notes<textarea name="description" maxlength="1600" rows="3" placeholder="What to bring or prepare">'+e(draft?.notes||'')+'</textarea></label>'+
- '<div class="tf-cal-form-actions"><button class="tf-cal-primary" type="submit">Save appointment</button><button class="tf-cal-secondary" type="button" data-calendar-action="cancel">Cancel</button></div></form>'+
- '<p class="tf-cal-disclosure">There are no connected employee accounts, automatic invitations, GPS tracking, or route optimizations in this release.</p></section>';
+ '<label>Type<select name="kind"><option value="event" '+(draft?.kind!=='task'?'selected':'')+'>Calendar event</option><option value="task" '+(draft?.kind==='task'?'selected':'')+'>Task / appointment</option></select></label>'+
+ '<div class="tf-cal-twocol"><label>Date *<input type="date" name="date" required value="'+e(draft?.date||selected)+'"></label><label>Start time<input type="time" name="time" value="'+e(draft?.time||'')+'"></label></div>'+
+ '<div class="tf-cal-twocol"><label>Duration (minutes)<input type="number" min="15" max="1440" step="15" name="duration" value="'+e(draft?.duration||60)+'"></label>'+
+ '<label>Calendar<select name="calendarId">'+layers(lastData||{}).map(function(l){return '<option value="'+e(l.id)+'" '+((draft?.calendarId||'internal')===l.id?'selected':'')+'>'+e(l.name)+'</option>'}).join('')+'</select></label></div>'+
+ '<label>Location<input name="location" maxlength="220" value="'+e(draft?.location||'')+'" placeholder="Optional"></label>'+
+ '<label>Notes<textarea name="description" maxlength="1600" rows="3">'+e(draft?.notes||'')+'</textarea></label>'+
+ '<div class="tf-cal-form-actions"><button class="tf-cal-primary" type="submit">Save</button><button class="tf-cal-secondary" type="button" data-calendar-action="cancel">Cancel</button></div></form></section>';
 }
 function render(d){
- var list=records(d||{}),current=mode==='day'?renderDay(list):mode==='month'?renderMonth(list):renderWeek(list);
- var period=mode==='month'?label(selected,{month:'long',year:'numeric'}):mode==='week'?
- label(monday(selected),{month:'short',day:'numeric'})+' – '+label(shift(monday(selected),6),{month:'short',day:'numeric'}):label(selected);
- return '<main class="tf-cal-page"><header class="tf-cal-head"><button type="button" data-tab="settings" class="tf-cal-back">‹ More</button>'+
- '<div class="tf-cal-title"><span>TRADEFLOW / OPERATIONS</span><h1>Calendar</h1><p>Plan your work around real Tasks, Jobs and appointments.</p></div></header>'+
- '<div class="tf-cal-controls"><div class="tf-cal-modes">'+['day','week','month'].map(function(x){return '<button type="button" data-calendar-action="mode" data-mode="'+x+'" class="'+(mode===x?'active':'')+'">'+x[0].toUpperCase()+x.slice(1)+'</button>'}).join('')+
- '</div><button class="tf-cal-primary" type="button" data-calendar-action="new">+ Appointment</button></div>'+
- '<div class="tf-cal-period"><div><button type="button" data-calendar-action="prev" aria-label="Previous period">‹</button><strong>'+e(period)+'</strong><button type="button" data-calendar-action="next" aria-label="Next period">›</button></div>'+
- '<button type="button" data-calendar-action="today">Today</button></div>'+
- '<div class="tf-cal-content">'+(draft?appointmentForm():current)+'</div>'+
- '<div class="tf-cal-resources"><div><strong>Field operations</strong><p>Tasks and Jobs are synchronized within this device. Map pins and opportunity records remain available under Map and Opportunities.</p></div><button type="button" data-tab="map">Open Map →</button></div>'+
- '<p class="tf-cal-disclosure">Local scheduling foundation · Manual appointments · No connected team calendar or automated route planner yet.</p></main>';
+ lastData=d||{};
+ var list=eventList(lastData),period=mode==='month'?label(selected,{month:'long',year:'numeric'}):mode==='week'?label(monday(selected),{month:'short',day:'numeric'})+' – '+label(shift(monday(selected),6),{month:'short',day:'numeric',year:'numeric'}):label(selected,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+ var current=mode==='day'?renderDay(list):mode==='month'?renderMonth(list):renderWeek(list);
+ var issues=conflicts(lastData);
+ return '<main class="tf-cal-page"><aside class="tf-cal-sidebar">'+sidebar(lastData)+'</aside><section class="tf-cal-work">'+
+ '<div class="tf-cal-toolbar"><div class="tf-cal-date-tools"><button type="button" data-calendar-action="prev" aria-label="Previous">‹</button><button type="button" data-calendar-action="next" aria-label="Next">›</button><button type="button" data-calendar-action="today">Today</button><strong>'+e(period)+'</strong></div>'+
+ '<div class="tf-cal-toolbar-right"><div class="tf-cal-modes">'+['day','week','month'].map(function(x){return '<button type="button" data-calendar-action="mode" data-mode="'+x+'" class="'+(mode===x?'active':'')+'">'+x[0].toUpperCase()+x.slice(1)+'</button>'}).join('')+'</div>'+
+ '<button class="tf-cal-primary" type="button" data-calendar-action="new">+ Event</button><button class="tf-cal-layer-toggle" type="button" data-calendar-action="layers" aria-label="Calendar filters">'+glyph('calendar')+'</button></div></div>'+
+ (issues.length?'<div class="tf-cal-conflict-banner"><span>⚠ '+issues.length+' overlapping commitment'+(issues.length===1?'':'s')+' identified in the current records</span><button data-calendar-action="conflicts">Review</button></div>':'')+
+ (intelligenceFocus==='conflicts'&&issues.length?'<div class="tf-cal-conflict-list">'+issues.slice(0,5).map(function(x){return '<div>'+e(label(x.date))+' · '+e(x.a.title)+' overlaps '+e(x.b.title)+'</div>'}).join('')+'</div>':'')+
+ '<div class="tf-cal-mobile-queue-control"><button type="button" data-calendar-action="queue">'+(queueVisible?'Hide':'Show')+' unscheduled tasks · '+list.filter(function(x){return x.kind==='task'&&!x.time&&!x.done}).length+'</button></div>'+
+ (draft?appointmentForm():current)+
+ '<div class="tf-cal-queue-desktop">'+queue(lastData)+'</div>'+
+ '</section>'+(layerDrawer?'<div class="tf-cal-drawer-shade" data-calendar-action="layers"></div><aside class="tf-cal-mobile-drawer"><div class="tf-cal-drawer-head"><strong>Calendar layers</strong><button data-calendar-action="layers">×</button></div>'+sidebar(lastData)+'</aside>':'')+
+ (queueVisible?'<aside class="tf-cal-mobile-queue">'+queue(lastData)+'</aside>':'')+
+ (activeKey?eventPreview(lastData):'')+'</main>';
 }
 function mount(context){
  bridge=context;
  if(typeof document!=='undefined'){
   document.addEventListener('click',click);
+  document.addEventListener('change',change);
   document.addEventListener('submit',submit);
  }
+}
+async function change(evt){
+ var b=evt.target.closest?.('[data-calendar-layer]');if(!b||!bridge)return;
+ if(b.checked)hiddenLayers.delete(b.dataset.calendarLayer);else hiddenLayers.add(b.dataset.calendarLayer);
+ await bridge.put('calendarPreferences',{id:'local-owner',hiddenLayerIds:[...hiddenLayers],updatedAt:new Date().toISOString()});
+ await bridge.render();
 }
 async function click(evt){
  if(!bridge)return;
  var b=evt.target.closest&&evt.target.closest('[data-calendar-action]');if(!b)return;
  evt.preventDefault();
  var action=b.dataset.calendarAction;
- if(action==='mode'){mode=['day','week','month'].includes(b.dataset.mode)?b.dataset.mode:'week';draft=null;await bridge.render();return}
- if(action==='select-day'){if(validDate(b.dataset.date))selected=b.dataset.date;draft=null;await bridge.render();return}
- if(action==='today'){selected=day();draft=null;await bridge.render();return}
- if(action==='prev'||action==='next'){
-  var delta=action==='next'?1:-1,d=asDate(selected);
-  if(mode==='month'){var oldDay=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+delta);var last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(last,oldDay))}
+ if(action==='mode'){mode=['day','week','month'].includes(b.dataset.mode)?b.dataset.mode:'week';draft=null;activeKey='';await bridge.render();return}
+ if(action==='select-day'){if(validDate(b.dataset.date))selected=b.dataset.date;draft=null;activeKey='';if(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)mode='day';await bridge.render();return}
+ if(action==='today'){selected=day();draft=null;activeKey='';await bridge.render();return}
+ if(action==='prev'||action==='next'||action==='mini-next'||action==='mini-prev'){
+  var delta=action.endsWith('next')||action==='next'?1:-1,d=asDate(selected);
+  if(mode==='month'||action.startsWith('mini-')){var oldDay=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+delta);var last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(last,oldDay))}
   else d.setDate(d.getDate()+delta*(mode==='week'?7:1));
-  selected=dateString(d);draft=null;await bridge.render();return;
+  selected=dateString(d);draft=null;activeKey='';await bridge.render();return;
  }
- if(action==='new'){draft={date:selected};await bridge.render();return}
- if(action==='cancel'){draft=null;await bridge.render();return}
+ if(action==='event'){activeKey=b.dataset.key;draft=null;await bridge.render();return}
+ if(action==='close-card'){activeKey='';await bridge.render();return}
+ if(action==='layers'){layerDrawer=!layerDrawer;await bridge.render();return}
+ if(action==='queue'){queueVisible=!queueVisible;await bridge.render();return}
+ if(action==='new-calendar'){calendarDraft=!calendarDraft;await bridge.render();return}
+ if(action==='new'){draft={date:selected,kind:'event',calendarId:'internal'};activeKey='';await bridge.render();return}
+ if(action==='cancel'){draft=null;activeKey='';await bridge.render();return}
+ if(action==='conflicts'){intelligenceFocus=intelligenceFocus==='conflicts'?'':'conflicts';await bridge.render();return}
+ if(action==='open-record'){
+  var record=activeEvent(lastData||{});if(!record)return;
+  if(bridge.openRecord){await bridge.openRecord(record.sourceKind,record.sourceId);return}
+  await bridge.navigate(record.kind==='job'?'jobs':'tasks');return;
+ }
+ if(action==='reschedule'||action==='edit-event'){
+  var record=activeEvent(lastData||{});if(!record)return;
+  if(record.kind!=='event'&&record.sourceKind!=='task'){await bridge.openRecord?.(record.sourceKind,record.sourceId);return}
+  draft={id:record.id,kind:record.kind==='task'?'task':'event',date:record.date||selected,time:record.time,duration:record.duration,
+   title:record.title,location:record.location,notes:record.notes,calendarId:record.calendarId};activeKey='';await bridge.render();return;
+ }
+ if(action==='complete'){
+  var record=activeEvent(lastData||{});if(!record)return;
+  if(record.kind==='task'||record.kind==='job'){
+   var original=await bridge.get(record.kind==='job'?'jobs':'tasks',record.id);if(!original)return;
+   await bridge.put(record.kind==='job'?'jobs':'tasks',{...original,status:record.kind==='job'?'Completed':'Done',updatedAt:new Date().toISOString()});
+  }else{
+   var ev=await bridge.get('calendarEntries',record.id);if(!ev)return;
+   await bridge.put('calendarEntries',{...ev,status:'Completed',updatedAt:new Date().toISOString()});
+  }
+  activeKey='';await bridge.render();return;
+ }
  if(action==='opportunity'){
   var item=await bridge.get('opportunities',b.dataset.id);if(!item)return;
-  selected=day();mode='day';draft={date:selected,title:'Contact / site visit: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,115),
-   location:[item.city,item.region].filter(Boolean).join(', '),notes:'Related opportunity: '+String(item.source_record_id||item.id).slice(0,100)+'\nVerify contact and meeting time before confirming.'};
+  selected=day();mode='day';draft={kind:'task',date:selected,title:'Contact / site visit: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,115),
+   location:[item.city,item.region].filter(Boolean).join(', '),notes:'Related opportunity: '+String(item.source_record_id||item.id).slice(0,100)};
   bridge.navigate('calendar');return;
  }
 }
 async function submit(evt){
- if(evt.target.id!=='tfCalendarForm'||!bridge)return;
+ if(!bridge)return;
+ if(evt.target.id==='tfCalNewCalendarForm'){
+  evt.preventDefault();
+  var f=new FormData(evt.target),name=String(f.get('name')||'').trim().slice(0,70);
+  if(!name)return;
+  await bridge.put('calendars',{id:bridge.uid(),name:name,color:'#18c9e4',ownerId:'local-owner',businessId:'local-business',createdAt:new Date().toISOString()});
+  calendarDraft=false;layerDrawer=false;await bridge.render();return;
+ }
+ if(evt.target.id!=='tfCalendarForm')return;
  evt.preventDefault();
  var f=new FormData(evt.target),text=function(k,n){return String(f.get(k)||'').trim().slice(0,n||180)};
- var title=text('title',150),date=text('date',10),time=text('time',5),duration=Number(f.get('duration')||60);
- if(!title||!validDate(date)||time&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)||!Number.isInteger(duration)||duration<15||duration>1440){
+ var title=text('title',150),date=text('date',10),time=text('time',5),duration=Number(f.get('duration')||60),kind=text('kind',15)||'task',calendarId=text('calendarId',80)||'internal';
+ if(!title||!validDate(date)||(time&&!validTime(time))||!Number.isInteger(duration)||duration<15||duration>1440){
   alert('Enter a title, valid date, optional time and duration (15–1440 minutes).');return;
  }
  try{
-  await bridge.put('tasks',{id:bridge.uid(),title: title,due:date,status:'Open',scheduleTime:time,durationMinutes:duration,location:text('location',220),
-   assignedTo:text('assignedTo',100),description:text('description',1600),kind:'appointment',createdAt:new Date().toISOString()});
-  selected=date;draft=null;bridge.notify('Appointment saved to Tasks and Calendar');
- }catch(err){alert('Could not save appointment: '+err.message)}
+  var now=new Date().toISOString(),common={title:title,durationMinutes:duration,location:text('location',220),description:text('description',1600),calendarId:calendarId,updatedAt:now};
+  if(kind==='task'){
+   var old=draft?.id?await bridge.get('tasks',draft.id):null;
+   await bridge.put('tasks',{...old,...common,id:old?.id||bridge.uid(),due:date,status:old?.status||'Open',scheduleTime:time,kind:old?.kind||'appointment',createdAt:old?.createdAt||now});
+  }else{
+   var prior=draft?.id?await bridge.get('calendarEntries',draft.id):null;
+   await bridge.put('calendarEntries',{...prior,id:prior?.id||bridge.uid(),title:title,date:date,time:time,durationMinutes:duration,location:common.location,notes:common.description,
+    calendarId:calendarId,status:prior?.status||'Scheduled',ownerId:'local-owner',businessId:'local-business',version:(prior?.version||0)+1,updatedAt:now,createdAt:prior?.createdAt||now});
+  }
+  selected=date;draft=null;activeKey='';bridge.notify('Saved to Calendar');
+ }catch(err){alert('Could not save: '+err.message)}
 }
-global.TradeFlowCalendar={configure:mount,render:render,records:records,prepareOpportunity:function(item){
- selected=day();mode='day';draft={date:selected,title:'Contact: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,140),
- location:[item.city,item.region].filter(Boolean).join(', ')};},_test:{validDate:validDate,shift:shift,monday:monday}};
+global.TradeFlowCalendar={configure:mount,render:render,records:records,conflicts:conflicts,prepareOpportunity:function(item){
+ selected=day();mode='day';draft={kind:'task',date:selected,title:'Contact: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,140),
+ location:[item.city,item.region].filter(Boolean).join(', ')};},focusIntelligence:function(kind){intelligenceFocus=kind;},_test:{validDate:validDate,shift:shift,monday:monday,validTime:validTime,clock:clock}};
 })(typeof window!=='undefined'?window:globalThis);
