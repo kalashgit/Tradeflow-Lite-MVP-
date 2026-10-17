@@ -74,3 +74,6 @@ assert.ok(!app.includes("if(hq&&(d.suppliers||[]).length)"),'HQ marker no longer
 assert.ok(app.includes('data-action="businessLocate"'),'Profile can locate HQ pin in one tap');
 assert.ok(app.includes("TradeFlowSupply?.render"),'Supply UI integration');
 console.log('PASS Core Integration Sprint 01: supplier validation, quote handoff, saved links, world-geodesic mapping and offline wiring.');
+
+// Formal purchase orders run with the existing required Core Integration gate.
+require('./purchase-orders.test.cjs');
