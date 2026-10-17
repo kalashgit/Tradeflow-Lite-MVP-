@@ -224,7 +224,7 @@ function jobCostOverview(d){
  '<div class="tf-jc-track slim"><div class="'+(x.risk?'over':'')+'" style="width:'+ratio+'%"></div></div>'+
  '<div class="tf-jc-job-footer"><span>'+x.jobOrders.length+' linked issued PO'+(x.jobOrders.length===1?'':'s')+'</span><span>Review job →</span></div></button>';
  }).join('')+'</div>':'<div class="tf-jc-empty">'+(jobs.length?'No jobs match this filter.':'No jobs yet. Create your first job to begin tracking its costs.')+'</div>')+
- '</section><button class="tf-jc-primary" type="button" data-revenue-action="cost-quick">＋ Add job cost</button>'+
+ '</section><button class="tf-jc-primary" type="button" data-revenue-action="cost-quick">＋ Select job to add cost</button>'+
  '<p class="tf-jc-footnote">All figures reflect local records. Commitments from issued purchase orders are displayed separately in job detail; they are not treated as paid costs. No profit forecast is asserted without remaining-cost estimates.</p></section>';
  return out;
 }
@@ -370,7 +370,7 @@ async function onClick(event){
  if(a==='print'){window.print?.();return}
  if(a==='cost-filter'){jobCostFilter=b.dataset.filter||'Active';api.render();return}
  if(a==='cost-toggle'){costFormOpen=!costFormOpen;api.render();return}
- if(a==='cost-quick'){const jobs=await api.all('jobs');if(!jobs.length){api.navigate?.('jobs');return}jobId=jobs[0].id;costFormOpen=true;api.render();return}
+ if(a==='cost-quick'){jobCostFilter='All';api.render();return}
  if(a==='cost-csv'){const job=await api.get('jobs',id);if(!job)return;const costs=(await api.all('jobCosts')).filter(x=>x.jobId===id);const expenses=(await api.all('expenses')).filter(x=>x.jobId===id||x.relatedId===id);const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Source','Title','Type','Category','Amount EUR'],...costs.map(x=>['Job Cost',x.title,x.type,x.category,x.amount]),...expenses.map(x=>['Finance',x.title||x.vendor||'Expense','actual',x.category,x.amount])];const blob=new Blob([rows.map(x=>x.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const link=URL.createObjectURL(blob),el=document.createElement('a');el.href=link;el.download='tradeflow-job-costs-'+id+'.csv';document.body.appendChild(el);el.click();el.remove();setTimeout(()=>URL.revokeObjectURL(link),1000);return}
  if(a==='job'){jobId=id;api.render();return}
  if(a==='job-back'){jobId='';costFormOpen=false;api.render();return}
