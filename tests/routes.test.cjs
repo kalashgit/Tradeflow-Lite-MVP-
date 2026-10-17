@@ -44,4 +44,5 @@ listeners.change[0]({target:{id:'tfRouteDate',value:'2026-10-16'}});
  assert.ok(html.includes('routes.js')&&html.includes('routes.css')&&sw.includes('routes.js'));
  assert.ok(app.includes("tab==='routes'")&&app.includes("tab==='integrations'"));
  console.log('PASS: Routes R05 saved stop ordering, map handoff, honest straight-line labeling and unconnected integrations');
+ require('./integrations-v2.test.cjs');
 })().catch(err=>{console.error(err);process.exitCode=1});
