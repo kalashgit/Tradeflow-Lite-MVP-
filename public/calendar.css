@@ -656,3 +656,17 @@
 @media(prefers-reduced-motion:reduce){
  .tf-cal-direct-editor:not(.is-dragging){transition:none!important}
 }
+
+
+/* R16: third detent slides the entire editor below calendar viewport. */
+.tf-cal-direct-editor:not(.is-dragging){
+ transition:height 220ms cubic-bezier(.22,.75,.32,1),transform 220ms cubic-bezier(.22,.75,.32,1)!important;
+}
+.tf-cal-direct-editor.is-dragging{
+ transition:none!important;
+}
+.tf-cal-direct-editor.is-parked{
+ pointer-events:none!important;
+ visibility:hidden;
+ transition:transform 220ms cubic-bezier(.22,.75,.32,1),visibility 0s linear 220ms!important;
+}
