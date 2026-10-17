@@ -72,16 +72,27 @@ function records(d){
  entries=entries.filter(function(x){return !(x.kind==='task'&&x.time&&linked.has(x.key))});
  return entries.sort(function(a,b){return (a.date+' '+(a.time||'99:99')+' '+a.title).localeCompare(b.date+' '+(b.time||'99:99')+' '+b.title)});
 }
-function conflicts(d){
- var timed=records(d).filter(function(x){return x.date&&x.time&&x.duration>0&&!x.done&&x.status!=='Cancelled'});
- var issues=[];
- for(var i=0;i<timed.length;i++)for(var j=i+1;j<timed.length;j++){
-  var a=timed[i],b=timed[j];if(a.date!==b.date)continue;
-  var ownerA=a.assignedTo||'local-owner',ownerB=b.assignedTo||'local-owner';
-  if(ownerA!==ownerB)continue;
-  if(a.key===b.key)continue;
-  if(minutes(a.time)<minutes(b.time)+b.duration&&minutes(b.time)<minutes(a.time)+a.duration)
-   issues.push({id:a.key+'|'+b.key,date:a.date,a:a,b:b});
+function conflicts(d,options){
+ const opts=options||{},prefs=(d.calendarPreferences||[]).find(function(x){return x.id==='local-owner'})||{};
+ const days=Math.max(1,Math.min(90,Number(prefs.horizonDays)||14));
+ const first=opts.from||day(),last=opts.until||shift(first,days-1);
+ const groups=new Map(),issues=[];
+ for(const x of records(d)){
+  if(!x.date||!x.time||x.duration<=0||x.done||x.status==='Cancelled'||x.date<first||x.date>last)continue;
+  const owner=String(x.assignedTo||'local-owner'),key=x.date+'|'+owner;
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(x);
+ }
+ for(const group of groups.values()){
+  group.sort(function(a,b){return minutes(a.time)-minutes(b.time)});
+  for(let i=0;i<group.length;i++){
+   const a=group[i],endA=minutes(a.time)+a.duration;
+   for(let j=i+1;j<group.length;j++){
+    const b=group[j];if(minutes(b.time)>=endA)break;
+    if(a.key!==b.key&&minutes(b.time)+b.duration>minutes(a.time))
+     issues.push({id:a.key+'|'+b.key,date:a.date,a:a,b:b});
+   }
+  }
  }
  return issues;
 }
