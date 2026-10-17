@@ -50,7 +50,7 @@ function businessCapabilityPage(tab,d){
 function homePanel(d){
  var s=settings(d),active=s.icps.find(function(x){return x.id===s.activeIcpId});
  var open=(d.tasks||[]).filter(function(t){return t.missionOrigin==='growth'&&t.status!=='Done'}).length;
- return '<section class="tf-growth-home-widget"><div><span class="tf-growth-kicker">GROWTH INTELLIGENCE</span><h2>Your next actions</h2><p>'+(open?e(open+' mission'+(open===1?'':'s')+' in progress.'):'Turn useful recommendations into tracked tasks.')+'</p></div><div class="tf-growth-home-actions"><button type="button" data-tab="missions">Missions →</button><button type="button" data-tab="calendar">Calendar →</button><button type="button" data-tab="growth">'+(active?'Target: '+e(active.name):'Set target customers')+' →</button></div></section>';
+ return '<section class="tf-growth-home-widget"><div><span class="tf-growth-kicker">GROWTH INTELLIGENCE</span><h2>Your next actions</h2><p>'+(open?e(open+' mission'+(open===1?'':'s')+' in progress.'):'Turn useful recommendations into tracked tasks.')+'</p></div><div class="tf-growth-home-actions"><button type="button" data-tab="calendar">Calendar →</button><button type="button" data-tab="growth">'+(active?'Target: '+e(active.name):'Set target customers')+' →</button></div></section>';
 }
 function tabs(s){
  return '<div class="tf-growth-tabs" role="group" aria-label="Target profile sections">'+
@@ -237,7 +237,7 @@ var sections=[
   ['','Online payments','Planned','Authorized provider checkout and hosted payment links'],
   ['profitability','Job cost records','Available','Review linked expenses and manual job cost entries']]},
  {name:'Intelligence & Integrations',rows:[
-  ['missions','Business Missions','Available','Turn guidance into trackable Tasks'],
+  
   ['ai','TradeFlow AI','Preview','Current question-and-answer assistant'],
   ['integrations','Integration Status','Available','Review provider readiness and unmet requirements'],
   ['','Automations and QuickBooks','Planned','Authorized workflows, sync and audit logs'],
