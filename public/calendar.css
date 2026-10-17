@@ -327,3 +327,39 @@
 .tf-cal-direct-preview{position:absolute;z-index:4;left:2px;right:2px;pointer-events:none;border:1px dashed #24e0f3;border-left:4px solid #0ed7ed;border-radius:8px;background:linear-gradient(125deg,#0b536c,#0b394b);padding:7px 8px;display:flex;flex-direction:column;gap:4px;overflow:hidden;box-shadow:0 0 16px #00cbeb35}
 .tf-cal-direct-preview span{font-size:11px;font-weight:750;color:#effcff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tf-cal-direct-preview small{font-size:10px;color:#a4e5ed}
+
+
+/* Direct event compact console R02 — keep the calendar readable while editing. */
+.tf-cal-direct-editor{width:min(344px,calc(100vw - 30px));padding:10px 12px;border-radius:12px;box-shadow:0 12px 34px #000b}
+.tf-cal-direct-editor form{gap:8px}
+.tf-cal-direct-head{min-height:19px;gap:8px}
+.tf-cal-direct-head i{height:17px;width:4px}
+.tf-cal-direct-head strong{font-size:12px;letter-spacing:.01em}
+.tf-cal-direct-head button{font-size:20px}
+.tf-cal-direct-editor #tfCalDirectTitle{min-height:35px;font-size:13px;padding:7px 9px;border-radius:6px}
+.tf-cal-direct-time{gap:6px}
+.tf-cal-direct-time label{gap:2px;font-size:9px}
+.tf-cal-direct-time input{min-height:34px;font-size:12px;padding:3px 7px;border-radius:6px}
+.tf-cal-direct-time>span{margin-top:12px;font-size:14px}
+.tf-cal-direct-shortcuts{display:flex;align-items:center;gap:6px;min-width:0}
+.tf-cal-direct-durations{display:flex;flex:1 1 auto;gap:4px;min-width:0}
+.tf-cal-direct-durations button{flex:1 0 auto;padding:6px 4px;min-height:30px;font-size:10px;border-radius:6px}
+.tf-cal-direct-kind-control{flex:0 0 90px;min-width:0}
+.tf-cal-direct-editor .tf-cal-direct-kind-control select{width:100%;min-height:30px;height:30px;font-size:11px;color:#e0f6ff;padding:4px 5px;border-radius:6px}
+.tf-cal-direct-more{padding-top:5px;font-size:10px;border-top:0}
+.tf-cal-direct-more summary{min-height:18px}
+.tf-cal-direct-more label{margin-top:7px}
+.tf-cal-direct-more input,.tf-cal-direct-more textarea,.tf-cal-direct-more select{min-height:33px;font-size:12px}
+.tf-cal-direct-save{min-height:36px;font-size:12px;border-radius:6px}
+.tf-cal-direct-feedback{font-size:10px}
+@media(max-width:700px){
+ .tf-cal-direct-editor{
+  top:auto;bottom:calc(78px + env(safe-area-inset-bottom));left:10px;right:10px;
+  width:calc(100vw - 20px);max-height:min(40dvh,355px);
+  padding:10px 12px;border:1px solid #2d6a82;border-radius:12px;
+ }
+ .tf-cal-direct-editor form{gap:7px}
+ .tf-cal-direct-time input{font-size:13px;min-height:35px}
+ .tf-cal-direct-editor #tfCalDirectTitle{min-height:35px}
+ .tf-cal-direct-more:not([open]){margin-top:0}
+}
