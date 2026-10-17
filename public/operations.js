@@ -129,7 +129,7 @@ function roster(d){
  metric('Available crew',summary.available+' / '+crew.length,summary.known+' members with known status','crew')+'</div>'+
  '<section class="tf-d-v2-panel"><div class="tf-d-v2-head"><h2>Daily dispatch</h2><div class="tf-d-v2-date">'+
  '<button data-ops-action="day-prev" type="button" aria-label="Previous day">‹</button>'+
- '<label><span class="sr-only">Dispatch date</span><input type="date" id="tfOpsDispatchDate" value="'+esc(activeDate)+'" aria-label="Dispatch date"></label>'+
+ '<label class="tf-d-v2-date-field"><span class="tf-d-v2-date-label">Dispatch date</span><input type="date" id="tfOpsDispatchDate" value="'+esc(activeDate)+'" aria-label="Dispatch date"></label>'+
  '<button data-ops-action="day-next" type="button" aria-label="Next day">›</button></div>'+
  '<button data-tab="calendar" type="button" class="tf-d-v2-link">Calendar ↗</button></div>'+
  (sorted.length?'<div class="tf-d-v2-schedule">'+sorted.map(job=>{
