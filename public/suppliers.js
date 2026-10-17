@@ -21,6 +21,13 @@
    '<details><summary>Contact and notes</summary><label>Public business phone<input maxlength="80" name="phone" value="'+value(rec,'phone')+'"></label>'+
    '<label>Public business email<input type="email" maxlength="180" name="email" value="'+value(rec,'email')+'"></label>'+
    '<label>Official website<input type="url" maxlength="400" name="website" value="'+value(rec,'website')+'"></label>'+
+   '<label>Business category<input name="category" maxlength="70" value="'+value(rec,'category')+'" placeholder="e.g. Electrical materials"></label>'+
+   '<label>Business hours<input name="businessHours" maxlength="160" value="'+value(rec,'businessHours')+'" placeholder="e.g. Mon–Fri, 7 AM–5 PM"></label>'+
+   '<label><input type="checkbox" name="preferred" '+(rec?.preferred?'checked':'')+'> Preferred supplier</label>'+
+   '<label>Official business photo URL (HTTPS)<input type="url" name="photoUrl" value="'+(String(rec?.photoUrl||'').startsWith('data:')?'':value(rec,'photoUrl'))+'" placeholder="https://..."></label>'+
+   '<label>Or upload a photo you own<input type="file" name="photoUpload" accept="image/jpeg,image/png,image/webp"></label>'+
+   (String(rec?.photoUrl||'').startsWith('data:')?'<input type="hidden" name="savedPhotoData" value="'+value(rec,'photoUrl')+'">':'')+
+   '<small>Google Maps/Earth photos require a licensed integration. Uploaded photos stay on this device.</small>'+
    '<label>Notes<textarea name="notes" maxlength="1200" rows="2">'+value(rec,'notes')+'</textarea></label></details>'+
    '<div class="tf-supplier-actions"><button type="submit" class="primary">Save supplier</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
    '<p class="tf-supplier-disclaimer">TradeFlow locates saved addresses when possible. For exact locations, use a full Google Maps place link or select a point on Map. Shortened Google Maps links may not contain coordinates.</p></section>';
@@ -97,6 +104,28 @@
   }
   await bridge.render();
  }
+ async function tfSupplierPhoto(file){
+  if(!/^image\/(?:jpeg|png|webp)$/.test(file.type)||file.size>8000000)throw Error('Choose a JPG, PNG or WebP photo smaller than 8 MB');
+  return await new Promise((resolve,reject)=>{
+   const url=URL.createObjectURL(file),img=new Image();
+   img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Cannot open photo'))};
+   img.onload=()=>{
+    URL.revokeObjectURL(url);
+    try{
+     const scale=Math.min(1,760/Math.max(img.naturalWidth,img.naturalHeight));
+     const canvas=document.createElement('canvas');
+     canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
+     canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+     const ctx=canvas.getContext('2d');if(!ctx)throw Error('Image conversion unavailable');
+     ctx.drawImage(img,0,0,canvas.width,canvas.height);
+     const result=canvas.toDataURL('image/jpeg',.7);
+     if(result.length>=340000)throw Error('Photo is too large after compression. Try a smaller picture');
+     resolve(result)
+    }catch(e){reject(e)}
+   };
+   img.src=url;
+  });
+ }
  async function submit(e){
   if(!bridge||!['tfSupplierForm','tfSupplyOrderForm'].includes(e.target.id))return;
   e.preventDefault();e.stopPropagation();
@@ -105,6 +134,12 @@
   const kind=el.id==='tfSupplierForm'?'supplier.save':'supplyOrder.save';
   if(kind==='supplyOrder.save')f.destinationId=f.destinationKind==='customer'?f.customerDestination:f.destinationKind==='job'?f.jobDestination:'';
   try{
+   if(kind==='supplier.save'){
+    const upload=f.photoUpload;
+    if(upload?.size){f.photoUrl=await tfSupplierPhoto(upload)}
+    else if(!String(f.photoUrl||'').trim()&&f.savedPhotoData)f.photoUrl=f.savedPhotoData;
+    delete f.photoUpload;delete f.savedPhotoData;
+   }
    const result=await bridge.execute(kind,f);
    form='';editId='';repairStatus='';
    const opts=kind==='supplier.save'?{supplierIds:[result.id],skipBusiness:true,max:1}:{orderIds:[result.id],includeBusiness:true,max:2};

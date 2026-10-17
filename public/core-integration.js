@@ -40,7 +40,12 @@
    const unchangedPoint=priorPoint&&enteredPoint&&priorPoint.lat===enteredPoint.lat&&priorPoint.lon===enteredPoint.lon;
    const point=changedAddress&&unchangedPoint?null:enteredPoint;
    const moved=changedAddress||!!(priorPoint&&point&&(priorPoint.lat!==point.lat||priorPoint.lon!==point.lon));
-   return {resultId:existing?.id||id,writes:[{store:'suppliers',record:{...existing,id:existing?.id||id,name,address,website:brief(body.website,400),phone:brief(body.phone,80),email:brief(body.email,180).toLowerCase(),notes:brief(body.notes,1200),...point?{latitude:point.lat,longitude:point.lon}:{latitude:null,longitude:null},
+   const pic=String(body.photoUrl||'').trim();
+   if(pic&&!(pic.startsWith('https://')&&pic.length<2500)&&!(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(pic)&&pic.length<350000))
+    throw Error('Business photo must be an HTTPS image URL or a small uploaded image');
+   return {resultId:existing?.id||id,writes:[{store:'suppliers',record:{...existing,id:existing?.id||id,name,address,website:brief(body.website,400),phone:brief(body.phone,80),email:brief(body.email,180).toLowerCase(),
+    category:brief(body.category,70),preferred:body.preferred===true||body.preferred==='on',
+    businessHours:brief(body.businessHours,160),photoUrl:pic,notes:brief(body.notes,1200),...point?{latitude:point.lat,longitude:point.lon}:{latitude:null,longitude:null},
      mapLocationStatus:point?(moved?'needs_review':existing?.mapLocationStatus||'needs_review'):(address?'unmapped':'no_address'),
      mapAddressResult:moved?'':existing?.mapAddressResult||'',updatedAt:when}}]};
   }

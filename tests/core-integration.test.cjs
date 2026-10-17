@@ -11,6 +11,7 @@ let sequence=0;const uid=()=> 'id-'+(++sequence),now=()=>new Date('2026-10-17T00
 const supplier=core.prepare('supplier.save',{name:'Local Distribution',address:'123 Warehouse Way, Austin',latitude:'30.30',longitude:'-97.70'},data,uid,now);
 assert.equal(supplier.writes[0].store,'suppliers');
 assert.equal(supplier.writes[0].record.latitude,30.30);
+assert.throws(()=>core.prepare('supplier.save',{name:'Invalid image',photoUrl:'javascript:alert(1)'},data,uid,now),/Business photo must/);
 assert.throws(()=>core.prepare('supplier.save',{name:'Unmapped',latitude:'30.2'},data,uid,now),/both valid/);
 assert.throws(()=>core.prepare('supplier.save',{name:''},data,uid,now),/Supplier name/);
 data.suppliers=[supplier.writes[0].record];
