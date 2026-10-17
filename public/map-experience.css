@@ -157,3 +157,10 @@ body>.tf-experience-sheet.tf-exp-dragging{transition:none!important;overflow:hid
  body>.tf-experience-sheet{bottom:calc(79px + env(safe-area-inset-bottom))!important;left:0!important;right:0!important;transform:none!important;translate:none!important;border-bottom:0!important}
  .tf-experience-sheet .tf-exp-head{padding-right:34px}
 }
+
+/* NavigationControl lives at top-left; preserve its dark-glass styling. */
+.tf-map-screen .maplibregl-ctrl-top-left{top:100px!important;left:12px!important;z-index:4}
+.tf-map-screen .maplibregl-ctrl-top-left .maplibregl-ctrl-group{margin:0;background:rgba(4,22,37,.92);border:1px solid #416b85;border-radius:11px;box-shadow:0 7px 19px #0008;overflow:hidden}
+.tf-map-screen .maplibregl-ctrl-top-left .maplibregl-ctrl-group button{width:41px;height:42px;background:transparent;border-bottom:1px solid #26445b;color:#e4f6ff;filter:invert(.85)}
+.tf-map-screen .maplibregl-ctrl-top-left .maplibregl-ctrl-group button:last-child{border:0}
+@media(max-width:850px){.tf-map-screen .maplibregl-ctrl-top-left{top:115px!important;left:12px!important}}
