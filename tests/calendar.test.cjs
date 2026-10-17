@@ -62,6 +62,22 @@ async function run(){
  await click({preventDefault(){},target:{dataset:{calendarAction:'new'},closest(){return this}}});
  await submit({preventDefault(){},target:{id:'tfCalendarForm',fields:{title:'Standalone meeting',date:'2026-10-21',time:'14:00',duration:'60',kind:'event'}}});
  assert.equal(Object.keys(stores.calendarEntries).length,1,'Standalone event uses its own store, never activity log');
+ await click({preventDefault(){},target:{dataset:{calendarAction:'schedule-settings'},closest(){return this}}});
+ assert.ok(cal.render(live).includes('tfCalendarSettingsForm'),'Scheduling settings stay tucked away until requested');
+ await submit({preventDefault(){},target:{
+   id:'tfCalendarSettingsForm',fields:{horizonDays:'21',workdayStart:'07:00',workdayEnd:'18:00',bufferMinutes:'10',minBlockMinutes:'50'},
+   querySelectorAll(){return [{value:'1'},{value:'2'},{value:'3'},{value:'4'},{value:'5'}]}
+ }});
+ assert.equal(stores.calendarPreferences['local-owner'].horizonDays,21,'Configurable planning horizon is persisted');
+ assert.equal(stores.calendarPreferences['local-owner'].minBlockMinutes,50,'Business-wide minimum focus block is persisted');
+ await click({preventDefault(){},target:{dataset:{calendarAction:'new'},closest(){return this}}});
+ await submit({preventDefault(){},target:{id:'tfCalendarForm',fields:{
+  title:'Prepare electrical proposal',date:'2026-10-23',duration:'120',kind:'task',priority:'High',splittable:'yes',minBlockMinutes:'60'
+ }}});
+ const flexible=Object.values(stores.tasks).find(t=>t.title==='Prepare electrical proposal');
+ assert.ok(flexible&&flexible.splittable===true&&flexible.minBlockMinutes===60,'Task-level split rules persist without a separate appointment');
+ assert.equal(flexible.calendarId,'tasks','New calendar tasks default to the semantic Task layer');
+
  console.log('PASS: TradeFlow Calendar R03 timeline, linked quick cards, layers, conflict detection and standalone events');
 }
 run().catch(err=>{console.error(err);process.exitCode=1});
