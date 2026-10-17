@@ -260,21 +260,16 @@ function directEditor(data){
 }
 function updateDirectGhost(){
  if(typeof document==='undefined')return;
- const root=document.querySelector?.('.tf-cal-page');
- root?.querySelectorAll?.('.tf-cal-direct-preview').forEach(node=>node.remove());
- if(!directDraft||!root)return;
- const q=directDraft;
+ const root=document.querySelector?.('.tf-cal-page');if(!root)return;
  for(const track of root.querySelectorAll?.('.tf-cal-day-track')||[]){
-  if(track.dataset.date!==q.date)continue;
-  const first=Number(track.dataset.firstHour)||7;
-  const top=(minutes(q.time)-first*60)/60*64;
-  if(top<0||top>track.offsetHeight)continue;
-  const node=document.createElement('div');
-  node.className='tf-cal-direct-preview';
-  node.style.top=top+'px';
-  node.style.height=Math.max(30,q.duration/60*64-3)+'px';
-  node.innerHTML='<span>＋ '+e(q.title||'New event')+'</span><small>'+e(clock(q.time))+' · '+q.duration+'m</small>';
-  track.appendChild(node);
+  let node=track.querySelector?.('.tf-cal-direct-preview');
+  const q=directDraft;
+  if(!q||track.dataset.date!==q.date){node?.remove();continue}
+  const first=Number(track.dataset.firstHour)||7,top=(minutes(q.time)-first*60)/60*64;
+  if(top<0||top>track.offsetHeight){node?.remove();continue}
+  if(!node){node=document.createElement('div');node.className='tf-cal-direct-preview';track.appendChild(node)}
+  node.style.top=top+'px';node.style.height=Math.max(30,q.duration/60*64-3)+'px';
+  node.innerHTML='<span>⠿ '+e(q.title||'New event')+'</span><small>'+e(clock(q.time))+' · '+q.duration+'m · hold to move</small>';
  }
 }
 function closeDirect(){
@@ -516,7 +511,7 @@ async function submit(evt){
   q.title=String(form.get('title')||'').trim().slice(0,150);
   q.location=String(form.get('location')||'').trim().slice(0,220);
   q.notes=String(form.get('notes')||'').trim().slice(0,1600);
-  q.kind=String(form.get('kind')||q.kind).slice(0,24);
+  q.kind=String(q.kind||'event').slice(0,24);
   q.calendarId=String(form.get('calendarId')||q.calendarId).slice(0,80);
   const start=String(form.get('start')||q.time),end=String(form.get('end')||plusTime(q.time,q.duration));
   const length=minutes(end)-minutes(start);
