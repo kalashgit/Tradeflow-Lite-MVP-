@@ -269,6 +269,7 @@ function updateDirectGhost(){
   if(top<0||top>track.offsetHeight){node?.remove();continue}
   if(!node){node=document.createElement('div');node.className='tf-cal-direct-preview';track.appendChild(node)}
   node.style.top=top+'px';node.style.height=Math.max(30,q.duration/60*64-3)+'px';
+  node.style.setProperty('--draft-color',q.kind==='task'?'#ff9f1c':q.kind==='site visit'?'#16c784':q.kind==='meeting'?'#91a8c2':'#12cfe6');
   node.innerHTML='<span>⠿ '+e(q.title||'New event')+'</span><small>'+e(clock(q.time))+' · '+q.duration+'m · hold to move</small>';
  }
 }
@@ -436,6 +437,7 @@ async function click(evt){
   if(!directDraft)return;
   directDraft.kind=b.dataset.kind;
   directDraft.calendarId=directDraft.kind==='task'?'tasks':directDraft.kind==='site visit'?'jobs':'internal';
+  const picker=b.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(picker)picker.value=directDraft.calendarId;
   b.closest?.('.tf-cal-direct-types')?.querySelectorAll?.('[data-kind]').forEach(x=>x.classList.toggle('active',x.dataset.kind===directDraft.kind));
   return;
  }
