@@ -16,7 +16,13 @@ let next=1;
 mod.configure({get:async(s,id)=>store[s]?.find(x=>x.id===id),all:async s=>store[s]||[],
  put:async(s,x)=>{let list=store[s];if(!list)throw Error('missing store '+s);let idx=list.findIndex(y=>y.id===x.id);if(idx<0)list.push(x);else list[idx]=x},
  del:async(s,id)=>{store[s]=store[s].filter(x=>x.id!==id)},uid:()=>String(next++),notify(){},render(){}});
-assert.ok(mod.render('invoices',store).includes('New invoice'));
+assert.ok(mod.render('invoices',store).includes('Create new invoice'));
+assert.ok(mod.render('invoices',store).includes('Outstanding'));
+assert.ok(mod.render('invoices',store).includes('Paid this month'));
+assert.ok(mod.render('invoices',store).includes('Draft invoices'));
+assert.ok(mod.render('invoices',store).includes('data-filter="Overdue"'));
+assert.ok(mod.render('invoices',store).includes('tf-inv-metrics'));
+
 assert.ok(mod.render('profitability',store).includes('Select a job'));
 const click=handlers.click[0],submit=handlers.submit[0];
 const c=(action,id)=>({preventDefault(){},target:{closest:()=>({dataset:{revenueAction:action,id}})}});
