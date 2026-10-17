@@ -228,3 +228,37 @@
  .tf-cal-primary{min-width:72px;font-size:11px;padding:7px}
 }
 @media(prefers-reduced-motion:reduce){.tf-cal-page *{animation:none!important;transition:none!important}}
+
+
+/* R04 — proposal review and configurable deterministic planning controls. */
+.tf-cal-proposals-link{border:1px solid #7146a4;background:#261737;color:#dbbaff;border-radius:7px;padding:7px 10px;font-size:11px;white-space:nowrap}
+.tf-cal-horizon{border-top:1px solid #24465b;margin-top:16px;padding-top:12px;display:flex;align-items:center;justify-content:space-between;gap:7px;color:#9ac0cf;font-size:10px}
+.tf-cal-horizon select{background:#0c2b3b;border:1px solid #346077;border-radius:6px;color:#dceef8;padding:6px;font-size:11px}
+.tf-cal-review{background:#071d2c;flex:1;min-height:450px;padding:19px;overflow:auto;max-height:calc(100dvh - 220px);overscroll-behavior:contain}
+.tf-cal-review-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #244759;padding-bottom:15px;margin-bottom:14px}
+.tf-cal-review-head span{font:700 10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.07em;color:#af90dc}
+.tf-cal-review-head h2{font-size:19px;margin:6px 0 3px;color:#f1fbff}
+.tf-cal-review-head p{font-size:12px;color:#9fbecb;margin:0;line-height:1.4}
+.tf-cal-review-head button{border:1px solid #3c6980;background:#0c3042;border-radius:7px;color:#c3e7f3;padding:8px 10px;font-size:11px;flex:none}
+.tf-cal-proposal{background:#0d293b;border:1px solid #405f76;border-left:4px solid #a855f7;border-radius:11px;padding:13px;margin:9px 0}
+.tf-cal-proposal-top{display:flex;align-items:center;gap:10px}
+.tf-cal-proposal-icon{color:#b58afe;background:#271741;width:37px;height:37px;border-radius:9px;display:grid;place-items:center}
+.tf-cal-proposal-top>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tf-cal-proposal-top strong{font-size:13px;color:#eef9fd}
+.tf-cal-proposal-top small{font-size:10px;color:#9fbccd}
+.tf-cal-proposal>p{font-size:11px;color:#bbd4df;line-height:1.5;margin:10px 0}
+.tf-cal-suggested-slots{display:flex;gap:6px;flex-wrap:wrap}
+.tf-cal-suggested-slots span{background:#132a44;border:1px dashed #775ba5;border-radius:6px;padding:6px 9px;font-size:11px;color:#d5c7ed}
+.tf-cal-proposal-actions{display:flex;gap:8px;margin-top:12px}
+.tf-cal-proposal-actions button,.tf-cal-conflict-record button{border:1px solid #45647a;background:#143246;border-radius:7px;color:#d5eef5;padding:9px 14px;font-size:11px;font-weight:700}
+.tf-cal-proposal-actions .tf-cal-proposal-approve{color:#05251b;background:#35d6a6;border-color:#35d6a6}
+.tf-cal-review-empty{padding:22px;border:1px dashed #365771;border-radius:10px;color:#a8c3d0;font-size:12px;line-height:1.6}
+.tf-cal-review-risks{border-top:1px solid #284355;margin-top:18px;padding:9px 0}
+.tf-cal-review-risks h3{font-size:12px;color:#e4ac62}
+.tf-cal-review-risks>div{padding:7px 0;font-size:11px;color:#b2c7d4}
+.tf-cal-conflict-record{border-left-color:#ec4899}
+@media(max-width:700px){
+ .tf-cal-proposals-link{font-size:10px;padding:7px 8px}
+ .tf-cal-review{padding:10px;max-height:calc(100dvh - 258px);min-height:280px}
+ .tf-cal-review-head{flex-direction:column;gap:10px}
+}
