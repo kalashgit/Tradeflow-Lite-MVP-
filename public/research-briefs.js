@@ -201,7 +201,7 @@ function csvTemplate(){return OPPORTUNITY_COLUMNS.join(',')+'\r\n'}
 function spec(row){
  const snapshot=row.snapshot||{},icp=snapshot.icp||null,persona=snapshot.persona||null;
  return {
-  format:'tradeflow-research-brief',version:1,id:row.id,generatedAt:iso(),researchStatus:'not_started',title:row.title,
+  format:'tradeflow-research-brief',version:1,id:row.id,generatedAt:iso(),researchStatus:row.reviewStage==='completed'?'quality_review_complete':(row.researchItems||[]).length?'results_under_review':'not_started',title:row.title,
   requestedRecords:Number(row.requestedCount),researchGeography:row.geography,
   targets:{idealCustomerProfile:icp,buyerPersona:persona},
   categoryFocus:row.focus,signals:row.signals,exclusions:row.exclusions,verificationNotes:row.verification,
@@ -212,6 +212,7 @@ function spec(row){
    project_signal:'Documented activity without confirmed work available to bid.',
    business_prospect:'Relevant organization; no evidence of current project demand.'
   },
+  linkedOpportunityReviews:(row.researchItems||[]).map(x=>({opportunityId:x.opportunityId,decision:x.decision,reviewNotes:x.reviewNotes||'',reviewedAt:x.reviewedAt||''})),
   requiredColumns:OPPORTUNITY_COLUMNS,
   publishedRecordRequirements:[
    'Use HTTPS original source URLs and real dates, not guessed metadata.',
@@ -304,8 +305,51 @@ function detail(data){
  '</section><p class="tf-rb-v2-caption">Reviews and associations are saved locally alongside this brief. Source records are not modified. External sites are not checked automatically, and approved records must not be presented as confirmed purchasing intent without supporting evidence.</p></section>';
 }
 function render(data){return mode==='edit'?form(data):mode==='detail'?detail(data):list(data)}
+
+async function attachOpportunity(event){
+ event.preventDefault();
+ const form=event.target,briefId=clean(form.dataset?.id,160),fd=new FormData(form);
+ const opId=clean(fd.get('opportunityId'),160);
+ try{
+  const brief=await api.get('settings',briefId),opp=await api.get('opportunities',opId);
+  if(!brief||brief.kind!=='research_brief'||!opp)throw Error('The brief or opportunity no longer exists.');
+  const settings=await api.all('settings');
+  const linked=(Array.isArray(brief.researchItems)?brief.researchItems:[]);
+  if(linked.some(x=>x.opportunityId===opId))throw Error('Already linked to this research brief.');
+  if(linked.length>=200)throw Error('A brief supports up to 200 linked records.');
+  if(records({settings}).some(x=>x.id!==briefId&&(x.researchItems||[]).some(y=>y.opportunityId===opId)))
+   throw Error('This opportunity is already assigned to another research brief.');
+  const updated={...brief,researchItems:[...linked,{opportunityId:opId,decision:'pending',reviewNotes:'',reviewedAt:''}],
+   reviewStage:'in_review',updatedAt:iso()};
+  await api.put('settings',updated);
+  currentId=briefId;mode='detail';api.notify('Existing opportunity linked; evidence awaits review.');
+ }catch(err){alert('Could not link opportunity: '+err.message)}
+}
+async function reviewOpportunity(event){
+ event.preventDefault();
+ const form=event.target,briefId=clean(form.dataset?.id,160),opId=clean(form.dataset?.opportunityId,160),fd=new FormData(form);
+ try{
+  const brief=await api.get('settings',briefId),opp=await api.get('opportunities',opId);
+  if(!brief||brief.kind!=='research_brief'||!opp)throw Error('The brief or opportunity no longer exists.');
+  const items=Array.isArray(brief.researchItems)?brief.researchItems:[];
+  if(!items.some(x=>x.opportunityId===opId))throw Error('Opportunity is not linked to this brief.');
+  const decision=clean(fd.get('decision'),20),notes=clean(fd.get('reviewNotes'),650);
+  if(!['pending','approved','rejected'].includes(decision))throw Error('Choose a supported quality-control decision.');
+  if(fd.get('reviewConfirmed')!=='yes')throw Error('Confirm that you personally reviewed the available evidence.');
+  if(decision!=='pending'&&notes.length<12)throw Error('Include at least 12 characters of evidence or rejection notes.');
+  if(decision==='approved'&&!validEvidence(opp)){
+   throw Error('Cannot approve: check the original HTTPS source URL, source date, classification and evidence status in Opportunities first.');
+  }
+  const updatedItems=items.map(x=>x.opportunityId===opId?{...x,decision,reviewNotes:notes,reviewedAt:decision==='pending'?'':iso()}:x);
+  await api.put('settings',{...brief,researchItems:updatedItems,reviewStage:'in_review',updatedAt:iso()});
+  currentId=briefId;mode='detail';api.notify(decision==='approved'?'Reviewed and approved with saved evidence':decision==='rejected'?'Research record rejected':'Record returned to pending QC');
+ }catch(err){alert('Could not save quality review: '+err.message)}
+}
 async function onSubmit(event){
- if(!api||event.target.id!=='tfResearchBriefForm')return;
+ if(!api)return;
+ if(event.target.id==='tfResearchAttachForm')return attachOpportunity(event);
+ if(event.target.id==='tfResearchReviewForm')return reviewOpportunity(event);
+ if(event.target.id!=='tfResearchBriefForm')return;
  event.preventDefault();
  const values=new FormData(event.target),get=(key,max)=>clean(values.get(key),max);
  try{
@@ -323,7 +367,9 @@ async function onSubmit(event){
   if(!old&&settings.filter(x=>typeof x.id==='string'&&x.id.startsWith(PREFIX)).length>=100)throw Error('Maximum 100 research briefs.');
   const now=iso(),row={id:old?.id||PREFIX+api.uid(),kind:'research_brief',status:'brief_only',title,geography,requestedCount:count,focus,
    icpId,personaId,signals:get('signals',1300),exclusions:get('exclusions',1000),verification:get('verification',1100),
-   snapshot:{icp:icp?{...icp}:null,persona:persona?{...persona}:null},updatedAt:now,createdAt:old?.createdAt||now};
+   snapshot:{icp:icp?{...icp}:null,persona:persona?{...persona}:null},
+   researchItems:Array.isArray(old?.researchItems)?old.researchItems:[],reviewStage:old?.reviewStage||'draft',
+   updatedAt:now,createdAt:old?.createdAt||now};
   await api.put('settings',row);
   currentId=row.id;mode='detail';api.notify('Research brief saved — no search executed');
  }catch(err){alert('Could not save brief: '+err.message)}
@@ -339,6 +385,17 @@ async function onClick(event){
  event.preventDefault();
  const action=btn.dataset.researchAction,id=btn.dataset.id;
  try{
+  if(action==='filter'){
+   statusFilter=['All','Draft','In review','Completed'].includes(btn.dataset.filter)?btn.dataset.filter:'All';
+   mode='list';currentId='';api.render();return;
+  }
+  if(action==='review-queue'){
+   const data={settings:await api.all('settings'),opportunities:await api.all('opportunities')};
+   const candidates=records(data);
+   const next=candidates.find(b=>briefMetrics(b,data).pending.length>0)||candidates.find(b=>briefMetrics(b,data).linked>0);
+   if(!next){api.notify('No linked records for review. Attach imported Opportunities to a research brief first.');return}
+   currentId=next.id;mode='detail';api.render();return;
+  }
   if(action==='list'){mode='list';currentId='';api.render();return}
   if(action==='new'){mode='edit';currentId='';api.render();return}
   if(action==='edit'){mode='edit';currentId=id;api.render();return}
@@ -346,6 +403,26 @@ async function onClick(event){
   if(!id||!id.startsWith(PREFIX))return;
   const row=await api.get('settings',id);
   if(!row||row.kind!=='research_brief')return;
+  if(action==='detach'){
+   const opId=clean(btn.dataset.opportunityId,160),items=Array.isArray(row.researchItems)?row.researchItems:[];
+   if(!items.some(x=>x.opportunityId===opId))return;
+   if(!confirm('Detach this opportunity from the research brief? The original opportunity will not be deleted.'))return;
+   await api.put('settings',{...row,researchItems:items.filter(x=>x.opportunityId!==opId),
+     reviewStage:'in_review',updatedAt:iso()});
+   currentId=id;mode='detail';api.notify('Opportunity detached; source record preserved');return;
+  }
+  if(action==='review-complete'){
+   const data={settings:await api.all('settings'),opportunities:await api.all('opportunities')};
+   const m=briefMetrics(row,data);
+   if(m.linked===0||m.reviewed===0||m.pending.length)throw Error('Review all linked records before closing quality control.');
+   if(!confirm('Mark the human quality review complete? This does NOT claim automatic research ran or the requested target was met.'))return;
+   await api.put('settings',{...row,reviewStage:'completed',updatedAt:iso()});
+   currentId=id;mode='detail';api.notify('Local quality review marked complete');return;
+  }
+  if(action==='review-reopen'){
+   await api.put('settings',{...row,reviewStage:'in_review',updatedAt:iso()});
+   currentId=id;mode='detail';api.notify('Research quality review reopened');return;
+  }
   if(action==='delete'){
    if(!confirm('Delete this saved research brief? No opportunity records will be changed.'))return;
    await api.del('settings',id);currentId='';mode='list';api.notify('Research brief deleted');return;
@@ -382,5 +459,5 @@ function configure(bridge){
  document.addEventListener('submit',onSubmit);
  document.addEventListener('change',onChange);
 }
-global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice,csvTemplate,opportunityColumns:OPPORTUNITY_COLUMNS}};
+global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice,csvTemplate,opportunityColumns:OPPORTUNITY_COLUMNS,researchOverview,briefMetrics,stageOf,validEvidence,effectiveDecision}};
 })(typeof window!=='undefined'?window:globalThis);
