@@ -32,7 +32,12 @@ mod._test.filterPersonas(input,persona);
 assert.equal(option.disabled,true,'Old ICP persona disabled after switching ICP');
 assert.equal(option2.disabled,false,'New ICP persona becomes available');
 assert.equal(persona.value,'','Incompatible selected persona cleared');
-assert.ok(mod.render(data).includes('New brief'));
+assert.ok(mod.render(data).includes('Create research brief'));
+assert.ok(mod.render(data).includes('Opportunity classifications'));
+assert.ok(mod.render(data).includes('Awaiting verification'));
+assert.ok(mod.render(data).includes('Research tools'));
+assert.equal(mod._test.researchOverview(data).reviewed,0);
+assert.equal(mod._test.researchOverview(data).verified,0);
 const evt=(a,id)=>({preventDefault(){},target:{closest:()=>({dataset:{researchAction:a,id}})}});
 const click=listeners.click[0],submit=listeners.submit[0];
 (async()=>{
@@ -69,9 +74,56 @@ const click=listeners.click[0],submit=listeners.submit[0];
  assert.equal(data.tasks[0].researchBriefId,briefs[0].id);
  await click(evt('task',briefs[0].id));
  assert.equal(data.tasks.length,1,'Duplicate open research tasks must not be created');
+
+ // V2: only manually linked source-backed records may enter the research dashboard.
+ data.opportunities.push(
+  {id:'op1',project_name:'Civic electrical solicitation',organization_name:'City procurement',
+   city:'Austin',opportunity_type:'verified_request',evidence_status:'verified',
+   source_url:'https://data.austintexas.gov/permits/record-1',source_date:'2026-10-14',verified_at:'2026-10-17'},
+  {id:'op2',project_name:'Unverified commercial remodel',city:'Austin',opportunity_type:'project_signal',
+   evidence_status:'unresolved',source_url:'',source_date:'',verified_at:''}
+ );
+ assert.equal(mod._test.researchOverview(data).verified,0,'Unlinked imported records must not inflate research metrics');
+ const submitForm=(id,fields,ds={})=>({preventDefault(){},target:{id,fields,dataset:ds}});
+ await click(evt('open',briefs[0].id));
+ await submit(submitForm('tfResearchAttachForm',{opportunityId:'op1'},{id:briefs[0].id}));
+ briefs=mod._test.records(data);
+ assert.equal(briefs[0].researchItems.length,1);
+ assert.equal(mod._test.stageOf(briefs[0],data),'In review');
+ assert.equal(mod._test.researchOverview(data).pending,1);
+ assert.equal(mod._test.researchOverview(data).verified,0);
+ await submit(submitForm('tfResearchReviewForm',{
+   decision:'approved',reviewNotes:'Checked source, solicitation and issue date manually.',reviewConfirmed:'yes'
+ },{id:briefs[0].id,opportunityId:'op1'}));
+ assert.equal(mod._test.researchOverview(data).verified,1);
+ assert.equal(mod._test.researchOverview(data).reviewed,1);
+ assert.equal(mod._test.researchOverview(data).pending,0);
+ await submit(submitForm('tfResearchAttachForm',{opportunityId:'op2'},{id:briefs[0].id}));
+ assert.equal(mod._test.researchOverview(data).pending,1,'Unverified source requires decision');
+ await submit(submitForm('tfResearchReviewForm',{
+   decision:'rejected',reviewNotes:'Missing original URL and date; no verifiable source.',reviewConfirmed:'yes'
+ },{id:briefs[0].id,opportunityId:'op2'}));
+ assert.equal(mod._test.researchOverview(data).reviewed,2);
+ assert.equal(mod._test.researchOverview(data).rejected,1);
+ assert.equal(mod._test.researchOverview(data).verified,1);
+ await click(evt('review-complete',briefs[0].id));
+ briefs=mod._test.records(data);
+ assert.equal(mod._test.stageOf(briefs[0],data),'Completed');
+ assert.equal(mod._test.spec(briefs[0]).researchStatus,'quality_review_complete');
+ assert.ok(mod.render(data).includes('Civic electrical solicitation'));
+ assert.ok(mod.render(data).includes('Open original'));
+ await click(evt('review-reopen',briefs[0].id));
+ briefs=mod._test.records(data);
+ assert.equal(mod._test.stageOf(briefs[0],data),'In review');
+ // Source evidence changed after approval => verified-demand count must fall.
+ data.opportunities[0].evidence_status='unresolved';
+ assert.equal(mod._test.researchOverview(data).verified,0);
+ assert.equal(mod._test.researchOverview(data).pending,1);
+ data.opportunities[0].evidence_status='verified';
+ assert.equal(mod._test.researchOverview(data).verified,1);
  assert.ok(html.includes('research-briefs.js')&&html.includes('research-briefs.css'));
  assert.ok(sw.includes('research-briefs.js'));
  assert.ok(app.includes("tab==='research'")&&app.includes('window.TradeFlowResearch?.configure'));
  assert.ok(growth.includes("['research','Research Briefs'"));
- console.log('PASS: R04 Research Briefs and blank Opportunities CSV template align with importer, no invented leads');
+ console.log('PASS: Research Briefs V2 dashboard, linked source QC, verified demand, rejection and completed review; CSV schema remains compatible');
 })().catch(err=>{console.error(err);process.exitCode=1});
