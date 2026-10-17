@@ -83,3 +83,70 @@
 @media(max-width:400px){.tf-int-app-card{padding:10px;gap:8px}.tf-int-brand{height:39px;width:39px;flex-basis:39px;border-radius:9px}.tf-int-brand svg{max-width:24px;max-height:24px}.tf-int-details{font-size:10px;padding:8px 7px}.tf-int-local-grid{gap:7px}.tf-int-local-grid button{padding:10px 8px}.tf-int-app-copy small{font-size:10px}}
 
 .tf-int-brand:has(svg[aria-label="Resend"]),.tf-int-brand:has(svg[aria-label="Anthropic"]){background:#153040}
+
+/* V2 mobile containment — prevent the scrolling filter's min-content width
+   from stretching the entire page beyond the phone viewport. */
+.tf-int-v2{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-x:clip;
+}
+.tf-int-v2 > *{
+  min-width:0;
+  max-width:100%;
+}
+.tf-int-v2 .tf-int-heading,
+.tf-int-v2 .tf-int-detail-head{
+  width:100%;
+  min-width:0;
+}
+.tf-int-v2 .tf-int-heading > div,
+.tf-int-v2 .tf-int-detail-head > div{
+  flex:1 1 0;
+  min-width:0;
+}
+.tf-int-v2 :is(.tf-int-heading p,.tf-int-detail-head p,.tf-int-app-copy small){
+  overflow-wrap:anywhere;
+}
+.tf-int-v2 .tf-int-metrics{
+  display:grid;
+  width:100%;
+  min-width:0;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.tf-int-v2 .tf-int-metrics > article{
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+}
+.tf-int-v2 .tf-int-metrics small,
+.tf-int-v2 .tf-int-metrics span{
+  overflow-wrap:anywhere;
+}
+.tf-int-v2 .tf-int-filterbar{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.tf-int-v2 .tf-int-search,
+.tf-int-v2 .tf-int-list,
+.tf-int-v2 .tf-int-cards,
+.tf-int-v2 .tf-int-app-card,
+.tf-int-v2 .tf-int-local{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+.tf-int-v2 .tf-int-app-copy{
+  flex:1 1 0;
+  min-width:0;
+}
+@media(max-width:420px){
+  .tf-int-v2 .tf-int-app-card{gap:8px;padding:10px 9px}
+  .tf-int-v2 .tf-int-details{flex:0 0 auto}
+  .tf-int-v2 .tf-int-sectionhead{min-width:0}
+}
