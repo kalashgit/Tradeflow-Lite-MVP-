@@ -30,7 +30,7 @@ const CLASSES=[
  {key:'project_signal',label:'Project signals',tone:'amber'},
  {key:'business_prospect',label:'Business prospects',tone:'violet'}
 ];
-let statusFilter='All',reviewOnly=false;
+let statusFilter='All',availableForAttach=[];
 const validDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'').slice(0,10))&&
  !Number.isNaN(Date.parse(String(v).slice(0,10)+'T12:00:00Z'))&&
  new Date(String(v).slice(0,10)+'T12:00:00Z').toISOString().slice(0,10)===String(v).slice(0,10);
@@ -235,9 +235,10 @@ function detail(data){
  const linkedIds=new Set((Array.isArray(row.researchItems)?row.researchItems:[]).map(x=>x.opportunityId));
  const occupied=new Set(records(data).filter(x=>x.id!==row.id).flatMap(x=>(x.researchItems||[]).map(y=>y.opportunityId)));
  const available=(data.opportunities||[]).filter(x=>x.id&&!linkedIds.has(x.id)&&!occupied.has(x.id));
+ availableForAttach=available;
  const requested=Number(row.requestedCount)||0;
  const progress=requested?Math.min(100,Math.round(stats.reviewed/requested*100)):0;
- const choices=available.slice(0,300).map(x=>'<option value="'+e(x.id)+'">'+e(x.project_name||x.organization_name||x.id)+' · '+e([x.city,x.region].filter(Boolean).join(', ')||'Location not supplied')+'</option>').join('');
+ const choices=available.slice(0,100).map(x=>'<option value="'+e(x.id)+'">'+e(x.project_name||x.organization_name||x.id)+' · '+e([x.city,x.region].filter(Boolean).join(', ')||'Location not supplied')+'</option>').join('');
  const rules=CLASSES.map(x=>'<span class="tf-rb-v2-legend"><i class="tf-rb-v2-dot '+x.tone+'"></i>'+e(x.label)+'</span>').join('');
  return '<section class="tf-rb-page tf-rb-v2">'+back()+
  '<header class="tf-rb-v2-heading"><div><span class="tf-rb-kicker">TRADEFLOW / RESEARCH DEFINITION</span><h1>'+e(row.title)+'</h1>'+
@@ -272,10 +273,11 @@ function detail(data){
  '<p class="tf-rb-disclosure">These instructions do not run searches. You can import sourced results through Opportunities, attach their saved records below, and document your human evidence review.</p></article>'+
  '<section class="tf-rb-v2-panel"><div class="tf-rb-v2-panelhead"><h2>Link saved opportunities</h2><span>'+available.length+' unassigned</span></div>'+
  (available.length?'<form class="tf-rb-v2-attach" id="tfResearchAttachForm" data-id="'+e(row.id)+'">'+
- '<label class="tf-rb-field"><span>Select an existing saved opportunity</span><select name="opportunityId" required>'+choices+'</select></label>'+
+ '<label class="tf-rb-field"><span>Search saved opportunities</span><input id="tfResearchOpportunitySearch" type="search" placeholder="Project, organization or city" autocomplete="off"></label>'+ 
+ '<label class="tf-rb-field"><span>Select an existing saved opportunity</span><select id="tfResearchAttachSelect" name="opportunityId" required>'+choices+'</select></label>'+
  '<button type="submit" class="tf-rb-primary">Attach to brief</button></form>':
  '<p class="tf-rb-v2-caption">No unassigned saved Opportunities are available. Import sourced records first.</p>')+
- (available.length>300?'<p class="tf-rb-v2-caption">Showing the first 300 unassigned Opportunities in this selector. Use Opportunities to manage the larger collection.</p>':'')+
+ (available.length>100?'<p class="tf-rb-v2-caption">Showing up to 100 matching Opportunities at a time. Search by name or location to access others.</p>':'')+
  '<button class="tf-rb-secondary" type="button" data-tab="opportunities">Open Opportunities / import results →</button>'+
  '<p class="tf-rb-v2-caption">Attaching is a manual association, not a claim that TradeFlow researched or independently verified the record. A record can be attached to only one research brief.</p></section>'+
  '<section class="tf-rb-v2-panel"><div class="tf-rb-v2-panelhead"><h2>Evidence review</h2><span>'+stats.items.length+' records</span></div>'+
@@ -449,6 +451,21 @@ async function onClick(event){
   }
  }catch(err){alert('Research action failed: '+err.message)}
 }
+
+function onInput(event){
+ if(event.target?.id!=='tfResearchOpportunitySearch')return;
+ const query=clean(event.target.value,130).toLowerCase(),select=document.getElementById('tfResearchAttachSelect');
+ if(!select)return;
+ const matches=availableForAttach.filter(x=>[x.project_name,x.organization_name,x.city,x.region,x.id].some(v=>String(v||'').toLowerCase().includes(query))).slice(0,100);
+ const opts=matches.map(x=>{
+  const option=document.createElement('option');
+  option.value=x.id;
+  option.textContent=(x.project_name||x.organization_name||x.id)+' · '+([x.city,x.region].filter(Boolean).join(', ')||'Location not supplied');
+  return option;
+ });
+ select.replaceChildren(...opts);
+ select.disabled=!matches.length;
+}
 function onChange(event){
  if(event.target?.id!=='tfResearchIcp')return;
  filterPersonas(event.target,document.getElementById('tfResearchPersona'));
@@ -458,6 +475,7 @@ function configure(bridge){
  document.addEventListener('click',onClick);
  document.addEventListener('submit',onSubmit);
  document.addEventListener('change',onChange);
+ document.addEventListener('input',onInput);
 }
 global.TradeFlowResearch={configure,render,_test:{records,profileData,spec,escape:e,options,filterPersonas,personaChoice,csvTemplate,opportunityColumns:OPPORTUNITY_COLUMNS,researchOverview,briefMetrics,stageOf,validEvidence,effectiveDecision}};
 })(typeof window!=='undefined'?window:globalThis);
