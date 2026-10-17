@@ -118,3 +118,12 @@
 .tf-ms-create{width:100%;min-height:47px;border:1px solid #35e5f3;border-radius:11px;background:#10cde4;color:#042d39;font-weight:780;font-size:13px}
 .tf-marketing-v2 :is(button,input,select,textarea,summary):focus-visible{outline:2px solid #98f1fb;outline-offset:2px}
 @media(max-width:430px){.tf-ms-metric{padding:11px;min-height:108px}.tf-ms-panel,.tf-ms-campaigns,.tf-ms-growth{padding:12px}.tf-ms-funnel-step small{font-size:9px}.tf-ms-channel-foot{font-size:9px}.tf-ms-heading h1{font-size:26px}}
+
+.tf-ms-source-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid #2d566a}
+.tf-ms-source-row span{min-width:0;display:flex;flex-direction:column;gap:4px}
+.tf-ms-source-row strong{font-size:12px;color:#eafaff;overflow-wrap:anywhere}
+.tf-ms-source-row small{font-size:10px;color:#94b8c5}
+.tf-ms-source-row button{background:#153f51;border:1px solid #3f7789;color:#caf6ff;border-radius:8px;padding:7px 12px;font-size:11px}
+.tf-marketing-v2 .tf-marketing-card{max-width:100%}
+.tf-marketing-v2 .tf-marketing-danger{white-space:normal;align-self:flex-start}
+.tf-marketing-v2 .tf-ms-source-row button:focus-visible{outline:2px solid #90eefc;outline-offset:2px}
