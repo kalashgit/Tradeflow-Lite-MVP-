@@ -49,7 +49,7 @@ const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:ext
  await click(c('job','j1'));
  const profit=mod.render('profitability',store);assert.ok(profit.includes('Cash contribution')&&profit.includes('€65.00'));
  assert.ok(profit.includes('Cost categories'));
- assert.ok(profit.includes('Recorded costs'));
+ assert.ok(profit.includes('Actual cost'));
  assert.ok(profit.includes('not an audited profit'));
  assert.ok(app.includes("'invoices','jobCosts'")&&app.includes('indexedDB.open(DB,9)'));
  assert.ok(app.includes('version:9,exportedAt')&&app.includes("data.version<6"));
