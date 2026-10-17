@@ -90,6 +90,7 @@ async function run(){
  assert.equal(Object.keys(stores.calendarEntries).length,initialCount+1);
  await click({clientY:384,preventDefault(){},target:slot});
  assert.equal(Object.keys(stores.calendarEntries).length,initialCount+1,'Occupied time is not silently double-booked');
+ await click({preventDefault(){},target:{dataset:{calendarAction:'select-day',date:'2026-10-21'},closest(){return this}}});
  const current=cal.render({...d,calendarEntries:Object.values(stores.calendarEntries)});
  assert.ok(current.includes('data-calendar-action="delete-event"'),'Standalone calendar blocks contain hold-to-reveal delete control');
  assert.ok(!current.includes('data-calendar-action="today"'),'Redundant Today button removed');
