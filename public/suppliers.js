@@ -70,21 +70,107 @@
    '<div class="tf-supplier-actions"><button class="primary" type="submit">Save PO draft</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
    '<p class="tf-supplier-disclaimer">The purchase order is stored locally as a draft. Review and explicitly issue it before opening your email composer. No payment or email is sent automatically.</p></section>';
  }
+ function purchaseRefs(order,data){
+  return {jobName:(data.jobs||[]).find(x=>x.id===order.destinationId&&order.destinationKind==='job')?.title||'',
+   customerName:(data.customers||[]).find(x=>x.id===order.destinationId&&order.destinationKind==='customer')?.name||'',
+   opportunityName:(data.opportunities||[]).find(x=>x.id===order.opportunityId)?.project_name||''};
+ }
+ function orderDetail(order,data,prefs){
+  const supplier=(data.suppliers||[]).find(s=>s.id===order.supplierId);
+  if(!supplier)return '<p class="tf-supplier-empty">The linked supplier is missing. Restore the supplier before issuing.</p>';
+  let documentText='',error='';
+  try{documentText=po.documentText(order,supplier,prefs,purchaseRefs(order,data))}
+  catch(ex){error=ex.message}
+  const issued=order.documentStatus==='Issued';
+  const status=order.status||'Planned';
+  const total=(order.total!=null?po.money(order.total,order.currency):'Unpriced legacy order');
+  return '<section class="tf-po-detail"><div class="tf-po-detail-title"><span class="tf-po-overline">PURCHASE ORDER / '+(issued?'ISSUED':'DRAFT')+'</span>'+
+    '<h2>'+esc(order.poNumber||'Unnumbered legacy order')+'</h2><p>'+esc(supplier.name)+' · '+esc(total)+'</p></div>'+
+    '<div class="tf-po-detail-actions">'+(issued?
+    '<button type="button" data-supply-action="composeMail" data-id="'+esc(order.id)+'" class="primary">✉ Compose in Mail</button>':
+    '<button type="button" data-supply-action="issueCompose" data-id="'+esc(order.id)+'" class="primary">✓ Issue & compose in Mail</button>'+
+    '<button type="button" data-supply-action="editOrder" data-id="'+esc(order.id)+'">Edit draft</button>')+
+    '<button type="button" data-supply-action="printOrder" data-id="'+esc(order.id)+'">Print / Save PDF</button>'+
+    '<button type="button" data-supply-action="copyOrder" data-id="'+esc(order.id)+'">Copy PO text</button></div>'+
+    '<p class="tf-po-mail-notice">Opening Mail prepares a message. You review and press Send there. TradeFlow cannot verify delivery or mark email as sent.</p>'+
+    (error?'<p role="alert" class="tf-po-warning">'+esc(error)+'</p>':'')+
+    '<div class="tf-po-status-edit"><label>Delivery progress <select data-supply-progress="'+esc(order.id)+'">'+opts(['Planned','Ordered','In transit','Delivered','Cancelled'].map(x=>[x,x]),status)+'</select></label></div>'+
+    '<article class="tf-po-document" aria-label="Purchase order preview"><div class="tf-po-document-head"><span>TRADEFLOW / PROCUREMENT</span><strong>'+esc(issued?'PURCHASE ORDER':'DRAFT — NOT ISSUED')+'</strong></div>'+
+    (documentText?'<pre>'+esc(documentText)+'</pre>':'<p>Complete the missing details to generate the document.</p>')+'</article>'+
+    '<section id="tfSupplyPrintSheet" class="tf-supply-print-sheet" aria-hidden="true"><pre>'+esc(documentText||'Purchase order details incomplete')+'</pre></section>'+
+    '<p class="tf-supplier-disclaimer">This is the buyer’s purchase order, not a tax invoice or proof of supplier acceptance, payment, dispatch, or delivery. Issued commercial terms are locked; use a new PO for amendments.</p></section>';
+ }
+ function supplierDetail(s,data,prefs){
+  const orders=(data.supplyOrders||[]).filter(o=>o.supplierId===s.id).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  const phone=String(s.phone||'').replace(/[^+0-9]/g,'');
+  const email=String(s.email||'').trim();
+  const website=String(s.website||'');
+  const safeEmail=/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(email);
+  const safeWebsite=/^https:\/\/[^"'<>\s]+$/i.test(website);
+  return '<section class="tf-supplier-dossier"><div class="tf-supplier-dossier-head"><div class="tf-supplier-avatar">'+esc((s.name||'S').slice(0,1).toUpperCase())+'</div>'+
+    '<div><span class="tf-po-overline">SUPPLIER RECORD</span><h2>'+esc(s.name)+'</h2><p>'+esc(s.category||'Business supplier')+'</p></div></div>'+
+    (s.preferred?'<span class="tf-supplier-preferred">● Preferred supplier</span>':'')+
+    '<div class="tf-supplier-dossier-actions"><button data-supply-action="newOrder" data-supplier-id="'+esc(s.id)+'" class="primary">+ Purchase order</button><button data-supply-action="editSupplier" data-id="'+esc(s.id)+'">Edit supplier</button>'+
+    '<button data-supply-action="viewNetwork">View on map ↗</button></div>'+
+    '<div class="tf-supplier-contact">'+
+    (s.address?'<p><strong>Address</strong><span>'+esc(s.address)+'</span></p>':'<p><strong>Address</strong><span>Not saved</span></p>')+
+    (safeEmail?'<p><strong>Email</strong><a href="mailto:'+esc(email)+'">'+esc(email)+'</a></p>':'<p><strong>Email</strong><span>Add email to send purchase orders</span></p>')+
+    (phone?'<p><strong>Phone</strong><a href="tel:'+esc(phone)+'">'+esc(s.phone)+'</a></p>':'')+
+    (safeWebsite?'<p><strong>Website</strong><a href="'+esc(website)+'" target="_blank" rel="noopener noreferrer">Open website ↗</a></p>':'')+'</div>'+
+    '<div class="tf-supplier-section-title"><h2>Purchase orders</h2><small>'+orders.length+' linked</small></div>'+
+    (orders.length?'<div class="tf-supplier-rows">'+orders.map(o=>orderCard(o,s)).join('')+'</div>':'<p class="tf-supplier-empty">No purchase orders yet. Create one to connect procurement with your jobs and finances.</p>')+
+    '</section>';
+ }
+ function supplierCard(s,orders){
+  const count=orders.filter(o=>o.supplierId===s.id&&o.status!=='Cancelled'&&o.status!=='Delivered').length;
+  const mapped=!!globalThis.TradeFlowCore?.position(s);
+  return '<button type="button" class="tf-supplier-row" data-supply-action="supplierOpen" data-id="'+esc(s.id)+'" aria-label="Open supplier '+esc(s.name)+'">'+
+   '<span class="tf-supplier-avatar" aria-hidden="true">'+esc((s.name||'S').slice(0,1).toUpperCase())+'</span>'+
+   '<span class="tf-supplier-row-main"><strong>'+esc(s.name)+'</strong><small>'+esc(s.category||'Supplier')+'</small><small>'+esc(s.address||'Address not saved')+'</small></span>'+
+   '<span class="tf-supplier-row-state">'+(s.preferred?'<span class="tf-supplier-preferred">Preferred</span>':count?'<span class="tf-supplier-count">'+count+' open</span>':mapped?'<span class="tf-supplier-count">Mapped</span>':'')+'</span>'+
+   '<span class="tf-supplier-arrow" aria-hidden="true">›</span></button>';
+ }
+ function orderCard(order,supplier){
+  const label=order.poNumber||'Legacy order';
+  const total=order.total!=null?po.money(order.total,order.currency):'No price data';
+  return '<button type="button" class="tf-supplier-order-row" data-supply-action="orderOpen" data-id="'+esc(order.id)+'">'+
+   '<span class="tf-supplier-order-icon" aria-hidden="true">▤</span><span class="tf-supplier-row-main"><strong>'+esc(label)+'</strong>'+
+   '<small>'+esc(supplier?.name||'Supplier missing')+' · '+esc(order.plannedDate||'No delivery date')+'</small></span>'+
+   '<span class="tf-supplier-order-meta"><strong>'+esc(total)+'</strong><small>'+esc(order.documentStatus||'Draft')+'</small></span><span class="tf-supplier-arrow">›</span></button>';
+ }
  function render(data,prefs){
   const suppliers=data.suppliers||[],orders=data.supplyOrders||[];
   const connections=globalThis.TradeFlowCore?.supplierLinks(data,prefs)||{mappedOrderCount:0,unmappedOrderIds:[],connectedSupplierCount:0};
-  let area='<section class="tf-supplier-page"><button data-tab="settings" class="tf-supplier-back" type="button">‹ More</button>'+
-   heading('Suppliers','Organize suppliers, deliveries and geographic connections in one headquarters.')+
-   '<div class="tf-supplier-metrics"><div><strong>'+suppliers.length+'</strong><small>Suppliers</small></div><div><strong>'+orders.length+'</strong><small>Orders</small></div><div><strong>'+connections.connectedSupplierCount+'</strong><small>HQ links</small></div></div>'+
-   '<div class="tf-supplier-tools"><button type="button" data-supply-action="newSupplier" class="primary">+ Supplier</button><button type="button" data-supply-action="newOrder" '+(!suppliers.length?'disabled':'')+'>+ Supply order</button><button type="button" data-supply-action="resolve" '+(repairBusy?'disabled':'')+'>⌖ Locate addresses</button><button type="button" data-supply-action="viewNetwork">View network ↗</button></div>'+
-'<div class="tf-supplier-location-status" role="status">'+(prefs?.businessAddress?(globalThis.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon})?'Headquarters located':'Headquarters address saved · not mapped'):'Set your headquarters address in Business profile')+(repairStatus?' · '+esc(repairStatus):'')+'</div>';
-  if(form==='supplier')area+=formSupplier(suppliers.find(x=>x.id===editId));
-  if(form==='order')area+=formOrder(orders.find(x=>x.id===editId),data);
-  area+='<div class="tf-supplier-section-title"><h2>Supplier network</h2><small>'+suppliers.filter(x=>globalThis.TradeFlowCore?.position(x)).length+' map-ready</small></div>';
-  area+=suppliers.length?'<div class="tf-supplier-list">'+suppliers.map(s=>'<article><span class="tf-supplier-symbol" aria-hidden="true">▣</span><div><strong>'+esc(s.name)+'</strong><small>'+esc(s.address||'Address not saved')+'</small><small>'+(globalThis.TradeFlowCore?.position(s)?'Location mapped · review pin':'Needs location match')+'</small></div><button type="button" data-supply-action="editSupplier" data-id="'+esc(s.id)+'" aria-label="Edit '+esc(s.name)+'">Edit</button></article>').join('')+'</div>':'<p class="tf-supplier-empty">No suppliers saved. Add your first supplier to start connecting deliveries to customers or jobs.</p>';
-  area+='<div class="tf-supplier-section-title"><h2>Supply orders</h2><small>'+connections.unmappedOrderIds.length+' orders awaiting coordinates</small></div>';
-  area+=orders.length?'<div class="tf-supplier-list">'+orders.map(o=>{const supplier=suppliers.find(s=>s.id===o.supplierId);return '<article><span class="tf-supplier-symbol" aria-hidden="true">⇢</span><div><strong>'+esc(o.description)+'</strong><small>'+esc(supplier?.name||'Missing supplier')+' → '+esc(o.destinationAddress||'Destination not set')+'</small><small>'+badge(o.status)+' '+esc(o.plannedDate||'No date')+(o.opportunityId?' · Linked to opportunity':'')+'</small></div><button data-supply-action="editOrder" data-id="'+esc(o.id)+'">Edit</button></article>'}).join('')+'</div>':'<p class="tf-supplier-empty">No supply orders recorded. Creating one does not contact the supplier.</p>';
-  return area+'<p class="tf-supplier-disclaimer">Neon lines on the Map represent geographic connections between saved coordinates. They are not verified road, shipping or flight routes. No live delivery tracking is active.</p></section>';
+  const mapped=suppliers.filter(s=>globalThis.TradeFlowCore?.position(s)).length;
+  const open=orders.filter(o=>!['Delivered','Cancelled'].includes(o.status)).length;
+  const menu='<button data-supply-action="home" class="tf-supplier-back" type="button">‹ '+(form||detailSupplierId||detailOrderId?'Suppliers':'More')+'</button>';
+  let area='<section class="tf-supplier-page">'+menu;
+  if(form==='supplier')return area+formSupplier(suppliers.find(x=>x.id===editId))+'</section>';
+  if(form==='order')return area+formOrder(orders.find(x=>x.id===editId),data)+'</section>';
+  if(detailOrderId)return area+orderDetail(orders.find(o=>o.id===detailOrderId)||{},data,prefs)+'</section>';
+  if(detailSupplierId){const supplier=suppliers.find(s=>s.id===detailSupplierId);if(supplier)return area+supplierDetail(supplier,data,prefs)+'</section>';}
+  area+=heading('Suppliers','Manage purchasing, deliveries and suppliers in one network.')+
+    '<div class="tf-supplier-metrics"><div><span class="tf-supplier-metric-icon">♧</span><strong>'+suppliers.length+'</strong><small>Suppliers</small></div>'+
+    '<div><span class="tf-supplier-metric-icon tf-metric-orders">⬡</span><strong>'+open+'</strong><small>Open orders</small></div>'+
+    '<div><span class="tf-supplier-metric-icon tf-metric-mapped">⌖</span><strong>'+mapped+'</strong><small>Map locations</small></div></div>'+
+    '<div class="tf-supplier-tools tf-supplier-primary-tools"><button type="button" data-supply-action="newSupplier" class="primary">+ Add supplier</button>'+
+    '<button type="button" data-supply-action="newOrder" '+(!suppliers.length?'disabled':'')+'>+ Purchase order</button></div>'+
+    '<div class="tf-supplier-toolbar"><label class="tf-supplier-search"><span aria-hidden="true">⌕</span><input id="tfSupplierSearch" value="'+esc(supplierQuery)+'" placeholder="Search suppliers" autocomplete="off" aria-label="Search suppliers"></label>'+
+    '<button type="button" data-supply-action="viewNetwork">▱ Map</button><button type="button" data-supply-action="filter" data-filter="'+(supplierFilter==='all'?'preferred':supplierFilter==='preferred'?'mapped':'all')+'">'+esc(supplierFilter==='all'?'All ▾':supplierFilter==='preferred'?'Preferred ▾':'Mapped ▾')+'</button></div>'+
+    '<div class="tf-supplier-section-title"><h2>Suppliers</h2><label class="tf-supplier-sort">Sort <select id="tfSupplierSort">'+opts([['az','A–Z'],['za','Z–A'],['recent','Recent']],supplierSort)+'</select></label></div>';
+  let view=suppliers.slice();
+  if(supplierFilter==='preferred')view=view.filter(x=>x.preferred);
+  if(supplierFilter==='mapped')view=view.filter(x=>globalThis.TradeFlowCore?.position(x));
+  if(supplierQuery)view=view.filter(x=>(x.name+' '+(x.category||'')+' '+(x.address||'')).toLowerCase().includes(supplierQuery.toLowerCase()));
+  view.sort(supplierSort==='recent'?(a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')):supplierSort==='za'?(a,b)=>String(b.name).localeCompare(String(a.name)):(a,b)=>String(a.name).localeCompare(String(b.name)));
+  area+=view.length?'<div class="tf-supplier-rows">'+view.map(s=>supplierCard(s,orders)).join('')+'</div>':
+    '<div class="tf-supplier-empty"><strong>'+(suppliers.length?'No matching suppliers':'No suppliers yet')+'</strong><p>'+(suppliers.length?'Adjust your search or filter.':'Add a supplier to start managing purchase orders and deliveries.')+'</p></div>';
+  area+='<div class="tf-supplier-section-title"><h2>Purchase orders</h2><small>'+orders.length+' total</small></div>';
+  area+=orders.length?'<div class="tf-supplier-rows">'+orders.slice().sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||''))).slice(0,8).map(o=>orderCard(o,suppliers.find(s=>s.id===o.supplierId))).join('')+'</div>':
+   '<div class="tf-supplier-empty"><strong>No purchase orders</strong><p>Build an itemized PO, review it, and compose it in your native Mail app.</p></div>';
+  area+='<div class="tf-supplier-secondary-actions"><button type="button" data-supply-action="resolve" '+(repairBusy?'disabled':'')+'>⌖ Locate addresses</button><span>'+mapped+' map-ready'+(repairStatus?' · '+esc(repairStatus):'')+'</span></div>'+
+    '<p class="tf-supplier-disclaimer">Supplier locations require verification. Network lines are geographic connections, not transport routes or shipment tracking.</p>';
+  return area+'</section>';
  }
  function configure(b){
   bridge=b;
