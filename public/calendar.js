@@ -7,7 +7,7 @@
 var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
 var hiddenLayers=new Set(),preferencesHydrated=false,scheduleSettingsOpen=false;
 var calendarViewport={top:0,left:0};
-var directDraft=null,directError='',directSaving=false,directSaveTimer=null,directExpanded=false,editorSwipe=null;
+var directDraft=null,directError='',directSaving=false,directSaveTimer=null,directExpanded=false,editorSwipe=null,suppressGripClick=false;
 function rememberViewport(){const node=typeof document!=='undefined'?document.querySelector?.('.tf-cal-timeline'):null;if(node)calendarViewport={top:node.scrollTop,left:node.scrollLeft}}
 function restoreViewport(){if(typeof document==='undefined')return;const work=()=>{const node=document.querySelector?.('.tf-cal-timeline');if(node){node.scrollTop=calendarViewport.top;node.scrollLeft=calendarViewport.left}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(work);else work()}
 
@@ -301,8 +301,8 @@ function editorSwipeEnd(ev){
  if(!state||state.id!==ev.pointerId)return;
  editorSwipe=null;
  const dy=state.endY-state.startY;
- if(dy< -35){setDirectExpanded(true);return}
- if(dy>35){setDirectExpanded(false);return}
+ if(dy< -35){suppressGripClick=true;setDirectExpanded(true);return}
+ if(dy>35){suppressGripClick=true;setDirectExpanded(false);return}
 }
 function updateDirectGhost(){
  // An existing event is already visible in the timeline. Never layer a
@@ -581,7 +581,7 @@ async function click(evt){
   return;
  }
  if(action==='direct-close'){closeDirect();return}
- if(action==='direct-expand'){setDirectExpanded(!directExpanded);return}
+ if(action==='direct-expand'){if(suppressGripClick){suppressGripClick=false;return}setDirectExpanded(!directExpanded);return}
  if(action==='direct-duration'){
   if(!directDraft)return;
   directDraft.duration=Number(b.dataset.duration)||30;directError='';refreshDirect();return;
