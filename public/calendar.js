@@ -262,53 +262,79 @@ function directEditor(data){
  '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div></div></form></aside>';
 }
 
+function directSheetSizes(sheet){
+ const extra=sheet.querySelector?.('.tf-cal-direct-extra-fields');
+ const top=extra?extra.getBoundingClientRect().top-sheet.getBoundingClientRect().top:350;
+ const peek=Math.max(205,Math.min(window.innerHeight-190,Math.ceil(top+3)));
+ const full=Math.max(peek,Math.min(window.innerHeight*.82,window.innerHeight-126));
+ return {peek,full};
+}
+function writeDirectHeight(sheet,height,instant=false){
+ sheet.style.setProperty('height',Math.round(height)+'px','important');
+ sheet.classList.toggle('is-dragging',instant);
+}
 function setDirectExpanded(value){
  directExpanded=!!value;
  const sheet=typeof document!=='undefined'?document.querySelector?.('.tf-cal-direct-editor'):null;
  if(!sheet)return;
+ const {peek,full}=directSheetSizes(sheet);
+ sheet.style.setProperty('--tf-editor-peek',peek+'px');
  sheet.classList.toggle('is-expanded',directExpanded);
- const handle=sheet.querySelector?.('[data-calendar-action="direct-expand"]');
- if(handle){handle.setAttribute('aria-expanded',String(directExpanded));handle.setAttribute('aria-label',directExpanded?'Collapse event details':'Expand event details')}
- if(!directExpanded){sheet.scrollTop=0;sizeDirectPeek()}
- else{sheet.style.removeProperty('--tf-editor-peek');sheet.style.height='min(79dvh, calc(100dvh - 132px))'}
+ if(!directExpanded)sheet.scrollTop=0;
+ const grip=sheet.querySelector?.('[data-calendar-action="direct-expand"]');
+ if(grip){grip.setAttribute('aria-expanded',String(directExpanded));grip.setAttribute('aria-label',directExpanded?'Collapse event details':'Expand event details')}
+ sheet.classList.remove('is-dragging');
+ writeDirectHeight(sheet,directExpanded?full:peek);
 }
 function sizeDirectPeek(){
  const sheet=typeof document!=='undefined'?document.querySelector?.('.tf-cal-direct-editor'):null;
- const extra=sheet?.querySelector?.('.tf-cal-direct-extra-fields');
- if(!sheet||!extra||directExpanded)return;
- // Measure content position instead of hardcoding a height: the cut falls immediately
- // below Event type, regardless of iPhone viewport, font metrics, or localization.
- const pixels=Math.ceil(extra.getBoundingClientRect().top-sheet.getBoundingClientRect().top+3);
- sheet.style.setProperty('--tf-editor-peek',Math.max(190,pixels)+'px');
- sheet.style.height='min(var(--tf-editor-peek), calc(100dvh - 190px))';
+ if(!sheet||directExpanded)return;
+ const {peek}=directSheetSizes(sheet);
+ sheet.style.setProperty('--tf-editor-peek',peek+'px');
+ writeDirectHeight(sheet,peek);
 }
 function editorSwipeDown(ev){
  const sheet=ev.target.closest?.('.tf-cal-direct-editor');
- if(!sheet||ev.isPrimary===false)return;
- // The entire upper part of the card is a drag surface, down to but not
- // including Start/End. Time, category and advanced controls remain untouched.
- const upper=ev.target.closest?.('.tf-cal-editor-grip,.tf-cal-direct-head,.tf-cal-direct-field');
- if(!upper||ev.target.closest?.('[data-calendar-action="direct-close"]'))return;
- const bounds=sheet.querySelector?.('.tf-cal-direct-time')?.getBoundingClientRect?.();
- if(bounds&&ev.clientY>=bounds.top)return;
- editorSwipe={id:ev.pointerId,startY:ev.clientY,endY:ev.clientY,active:false,
-  grip:!!ev.target.closest?.('.tf-cal-editor-grip')};
+ if(!sheet||ev.isPrimary===false||editorSwipe)return;
+ // Any visible part may pull the sheet. Close/action buttons still tap normally.
+ if(ev.target.closest?.('[data-calendar-action="direct-close"]'))return;
+ // Advanced fields scroll normally when the sheet is fully expanded.
+ if(directExpanded&&ev.target.closest?.('.tf-cal-direct-extra-fields')&&sheet.scrollTop>0)return;
+ const {peek,full}=directSheetSizes(sheet);
+ const now=performance.now();
+ editorSwipe={id:ev.pointerId,sheet,startY:ev.clientY,lastY:ev.clientY,startHeight:sheet.getBoundingClientRect().height,
+  peek,full,started:now,lastAt:now,velocity:0,active:false,grip:!!ev.target.closest?.('.tf-cal-editor-grip')};
 }
 function editorSwipeMove(ev){
- const state=editorSwipe;
- if(!state||state.id!==ev.pointerId)return;
- state.endY=ev.clientY;
- if(!state.active&&Math.abs(state.endY-state.startY)>=14)state.active=true;
- if(state.active)ev.preventDefault();
+ const d=editorSwipe;if(!d||d.id!==ev.pointerId)return;
+ const dy=ev.clientY-d.startY;
+ const now=performance.now();
+ if(!d.active&&Math.abs(dy)<7)return;
+ if(!d.active){
+  d.active=true;
+  const active=document.activeElement;
+  if(active&&d.sheet.contains(active)&&active.matches?.('input,textarea,select'))active.blur();
+  d.sheet.classList.add('is-dragging');
+ }
+ if(ev.cancelable)ev.preventDefault();
+ const deltaT=Math.max(1,now-d.lastAt);
+ d.velocity=(ev.clientY-d.lastY)/deltaT;
+ d.lastY=ev.clientY;d.lastAt=now;
+ const height=Math.max(d.peek,Math.min(d.full,d.startHeight-dy));
+ writeDirectHeight(d.sheet,height,true);
 }
 function editorSwipeEnd(ev){
- const state=editorSwipe;
- if(!state||state.id!==ev.pointerId)return;
+ const d=editorSwipe;if(!d||d.id!==ev.pointerId)return;
  editorSwipe=null;
- const dy=state.endY-state.startY;
- if(!state.active||Math.abs(dy)<35)return;
- if(state.grip)suppressGripClick=true;
- setDirectExpanded(dy<0);
+ if(!d.active)return;
+ const delta=d.lastY-d.startY;
+ const current=d.sheet.getBoundingClientRect().height;
+ const velocity=Math.abs(d.velocity)>0.25?d.velocity:delta/Math.max(1,performance.now()-d.started);
+ const expand=velocity<-.38?true:velocity>.38?false:current>(d.peek+d.full)/2;
+ if(d.grip)suppressGripClick=true;
+ // Prevent an accidental field action immediately following a sheet drag.
+ d.sheet.dataset.dragEnded='true';
+ setDirectExpanded(expand);
 }
 function updateDirectGhost(){
  // An existing event is already visible in the timeline. Never layer a
@@ -516,6 +542,7 @@ function mount(context){
   document.addEventListener('pointermove',editorSwipeMove,{passive:false});
   document.addEventListener('pointerup',editorSwipeEnd);
   document.addEventListener('pointercancel',editorSwipeEnd);
+  document.addEventListener('click',ev=>{const sheet=ev.target.closest?.('.tf-cal-direct-editor');if(sheet?.dataset.dragEnded==='true'){delete sheet.dataset.dragEnded;ev.preventDefault();ev.stopImmediatePropagation()}},true);
   document.addEventListener('pointerdown',draftPointerDown);
   document.addEventListener('pointermove',draftPointerMove,{passive:false});
   document.addEventListener('pointerup',draftPointerEnd);
