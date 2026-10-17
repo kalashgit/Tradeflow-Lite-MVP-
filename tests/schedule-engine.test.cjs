@@ -54,4 +54,28 @@ function base(){return {tasks:[],jobs:[],calendarEntries:[],calendarProposals:[]
  d.calendarProposals.push({id:'dismissed:'+prior.proposalKey,proposalKey:prior.proposalKey,status:'dismissed'});
  assert.equal(engine.analyze(d,{today:monday}).proposals.length,0,'Dismissals survive unchanged record snapshots');
 }
+{
+ const d=base();
+ d.tasks.push({id:'blocked-missing',title:'Installation',due:monday,durationMinutes:60,dependencies:['unrecorded-materials']});
+ const result=engine.analyze(d,{today:monday});
+ assert.equal(result.proposals.length,0,'Missing prerequisites are not assumed complete');
+ assert.ok(result.risks.some(x=>x.taskId==='blocked-missing'));
+}
+{
+ const d=base();
+ d.tasks.push({id:'incomplete',title:'Preparation',due:'2026-10-20',durationMinutes:120,completedMinutes:0});
+ d.calendarEntries.push({id:'old-session',sourceKind:'task',sourceId:'incomplete',date:'2026-10-16',time:'10:00',durationMinutes:90,status:'Scheduled'});
+ const result=engine.analyze(d,{today:monday});
+ assert.equal(result.proposals.length,1,'An unconfirmed past session must not count as completed work');
+ assert.equal(result.proposals[0].remainingMinutes,120);
+}
+{
+ const d=base();
+ d.tasks.push({id:'uncertain',title:'Critical quotation',due:monday,durationMinutes:60});
+ d.jobs.push({id:'unknown-duration',date:monday,scheduleTime:'10:00'});
+ const result=engine.analyze(d,{today:monday});
+ assert.ok(result.proposals.length===1);
+ assert.ok(!result.proposals[0].slots.some(s=>s.time>='10:00'),'Unknown-duration commitment protects the entire day');
+}
+
 console.log('PASS: TradeFlow local scheduling engine, buffer, splitting, deadlines, dependencies, settings and dismissals');
