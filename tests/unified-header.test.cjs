@@ -10,7 +10,9 @@ assert.ok(app.includes('function tfUnifiedHeader(d)'),'One shared brand header f
 assert.ok(app.includes('tfUnifiedHeader(data)'),'Shell uses unified header');
 assert.ok(app.includes('tf-unified-wordmark'),'Brand wordmark present');
 assert.ok(app.includes('tf-unified-header'),'Brand header included');
-assert.ok(app.includes("tab==='dashboard'?(window.TradeFlowNotifications?.home(d,tfHomeIcons.bell)"),'Home retains notification access');
+assert.ok(app.includes("window.TradeFlowNotifications?.home(d,tfHomeIcons.bell)"),'Notifications are available in the universal header on every page');
+assert.ok(app.includes('tf-intel-summary')&&app.includes('tf-intel-actions'),'Universal header has concise and expanded horizontal intelligence states');
+assert.ok(!app.includes('tf-ai-orb'),'Header must not add an AI orb');
 const active=app.slice(app.indexOf('async function render()'));
 assert.ok(!active.includes('<header class="top '),'Old inconsistent generic title header no longer active');
 const homeStart=app.indexOf('tf-home tf-home-v2');
