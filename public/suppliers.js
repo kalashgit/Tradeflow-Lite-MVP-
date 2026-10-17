@@ -6,7 +6,8 @@
  if(root)root.TradeFlowSupply=api;
 })(typeof globalThis==='object'?globalThis:null,function(){
  'use strict';
- let bridge=null,form='',editId='',draft='',repairStatus='',repairBusy=false;
+ let bridge=null,form='',editId='',repairStatus='',repairBusy=false,detailSupplierId='',detailOrderId='',supplierQuery='',supplierFilter='all',supplierSort='az',orderSupplierId='';
+ const po=typeof globalThis==='object'?globalThis.TradeFlowPurchaseOrders:null;
  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const opts=(rows,value='')=>rows.map(([id,text])=>'<option value="'+esc(id)+'" '+(String(id)===String(value)?'selected':'')+'>'+esc(text)+'</option>').join('');
  const value=(o,k)=>esc(o&&o[k]!==undefined&&o[k]!==null?o[k]:'');
@@ -32,26 +33,42 @@
    '<div class="tf-supplier-actions"><button type="submit" class="primary">Save supplier</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
    '<p class="tf-supplier-disclaimer">TradeFlow locates saved addresses when possible. For exact locations, use a full Google Maps place link or select a point on Map. Shortened Google Maps links may not contain coordinates.</p></section>';
  }
+ function lineRow(row={},i=0){
+  return '<div class="tf-po-line" data-po-line><label class="tf-po-line-description">Item '+(i+1)+'<input name="lineDescription" maxlength="240" required placeholder="Material or equipment" value="'+value(row,'description')+'"></label>'+
+   '<div class="tf-po-line-fields"><label>Qty<input name="lineQty" required type="number" min=".001" step=".001" value="'+esc(row.quantity??1)+'"></label>'+
+   '<label>Unit<select name="lineUnit">'+opts([['unit','Unit'],['box','Box'],['m','Metre'],['kg','kg'],['hour','Hour'],['set','Set'],['roll','Roll']],row.unit||'unit')+'</select></label>'+
+   '<label>Unit price<input name="linePrice" required type="number" min="0" step=".01" value="'+esc(row.unitPrice??0)+'"></label>'+
+   '<button class="tf-po-remove" type="button" data-supply-action="removeLine" aria-label="Remove item">×</button></div></div>';
+ }
  function formOrder(rec,data){
-  const suppliers=data.suppliers||[];if(!suppliers.length)return '<p>Add a supplier before creating a supply order.</p>';
+  const suppliers=data.suppliers||[];if(!suppliers.length)return '<p>Add a supplier before creating a purchase order.</p>';
+  if(rec?.documentStatus==='Issued')return '<section class="tf-supplier-edit"><p class="tf-po-warning">Issued purchase orders cannot be edited. Create a new order to change commercial terms.</p><button data-supply-action="orderOpen" data-id="'+value(rec,'id')+'">View issued purchase order</button></section>';
   const customerList=(data.customers||[]).map(x=>[x.id,x.name||'Customer']);
   const jobList=(data.jobs||[]).map(x=>[x.id,x.title||'Job']);
   const opportunityList=(data.opportunities||[]).map(x=>[x.id,x.project_name||'Opportunity']);
   const destination=rec?.destinationKind||'business';
-  return '<section class="tf-supplier-edit"><h2>'+(rec?.id?'Edit supply order':'New supply order')+'</h2><form id="tfSupplyOrderForm" data-id="'+value(rec,'id')+'">'+
-   '<label>Supplier *<select name="supplierId" required>'+opts(suppliers.map(x=>[x.id,x.name]),rec?.supplierId)+'</select></label>'+
-   '<label>Materials / equipment *<input name="description" maxlength="240" required value="'+value(rec,'description')+'" placeholder="e.g. Breaker panels"></label>'+
-   '<div class="tf-supplier-grid"><label>Status<select name="status">'+opts(['Planned','Ordered','In transit','Delivered','Cancelled'].map(x=>[x,x]),rec?.status||'Planned')+'</select></label>'+
-   '<label>Expected date<input name="plannedDate" type="date" value="'+value(rec,'plannedDate')+'"></label></div>'+
-   '<label>Destination<select name="destinationKind" id="tfSupplierDestinationKind">'+opts([['business','Business headquarters'],['customer','Customer location'],['job','Job location'],['custom','Custom address']],destination)+'</select></label>'+
+  const items=(Array.isArray(rec?.lineItems)&&rec.lineItems.length)?rec.lineItems:[{description:rec?.description||'',quantity:1,unit:'unit',unitPrice:0}];
+  return '<section class="tf-supplier-edit tf-po-form"><header class="tf-po-form-header"><span class="tf-po-overline">PURCHASING / DRAFT</span><h2>'+(rec?.id?'Edit purchase order':'New purchase order')+'</h2><p>'+esc(rec?.poNumber||'A unique PO number is assigned on save')+'</p></header>'+
+   '<form id="tfSupplyOrderForm" data-id="'+value(rec,'id')+'">'+
+   '<label>Supplier *<select name="supplierId" required>'+opts(suppliers.map(x=>[x.id,x.name]),rec?.supplierId||orderSupplierId)+'</select></label>'+
+   '<div class="tf-po-section-label"><strong>Items & prices</strong><span>Editable order lines</span></div>'+
+   '<div id="tfPoLines">'+items.map(lineRow).join('')+'</div>'+
+   '<button type="button" class="tf-po-addline" data-supply-action="addLine">+ Add item</button>'+
+   '<div class="tf-supplier-grid"><label>Currency<select name="currency">'+opts(['EUR','USD','GBP','AUD','CAD'].map(x=>[x,x]),rec?.currency||'EUR')+'</select></label><label>Tax rate (%)<input name="taxRate" type="number" min="0" max="100" step=".01" value="'+esc(rec?.taxRate??0)+'"></label></div>'+
+   '<label>Shipping charges<input name="shipping" type="number" min="0" step=".01" value="'+esc(rec?.shipping??0)+'"></label>'+
+   '<div class="tf-po-totals" aria-live="polite"><div>Subtotal <strong data-po-subtotal>—</strong></div><div>Tax <strong data-po-tax>—</strong></div><div>Shipping <strong data-po-shipping>—</strong></div><div class="tf-po-total">Total <strong data-po-total>—</strong></div></div>'+
+   '<div class="tf-po-section-label"><strong>Delivery & connections</strong></div>'+
+   '<div class="tf-supplier-grid"><label>Requested delivery date<input name="plannedDate" type="date" value="'+value(rec,'plannedDate')+'"></label><label>Destination<select name="destinationKind" id="tfSupplierDestinationKind">'+opts([['business','Business HQ'],['customer','Customer site'],['job','Job site'],['custom','Custom']],destination)+'</select></label></div>'+
    '<label data-supply-destination="customer" '+(destination!=='customer'?'hidden':'')+'>Customer<select name="customerDestination">'+opts(customerList,rec?.destinationKind==='customer'?rec.destinationId:'')+'</select></label>'+
    '<label data-supply-destination="job" '+(destination!=='job'?'hidden':'')+'>Job<select name="jobDestination">'+opts(jobList,rec?.destinationKind==='job'?rec.destinationId:'')+'</select></label>'+
    '<div data-supply-destination="custom" '+(destination!=='custom'?'hidden':'')+'><label>Delivery address<input name="destinationAddress" maxlength="300" value="'+(destination==='custom'?value(rec,'destinationAddress'):'')+'" placeholder="Street, city, region, country"></label>'+
    '<div class="tf-supplier-grid"><label>Latitude<input type="number" name="latitude" step="any" min="-90" max="90" value="'+(destination==='custom'?value(rec,'latitude'):'')+'"></label>'+
    '<label>Longitude<input type="number" name="longitude" step="any" min="-180" max="180" value="'+(destination==='custom'?value(rec,'longitude'):'')+'"></label></div></div>'+
-   '<details><summary>Link to an opportunity / optional notes</summary><label>Related opportunity<select name="opportunityId"><option value="">None</option>'+opts(opportunityList,rec?.opportunityId)+'</select></label><textarea name="notes" maxlength="900" rows="2" placeholder="Order notes">'+value(rec,'notes')+'</textarea></details>'+
-   '<div class="tf-supplier-actions"><button class="primary" type="submit">Save order</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
-   '<p class="tf-supplier-disclaimer">Orders are organizational records, not purchases or tracking requests. Geographical connections are illustrative, not navigable road routes.</p></section>';
+   '<label>Payment terms<input name="paymentTerms" maxlength="350" placeholder="e.g. Net 30 after invoice" value="'+value(rec,'paymentTerms')+'"></label>'+
+   '<details class="tf-po-more"><summary>Opportunity and delivery instructions</summary><label>Related opportunity<select name="opportunityId"><option value="">None</option>'+opts(opportunityList,rec?.opportunityId)+'</select></label>'+
+   '<label>Delivery instructions<textarea name="notes" maxlength="900" rows="2">'+value(rec,'notes')+'</textarea></label></details>'+
+   '<div class="tf-supplier-actions"><button class="primary" type="submit">Save PO draft</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
+   '<p class="tf-supplier-disclaimer">The purchase order is stored locally as a draft. Review and explicitly issue it before opening your email composer. No payment or email is sent automatically.</p></section>';
  }
  function render(data,prefs){
   const suppliers=data.suppliers||[],orders=data.supplyOrders||[];
