@@ -104,15 +104,24 @@ function detail(d){
  const campaign=(d.marketingCampaigns||[]).find(x=>x.id===draftId);
  if(!campaign){mode='list';return list(d)}
  const pf=profiles(d),icp=pf.icps.find(x=>x.id===campaign.icpId),persona=pf.personas.find(x=>x.id===campaign.personaId);
+ const sourced=sourceData(d).filter(x=>x.campaignId===campaign.id).length;
+ const marketingExpenses=(d.expenses||[]).filter(x=>x.marketingSpend===true&&x.marketingCampaignId===campaign.id);
+ const recordedSpend=marketingExpenses.reduce((sum,x)=>sum+Math.max(0,number(x.amount)),0);
+ const draftMail=(['Email draft','Review request','Referral request'].includes(campaign.channel)&&campaign.message.length<1400)?
+ '<a class="tf-marketing-secondary" href="mailto:?subject='+encodeURIComponent(campaign.subject||campaign.title)+'&body='+encodeURIComponent(campaign.message)+'">Compose in Mail ↗</a>':'';
+
  return '<div class="tf-marketing-page">'+nav()+header()+
  '<button class="tf-marketing-back" type="button" data-marketing-action="list">‹ All drafts</button>'+
  '<article class="tf-marketing-card"><div class="tf-marketing-cardhead"><div><small>'+e(campaign.channel)+'</small><h2>'+e(campaign.title)+'</h2></div>'+badge(campaign.status)+'</div>'+
  '<div class="tf-marketing-metadata"><span>ICP: '+e(icp?.name||'No ICP selected')+'</span><span>Persona: '+e(persona?.name||'None')+'</span><span>Planned: '+e(campaign.plannedDate||'Unscheduled')+'</span></div>'+
+ '<div class="tf-marketing-metadata"><span>Customer sources linked manually: '+sourced+'</span><span>Recorded spend: '+(marketingExpenses.length?euro(recordedSpend):'None recorded')+'</span></div>'+
  (campaign.subject?'<div class="tf-marketing-brief"><small>SUBJECT</small><strong>'+e(campaign.subject)+'</strong></div>':'')+
  '<div class="tf-marketing-preview">'+e(campaign.message)+'</div>'+
  (campaign.cta?'<p class="tf-marketing-cta">Desired action: '+e(campaign.cta)+'</p>':'')+
  '<div class="tf-marketing-actions"><button class="tf-marketing-primary" type="button" data-marketing-action="copy" data-id="'+e(campaign.id)+'">Copy draft</button>'+
  '<button class="tf-marketing-secondary" type="button" data-marketing-action="edit" data-id="'+e(campaign.id)+'">Edit</button>'+
+ draftMail+
+ '<button class="tf-marketing-secondary" type="button" data-marketing-action="spend-new" data-id="'+e(campaign.id)+'">Record spend</button>'+
  '<button class="tf-marketing-secondary" type="button" data-marketing-action="task" data-id="'+e(campaign.id)+'">Add preparation Task</button>'+
  '<button class="tf-marketing-danger" type="button" data-marketing-action="delete" data-id="'+e(campaign.id)+'">Delete</button></div>'+
  '<p class="tf-marketing-note">Draft only. No message sent, no review requested, no website edited and no advertising budget spent.</p>'+
@@ -197,7 +206,7 @@ function list(d){
  templates.map(x=>'<div class="tf-marketing-template"><div><strong>'+e(x.title)+'</strong><small>'+e(x.channel)+'</small></div><button type="button" data-marketing-action="template" data-key="'+e(x.key)+'">Use</button></div>').join('')+
  '</div></details></section>'+
  '<button type="button" class="tf-ms-create" data-marketing-action="new">＋ Create campaign</button>'+
- '<p class="tf-ms-caption">Local-first preparation and manually recorded attribution only. No automated outreach, publishing, provider analytics or verified marketing ROI is active.</p></section>';
+ '<p class="tf-ms-caption">Nothing gets sent or published automatically. Local preparation and manually recorded attribution only; no verified campaign ROI or connected advertising analytics.</p></section>';
  return output;
 }
 function render(tab,d){return tab==='marketing'?(mode==='edit'?editForm(d):mode==='detail'?detail(d):mode==='source'?sourceForm(d):mode==='spend'?spendForm(d):list(d)):''}
@@ -293,5 +302,5 @@ async function onMarketingDataSubmit(event){
  }catch(error){alert('Could not save marketing record: '+error.message)}
 }
 function configure(bridge){api=bridge;document.addEventListener('click',onClick);document.addEventListener('submit',onSubmit);document.addEventListener('submit',onMarketingDataSubmit)}
-global.TradeFlowMarketing={configure,render,_test:{templates,esc:e,profiles}};
+global.TradeFlowMarketing={configure,render,_test:{templates,esc:e,profiles,marketingSummary,sourceData}};
 })(typeof window!=='undefined'?window:globalThis);
