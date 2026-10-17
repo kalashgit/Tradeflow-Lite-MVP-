@@ -398,3 +398,6 @@
  .tf-cal-direct-types{gap:5px}
  .tf-cal-direct-types button{font-size:10px;min-height:32px}
 }
+
+.tf-cal-direct-preview{border-color:var(--draft-color,#12cfe6);border-left-color:var(--draft-color,#12cfe6)}
+.tf-cal-direct-preview.is-dragging{box-shadow:0 0 18px color-mix(in srgb,var(--draft-color,#12cfe6) 45%,transparent)}
