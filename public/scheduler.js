@@ -131,10 +131,11 @@ function analyze(data,opts){
     const available=gap.end-gap.start;
     if(available<minBlock)continue;
     let length=splittable?Math.min(maxBlock,left,available):remaining;
-    length=Math.floor(length/snap)*snap;
+    // Snap session start times, not required work duration; a 100-minute task
+    // must never be rounded down and silently left unfinished.
     if(length<minBlock)continue;
     if(splittable&&left-length>0&&left-length<minBlock){
-     const adjusted=Math.floor((left-minBlock)/snap)*snap;
+     const adjusted=left-minBlock;
      if(adjusted>=minBlock&&adjusted<=available)length=adjusted;
      else if(left<=available&&left<=maxBlock)length=left;
      else continue;
