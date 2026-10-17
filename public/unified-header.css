@@ -65,3 +65,6 @@
 }
 @media(max-width:375px){.tf-unified-brand .tf-unified-wordmark{font-size:10px;letter-spacing:.07em}.tf-unified-header .tf-unified-inner{gap:6px;padding:0 8px}}
 @media(prefers-reduced-motion:reduce){.tf-intel-chip,.tf-intel-summary{transition:none!important}}
+
+.tf-unified-header button.tf-unified-brand{appearance:none;border:0;background:transparent;padding:0;margin:0;cursor:pointer;color:inherit;font:inherit;flex:0 0 auto}
+.tf-unified-header button.tf-unified-brand:focus-visible{outline:2px solid #13d4ed;outline-offset:4px;border-radius:5px}
