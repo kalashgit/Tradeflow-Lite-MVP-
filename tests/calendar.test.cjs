@@ -24,7 +24,7 @@ assert.ok(app.includes('tfCalendarLinkedReturn')&&app.includes('completeSession:
 assert.ok(html.includes('schedule-engine.js')&&html.includes('calendar-r06'),'Scheduler is bundled in the versioned offline app');
 const stores={tasks:{},jobs:{},calendarEntries:{},calendars:{},calendarPreferences:{},opportunities:{abc:{id:'abc',organization_name:'Office Plaza',city:'Austin',region:'TX'}}};
 let uid=0,lastTab='',renderCount=0,notice='';
-cal.configure({get:async(s,id)=>stores[s]?.[id],all:async s=>Object.values(stores[s]||{}),put:async(s,x)=>{stores[s][x.id]=x},uid:()=>String(++uid),render:async()=>{renderCount++},notify:s=>notice=s,navigate:s=>lastTab=s});
+cal.configure({get:async(s,id)=>stores[s]?.[id],all:async s=>Object.values(stores[s]||{}),put:async(s,x)=>{stores[s][x.id]=x},del:async(s,id)=>{delete stores[s][id]},uid:()=>String(++uid),render:async()=>{renderCount++},notify:s=>notice=s,navigate:s=>lastTab=s});
 async function run(){
  const click=events.click[0],submit=events.submit[0];
  await click({preventDefault(){},target:{dataset:{calendarAction:'mode',mode:'day'},closest(){return this}}});
@@ -80,29 +80,22 @@ async function run(){
 
  const slot={dataset:{calendarAction:'direct-slot',date:'2026-10-21',firstHour:'7'},
   getBoundingClientRect(){return {top:0}},closest(){return this}};
+ const initialCount=Object.keys(stores.calendarEntries).length;
  await click({clientY:384,preventDefault(){},target:slot});
- const quick=cal.render({tasks:[],jobs:[],calendarEntries:[],calendars:[],calendarPreferences:[]});
- assert.ok(quick.includes('tfCalDirectForm'),'Direct time-grid tap opens compact editor');
- assert.ok(quick.includes('value="13:00"'),'Tapping 13:00 selects the correct time');
- assert.ok(quick.includes('value="14:00"'),'Default direct-slot duration is 60 minutes');
- assert.ok(quick.includes('type="time"'),'Native time picker is available');
- assert.ok(!quick.includes('name="durationSlider"')&&!quick.includes('type="range"'),'Removed bulky duration slider from compact editor');
- assert.ok(!quick.includes('tf-cal-direct-slider-bubble'),'No duration-slider bubble in the new editor');
- assert.ok(!quick.includes('1h ▼')&&!quick.includes('name="durationPreset"'),'No redundant hour dropdown in compact editor');
- assert.ok(quick.includes('data-calendar-action="direct-kind"')&&quick.includes('tf-cal-type-site-visit'),'Color-coded event type buttons are available');
- assert.ok(quick.includes('tfCalDirectForm')&&quick.includes('tf-cal-direct-save'),'Compact editor retains visible Create action');
- await submit({preventDefault(){},target:{id:'tfCalDirectForm',fields:{title:'',start:'13:00',end:'14:00',kind:'event'}}});
  const created=Object.values(stores.calendarEntries).find(x=>x.date==='2026-10-21'&&x.time==='13:00');
- assert.ok(created,'Direct-slot creation writes a real local calendar event');
- assert.equal(created.title,'Event','Blank titles safely use an editable Event default');
+ assert.ok(created,'Tapping an empty slot immediately persists a calendar entry');
+ assert.equal(created.title,'New event');
  assert.equal(created.durationMinutes,60);
  assert.equal(created.status,'Scheduled');
+ assert.equal(Object.keys(stores.calendarEntries).length,initialCount+1);
  await click({clientY:384,preventDefault(){},target:slot});
- await submit({preventDefault(){},target:{id:'tfCalDirectForm',fields:{title:'Overlapping',start:'13:00',end:'14:00',kind:'event'}}});
- assert.equal(Object.values(stores.calendarEntries).filter(x=>x.date==='2026-10-21'&&x.time==='13:00').length,1,'Overlaps must not silently create another event');
- await click({preventDefault(){},target:{dataset:{calendarAction:'direct-close'},closest(){return this}}});
- const dismissed=cal.render({tasks:[],jobs:[],calendarEntries:[],calendars:[],calendarPreferences:[]});
- assert.ok(!dismissed.includes('id="tfCalDirectForm"'),'Dismissing a draft removes the editor');
+ assert.equal(Object.keys(stores.calendarEntries).length,initialCount+1,'Occupied time is not silently double-booked');
+ const current=cal.render({...d,calendarEntries:Object.values(stores.calendarEntries)});
+ assert.ok(current.includes('data-calendar-action="delete-event"'),'Standalone calendar blocks contain hold-to-reveal delete control');
+ assert.ok(!current.includes('data-calendar-action="today"'),'Redundant Today button removed');
+ assert.ok(!current.includes('id="tfCalDirectForm"'),'Direct slot creation never opens a form');
+ await click({preventDefault(){},target:{dataset:{calendarAction:'delete-event',key:'event:'+created.id},closest(){return this}}});
+ assert.ok(!stores.calendarEntries[created.id],'Delete control removes the persisted event after approval');
 
  console.log('PASS: TradeFlow Calendar R03 timeline, linked quick cards, layers, conflict detection and standalone events');
 }
