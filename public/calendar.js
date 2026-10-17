@@ -5,7 +5,7 @@
 (function(global){
 'use strict';
 var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
-var hiddenLayers=new Set(),preferencesHydrated=false;
+var hiddenLayers=new Set(),preferencesHydrated=false,scheduleSettingsOpen=false;
 var calendarViewport={top:0,left:0};
 function rememberViewport(){const node=typeof document!=='undefined'?document.querySelector?.('.tf-cal-timeline'):null;if(node)calendarViewport={top:node.scrollTop,left:node.scrollLeft}}
 function restoreViewport(){if(typeof document==='undefined')return;const work=()=>{const node=document.querySelector?.('.tf-cal-timeline');if(node){node.scrollTop=calendarViewport.top;node.scrollLeft=calendarViewport.left}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(work);else work()}
@@ -167,7 +167,18 @@ function sidebar(d){
  }).join('')+
  (calendarDraft?'<form id="tfCalNewCalendarForm" class="tf-cal-new-layer"><input name="name" maxlength="70" required placeholder="Calendar name" aria-label="Calendar name"><button type="submit">Create</button></form>':
  '<button type="button" class="tf-cal-new-layer-btn" data-calendar-action="new-calendar">+ New calendar</button>')+
- '<label class="tf-cal-horizon"><span>Planning horizon</span><select data-calendar-pref="horizonDays" aria-label="Scheduling planning horizon">'+[7,14,21,30].map(function(n){return '<option value="'+n+'" '+(schedulingPlan(d).preferences.horizonDays===n?'selected':'')+'>'+n+' days</option>'}).join('')+'</select></label></div>';
+ '<div class="tf-cal-schedule-controls"><button type="button" data-calendar-action="schedule-settings" aria-expanded="'+scheduleSettingsOpen+'">'+glyph('clock')+' Scheduling preferences</button></div>'+
+ (scheduleSettingsOpen?scheduleSettingsForm(d):'')+'</div>';
+}
+function scheduleSettingsForm(d){
+ var prefs=(d.calendarPreferences||[]).find(function(x){return x.id==='local-owner'})||{},settings=schedulingPlan(d).preferences;
+ var days=Array.isArray(prefs.workingDays)?prefs.workingDays:[1,2,3,4,5];
+ return '<form id="tfCalendarSettingsForm" class="tf-cal-settings-form"><label>Planning horizon (days)<input type="number" name="horizonDays" min="1" max="90" value="'+e(settings.horizonDays||14)+'"></label>'+
+ '<div class="tf-cal-twocol"><label>Workday start<input type="time" name="workdayStart" value="'+e(prefs.workdayStart||'08:00')+'"></label><label>Workday end<input type="time" name="workdayEnd" value="'+e(prefs.workdayEnd||'17:00')+'"></label></div>'+
+ '<label>Schedule buffer (minutes)<input type="number" name="bufferMinutes" min="0" max="90" step="5" value="'+e(prefs.bufferMinutes??15)+'"></label>'+
+ '<label>Default minimum focus block (minutes)<input type="number" name="minBlockMinutes" min="15" max="240" step="5" value="'+e(prefs.minBlockMinutes??45)+'"></label>'+
+ '<div class="tf-cal-settings-days"><span>Working days</span>'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(name,i){return '<label><input type="checkbox" name="day" value="'+i+'" '+(days.includes(i)?'checked':'')+'><span>'+name+'</span></label>'}).join('')+'</div>'+
+ '<button class="tf-cal-primary" type="submit">Save preferences</button></form>';
 }
 function unscheduledWork(d){
  const allocated=new Map();
@@ -235,6 +246,7 @@ function appointmentForm(){
  '<label>Calendar<select name="calendarId">'+layers(lastData||{}).map(function(l){return '<option value="'+e(l.id)+'" '+((draft?.calendarId||'internal')===l.id?'selected':'')+'>'+e(l.name)+'</option>'}).join('')+'</select></label></div>'+
  '<label>Location<input name="location" maxlength="220" value="'+e(draft?.location||'')+'" placeholder="Optional"></label>'+
  '<label>Notes<textarea name="description" maxlength="1600" rows="3">'+e(draft?.notes||'')+'</textarea></label>'+
+ '<details class="tf-cal-task-options"><summary>Optional task planning</summary><div class="tf-cal-task-options-fields"><label>Priority<select name="priority">'+['Normal','High','Critical','Low','Optional'].map(function(p){return '<option value="'+p+'" '+((draft?.priority||'Normal')===p?'selected':'')+'>'+p+'</option>'}).join('')+'</select></label><label class="tf-cal-split-check"><input type="checkbox" name="splittable" value="yes" '+(draft?.splittable?'checked':'')+'> Allow flexible split sessions</label><label>Minimum session (minutes)<input type="number" name="minBlockMinutes" min="15" max="240" step="5" value="'+e(draft?.minBlockMinutes||45)+'"></label></div></details>'+
  '<div class="tf-cal-form-actions"><button class="tf-cal-primary" type="submit">Save</button><button class="tf-cal-secondary" type="button" data-calendar-action="cancel">Cancel</button></div></form></section>';
 }
 function render(d){
@@ -312,6 +324,7 @@ async function click(evt){
  if(action==='layers'){layerDrawer=!layerDrawer;await bridge.render();return}
  if(action==='queue'){queueVisible=!queueVisible;await bridge.render();return}
  if(action==='new-calendar'){calendarDraft=!calendarDraft;await bridge.render();return}
+ if(action==='schedule-settings'){scheduleSettingsOpen=!scheduleSettingsOpen;await bridge.render();return}
  if(action==='new'){draft={date:selected,kind:'event',calendarId:'internal'};activeKey='';await bridge.render();return}
  if(action==='cancel'){draft=null;activeKey='';await bridge.render();return}
  if(action==='conflicts'){intelligenceFocus=intelligenceFocus==='conflicts'?'':'conflicts';await bridge.render();return}
@@ -339,7 +352,7 @@ async function click(evt){
   var record=activeEvent(lastData||{});if(!record)return;
   if(record.kind!=='event'&&record.sourceKind!=='task'){await bridge.openRecord?.(record.sourceKind,record.sourceId);return}
   draft={id:record.id,kind:record.kind==='task'?'task':'event',date:record.date||selected,time:record.time,duration:record.duration,
-   title:record.title,location:record.location,notes:record.notes,calendarId:record.calendarId};activeKey='';await bridge.render();return;
+   title:record.title,location:record.location,notes:record.notes,calendarId:record.calendarId,priority:record.priority,splittable:record.splittable,minBlockMinutes:record.minBlockMinutes};activeKey='';await bridge.render();return;
  }
  if(action==='complete'){
   var record=activeEvent(lastData||{});if(!record)return;
@@ -364,6 +377,20 @@ async function click(evt){
 }
 async function submit(evt){
  if(!bridge)return;
+ if(evt.target.id==='tfCalendarSettingsForm'){
+  evt.preventDefault();
+  var form=new FormData(evt.target),horizon=Math.max(1,Math.min(90,Number(form.get('horizonDays'))||14)),
+   start=String(form.get('workdayStart')||'08:00'),end=String(form.get('workdayEnd')||'17:00'),
+   buffer=Math.max(0,Math.min(90,Number(form.get('bufferMinutes'))||0)),
+   minBlock=Math.max(15,Math.min(240,Number(form.get('minBlockMinutes'))||45));
+  if(!validTime(start)||!validTime(end)||minutes(end)<=minutes(start)){alert('End time must be after start time.');return}
+  var checks=[...evt.target.querySelectorAll('input[name="day"]:checked')].map(function(x){return Number(x.value)});
+  if(!checks.length){alert('Select at least one working day.');return}
+  var saved=await bridge.get('calendarPreferences','local-owner')||{id:'local-owner'};
+  await bridge.put('calendarPreferences',{...saved,horizonDays:horizon,workdayStart:start,workdayEnd:end,
+   bufferMinutes:buffer,minBlockMinutes:minBlock,workingDays:checks,updatedAt:new Date().toISOString()});
+  scheduleSettingsOpen=false;bridge.notify('Scheduling preferences updated');return;
+ }
  if(evt.target.id==='tfCalNewCalendarForm'){
   evt.preventDefault();
   var f=new FormData(evt.target),name=String(f.get('name')||'').trim().slice(0,70);
@@ -382,7 +409,7 @@ async function submit(evt){
   var now=new Date().toISOString(),common={title:title,durationMinutes:duration,location:text('location',220),description:text('description',1600),calendarId:calendarId,updatedAt:now};
   if(kind==='task'){
    var old=draft?.id?await bridge.get('tasks',draft.id):null;
-   await bridge.put('tasks',{...old,...common,id:old?.id||bridge.uid(),due:date,status:old?.status||'Open',scheduleTime:time,kind:old?.kind||'appointment',createdAt:old?.createdAt||now});
+   await bridge.put('tasks',{...old,...common,id:old?.id||bridge.uid(),due:date,status:old?.status||'Open',scheduleTime:time,kind:old?.kind||'appointment',priority:text('priority',25)||old?.priority||'Normal',splittable:!!f.get('splittable'),minBlockMinutes:Math.max(15,Math.min(240,Number(f.get('minBlockMinutes'))||45)),createdAt:old?.createdAt||now});
   }else{
    var prior=draft?.id?await bridge.get('calendarEntries',draft.id):null;
    await bridge.put('calendarEntries',{...prior,id:prior?.id||bridge.uid(),title:title,date:date,time:time,durationMinutes:duration,location:common.location,notes:common.description,
