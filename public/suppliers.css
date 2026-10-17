@@ -164,3 +164,7 @@
  #tfSupplyPrintSheet{display:block!important;position:absolute!important;inset:0 auto auto 0!important;width:100%!important;background:white!important;color:black!important;padding:0!important;margin:0!important}
  #tfSupplyPrintSheet pre{font-family:ui-monospace,monospace;font-size:11pt;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 }
+
+.tf-supplier-viewall{width:100%;background:#0b2939;border:1px solid #2b5c70;border-radius:9px;color:#2addf0;margin:9px 0 0;padding:11px;font-size:12px;font-weight:650;cursor:pointer}
+.tf-supplier-viewall:hover{background:#11364a}
+#tfSupplierLiveEmpty[hidden]{display:none!important}
