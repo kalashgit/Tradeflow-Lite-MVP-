@@ -20,6 +20,8 @@ assert.ok(!/fake|placeholder intelligence counts/i.test(cal.render(d)),'No fabri
 assert.ok(html.includes('calendar.js')&&html.includes('calendar.css'));
 assert.ok(app.includes('window.TradeFlowCalendar?.render')&&app.includes("calendar:'Calendar'"));
 assert.ok(app.includes("['calendar','Calendar']"));
+assert.ok(app.includes('tfCalendarLinkedReturn')&&app.includes('completeSession:tfCompleteCalendarSession'),'Calendar must open linked records and complete sessions');
+assert.ok(html.includes('schedule-engine.js')&&html.includes('calendar-r05'),'Scheduler is bundled in the versioned offline app');
 const stores={tasks:{},jobs:{},calendarEntries:{},calendars:{},calendarPreferences:{},opportunities:{abc:{id:'abc',organization_name:'Office Plaza',city:'Austin',region:'TX'}}};
 let uid=0,lastTab='',renderCount=0,notice='';
 cal.configure({get:async(s,id)=>stores[s]?.[id],put:async(s,x)=>{stores[s][x.id]=x},uid:()=>String(++uid),render:async()=>{renderCount++},notify:s=>notice=s,navigate:s=>lastTab=s});
@@ -48,6 +50,14 @@ async function run(){
  await click({preventDefault(){},target:{dataset:{calendarAction:'event',key:'job:job-1'},closest(){return this}}});
  const card=cal.render(live);
  assert.ok(card.includes('tf-cal-quick-card')&&card.includes('Open Job Record'),'Linked record is the primary event action');
+ const quickPanel={inserted:'',querySelectorAll(){return []},insertAdjacentHTML(position,value){this.inserted=value}};
+ document.querySelector=selector=>selector==='.tf-cal-page'?quickPanel:null;
+ const beforeQuickRender=renderCount;
+ await click({preventDefault(){},target:{dataset:{calendarAction:'event',key:'job:job-1'},closest(){return this}}});
+ assert.ok(quickPanel.inserted.includes('Open Job Record'),'Fast quick card uses existing data');
+ assert.equal(renderCount,beforeQuickRender,'Opening an event must not reload the entire app');
+ delete document.querySelector;
+
  await click({preventDefault(){},target:{dataset:{calendarAction:'close-card'},closest(){return this}}});
  await click({preventDefault(){},target:{dataset:{calendarAction:'new'},closest(){return this}}});
  await submit({preventDefault(){},target:{id:'tfCalendarForm',fields:{title:'Standalone meeting',date:'2026-10-21',time:'14:00',duration:'60',kind:'event'}}});
