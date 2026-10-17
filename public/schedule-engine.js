@@ -65,7 +65,7 @@ function rank(task){
  const p=String(task.priority||'normal').toLowerCase();
  return ['critical','p1','urgent'].includes(p)?0:['high','p2'].includes(p)?1:p==='normal'?2:p==='low'?3:4;
 }
-function allocate(task,available,pref,startDate){
+function allocate(task,available,pref,startDate,minimumToday=0){
  const endDate=isDay(task.due)?task.due:dateAdd(startDate,pref.horizonDays-1);
  const earliest=isDay(task.earliestStart)?task.earliestStart:startDate;
  if(endDate<earliest)return null;
@@ -80,7 +80,7 @@ function allocate(task,available,pref,startDate){
   if(date<earliest||date>endDate)continue;
   const dow=new Date(date+'T12:00:00').getDay();
   if(!pref.workingDays.includes(dow))continue;
-  const holes=gaps(available[who+'|'+date],pref.workdayStart,pref.workdayEnd);
+  const holes=gaps(available[who+'|'+date],date===startDate?Math.max(pref.workdayStart,minimumToday):pref.workdayStart,pref.workdayEnd);
   for(const [start,end] of holes)if(end-start>=Math.min(length,minBlock))candidates.push({date,start,end,who});
  }
  if(!isSplit){
@@ -107,6 +107,8 @@ function allocate(task,available,pref,startDate){
 }
 function analyze(d,options={}){
  const pref=preferences(d),startDate=isDay(options.today)?options.today:dateText(new Date());
+ const clockNow=new Date(),today=dateText(clockNow);
+ const minimumToday=startDate===today?Math.ceil((clockNow.getHours()*60+clockNow.getMinutes())/15)*15:0;
  const busy=buildBusy(d,pref.bufferMinutes),risks=[],proposals=[];
  const taskMap=new Map((d.tasks||[]).map(x=>[x.id,x]));
  const sessions=(d.calendarEntries||[]).filter(x=>x.sourceKind==='task'&&x.sourceId&&!['Cancelled','Completed'].includes(x.status));
@@ -124,7 +126,7 @@ function analyze(d,options={}){
   const proposalKey='task:'+task.id+':'+fingerprint(task)+':'+taken;
   if(dismissed.has(proposalKey))continue;
   const pending={...task,durationMinutes:remaining,completedMinutes:0};
-  const slots=allocate(pending,busy,pref,startDate);
+  const slots=allocate(pending,busy,pref,startDate,minimumToday);
   if(!slots){risks.push({taskId:task.id,reason:'No feasible work block before deadline within planning horizon'});continue}
   const id='plan:'+task.id+':'+slots.map(s=>s.date+'-'+s.time+'-'+s.durationMinutes).join('|');
   proposals.push({id,proposalKey,taskId:task.id,taskTitle:String(task.title||'Task'),sourceKind:'task',
