@@ -25,6 +25,16 @@ ops.configure({
  uid:()=>String(++inc),render(){},notify(){notified++},navigate:async()=>{}
 });
 assert.ok(ops.render('dispatch',stores).includes('Crew &amp; Dispatch'));
+assert.ok(ops.render('dispatch',stores).includes('Daily dispatch'));
+assert.ok(ops.render('dispatch',stores).includes('Team roster'));
+assert.ok(ops.render('dispatch',stores).includes('Unassigned jobs'));
+assert.ok(!ops.render('dispatch',stores).includes('Manual route plans'),'Manual routing must not clutter dispatch');
+assert.ok(!ops.render('dispatch',stores).includes('Crew & routes'),'Dispatch navigation has no route tab');
+assert.equal(ops._test.shiftDay('2026-10-17',1),'2026-10-18');
+assert.equal(ops._test.dispatchSummary(stores,'2026-10-16').unassigned.length,1,'Completed work excluded from active dispatch');
+assert.equal(ops._test.validTime('09:30'),true);
+assert.equal(ops._test.validTime('25:30'),false);
+
 assert.ok(ops.render('integrations',stores).includes('Not connected'));
 assert.ok(ops.render('integrations',stores).includes('QuickBooks Online'));
 assert.ok(ops._test.accountingCsv(stores).includes('received_payment'));
@@ -33,10 +43,26 @@ const submit=handlers.submit[0],click=handlers.click[0];
 const mkForm=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:extra}});
 const mkClick=(action,more={})=>({preventDefault(){},target:{closest:()=>({dataset:{opsAction:action,...more}})}});
 (async()=>{
- await submit(mkForm('tfOpsCrewForm',{name:'Sam',role:'Electrician',notes:''}));
+ await submit(mkForm('tfOpsCrewForm',{name:'Sam',role:'Electrician',skills:'Panels, Lighting',serviceArea:'Austin',workDay5:'on',notes:'',daysOff:'2026-10-22'}));
  assert.equal(stores.crew.length,1);
- await submit(mkForm('tfOpsAssignForm',{crewId:stores.crew[0].id},{id:'j1'}));
+ assert.equal(stores.crew[0].skills[0],'Panels');
+ assert.deepEqual(Array.from(stores.crew[0].workDays),[5]);
+ await submit(mkForm('tfOpsAssignForm',{crewId:stores.crew[0].id,date:'2026-10-16',startTime:'09:00',durationMinutes:'120'},{id:'j1'}));
  assert.equal(stores.jobs[0].crewId,stores.crew[0].id);
+ assert.equal(stores.jobs[0].startTime,'09:00');
+ assert.equal(stores.jobs[0].durationMinutes,120);
+ assert.equal(ops._test.crewDay(stores.crew[0],'2026-10-22',stores.jobs).availability,'Off duty');
+ assert.equal(ops._test.crewDay(stores.crew[0],'2026-10-19',stores.jobs).availability,'Off duty');
+ assert.equal(ops._test.crewDay(stores.crew[0],'2026-10-23',stores.jobs).availability,'Available');
+ assert.equal(ops._test.crewDay({id:'unknown'},'2026-10-23',stores.jobs).availability,'Unknown');
+ const scenario=[
+ {id:'a',status:'Planned',crewId:'tech1',date:'2026-10-20',startTime:'09:00',durationMinutes:120},
+ {id:'b',status:'In Progress',crewId:'tech1',date:'2026-10-20',startTime:'10:00',durationMinutes:60},
+ {id:'c',status:'Planned',crewId:'tech1',date:'2026-10-20',startTime:'11:00',durationMinutes:60}
+ ];
+ assert.equal(ops._test.conflictsFor(scenario[0],scenario).length,1,'Overlap detected');
+ assert.equal(ops._test.conflictsFor(scenario[2],scenario).length,0,'Touching endpoints are not overlap');
+
  await submit(mkForm('tfOpsPlanForm',{name:'Thursday sites',date:'2026-10-16',crewId:stores.crew[0].id}));
  assert.equal(stores.routePlans.length,1);
  const plan=stores.routePlans[0];
@@ -58,5 +84,5 @@ const mkClick=(action,more={})=>({preventDefault(){},target:{closest:()=>({datas
  assert.ok(app.includes('version:9,exportedAt')&&app.includes("data.version<7"));
  assert.ok(html.includes('./operations.js')&&html.includes('./operations.css')&&sw.includes('./operations.js'));
  assert.ok(!js.includes("fetch("),'No hidden server or tracking calls');
- console.log('PASS: Operations R05 crew assignment, manual route ordering, safe direction link, review tasks, CSV and backup migration');
+ console.log('PASS: Crew & Dispatch V2 dashboard, crew availability, job scheduling, conflict detection and legacy route safety');
 })().catch(e=>{console.error(e);process.exitCode=1});
