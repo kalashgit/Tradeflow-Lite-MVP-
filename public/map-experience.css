@@ -164,3 +164,17 @@ body>.tf-experience-sheet.tf-exp-dragging{transition:none!important;overflow:hid
 .tf-map-screen .maplibregl-ctrl-top-left .maplibregl-ctrl-group button{width:41px;height:42px;background:transparent;border-bottom:1px solid #26445b;color:#e4f6ff;filter:invert(.85)}
 .tf-map-screen .maplibregl-ctrl-top-left .maplibregl-ctrl-group button:last-child{border:0}
 @media(max-width:850px){.tf-map-screen .maplibregl-ctrl-top-left{top:115px!important;left:12px!important}}
+
+/* M03: fixed, finger-tracking map sheet. Prevent Safari scrolling the app underneath it. */
+body>.tf-experience-sheet{position:fixed!important;overscroll-behavior:contain;overflow-x:hidden;transform:none;translate:none;transition:height 290ms cubic-bezier(.2,.8,.2,1)!important}
+body>.tf-experience-sheet.tf-exp-dragging{transition:none!important;touch-action:none!important}
+body>.tf-experience-sheet[data-stage=peek]{touch-action:none!important;overflow:hidden!important;overscroll-behavior:none}
+body>.tf-experience-sheet[data-stage=peek] .tf-exp-layout{touch-action:none!important}
+body>.tf-experience-sheet[data-stage=peek] .tf-exp-head{touch-action:none!important}
+body>.tf-experience-sheet[data-stage=peek] .tf-exp-body{display:none!important}
+body>.tf-experience-sheet .tf-exp-handle{touch-action:none!important}
+@media(max-width:850px){
+ body>.tf-experience-sheet{bottom:calc(79px + env(safe-area-inset-bottom))!important;max-height:calc(100dvh - 160px)!important}
+ body>.tf-experience-sheet[data-stage=peek]{min-height:0!important}
+}
+@media(prefers-reduced-motion:reduce){body>.tf-experience-sheet{transition:none!important}}
