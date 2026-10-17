@@ -124,24 +124,58 @@ function header(desc){
  return '<header class="tf-rb-heading"><span class="tf-rb-kicker">TRADEFLOW / ACQUISITION INTELLIGENCE</span><h1>Research Briefs</h1><p>'+e(desc)+'</p></header>';
 }
 function back(){return '<button class="tf-rb-back" type="button" data-research-action="list">‹ All research briefs</button>'}
-function tiles(data){
- const briefs=records(data),active=briefs.filter(x=>x.status==='brief_only');
- return '<div class="tf-rb-stats"><div><small>BRIEFS</small><strong>'+briefs.length+'</strong></div><div><small>NOT STARTED</small><strong>'+active.length+'</strong></div><div><small>ICP PROFILES</small><strong>'+profileData(data).icps.length+'</strong></div></div>';
+
+function metricCard(label,value,kind,description){
+ return '<article class="tf-rb-v2-metric"><span class="tf-rb-v2-metric-icon">'+svgIcon(kind)+'</span>'+
+ '<div><small>'+e(label)+'</small><strong>'+value+'</strong><span>'+e(description)+'</span></div></article>';
 }
 function list(data){
- const briefs=records(data).slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
- const target=profileData(data);
- return '<section class="tf-rb-page"><button class="tf-rb-back" type="button" data-tab="settings">‹ More</button>'+
- header('Create a precise lead-research request before paying for discovery or enrichment.')+
- tiles(data)+
- '<div class="tf-rb-sectionhead"><div><h2>Your research briefs</h2><p>Define buyer fit, geography, source requirements and verification.</p></div>'+
- '<button class="tf-rb-primary" type="button" data-research-action="new">+ New brief</button></div>'+
- (target.icps.length?'':'<div class="tf-rb-notice"><strong>Start with your target customer</strong><p>Create an ICP and buyer persona, then return to build an evidence-backed research specification.</p><button class="tf-rb-secondary" data-tab="growth" type="button">Create ICP ↗</button></div>')+
- (briefs.length?briefs.map(x=>'<button class="tf-rb-listrow" type="button" data-research-action="open" data-id="'+e(x.id)+'">'+
- '<span><strong>'+e(x.title)+'</strong><small>'+e(x.geography)+' · '+Number(x.requestedCount||0)+' requested · Draft only</small></span>'+
- '<span aria-hidden="true">›</span></button>').join(''):'<div class="tf-rb-empty"><strong>No research briefs yet</strong><p>Save a research brief with verification rules; export it to work with a researcher. Creating it will not produce any leads.</p></div>')+
- '<div class="tf-rb-notice"><strong>Keep the evidence attached</strong><p>TradeFlow accepts sourced, reviewed opportunity records, with demand classification and contact provenance. This module does not contact or charge prospects, claim live availability, or run paid research.</p>'+
- '<button type="button" class="tf-rb-secondary" data-tab="opportunities">View Opportunities ↗</button></div></section>';
+ const summary=researchOverview(data),pf=profileData(data);
+ const briefs=summary.briefs.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+ const visible=briefs.filter(x=>statusFilter==='All'||stageOf(x,data)===statusFilter);
+ const labels=[['All','All'],['Draft','Draft'],['In review','In review'],['Completed','Completed']];
+ const chart=CLASSES.map(x=>({ ...x,count:summary.classifications[x.key]||0 }));
+ const total=chart.reduce((n,x)=>n+x.count,0);
+ return '<section class="tf-rb-page tf-rb-v2">'+
+ '<header class="tf-rb-v2-heading"><div><span class="tf-rb-kicker">TRADEFLOW / OPPORTUNITY INTELLIGENCE</span>'+
+ '<h1>Research Briefs</h1><p>Turn targeted research into evidence-backed opportunities.</p></div>'+
+ '<span class="tf-rb-v2-hero-icon">'+svgIcon('search')+'</span></header>'+
+ '<div class="tf-rb-v2-metrics">'+
+ metricCard('Research briefs',String(briefs.length),'brief','Saved research definitions')+
+ metricCard('Records reviewed',String(summary.reviewed),'database','Linked records with QC decisions')+
+ metricCard('Verified demand',String(summary.verified),'chart','Approved with verified evidence')+
+ metricCard('Awaiting verification',String(summary.pending),'clock','Linked records requiring review')+'</div>'+
+ '<section class="tf-rb-v2-panel"><div class="tf-rb-v2-panelhead"><h2>Opportunity classifications</h2><span>Approved: '+total+'</span></div>'+
+ '<div class="tf-rb-v2-breakdown" role="img" aria-label="Reviewed approved opportunity classification breakdown">'+
+ (total?chart.filter(x=>x.count).map(x=>'<span class="tf-rb-v2-segment '+x.tone+'" style="width:'+(x.count/total*100).toFixed(4)+'%"></span>').join(''):
+ '<span class="tf-rb-v2-segment none" style="width:100%"></span>')+'</div>'+
+ '<div class="tf-rb-v2-classgrid">'+chart.map(x=>'<div class="tf-rb-v2-class"><span><i class="tf-rb-v2-dot '+x.tone+'"></i>'+e(x.label)+'</span>'+
+ '<strong>'+x.count+'</strong><small>'+(total?Math.round(x.count/total*100)+'%':'No approved records')+'</small></div>').join('')+'</div>'+
+ '<p class="tf-rb-v2-caption">Only approved, independently sourced records attached to briefs are included. Unlinked Opportunities are excluded; classification is not proof a contractor is currently hiring.</p></section>'+
+ '<section class="tf-rb-v2-briefs"><div class="tf-rb-v2-section-head"><h2>Research briefs</h2>'+
+ '<button type="button" data-research-action="filter" data-filter="All">View all →</button></div>'+
+ '<div class="tf-rb-v2-filters" role="group" aria-label="Research brief review status">'+labels.map(([value,label])=>
+ '<button type="button" data-research-action="filter" data-filter="'+value+'" aria-pressed="'+(statusFilter===value)+'" class="'+(statusFilter===value?'active':'')+'">'+label+'</button>').join('')+'</div>'+
+ (visible.length?'<div class="tf-rb-v2-list">'+visible.map(row=>{
+  const m=briefMetrics(row,data),stage=stageOf(row,data);
+  const count=m.approved.length,request=Number(row.requestedCount)||0;
+  return '<button type="button" class="tf-rb-v2-row" data-research-action="open" data-id="'+e(row.id)+'">'+
+  '<span class="tf-rb-v2-row-icon">'+svgIcon('brief')+'</span>'+
+  '<span class="tf-rb-v2-row-copy"><strong>'+e(row.title)+'</strong><small>'+e(row.geography)+' · '+request+' requested</small>'+
+  '<span>'+m.linked+' linked · '+m.reviewed+' reviewed'+(count?' · '+count+' approved':'')+'</span></span>'+
+  '<span class="tf-rb-v2-status '+(stage==='Completed'?'complete':stage==='In review'?'review':'draft')+'">'+e(stage)+'</span>'+
+  '<span class="tf-rb-v2-chevron">›</span></button>';
+ }).join('')+'</div>':'<div class="tf-rb-v2-empty"><strong>'+(briefs.length?'No briefs match this filter':'No research briefs yet')+'</strong>'+
+ '<p>'+(briefs.length?'Switch filters to find saved briefs.':'Create a research brief to define your sources, buyer criteria and verification rules. No search will run automatically.')+'</p></div>')+
+ '</section>'+
+ '<section class="tf-rb-v2-tools"><div class="tf-rb-v2-section-head"><h2>Research tools</h2><span>Connected workspaces</span></div>'+
+ '<div class="tf-rb-v2-tools-grid">'+
+ '<button data-tab="growth" type="button"><span>'+svgIcon('people')+'</span><strong>Target profiles</strong><small>'+pf.icps.length+' saved ICPs · buyer personas</small></button>'+
+ '<button data-tab="opportunities" type="button"><span>'+svgIcon('map')+'</span><strong>Opportunities</strong><small>Open saved project records</small></button>'+
+ '<button data-research-action="review-queue" type="button"><span>'+svgIcon('search')+'</span><strong>Evidence review</strong><small>Inspect linked sources &amp; QC</small></button>'+
+ '<button data-tab="opportunities" type="button"><span>'+svgIcon('import')+'</span><strong>Import results</strong><small>Use Opportunities CSV importer</small></button></div></section>'+
+ '<button class="tf-rb-v2-create" type="button" data-research-action="new">＋ Create research brief</button>'+
+ '<p class="tf-rb-v2-caption">Briefs are local specifications. Counts come only from existing linked Opportunities and recorded quality-review decisions. TradeFlow has not automatically searched, purchased leads or verified external sites.</p></section>';
 }
 function form(data){
  const targets=profileData(data),old=records(data).find(x=>x.id===currentId)||{};
