@@ -234,30 +234,43 @@
   const caption=sheet.querySelector('#tfExpRouteCaption');
   const origin=selectedOrigin(),headquarters=bridge?.getPrefs?.()?.company||'headquarters';
   if(caption)caption.textContent=origin?(startOverride?'From '+startOverride.label:'From '+headquarters):'Set route start';
-  const handle=sheet.querySelector('.tf-exp-handle');
-  handle.addEventListener('pointerdown',event=>{
+  // The entire top region (including both edges) is a grab surface, except controls.
+  const grabSurfaces=[sheet.querySelector('.tf-exp-handle'),sheet.querySelector('.tf-exp-head')].filter(Boolean);
+  const stageHeight=()=>sheet.getBoundingClientRect().height;
+  const maxHeight=()=>Math.max(220,window.innerHeight-170);
+  const clearDrag=()=>{sheet.style.removeProperty('height');sheet.classList.remove('tf-exp-dragging');drag=null};
+  const beginDrag=event=>{
    if(event.button!==undefined&&event.button!==0)return;
-   drag={start:event.clientY,stage:sheet.dataset.stage,pointerId:event.pointerId,moved:false};
-   try{handle.setPointerCapture(event.pointerId)}catch{}
-  });
-  handle.addEventListener('pointermove',event=>{
-   if(!drag||drag.pointerId!==event.pointerId)return;
-   const dy=event.clientY-drag.start;
-   if(Math.abs(dy)>8)drag.moved=true;
-   // Follow the finger while dragging; snap to a known stage on pointerup.
-   if(drag.moved)sheet.style.setProperty('--tf-drag-offset',Math.max(-125,Math.min(150,dy))+'px');
-  });
-  handle.addEventListener('pointerup',event=>{
+   if(event.target.closest('button:not(.tf-exp-handle),a,input,select,textarea,[data-exp-action="close"]'))return;
+   drag={start:event.clientY,height:stageHeight(),stage:sheet.dataset.stage,pointerId:event.pointerId,moved:false};
+   try{event.currentTarget.setPointerCapture(event.pointerId)}catch{}
+  };
+  const moveDrag=event=>{
    if(!drag||drag.pointerId!==event.pointerId)return;
    const delta=event.clientY-drag.start;
-   sheet.style.removeProperty('--tf-drag-offset');
-   if(Math.abs(delta)>45){
-    const order=['peek','half','full'],i=order.indexOf(drag.stage);
-    if(delta<0)setStage(order[Math.min(i+1,2)]);else setStage(order[Math.max(0,i-1)]);
-   }else if(!drag.moved){const order=['peek','half','full'],i=order.indexOf(sheet.dataset.stage);setStage(order[(i+1)%3])}
-   drag=null;
-  });
-  handle.addEventListener('pointercancel',()=>{drag=null;sheet?.style.removeProperty('--tf-drag-offset')});
+   if(Math.abs(delta)>7)drag.moved=true;
+   if(!drag.moved)return;
+   event.preventDefault();
+   // Resize from the fixed bottom edge, never translate the card off its dock.
+   sheet.classList.add('tf-exp-dragging');
+   sheet.style.height=Math.max(110,Math.min(maxHeight(),drag.height-delta))+'px';
+  };
+  const finishDrag=event=>{
+   if(!drag||drag.pointerId!==event.pointerId)return;
+   const delta=event.clientY-drag.start,moved=drag.moved,origin=drag.stage;
+   clearDrag();
+   const order=['peek','half','full'],i=Math.max(0,order.indexOf(origin));
+   if(delta< -45)setStage(order[Math.min(i+1,2)]);
+   else if(delta>45)setStage(order[Math.max(0,i-1)]);
+   else if(!moved&&event.currentTarget.classList.contains('tf-exp-handle'))setStage(order[(i+1)%3]);
+  };
+  for(const surface of grabSurfaces){
+   surface.addEventListener('pointerdown',beginDrag);
+   surface.addEventListener('pointermove',moveDrag);
+   surface.addEventListener('pointerup',finishDrag);
+   surface.addEventListener('pointercancel',clearDrag);
+   surface.addEventListener('lostpointercapture',()=>{if(drag)clearDrag()});
+  }
   sheet.addEventListener('click',async e=>{
    const el=e.target.closest('[data-exp-action]');if(!el||el.classList.contains('tf-exp-handle'))return;
    const action=el.dataset.expAction;
