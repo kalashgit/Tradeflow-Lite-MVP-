@@ -6,6 +6,10 @@
 'use strict';
 var bridge=null,mode=(typeof window!=='undefined'&&window.matchMedia?.('(max-width:700px)')?.matches)?'day':'week',selected='',draft=null,activeKey='',layerDrawer=false,queueVisible=false,calendarDraft=false,intelligenceFocus='',lastData=null;
 var hiddenLayers=new Set(),preferencesHydrated=false;
+var calendarViewport={top:0,left:0};
+function rememberViewport(){const node=typeof document!=='undefined'?document.querySelector?.('.tf-cal-timeline'):null;if(node)calendarViewport={top:node.scrollTop,left:node.scrollLeft}}
+function restoreViewport(){if(typeof document==='undefined')return;const work=()=>{const node=document.querySelector?.('.tf-cal-timeline');if(node){node.scrollTop=calendarViewport.top;node.scrollLeft=calendarViewport.left}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(work);else work()}
+
 var baseLayers=[
  {id:'jobs',name:'Jobs / Site Work',color:'#16c784',kind:'job'},
  {id:'clients',name:'Customer Appointments',color:'#208be6',kind:'appointment'},
@@ -279,8 +283,21 @@ async function click(evt){
   else d.setDate(d.getDate()+delta*(mode==='week'?7:1));
   selected=dateString(d);draft=null;activeKey='';await bridge.render();return;
  }
- if(action==='event'){activeKey=b.dataset.key;draft=null;await bridge.render();return}
- if(action==='close-card'){activeKey='';await bridge.render();return}
+ if(action==='event'){
+  activeKey=b.dataset.key;draft=null;rememberViewport();
+  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
+  if(root&&typeof root.insertAdjacentHTML==='function'){
+   root.querySelectorAll?.('.tf-cal-quick-backdrop,.tf-cal-quick-card').forEach(x=>x.remove());
+   root.insertAdjacentHTML('beforeend',eventPreview(lastData||{}));return;
+  }
+  await bridge.render();restoreViewport();return;
+ }
+ if(action==='close-card'){
+  activeKey='';
+  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
+  if(root){root.querySelectorAll?.('.tf-cal-quick-backdrop,.tf-cal-quick-card').forEach(x=>x.remove());return}
+  await bridge.render();restoreViewport();return;
+ }
  if(action==='layers'){layerDrawer=!layerDrawer;await bridge.render();return}
  if(action==='queue'){queueVisible=!queueVisible;await bridge.render();return}
  if(action==='new-calendar'){calendarDraft=!calendarDraft;await bridge.render();return}
@@ -303,6 +320,7 @@ async function click(evt){
  }
  if(action==='open-record'){
   var record=activeEvent(lastData||{});if(!record)return;
+  rememberViewport();
   if(bridge.openRecord){await bridge.openRecord(record.sourceKind,record.sourceId);return}
   await bridge.navigate(record.kind==='job'?'jobs':'tasks');return;
  }
@@ -314,6 +332,9 @@ async function click(evt){
  }
  if(action==='complete'){
   var record=activeEvent(lastData||{});if(!record)return;
+  if(record.kind==='event'&&record.sourceKind==='task'&&bridge.completeSession){
+   await bridge.completeSession(record.id);activeKey='';bridge.notify('Task session completed');return;
+  }
   if(record.kind==='task'||record.kind==='job'){
    var original=await bridge.get(record.kind==='job'?'jobs':'tasks',record.id);if(!original)return;
    await bridge.put(record.kind==='job'?'jobs':'tasks',{...original,status:record.kind==='job'?'Completed':'Done',updatedAt:new Date().toISOString()});
@@ -361,5 +382,5 @@ async function submit(evt){
 }
 global.TradeFlowCalendar={configure:mount,render:render,records:records,conflicts:conflicts,prepareOpportunity:function(item){
  selected=day();mode='day';draft={kind:'task',date:selected,title:'Contact: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,140),
- location:[item.city,item.region].filter(Boolean).join(', ')};},focusIntelligence:function(kind){intelligenceFocus=kind;draft=null;activeKey='';},_test:{validDate:validDate,shift:shift,monday:monday,validTime:validTime,clock:clock}};
+ location:[item.city,item.region].filter(Boolean).join(', ')};},focusIntelligence:function(kind){intelligenceFocus=kind;draft=null;activeKey='';},restoreViewport:restoreViewport,_test:{validDate:validDate,shift:shift,monday:monday,validTime:validTime,clock:clock}};
 })(typeof window!=='undefined'?window:globalThis);
