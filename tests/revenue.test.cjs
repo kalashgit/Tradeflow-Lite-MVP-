@@ -42,7 +42,7 @@ const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:ext
  const profit=mod.render('profitability',store);assert.ok(profit.includes('Cash contribution')&&profit.includes('€65.00'));
  assert.ok(profit.includes('not an audited profit'));
  assert.ok(app.includes("'invoices','jobCosts'")&&app.includes('indexedDB.open(DB,9)'));
- assert.ok(app.includes('version:8,exportedAt')&&app.includes("data.version<6"));
+ assert.ok(app.includes('version:9,exportedAt')&&app.includes("data.version<6"));
  assert.ok(html.includes('./revenue.js')&&html.includes('./revenue.css')&&sw.includes('./revenue.js'));
  console.log('PASS: Revenue R03 invoice save, issue, manual payment, job costs, currency disclosure, backup compatibility');
 })().catch(e=>{console.error(e);process.exitCode=1});
