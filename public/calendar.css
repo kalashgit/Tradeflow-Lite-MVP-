@@ -262,3 +262,25 @@
  .tf-cal-review{padding:10px;max-height:calc(100dvh - 258px);min-height:280px}
  .tf-cal-review-head{flex-direction:column;gap:10px}
 }
+
+
+/* R05: scheduling configuration is opt-in, never a permanent tall panel. */
+.tf-cal-sidebar-inner{max-height:calc(100dvh - var(--tf-unified-head-height,74px) - 32px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#214b61 transparent}
+.tf-cal-schedule-controls{margin-top:14px;border-top:1px solid #1c4255;padding-top:11px}
+.tf-cal-schedule-controls button{width:100%;display:flex;align-items:center;gap:8px;background:transparent;color:#a3c6d8;border:0;text-align:left;padding:6px 0;font-size:11px}
+.tf-cal-schedule-controls svg{width:15px;height:15px;color:#5ebfd5}
+.tf-cal-settings-form{display:flex;flex-direction:column;gap:10px;padding:12px 0 16px}
+.tf-cal-settings-form label{display:flex;flex-direction:column;gap:5px;font-size:10px;color:#afcede}
+.tf-cal-settings-form input{width:100%;min-width:0;min-height:32px;border:1px solid #34596c;border-radius:6px;background:#092637;color:#eaf8ff;padding:5px 7px;font-size:11px;color-scheme:dark}
+.tf-cal-settings-form .tf-cal-twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+.tf-cal-settings-days{display:flex;flex-wrap:wrap;gap:4px}
+.tf-cal-settings-days>span{width:100%;font-size:10px;color:#a7c8d7}
+.tf-cal-settings-days label{display:inline-flex;align-items:center;flex-direction:row;gap:3px;border:1px solid #294d61;border-radius:5px;padding:5px 4px;color:#bed8e6;font-size:9px}
+.tf-cal-settings-days input{width:12px;height:12px;min-height:0;margin:0;accent-color:#10cfe1;padding:0}
+.tf-cal-settings-form .tf-cal-primary{font-size:11px;min-height:32px}
+.tf-cal-task-options{margin-top:8px;border-top:1px solid #204b60;border-bottom:1px solid #204b60;padding:10px 0}
+.tf-cal-task-options summary{cursor:pointer;font-size:12px;color:#97cddd;font-weight:650}
+.tf-cal-task-options-fields{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+.tf-cal-task-options .tf-cal-split-check{display:flex;align-items:center;gap:9px;flex-direction:row}
+.tf-cal-task-options .tf-cal-split-check input{width:16px;height:16px;min-height:0;margin:0;accent-color:#10cfe1}
+@media(max-width:700px){.tf-cal-mobile-drawer .tf-cal-sidebar-inner{max-height:none;overflow:visible}}
