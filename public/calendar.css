@@ -1,0 +1,672 @@
+/* TradeFlow Calendar R02 — operating UI, not a generic calendar template. */
+.tf-cal-page{width:min(100%,820px);margin:0 auto 28px;color:#eff9ff;display:flex;flex-direction:column;gap:17px}
+.tf-cal-page *{box-sizing:border-box}
+.tf-cal-back{border:0;background:transparent;color:#a9d0df;text-align:left;padding:4px 0;font-size:12px}
+.tf-cal-title{margin-top:13px}
+.tf-cal-title span{font:750 10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.13em;color:var(--tf-accent,#10cfe1)}
+.tf-cal-title h1{margin:8px 0;font-size:clamp(26px,6vw,33px);font-weight:750;letter-spacing:-.04em;color:#f1fcff}
+.tf-cal-title p{color:#99bcc9;font-size:12px;line-height:1.5;margin:0}
+.tf-cal-controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.tf-cal-modes{display:flex;align-items:center;gap:6px}
+.tf-cal-modes button,.tf-cal-secondary,.tf-cal-period button{border:1px solid #355d6f;border-radius:9px;background:#102d3e;color:#bad7e4;padding:10px 12px;font-size:12px;font-weight:700;min-height:39px;cursor:pointer}
+.tf-cal-modes button.active{background:#194657;color:#e7fdff;border-color:#478b9b}
+.tf-cal-primary{border:1px solid var(--tf-accent,#10cfe1);border-radius:9px;background:var(--tf-accent,#10cfe1);color:#062230;font-size:12px;font-weight:780;padding:10px 13px;min-height:39px;cursor:pointer}
+.tf-cal-period{border:1px solid #2c5467;background:#0c2939;border-radius:13px;padding:11px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.tf-cal-period>div{display:flex;align-items:center;gap:10px;min-width:0}
+.tf-cal-period>div strong{font-size:13px;line-height:1.35;color:#e5f7ff}
+.tf-cal-period>div button{font-size:22px;line-height:1;min-width:36px;padding:6px 10px}
+.tf-cal-content{min-height:180px}
+.tf-cal-day-list{border:1px solid #2d5163;background:#0c2838;border-radius:15px;overflow:hidden}
+.tf-cal-day-list>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px;border-bottom:1px solid #2b4d5e}
+.tf-cal-day-list h2{margin:0;font-size:17px;font-weight:710;color:#effcff}
+.tf-cal-day-list header small{font-size:11px;color:#98b8c8}
+.tf-cal-week{margin-bottom:14px}
+.tf-cal-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.tf-cal-day-button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:86px;border-radius:11px;border:1px solid #2c5366;background:#0d2c3c;color:#acc6d2;cursor:pointer}
+.tf-cal-day-button span{font-size:10px;color:#9dbaca}
+.tf-cal-day-button strong{font-size:18px;color:#ebf9ff;font-weight:730}
+.tf-cal-day-button small{font-size:8px;color:#82a7b6}
+.tf-cal-day-button.active{background:#185063;border-color:#4b9eb0;box-shadow:inset 0 0 0 1px #8cefff13}
+.tf-cal-item{border-bottom:1px solid #25495b;padding:14px 15px;display:flex;align-items:center;gap:11px;min-height:73px}
+.tf-cal-item:last-child{border-bottom:0}
+.tf-cal-item-icon{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;border:1px solid #3c7181;color:#aee4f0;background:#153f4f}
+.tf-cal-item-data{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.tf-cal-item-data strong{font-size:12px;line-height:1.4;color:#e5f6ff}
+.tf-cal-item-data small{font-size:10px;line-height:1.4;color:#9dbac7;display:flex;align-items:center;gap:4px}
+.tf-cal-item-data small svg{height:13px;width:13px}
+.tf-cal-item>button{font-size:11px;color:#b5e1ef;border:1px solid #3f6c7c;border-radius:7px;background:#183949;padding:8px 9px}
+.tf-cal-empty{padding:25px 15px;color:#93b4c3;font-size:12px;line-height:1.6}
+.tf-cal-month{border:1px solid #2b5060;border-radius:13px;background:#0a2635;padding:9px;margin-bottom:14px}
+.tf-cal-month-labels,.tf-cal-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.tf-cal-month-labels span{text-align:center;font-size:9px;font-weight:750;padding:8px 0;color:#85aabb}
+.tf-cal-month-grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:1px solid transparent;border-radius:8px;background:#112c3a;color:#d7eefa;min-height:49px;cursor:pointer}
+.tf-cal-month-grid button span{font-size:12px}
+.tf-cal-month-grid button small{background:#346f81;border-radius:6px;min-width:14px;color:#e7f9fc;font-size:9px;padding:1px 4px}
+.tf-cal-month-grid button.other{color:#617f90;background:#102330}
+.tf-cal-month-grid button.active{border-color:#4e9aac;background:#17485a}
+.tf-cal-formpanel{border:1px solid #345c6e;border-radius:15px;background:#0e2b3a;padding:18px}
+.tf-cal-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}
+.tf-cal-section-head h2{font-size:18px;margin:0 0 4px}
+.tf-cal-section-head p{font-size:11px;color:#a1c0cd;line-height:1.5;margin:0}
+.tf-cal-section-head button{border:1px solid #40657a;background:#183c4e;color:#d7edf5;border-radius:8px;width:31px;height:31px;font-size:19px;flex:none}
+#tfCalendarForm{display:flex;flex-direction:column;gap:13px}
+#tfCalendarForm label{display:flex;flex-direction:column;gap:7px;color:#c8e7f1;font-size:12px;font-weight:660}
+#tfCalendarForm input,#tfCalendarForm textarea{width:100%;padding:12px;border-radius:9px;border:1px solid #426c7d;background:#071e2b;color:#e5faff;font:inherit;font-size:13px;outline:none}
+#tfCalendarForm input:focus,#tfCalendarForm textarea:focus{border-color:#65c8d9;box-shadow:0 0 0 2px #4ad6ef1f}
+#tfCalendarForm textarea{resize:vertical}
+.tf-cal-twocol{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tf-cal-form-actions{display:flex;gap:10px;flex-wrap:wrap}
+.tf-cal-resources{border:1px solid #2f5666;border-radius:12px;padding:14px;display:flex;gap:12px;justify-content:space-between;align-items:center;background:#103242}
+.tf-cal-resources strong{font-size:12px;color:#ebfbff}
+.tf-cal-resources p{font-size:11px;color:#94b7c5;line-height:1.5;margin:5px 0 0}
+.tf-cal-resources button{flex:none;background:#143f51;border:1px solid #477687;border-radius:9px;color:#c0f1fd;padding:10px;font-size:11px}
+.tf-cal-disclosure{font-size:11px;line-height:1.55;color:#8aaebd;margin:0}
+@media(max-width:580px){.tf-cal-period>div{gap:4px}.tf-cal-day-button{min-height:75px;gap:5px}.tf-cal-day-button span{font-size:9px}.tf-cal-day-button strong{font-size:16px}.tf-cal-day-button small{font-size:8px}.tf-cal-modes button{padding:10px}.tf-cal-twocol{grid-template-columns:1fr}.tf-cal-resources{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.tf-cal-page *{animation:none!important;transition:none!important}}
+
+
+/* R03 — precise time-grid layout matching the TradeFlow reference.
+ * Calendar colors describe activity types; warnings use separate status highlights.
+ */
+.tf-cal-page{--cal-border:#20475b;--cal-panel:#091f2d;--cal-hour:64px;display:grid;grid-template-columns:218px minmax(0,1fr);gap:0;max-width:none!important;width:100%!important;margin:0!important;border:1px solid #1c5368;border-radius:14px;background:#061b29;color:#e8f7ff;min-height:calc(100dvh - 112px);position:relative;overflow:hidden}
+.tf-cal-page *{box-sizing:border-box}
+.content:has(> .tf-cal-page){max-width:none!important;width:100%;margin:0!important;padding:14px!important}
+.tf-cal-page button{cursor:pointer}
+.tf-cal-sidebar{background:#071a28;border-right:1px solid #20475b;min-width:0}
+.tf-cal-sidebar-inner{padding:19px 15px;display:flex;flex-direction:column;gap:0;position:sticky;top:0}
+.tf-cal-mini-head{display:flex;align-items:center;justify-content:space-between;color:#f0f9ff;padding:0 0 12px}
+.tf-cal-mini-head strong{font-size:14px;letter-spacing:-.01em}
+.tf-cal-mini-head span{display:flex;gap:4px}
+.tf-cal-mini-head button,.tf-cal-layer-top button{border:0;background:transparent;color:#bfdeef;font-size:21px;width:28px;height:28px;padding:0}
+.tf-cal-mini-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;border-bottom:1px solid var(--cal-border);padding-bottom:18px;margin-bottom:19px}
+.tf-cal-mini-grid small{font-size:10px;color:#93b7c9;text-align:center;line-height:26px}
+.tf-cal-mini-grid button{background:transparent;border:0;color:#dceef7;height:27px;width:100%;border-radius:7px;font-size:11px;min-width:0;padding:0}
+.tf-cal-mini-grid button.other{color:#648195}
+.tf-cal-mini-grid button.active{background:var(--tf-accent,#0de0f1);color:#042130;font-weight:800;box-shadow:0 0 14px #10cfe142}
+.tf-cal-layer-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tf-cal-layer-top strong{font-size:13px;color:#ecfaff}
+.tf-cal-layer{display:flex;align-items:center;gap:8px;min-height:33px;color:#c7dae7;font-size:11px;white-space:nowrap}
+.tf-cal-layer input{width:15px;height:15px;accent-color:#08bfd9;margin:0;flex:none}
+.tf-cal-layer-dot{width:11px;height:11px;border-radius:4px;flex:none}
+.tf-cal-new-layer-btn{margin-top:22px;min-height:39px;border:1px solid #22627c;border-radius:8px;color:#86dbea;background:#073049;font-size:11px}
+.tf-cal-new-layer{display:flex;gap:5px;margin-top:17px}
+.tf-cal-new-layer input{background:#0b2b40;color:#eafaff;border:1px solid #315d74;min-width:0;flex:1;border-radius:7px;padding:7px;font-size:11px}
+.tf-cal-new-layer button{border:1px solid #148fa6;background:#0a4051;color:#f0fcff;border-radius:7px;font-size:11px}
+.tf-cal-work{min-width:0;display:flex;flex-direction:column;gap:0}
+.tf-cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 14px 11px;background:#071b28;flex-wrap:wrap}
+.tf-cal-date-tools,.tf-cal-toolbar-right{display:flex;align-items:center;gap:6px;min-width:0}
+.tf-cal-date-tools button,.tf-cal-modes button,.tf-cal-layer-toggle{background:#071e2d;border:1px solid #255069;border-radius:7px;color:#d5eff8;min-width:34px;min-height:33px;font-size:12px;padding:6px 10px;flex:none}
+.tf-cal-date-tools button:first-child,.tf-cal-date-tools button:nth-child(2){font-size:19px;line-height:1;padding:0 9px}
+.tf-cal-date-tools strong{font-size:clamp(12px,1.25vw,16px);white-space:nowrap;letter-spacing:-.03em;margin-left:7px}
+.tf-cal-modes{display:flex;gap:0;border:1px solid #255069;border-radius:7px;overflow:hidden}
+.tf-cal-modes button{border:0;border-radius:0;min-width:53px;background:transparent}
+.tf-cal-modes button.active{background:#0e4e70;color:#ccf7ff;box-shadow:inset 0 0 0 1px #2a9cc2}
+.tf-cal-primary{border:1px solid #00b9d4;border-radius:7px;background:var(--tf-accent,#10cfe1);color:#062432;font-size:12px;font-weight:800;padding:8px 14px;min-height:34px;white-space:nowrap}
+.tf-cal-layer-toggle{display:none;align-items:center;justify-content:center}
+.tf-cal-conflict-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#321b29;color:#ffd4df;border-block:1px solid #853c55;padding:9px 15px;font-size:12px}
+.tf-cal-conflict-banner button{border:1px solid #b4516c;color:#ffe3e9;background:#4b2033;border-radius:6px;padding:6px 9px}
+.tf-cal-conflict-list{padding:8px 16px;background:#291824;color:#ffd4e1;font-size:11px;line-height:1.7}
+.tf-cal-timeline{min-width:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-height:calc(100dvh - 215px);scrollbar-color:#24647d transparent}
+.tf-cal-timeline-inner{display:flex;min-width:810px;width:100%;align-items:stretch}
+.tf-cal-time-axis{width:62px;flex:none;background:#071b29;border-right:1px solid #1d4254}
+.tf-cal-all-day-axis{height:76px;border-bottom:1px solid #1c4052;color:#95b9ca;font-size:10px;display:flex;align-items:center;justify-content:center}
+.tf-cal-time-label{height:var(--cal-hour);padding:0 5px;color:#8fb2c3;text-align:right;font-size:11px;transform:translateY(-6px)}
+.tf-cal-timeline-days{display:grid;grid-template-columns:repeat(var(--visible-days),minmax(0,1fr));flex:1;min-width:0}
+.tf-cal-day-column{border-right:1px solid #1e4253;min-width:0;position:relative}
+.tf-cal-day-heading{height:47px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;border-bottom:1px solid #1e4253}
+.tf-cal-day-heading button{border:0;color:#e3f7fd;background:transparent;font-size:11px;display:flex;align-items:center;gap:5px;padding:2px}
+.tf-cal-day-heading button strong{font-size:15px}
+.tf-cal-day-heading button.active{color:#2be3fb}
+.tf-cal-day-heading small{font-size:9px;color:#769faf}
+.tf-cal-all-day{height:29px;overflow:hidden;border-bottom:1px solid #25465a;padding:2px;display:flex;gap:2px}
+.tf-cal-all-day .tf-cal-event{padding:1px 3px;min-height:0;border-radius:4px}
+.tf-cal-all-day .tf-cal-event .tf-cal-event-icon{display:none}
+.tf-cal-all-day .tf-cal-event strong{font-size:9px}
+.tf-cal-all-day .tf-cal-event small{display:none}
+.tf-cal-day-track{position:relative;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--cal-hour) - 1px),#214457 calc(var(--cal-hour) - 1px),#214457 var(--cal-hour));}
+.tf-cal-day-column:nth-child(2n) .tf-cal-day-track{background-color:#081e2d}
+.tf-cal-event-position{position:absolute;z-index:2;padding:2px;min-height:0}
+.tf-cal-event{--event-color:#12cbe5;width:100%;height:100%;min-height:0;display:flex;gap:5px;align-items:flex-start;text-align:left;overflow:hidden;border:1px solid color-mix(in srgb,var(--event-color) 70%,#0c3042);border-left:4px solid var(--event-color);background:linear-gradient(128deg,color-mix(in srgb,var(--event-color) 31%,#071d2c),color-mix(in srgb,var(--event-color) 10%,#071725));color:#f2fbff;border-radius:7px;padding:7px 5px 5px 6px}
+.tf-cal-event:hover,.tf-cal-event:focus-visible{filter:brightness(1.17);outline:1px solid var(--event-color);outline-offset:-1px}
+.tf-cal-event-icon{color:var(--event-color);display:flex;flex:none;margin-top:1px}
+.tf-cal-event-icon svg{width:13px;height:13px}
+.tf-cal-event-details{display:flex;flex-direction:column;gap:3px;min-width:0}
+.tf-cal-event-details strong{font-size:10px;line-height:1.18;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tf-cal-event-details small{font-size:9px;color:#bdd9e6;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf-cal-event-done{opacity:.48}
+.tf-cal-event.is-compact{height:100%}
+.tf-cal-timeline-inner.tf-cal-single-day{min-width:0}
+.tf-cal-single-day .tf-cal-event-position{padding:3px}
+.tf-cal-single-day .tf-cal-event{padding:8px 12px;border-radius:9px}
+.tf-cal-single-day .tf-cal-event-details strong{font-size:13px}
+.tf-cal-single-day .tf-cal-event-details small{font-size:11px}
+.tf-cal-month-layout{padding:12px;background:#071d2b}
+.tf-cal-month-labels,.tf-cal-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.tf-cal-month-labels span{text-align:center;color:#93bfd0;font-size:11px;padding:9px 0}
+.tf-cal-month-grid button{border:1px solid #24495b;border-radius:6px;background:#0a2636;color:#d7f2ff;min-height:92px;display:flex;flex-direction:column;align-items:flex-start;padding:7px;gap:4px;overflow:hidden}
+.tf-cal-month-grid button.active{border-color:#0fd2ed;background:#113c50}
+.tf-cal-month-grid button.other{opacity:.38}
+.tf-cal-month-grid button span{font-size:13px;font-weight:650}
+.tf-cal-month-grid button small{font-size:9px;font-style:normal;color:#effaff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;border-left:3px solid var(--event-color);padding:3px 4px;background:color-mix(in srgb,var(--event-color) 25%,#0a2537);border-radius:4px}
+.tf-cal-month-grid button em{color:#93bfd0;font-size:10px}
+.tf-cal-queue-desktop{border-top:1px solid #214b5d;max-height:190px;overflow:auto}
+.tf-cal-queue{background:#071c2a}
+.tf-cal-queue>header{padding:11px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1c3d50}
+.tf-cal-queue>header strong{font-size:12px}
+.tf-cal-queue>header span{font-size:10px;color:#9bb7c4}
+.tf-cal-queue-row{border:0;border-bottom:1px solid #19394b;width:100%;color:#e8f8ff;background:transparent;display:flex;align-items:center;text-align:left;gap:9px;padding:10px 16px}
+.tf-cal-queue-row>span:nth-child(2){display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.tf-cal-queue-row strong{font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.tf-cal-queue-row small{color:#9baebe;font-size:10px}
+.tf-cal-queue-mark{color:#ffa32b}
+.tf-cal-queue-empty{color:#91b0c0;font-size:11px;padding:15px}
+.tf-cal-mobile-queue-control,.tf-cal-mobile-queue{display:none}
+.tf-cal-quick-backdrop{position:fixed;inset:0;background:#020a1055;z-index:180}
+.tf-cal-quick-card{position:fixed;right:18px;top:100px;max-height:calc(100dvh - 126px);width:min(345px,calc(100vw - 25px));overflow:auto;z-index:181;background:linear-gradient(120deg,#092638,#071a29);border:1px solid #397289;border-left:4px solid var(--event-color);border-radius:15px;padding:18px;box-shadow:0 20px 70px #000a;color:#eefaff}
+.tf-cal-quick-title{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;border-bottom:1px solid #21465b;padding-bottom:14px;margin-bottom:13px}
+.tf-cal-quick-category{font-size:10px;color:var(--event-color);font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.tf-cal-quick-title h2{font-size:17px;line-height:1.3;margin:7px 0 0;letter-spacing:-.02em}
+.tf-cal-quick-title button{color:#adc5d3;background:transparent;border:0;font-size:25px;line-height:1;padding:0 3px}
+.tf-cal-quick-line{display:flex;gap:9px;align-items:center;margin:9px 0;font-size:12px;color:#cfebf7}
+.tf-cal-quick-line svg{color:#82b3c5;flex:none}
+.tf-cal-quick-notes{font-size:11px;line-height:1.5;color:#a4c6d5;border-top:1px solid #21465b;padding-top:11px;margin:13px 0}
+.tf-cal-open-record{width:100%;background:var(--tf-accent,#10cfe1);color:#062330;border:1px solid #3ce8f6;box-shadow:0 0 18px #00ddfc2b;border-radius:9px;min-height:44px;font-weight:820;font-size:13px;margin-top:15px}
+.tf-cal-quick-actions{display:flex;gap:9px;margin-top:10px;align-items:center}
+.tf-cal-quick-actions button{display:flex;gap:7px;align-items:center;justify-content:center;flex:1;border:1px solid #365b70;color:#c4e7f1;background:#0b2c3f;border-radius:7px;padding:9px;font-size:11px}
+.tf-cal-completed{color:#35d9a3;font-size:12px}
+.tf-cal-formpanel{margin:14px;padding:18px;background:#0c2939;border:1px solid #285a71;border-radius:12px}
+.tf-cal-formpanel select,.tf-cal-formpanel input,.tf-cal-formpanel textarea{background:#061c2b;color:#effdff;border:1px solid #386477;border-radius:7px;min-height:36px;padding:9px}
+.tf-cal-formpanel label{color:#bedbe6;font-size:12px}
+.tf-cal-drawer-shade,.tf-cal-mobile-drawer{display:none}
+@media(min-width:851px){
+ .tf-cal-page{min-height:calc(100dvh - 108px)}
+}
+@media(max-width:1000px) and (min-width:701px){
+ .tf-cal-page{grid-template-columns:185px minmax(0,1fr)}
+ .tf-cal-sidebar-inner{padding:12px}
+ .tf-cal-toolbar{gap:7px}
+ .tf-cal-date-tools strong{font-size:12px}
+}
+@media(max-width:700px){
+ .content:has(> .tf-cal-page){padding:0!important}
+ .tf-cal-page{display:block;border-left:0;border-right:0;border-radius:0;min-height:calc(100dvh - 150px)}
+ .tf-cal-sidebar{display:none}
+ .tf-cal-toolbar{padding:10px 9px;gap:7px;flex-direction:column;align-items:stretch}
+ .tf-cal-date-tools{justify-content:space-between;width:100%}
+ .tf-cal-date-tools strong{flex:1;overflow:hidden;text-overflow:ellipsis;font-size:14px;white-space:nowrap}
+ .tf-cal-toolbar-right{justify-content:space-between}
+ .tf-cal-layer-toggle{display:flex;min-width:36px;height:34px}
+ .tf-cal-modes{flex:1;max-width:214px}
+ .tf-cal-modes button{flex:1;min-width:0}
+ .tf-cal-primary{min-width:86px}
+ .tf-cal-timeline{max-height:calc(100dvh - 270px);min-height:290px}
+ .tf-cal-timeline-inner{min-width:820px}
+ .tf-cal-timeline-inner.tf-cal-single-day{min-width:0}
+ .tf-cal-day-heading{height:44px}
+ .tf-cal-timeline-inner.tf-cal-single-day .tf-cal-day-column{min-width:0}
+ .tf-cal-month-layout{padding:5px}
+ .tf-cal-month-grid button{min-height:62px;padding:5px}
+ .tf-cal-month-grid button small{max-width:100%;font-size:8px}
+ .tf-cal-time-axis{width:54px}
+ .tf-cal-queue-desktop{display:none}
+ .tf-cal-mobile-queue-control{display:block;padding:8px 10px;border-bottom:1px solid #1f465a}
+ .tf-cal-mobile-queue-control button{background:#0c2e40;border:1px solid #28596e;color:#c1e9f6;padding:8px 11px;border-radius:7px;font-size:11px}
+ .tf-cal-mobile-queue{display:block;position:fixed;bottom:calc(82px + env(safe-area-inset-bottom));left:0;right:0;max-height:50dvh;overflow-y:auto;z-index:160;border-top:1px solid #317189;box-shadow:0 -12px 38px #0009}
+ .tf-cal-drawer-shade{display:block;position:fixed;inset:0;background:#020a10a8;z-index:175}
+ .tf-cal-mobile-drawer{display:block;position:fixed;right:0;top:var(--tf-unified-head-height,74px);bottom:calc(76px + env(safe-area-inset-bottom));width:min(310px,88vw);z-index:176;background:#071c2b;overflow:auto;border-left:1px solid #296078;box-shadow:-14px 0 45px #0009}
+ .tf-cal-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #295167}
+ .tf-cal-drawer-head button{background:transparent;border:0;color:#d5edf7;font-size:24px}
+ .tf-cal-mobile-drawer .tf-cal-sidebar-inner{position:static;padding:15px}
+ .tf-cal-quick-card{left:0;right:0;top:auto;bottom:calc(74px + env(safe-area-inset-bottom));width:100%;max-height:calc(100dvh - 170px);border-bottom:0;border-radius:18px 18px 0 0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+ .tf-cal-quick-backdrop{background:#03101b55}
+ .tf-cal-formpanel{padding:13px;margin:9px}
+ .tf-cal-twocol{grid-template-columns:1fr 1fr}
+}
+@media(max-width:365px){
+ .tf-cal-date-tools strong{font-size:12px}
+ .tf-cal-modes{max-width:175px}
+ .tf-cal-primary{min-width:72px;font-size:11px;padding:7px}
+}
+@media(prefers-reduced-motion:reduce){.tf-cal-page *{animation:none!important;transition:none!important}}
+
+
+/* R04 — proposal review and configurable deterministic planning controls. */
+.tf-cal-proposals-link{border:1px solid #7146a4;background:#261737;color:#dbbaff;border-radius:7px;padding:7px 10px;font-size:11px;white-space:nowrap}
+.tf-cal-horizon{border-top:1px solid #24465b;margin-top:16px;padding-top:12px;display:flex;align-items:center;justify-content:space-between;gap:7px;color:#9ac0cf;font-size:10px}
+.tf-cal-horizon select{background:#0c2b3b;border:1px solid #346077;border-radius:6px;color:#dceef8;padding:6px;font-size:11px}
+.tf-cal-review{background:#071d2c;flex:1;min-height:450px;padding:19px;overflow:auto;max-height:calc(100dvh - 220px);overscroll-behavior:contain}
+.tf-cal-review-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #244759;padding-bottom:15px;margin-bottom:14px}
+.tf-cal-review-head span{font:700 10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.07em;color:#af90dc}
+.tf-cal-review-head h2{font-size:19px;margin:6px 0 3px;color:#f1fbff}
+.tf-cal-review-head p{font-size:12px;color:#9fbecb;margin:0;line-height:1.4}
+.tf-cal-review-head button{border:1px solid #3c6980;background:#0c3042;border-radius:7px;color:#c3e7f3;padding:8px 10px;font-size:11px;flex:none}
+.tf-cal-proposal{background:#0d293b;border:1px solid #405f76;border-left:4px solid #a855f7;border-radius:11px;padding:13px;margin:9px 0}
+.tf-cal-proposal-top{display:flex;align-items:center;gap:10px}
+.tf-cal-proposal-icon{color:#b58afe;background:#271741;width:37px;height:37px;border-radius:9px;display:grid;place-items:center}
+.tf-cal-proposal-top>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tf-cal-proposal-top strong{font-size:13px;color:#eef9fd}
+.tf-cal-proposal-top small{font-size:10px;color:#9fbccd}
+.tf-cal-proposal>p{font-size:11px;color:#bbd4df;line-height:1.5;margin:10px 0}
+.tf-cal-suggested-slots{display:flex;gap:6px;flex-wrap:wrap}
+.tf-cal-suggested-slots span{background:#132a44;border:1px dashed #775ba5;border-radius:6px;padding:6px 9px;font-size:11px;color:#d5c7ed}
+.tf-cal-proposal-actions{display:flex;gap:8px;margin-top:12px}
+.tf-cal-proposal-actions button,.tf-cal-conflict-record button{border:1px solid #45647a;background:#143246;border-radius:7px;color:#d5eef5;padding:9px 14px;font-size:11px;font-weight:700}
+.tf-cal-proposal-actions .tf-cal-proposal-approve{color:#05251b;background:#35d6a6;border-color:#35d6a6}
+.tf-cal-review-empty{padding:22px;border:1px dashed #365771;border-radius:10px;color:#a8c3d0;font-size:12px;line-height:1.6}
+.tf-cal-review-risks{border-top:1px solid #284355;margin-top:18px;padding:9px 0}
+.tf-cal-review-risks h3{font-size:12px;color:#e4ac62}
+.tf-cal-review-risks>div{padding:7px 0;font-size:11px;color:#b2c7d4}
+.tf-cal-conflict-record{border-left-color:#ec4899}
+@media(max-width:700px){
+ .tf-cal-proposals-link{font-size:10px;padding:7px 8px}
+ .tf-cal-review{padding:10px;max-height:calc(100dvh - 258px);min-height:280px}
+ .tf-cal-review-head{flex-direction:column;gap:10px}
+}
+
+
+/* R05: scheduling configuration is opt-in, never a permanent tall panel. */
+.tf-cal-sidebar-inner{max-height:calc(100dvh - var(--tf-unified-head-height,74px) - 32px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#214b61 transparent}
+.tf-cal-schedule-controls{margin-top:14px;border-top:1px solid #1c4255;padding-top:11px}
+.tf-cal-schedule-controls button{width:100%;display:flex;align-items:center;gap:8px;background:transparent;color:#a3c6d8;border:0;text-align:left;padding:6px 0;font-size:11px}
+.tf-cal-schedule-controls svg{width:15px;height:15px;color:#5ebfd5}
+.tf-cal-settings-form{display:flex;flex-direction:column;gap:10px;padding:12px 0 16px}
+.tf-cal-settings-form label{display:flex;flex-direction:column;gap:5px;font-size:10px;color:#afcede}
+.tf-cal-settings-form input{width:100%;min-width:0;min-height:32px;border:1px solid #34596c;border-radius:6px;background:#092637;color:#eaf8ff;padding:5px 7px;font-size:11px;color-scheme:dark}
+.tf-cal-settings-form .tf-cal-twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}
+.tf-cal-settings-days{display:flex;flex-wrap:wrap;gap:4px}
+.tf-cal-settings-days>span{width:100%;font-size:10px;color:#a7c8d7}
+.tf-cal-settings-days label{display:inline-flex;align-items:center;flex-direction:row;gap:3px;border:1px solid #294d61;border-radius:5px;padding:5px 4px;color:#bed8e6;font-size:9px}
+.tf-cal-settings-days input{width:12px;height:12px;min-height:0;margin:0;accent-color:#10cfe1;padding:0}
+.tf-cal-settings-form .tf-cal-primary{font-size:11px;min-height:32px}
+.tf-cal-task-options{margin-top:8px;border-top:1px solid #204b60;border-bottom:1px solid #204b60;padding:10px 0}
+.tf-cal-task-options summary{cursor:pointer;font-size:12px;color:#97cddd;font-weight:650}
+.tf-cal-task-options-fields{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+.tf-cal-task-options .tf-cal-split-check{display:flex;align-items:center;gap:9px;flex-direction:row}
+.tf-cal-task-options .tf-cal-split-check input{width:16px;height:16px;min-height:0;margin:0;accent-color:#10cfe1}
+@media(max-width:700px){.tf-cal-mobile-drawer .tf-cal-sidebar-inner{max-height:none;overflow:visible}}
+
+
+/* Direct-slot event bubble: no full-page form, no extra calendar header controls. */
+.tf-cal-day-track{cursor:crosshair;touch-action:pan-y}
+.tf-cal-day-track:active{cursor:crosshair}
+.tf-cal-event-position{cursor:pointer}
+.tf-cal-direct-editor{position:fixed;right:18px;top:clamp(95px,15vh,165px);z-index:182;width:min(370px,calc(100vw - 28px));max-height:calc(100dvh - 130px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#0d2a3d;border:1px solid #2d6a82;border-radius:15px;box-shadow:0 18px 60px #000b;padding:15px;color:#f2fbff}
+.tf-cal-direct-editor *{box-sizing:border-box}
+.tf-cal-direct-editor form{display:flex;flex-direction:column;gap:12px;margin:0}
+.tf-cal-direct-head{display:flex;align-items:center;gap:10px;min-height:27px}
+.tf-cal-direct-head i{width:5px;height:22px;background:var(--tf-accent,#15cfe7);border-radius:5px;flex:none}
+.tf-cal-direct-head strong{font-size:14px;flex:1}
+.tf-cal-direct-head button{border:0;background:transparent;color:#b4d4e2;font-size:24px;padding:0 5px;line-height:1}
+.tf-cal-direct-editor input,.tf-cal-direct-editor select,.tf-cal-direct-editor textarea{background:#071d2c;color:#ecfbff;border:1px solid #386276;border-radius:8px;min-height:42px;padding:9px 11px;max-width:100%;width:100%;font-size:14px}
+.tf-cal-direct-editor input::placeholder,.tf-cal-direct-editor textarea::placeholder{color:#799dab}
+.tf-cal-direct-editor input:focus,.tf-cal-direct-editor select:focus,.tf-cal-direct-editor textarea:focus{outline:1px solid #0cd4eb;border-color:#0cd4eb}
+.tf-cal-direct-time{display:flex;align-items:center;gap:9px;color:#a4c9d7}
+.tf-cal-direct-time label{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;color:#a4c9d7;font-size:10px;font-weight:650}
+.tf-cal-direct-time input{color-scheme:dark;font-size:13px;min-width:0;min-height:39px;padding:5px 7px}
+.tf-cal-direct-time>span{margin-top:16px;font-size:17px;color:#8fbbce}
+.tf-cal-direct-durations,.tf-cal-direct-types{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;min-width:0}
+.tf-cal-direct-durations button,.tf-cal-direct-types button{border:1px solid #40697e;color:#b3d5e4;background:#0a2639;border-radius:7px;padding:8px 10px;min-height:34px;font-size:11px;white-space:nowrap;flex:0 0 auto}
+.tf-cal-direct-durations button.active,.tf-cal-direct-types button.active{background:#0c5367;border-color:#15cfe7;color:#e8fdff}
+.tf-cal-direct-more{border-top:1px solid #28556b;padding-top:9px;color:#b9d4df;font-size:11px}
+.tf-cal-direct-more summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:5px;min-height:22px}
+.tf-cal-direct-more summary::before{content:'⌄';color:#57c7df;font-size:17px}
+.tf-cal-direct-more[open] summary::before{content:'⌃'}
+.tf-cal-direct-more label{display:flex;flex-direction:column;gap:5px;margin-top:11px;color:#b4d1de;font-size:11px}
+.tf-cal-direct-feedback{color:#ffc7aa;font-size:11px;line-height:1.45}
+.tf-cal-direct-feedback:empty{display:none}
+.tf-cal-direct-feedback p{margin:0;background:#3e2a27;border:1px solid #a46b50;padding:9px;border-radius:7px}
+.tf-cal-direct-save{background:var(--tf-accent,#10cfe1);color:#052433;font-weight:800;font-size:13px;border:1px solid #4ae6f6;border-radius:8px;min-height:44px;width:100%}
+@media(max-width:700px){
+ .tf-cal-direct-editor{top:auto;bottom:calc(77px + env(safe-area-inset-bottom));right:0;left:0;width:100%;max-height:min(68dvh,510px);border-radius:17px 17px 0 0;border-bottom:0;padding:14px 15px 16px}
+ .tf-cal-direct-editor form{gap:11px}
+ .tf-cal-direct-time input{font-size:14px}
+ .tf-cal-day-track{touch-action:pan-y}
+}
+
+
+.tf-cal-direct-preview{position:absolute;z-index:4;left:2px;right:2px;pointer-events:none;border:1px dashed #24e0f3;border-left:4px solid #0ed7ed;border-radius:8px;background:linear-gradient(125deg,#0b536c,#0b394b);padding:7px 8px;display:flex;flex-direction:column;gap:4px;overflow:hidden;box-shadow:0 0 16px #00cbeb35}
+.tf-cal-direct-preview span{font-size:11px;font-weight:750;color:#effcff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-cal-direct-preview small{font-size:10px;color:#a4e5ed}
+
+
+/* Direct event compact console R02 — keep the calendar readable while editing. */
+.tf-cal-direct-editor{width:min(344px,calc(100vw - 30px));padding:10px 12px;border-radius:12px;box-shadow:0 12px 34px #000b}
+.tf-cal-direct-editor form{gap:8px}
+.tf-cal-direct-head{min-height:19px;gap:8px}
+.tf-cal-direct-head i{height:17px;width:4px}
+.tf-cal-direct-head strong{font-size:12px;letter-spacing:.01em}
+.tf-cal-direct-head button{font-size:20px}
+.tf-cal-direct-editor #tfCalDirectTitle{min-height:35px;font-size:13px;padding:7px 9px;border-radius:6px}
+.tf-cal-direct-time{gap:6px}
+.tf-cal-direct-time label{gap:2px;font-size:9px}
+.tf-cal-direct-time input{min-height:34px;font-size:12px;padding:3px 7px;border-radius:6px}
+.tf-cal-direct-time>span{margin-top:12px;font-size:14px}
+.tf-cal-direct-shortcuts{display:flex;align-items:center;gap:6px;min-width:0}
+.tf-cal-direct-durations{display:flex;flex:1 1 auto;gap:4px;min-width:0}
+.tf-cal-direct-durations button{flex:1 0 auto;padding:6px 4px;min-height:30px;font-size:10px;border-radius:6px}
+.tf-cal-direct-kind-control{flex:0 0 90px;min-width:0}
+.tf-cal-direct-editor .tf-cal-direct-kind-control select{width:100%;min-height:30px;height:30px;font-size:11px;color:#e0f6ff;padding:4px 5px;border-radius:6px}
+.tf-cal-direct-more{padding-top:5px;font-size:10px;border-top:0}
+.tf-cal-direct-more summary{min-height:18px}
+.tf-cal-direct-more label{margin-top:7px}
+.tf-cal-direct-more input,.tf-cal-direct-more textarea,.tf-cal-direct-more select{min-height:33px;font-size:12px}
+.tf-cal-direct-save{min-height:36px;font-size:12px;border-radius:6px}
+.tf-cal-direct-feedback{font-size:10px}
+@media(max-width:700px){
+ .tf-cal-direct-editor{
+  top:auto;bottom:calc(78px + env(safe-area-inset-bottom));left:10px;right:10px;
+  width:calc(100vw - 20px);max-height:min(40dvh,355px);
+  padding:10px 12px;border:1px solid #2d6a82;border-radius:12px;
+ }
+ .tf-cal-direct-editor form{gap:7px}
+ .tf-cal-direct-time input{font-size:13px;min-height:35px}
+ .tf-cal-direct-editor #tfCalDirectTitle{min-height:35px}
+ .tf-cal-direct-more:not([open]){margin-top:0}
+}
+
+
+/* Calendar command console R03: balanced, compact controls */
+.tf-cal-direct-editor,.tf-cal-direct-editor *{box-sizing:border-box}
+.tf-cal-direct-editor{padding:12px!important}
+.tf-cal-direct-editor form{display:flex;flex-direction:column;gap:10px!important}
+.tf-cal-direct-duration-control{display:flex;flex-direction:column;gap:4px;min-width:0;width:100%}
+.tf-cal-direct-duration-control label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;color:#9dc5d5}
+.tf-cal-direct-duration-control label strong{font-size:12px;color:#dff9ff;font-variant-numeric:tabular-nums}
+.tf-cal-direct-editor input[type=range]{height:22px;min-height:22px;width:100%;padding:0;border:0;background:transparent;accent-color:#12cfe6;cursor:pointer}
+.tf-cal-duration-marks{display:flex;justify-content:space-between;margin:0 3px;color:#7ea5b6;font-size:9px;font-variant-numeric:tabular-nums}
+.tf-cal-direct-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;overflow:visible;min-width:0;width:100%}
+.tf-cal-direct-types button{min-width:0;min-height:33px;padding:6px 3px;font-size:10px;text-align:center;border:1px solid #38586a;color:#b2cad6;background:#0a2535;border-radius:7px;white-space:nowrap;transition:background .15s,border-color .15s,box-shadow .15s}
+.tf-cal-direct-types button.active{color:#f7fbff;font-weight:700}
+.tf-cal-type-event.active{border-color:#12cfe6!important;background:#0b4051!important;box-shadow:inset 0 0 0 1px #12cfe677,0 0 12px #12cfe62b}
+.tf-cal-type-task.active{border-color:#ff9f1c!important;background:#443019!important;box-shadow:inset 0 0 0 1px #ff9f1c77,0 0 12px #ff9f1c2b}
+.tf-cal-type-site-visit.active{border-color:#16c784!important;background:#103b31!important;box-shadow:inset 0 0 0 1px #16c78477,0 0 12px #16c7842b}
+.tf-cal-type-meeting.active{border-color:#91a8c2!important;background:#25384c!important;box-shadow:inset 0 0 0 1px #91a8c277,0 0 12px #91a8c22b}
+.tf-cal-direct-preview{pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.tf-cal-direct-preview.is-dragging{cursor:grabbing;box-shadow:0 0 22px #19d5ec66;border-style:solid;z-index:8}
+.tf-cal-direct-preview small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-cal-direct-editor .tf-cal-direct-time{width:100%;min-width:0}
+.tf-cal-direct-editor .tf-cal-direct-time label{min-width:0;flex:1 1 0}
+.tf-cal-direct-editor .tf-cal-direct-time input{display:block;width:100%;min-width:0;max-width:100%;text-align:center;overflow:hidden}
+.tf-cal-direct-editor .tf-cal-direct-time-arrow{flex:0 0 15px;text-align:center}
+.tf-cal-direct-editor .tf-cal-direct-more{border-top:1px solid #23495c;padding-top:7px}
+.tf-cal-direct-editor .tf-cal-direct-save{margin:0;width:100%}
+.tf-unified-brand[data-intel-action=toggle]{appearance:none;border:0;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;gap:8px;color:inherit}
+.tf-unified-brand[data-intel-action=toggle]:focus-visible{outline:2px solid #14d0e8;outline-offset:3px;border-radius:4px}
+@media(max-width:700px){
+ .tf-cal-direct-editor{left:10px;right:10px;width:calc(100vw - 20px);padding:11px!important;max-height:min(45dvh,380px)}
+ .tf-cal-direct-editor form{gap:9px!important}
+ .tf-cal-direct-types{gap:5px}
+ .tf-cal-direct-types button{font-size:10px;min-height:32px}
+}
+
+.tf-cal-direct-preview{border-color:var(--draft-color,#12cfe6);border-left-color:var(--draft-color,#12cfe6)}
+.tf-cal-direct-preview.is-dragging{box-shadow:0 0 18px color-mix(in srgb,var(--draft-color,#12cfe6) 45%,transparent)}
+
+
+/* Calendar direct-creation command card R07 — finalized compact pill-slider treatment. */
+.tf-cal-direct-editor{
+  box-sizing:border-box;
+  width:min(332px,calc(100vw - 24px));
+  padding:12px!important;
+  border:1px solid #315b70;
+  border-radius:14px;
+  background:linear-gradient(155deg,#0b2839,#091e2d 86%);
+  box-shadow:0 12px 35px rgba(0,0,0,.56);
+}
+.tf-cal-direct-editor form{gap:9px!important;min-width:0;width:100%}
+.tf-cal-direct-editor form>*{min-width:0;max-width:100%;box-sizing:border-box}
+.tf-cal-direct-editor #tfCalDirectTitle{min-width:0;width:100%;border-color:#32566a}
+.tf-cal-direct-duration-control{width:100%;gap:6px}
+.tf-cal-direct-slider-bubble{
+ position:relative;display:flex;align-items:center;min-width:0;width:100%;
+ padding:0 12px;height:34px;overflow:visible;border-radius:999px;
+ border:1px solid #35576c;
+ background:linear-gradient(90deg,#14536a 0%,#14536a var(--duration-fill,33.33%),#0b2332 var(--duration-fill,33.33%),#0b2332 100%);
+ box-shadow:inset 0 2px 5px #0007,0 1px 0 #55819738;
+}
+.tf-cal-direct-editor .tf-cal-direct-slider-bubble input[type=range]{
+ display:block;position:relative;appearance:none;-webkit-appearance:none;
+ height:32px;min-height:32px;max-height:32px;width:100%;margin:0;padding:0;
+ border:0;outline-offset:4px;background:transparent;border-radius:999px;
+ touch-action:pan-x;
+}
+.tf-cal-direct-slider-bubble input[type=range]::-webkit-slider-runnable-track{
+ appearance:none;-webkit-appearance:none;height:30px;background:transparent;border:0;
+}
+.tf-cal-direct-slider-bubble input[type=range]::-webkit-slider-thumb{
+ appearance:none;-webkit-appearance:none;width:24px;height:24px;margin-top:3px;
+ border-radius:50%;border:2px solid #c3fbff;background:#14d9ec;
+ box-shadow:0 1px 0 #0008,0 0 0 4px #12cde52e,0 0 10px #11e4f16b;
+}
+.tf-cal-direct-slider-bubble input[type=range]::-moz-range-track{height:30px;background:transparent;border:0}
+.tf-cal-direct-slider-bubble input[type=range]::-moz-range-thumb{
+ width:20px;height:20px;border-radius:50%;border:2px solid #c3fbff;background:#14d9ec;
+ box-shadow:0 0 0 4px #12cde52e,0 0 10px #11e4f16b
+}
+.tf-cal-direct-slider-bubble:focus-within{border-color:#1ad9ec;box-shadow:0 0 0 2px #1ad9ec38,inset 0 2px 5px #0007}
+.tf-cal-duration-marks{width:100%;display:flex;justify-content:space-between;padding:0 5px;margin:0;color:#83a9bd;font-size:9px;letter-spacing:.02em}
+.tf-cal-direct-types{grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:5px}
+.tf-cal-direct-types button{width:100%;padding:6px 2px;letter-spacing:-.015em}
+.tf-cal-direct-editor .tf-cal-direct-time input{box-sizing:border-box;min-width:0;width:100%}
+@media(max-width:700px){
+ .tf-cal-direct-editor{
+   left:12px;right:12px;width:calc(100vw - 24px);
+   bottom:calc(82px + env(safe-area-inset-bottom));
+   max-height:min(42dvh,330px);overflow-y:auto;overscroll-behavior:contain;
+   padding:11px!important;border-radius:14px;
+ }
+ .tf-cal-direct-editor form{gap:8px!important}
+ .tf-cal-direct-editor .tf-cal-direct-time{gap:6px}
+ .tf-cal-direct-editor .tf-cal-direct-time-arrow{flex:0 0 13px}
+ .tf-cal-direct-types button{min-height:31px;font-size:10px}
+ .tf-cal-direct-slider-bubble{height:32px}
+}
+
+
+/* Compact direct-create console R08: two inputs, one semantic action row, no slider. */
+.tf-cal-direct-editor{
+ box-sizing:border-box;display:block;width:min(350px,calc(100vw - 28px));
+ max-height:calc(100dvh - 190px);overflow:auto;
+ padding:12px!important;border-radius:13px;
+}
+.tf-cal-direct-editor *{box-sizing:border-box}
+.tf-cal-direct-editor form{display:grid;grid-template-columns:minmax(0,1fr);gap:11px!important;min-width:0}
+.tf-cal-direct-head{min-width:0}
+.tf-cal-direct-time{display:grid!important;grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);align-items:end;gap:8px!important;width:100%;min-width:0}
+.tf-cal-direct-time label{display:block!important;min-width:0;width:100%;font-size:10px}
+.tf-cal-direct-time input{width:100%!important;min-width:0!important;max-width:100%!important;padding:5px 7px!important;min-height:37px;text-align:center}
+.tf-cal-direct-time-arrow{display:flex;align-items:center;justify-content:center;min-width:0!important;height:37px;margin:0!important}
+.tf-cal-direct-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%;min-width:0;overflow:visible}
+.tf-cal-direct-types button{width:100%;min-width:0;max-width:100%;min-height:37px;padding:6px 3px;border-radius:8px;white-space:nowrap;font-size:11px}
+.tf-cal-type-meeting.active{border-color:#ac76ff!important;background:#291d42!important;box-shadow:inset 0 0 0 1px #ac76ff80,0 0 12px #ac76ff39}
+.tf-cal-direct-more{border-top:1px solid #274e63;padding-top:8px!important;min-width:0}
+.tf-cal-direct-more summary{min-height:24px}
+.tf-cal-direct-feedback:empty{display:none}
+.tf-cal-direct-save{display:block!important;min-height:42px!important;width:100%!important;margin:0!important;flex-shrink:0}
+.tf-cal-direct-preview{
+ --draft-color:#12cfe6;
+ border-color:var(--draft-color);border-left-color:var(--draft-color);
+ background:linear-gradient(110deg,color-mix(in srgb,var(--draft-color) 36%,#082333),color-mix(in srgb,var(--draft-color) 15%,#071c2b));
+}
+@media(max-width:700px){
+ .tf-cal-direct-editor{
+  position:fixed;left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;
+  bottom:calc(116px + env(safe-area-inset-bottom))!important;
+  max-height:min(37dvh,292px)!important;
+  padding:11px!important;overflow-y:auto;
+  border-radius:13px;
+ }
+ .tf-cal-direct-editor form{gap:9px!important}
+ .tf-cal-direct-types{gap:5px}
+ .tf-cal-direct-types button{font-size:10px;padding:6px 2px}
+ .tf-cal-direct-time{gap:6px!important;grid-template-columns:minmax(0,1fr) 15px minmax(0,1fr)}
+}
+
+
+/* Instant event lifecycle: tap creates; hold exposes deletion, without animation. */
+.tf-cal-event-position{position:absolute;overflow:visible}
+.tf-cal-event-delete[hidden]{display:none!important}
+.tf-cal-event-delete{
+ position:absolute;z-index:12;top:-8px;right:-7px;
+ width:25px;height:25px;border-radius:50%;border:1.5px solid #ff98a6;
+ display:flex;align-items:center;justify-content:center;
+ color:white;background:#c43c58;box-shadow:0 2px 8px #0009;
+ font-size:18px;font-weight:600;line-height:1;padding:0;
+ cursor:pointer;touch-action:manipulation;
+}
+.tf-cal-delete-ready .tf-cal-event{outline:1px solid #78cfe1;outline-offset:0}
+.tf-cal-date-tools{min-width:0}
+.tf-cal-date-tools strong{margin-left:9px}
+.tf-cal-direct-editor .tf-cal-direct-time{
+ display:grid!important;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr)!important;
+ width:100%!important;min-width:0!important;gap:6px!important;
+}
+.tf-cal-direct-editor .tf-cal-direct-time label{width:100%!important;min-width:0!important}
+.tf-cal-direct-editor .tf-cal-direct-time input{box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;overflow:hidden;text-align:center;padding:4px!important}
+.tf-cal-direct-editor .tf-cal-direct-time-arrow{max-width:16px;min-width:0!important;flex:0 0 16px!important}
+@media(max-width:700px){.tf-cal-date-tools strong{font-size:14px;flex:1;min-width:0}}
+
+
+/* R10: persisted instant events open an auto-saving, compact editing card.
+   There is deliberately no submit/Create action in this editor. */
+.tf-cal-direct-editor{overflow-x:hidden!important;max-width:calc(100vw - 24px)}
+.tf-cal-direct-editor form{min-width:0!important}
+.tf-cal-direct-editor .tf-cal-direct-time{box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr)!important;gap:7px!important;width:100%!important;min-width:0!important}
+.tf-cal-direct-editor .tf-cal-direct-time label{min-width:0!important;max-width:100%!important;overflow:hidden}
+.tf-cal-direct-editor .tf-cal-direct-time input{display:block!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;font-size:clamp(11px,3vw,14px)!important;padding:4px 3px!important;border-radius:7px!important}
+.tf-cal-direct-editor .tf-cal-direct-time-arrow{width:14px!important;max-width:14px!important;min-width:0!important;display:flex!important;justify-content:center;align-items:center;margin:0!important}
+.tf-cal-direct-editor .tf-cal-direct-types{width:100%!important;max-width:100%!important;gap:6px!important}
+.tf-cal-direct-editor .tf-cal-direct-types button{min-width:0!important;padding:6px 2px!important}
+@media(max-width:700px){.tf-cal-direct-editor{max-height:min(36dvh,272px)!important;bottom:calc(108px + env(safe-area-inset-bottom))!important;padding:12px!important}.tf-cal-direct-editor form{gap:10px!important}}
+
+
+/* Calendar reference R11 — refined bottom editing sheet, no Save/Create CTA. */
+.tf-cal-direct-editor{box-sizing:border-box!important;overflow-x:hidden!important;width:min(440px,calc(100vw - 28px));max-height:min(68dvh,540px);padding:15px!important;border:1px solid #285970;border-radius:18px;box-shadow:0 20px 62px #0009;background:linear-gradient(145deg,#102d43,#091f30)}
+.tf-cal-direct-editor *{box-sizing:border-box!important}
+.tf-cal-direct-editor form{display:flex!important;flex-direction:column!important;gap:11px!important;min-width:0;width:100%}
+.tf-cal-editor-grip{width:41px;height:5px;background:#42647d;border-radius:9px;margin:-6px auto 4px}
+.tf-cal-direct-editor .tf-cal-direct-head{display:flex;align-items:center;gap:9px;min-height:30px}
+.tf-cal-direct-editor .tf-cal-direct-head strong{font-size:15px;letter-spacing:-.015em}
+.tf-cal-direct-editor .tf-cal-direct-head i{height:23px;width:4px}
+.tf-cal-direct-editor .tf-cal-direct-head button{border:1px solid #27536b;border-radius:50%;width:31px;height:31px;background:#15364b;display:grid;place-items:center;color:#e1f7ff;font-size:20px}
+.tf-cal-direct-editor .tf-cal-direct-field{display:flex;flex-direction:column;gap:5px;min-width:0;color:#b4d2df;font-size:11px}
+.tf-cal-direct-editor .tf-cal-direct-field>span,.tf-cal-direct-editor .tf-cal-direct-label{font-size:11px;color:#aec9d7}
+.tf-cal-direct-editor .tf-cal-direct-field>input{width:100%;min-height:37px;padding:8px 10px;font-size:13px;background:#092131;border-color:#31586f;border-radius:8px;color:#e5f8ff}
+.tf-cal-direct-editor .tf-cal-direct-time{width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) 13px minmax(0,1fr) 53px!important;gap:6px!important;align-items:end!important;min-width:0!important}
+.tf-cal-direct-editor .tf-cal-direct-time label{display:flex!important;flex-direction:column;gap:5px;min-width:0!important;width:100%!important;overflow:visible!important;color:#aac9d7;font-size:11px}
+.tf-cal-direct-editor .tf-cal-direct-time label span{white-space:nowrap}
+.tf-cal-direct-editor .tf-cal-direct-time input{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;min-height:39px!important;padding:4px 2px!important;text-align:center;font-size:12px!important;overflow:hidden!important;border-radius:8px!important}
+.tf-cal-direct-editor .tf-cal-direct-time-arrow{width:13px!important;min-width:0!important;max-width:13px!important;align-self:end!important;height:39px!important;display:grid!important;place-items:center;margin:0!important}
+.tf-cal-direct-duration-readout{display:flex;flex-direction:column;gap:5px;min-width:0;align-items:center;justify-content:flex-end;height:61px}
+.tf-cal-direct-duration-readout span{color:#aec9d7;font-size:10px}
+.tf-cal-direct-duration-readout strong{font-size:12px;color:#e1f6ff;font-weight:750;white-space:nowrap;line-height:39px}
+.tf-cal-direct-section{display:flex;flex-direction:column;gap:7px;min-width:0}
+.tf-cal-direct-editor .tf-cal-direct-types{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px!important;width:100%!important;min-width:0}
+.tf-cal-direct-editor .tf-cal-direct-types button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;min-height:55px!important;min-width:0!important;padding:7px 2px!important;font-size:10px;font-weight:650;border-radius:10px;overflow:hidden}
+.tf-cal-direct-types button svg{width:19px;height:19px}
+.tf-cal-direct-types button span{white-space:nowrap;font-size:10px}
+.tf-cal-input-icon{display:flex;align-items:center;gap:7px;min-width:0;border:1px solid #31586f;border-radius:8px;background:#092131;padding:0 9px}
+.tf-cal-input-icon svg{color:#719cb3;flex:0 0 auto;width:16px;height:16px}
+.tf-cal-direct-editor .tf-cal-input-icon input{flex:1;min-width:0!important;width:100%;min-height:36px!important;background:transparent!important;border:0!important;padding:7px 2px!important;font-size:12px!important}
+.tf-cal-direct-editor .tf-cal-direct-more{border:0!important;padding:0!important;min-height:24px}
+.tf-cal-direct-editor .tf-cal-direct-more summary{font-size:11px;min-height:24px}
+.tf-cal-direct-feedback{margin:0}
+@media(max-width:700px){
+ .tf-cal-direct-editor{left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;bottom:calc(81px + env(safe-area-inset-bottom))!important;max-height:min(62dvh,515px)!important;padding:13px!important;overflow-y:auto!important;overscroll-behavior:contain;border-radius:17px!important}
+ .tf-cal-direct-editor form{gap:10px!important}
+}
+@media(max-width:375px){
+ .tf-cal-direct-editor .tf-cal-direct-time{grid-template-columns:minmax(0,1fr) 11px minmax(0,1fr) 47px!important;gap:4px!important}
+ .tf-cal-direct-editor .tf-cal-direct-time input{font-size:11px!important}
+ .tf-cal-direct-duration-readout strong{font-size:11px}
+ .tf-cal-direct-editor .tf-cal-direct-types{gap:5px!important}
+ .tf-cal-direct-editor .tf-cal-direct-types button{font-size:9px}
+}
+
+
+/* R12: measured two-position event sheet. The collapsed cutoff is after Event type. */
+.tf-cal-direct-editor .tf-cal-editor-grip{
+ appearance:none!important;display:flex!important;align-items:center;justify-content:center;
+ width:92px!important;height:18px!important;min-height:18px!important;margin:-7px auto 4px!important;
+ padding:0!important;background:transparent!important;border:0!important;cursor:grab;touch-action:none;
+}
+.tf-cal-direct-editor .tf-cal-editor-grip span{display:block;width:43px;height:5px;background:#466b82;border-radius:8px}
+.tf-cal-direct-editor .tf-cal-editor-grip:active{cursor:grabbing}
+.tf-cal-direct-editor .tf-cal-direct-head{touch-action:none}
+.tf-cal-direct-editor .tf-cal-direct-extra-fields{display:flex;flex-direction:column;gap:11px;padding:12px 0 2px;border-top:1px solid #264b60;min-width:0}
+.tf-cal-direct-editor{
+ overflow-x:hidden!important;overflow-y:hidden!important;
+ height:min(var(--tf-editor-peek,350px),calc(100dvh - 190px))!important;
+ max-height:calc(100dvh - 155px)!important;
+ transition:height 190ms ease;
+}
+.tf-cal-direct-editor.is-expanded{
+ height:min(79dvh,calc(100dvh - 132px))!important;
+ overflow-y:auto!important;overscroll-behavior:contain;
+}
+.tf-cal-direct-editor .tf-cal-direct-types{margin-bottom:0}
+.tf-cal-direct-editor .tf-cal-direct-section{margin-bottom:0}
+@media(max-width:700px){
+ .tf-cal-direct-editor{
+  left:12px!important;right:12px!important;width:calc(100vw - 24px)!important;
+  bottom:calc(79px + env(safe-area-inset-bottom))!important;
+  padding:12px!important;
+  height:min(var(--tf-editor-peek,350px),calc(100dvh - 190px))!important;
+  max-height:calc(100dvh - 154px)!important;
+  border-radius:18px 18px 0 0!important;
+ }
+ .tf-cal-direct-editor.is-expanded{
+  height:min(79dvh,calc(100dvh - 132px))!important;
+  overflow-y:auto!important;
+ }
+}
+@media(prefers-reduced-motion:reduce){.tf-cal-direct-editor{transition:none!important}}
+
+
+/* R13: whole compact upper card is a deliberate swipe handle, up to Start/End. */
+.tf-cal-direct-editor .tf-cal-editor-grip,
+.tf-cal-direct-editor .tf-cal-direct-head,
+.tf-cal-direct-editor .tf-cal-direct-field:has(#tfCalDirectTitle),
+.tf-cal-direct-editor #tfCalDirectTitle{
+ touch-action:none;
+}
+.tf-cal-direct-editor #tfCalDirectTitle{user-select:text;-webkit-user-select:text}
+
+
+/* R14 Notion-style continuous touch: card follows finger, snaps on release. */
+.tf-cal-direct-editor{
+ touch-action:none!important;
+ overscroll-behavior:contain!important;
+}
+.tf-cal-direct-editor.is-dragging{
+ transition:none!important;
+ will-change:height;
+ user-select:none;
+ -webkit-user-select:none;
+}
+.tf-cal-direct-editor:not(.is-dragging){
+ transition:height 220ms cubic-bezier(.22,.75,.32,1)!important;
+}
+.tf-cal-direct-editor.is-expanded{
+ max-height:calc(100dvh - 126px)!important;
+}
+.tf-cal-direct-editor .tf-cal-direct-extra-fields{
+ touch-action:pan-y;
+}
+@media(prefers-reduced-motion:reduce){
+ .tf-cal-direct-editor:not(.is-dragging){transition:none!important}
+}
+
+
+/* R16: third detent slides the entire editor below calendar viewport. */
+.tf-cal-direct-editor:not(.is-dragging){
+ transition:height 220ms cubic-bezier(.22,.75,.32,1),transform 220ms cubic-bezier(.22,.75,.32,1)!important;
+}
+.tf-cal-direct-editor.is-dragging{
+ transition:none!important;
+}
+.tf-cal-direct-editor.is-parked{
+ pointer-events:none!important;
+ visibility:hidden;
+ transition:transform 220ms cubic-bezier(.22,.75,.32,1),visibility 0s linear 220ms!important;
+}
