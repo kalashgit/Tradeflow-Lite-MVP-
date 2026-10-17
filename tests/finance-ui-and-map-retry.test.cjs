@@ -6,9 +6,11 @@ assert.ok(app.includes('data-action="tfFinanceMenu" data-menu="import"'),'Financ
 assert.ok(app.includes('data-action="tfFinanceMenu" data-menu="export"'),'Finance Export button');
 assert.ok(app.includes("tfFinanceMenu=tfFinanceMenu===el.dataset.menu?'':el.dataset.menu"),'Finance toggle actions work');
 assert.ok(app.includes('data-action="tfFinanceMenuClose"'),'Finance menu can close');
-for(const option of ['Income CSV','Expenses CSV','Income photo','Expense photo','All transactions CSV']){
- assert.ok(app.includes(option),'Finance menu option: '+option);
+for(const option of ['Income CSV','Expenses CSV','All transactions CSV']){
+ assert.ok(app.includes(option),'Finance CSV menu option: '+option);
 }
+assert.ok(!app.includes('>Income photo</button>')&&!app.includes('>Expense photo</button>'),'Finance CSV menus exclude photo actions');
+assert.ok(app.includes('data-action="tfPhotoStart"'),'Photo capture remains accessible from record workflows');
 assert.ok(app.includes("if(action==='tfFinanceCSVExport')"),'Export handler exists');
 assert.ok(app.includes("tfCashRows({payments:await all('payments'),expenses:await all('expenses')})"),'Export reads locally saved income/expense records');
 assert.ok(app.includes("fields.map(f=>csvCell(r[f]))"),'Finance CSV escapes cell contents');
