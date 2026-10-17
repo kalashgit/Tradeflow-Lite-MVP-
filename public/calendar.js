@@ -12,6 +12,8 @@ function rememberViewport(){const node=typeof document!=='undefined'?document.qu
 function restoreViewport(){if(typeof document==='undefined')return;const work=()=>{const node=document.querySelector?.('.tf-cal-timeline');if(node){node.scrollTop=calendarViewport.top;node.scrollLeft=calendarViewport.left}};if(typeof requestAnimationFrame==='function')requestAnimationFrame(work);else work()}
 
 var baseLayers=[
+ {id:'events',name:'Events',color:'#12cfe6',kind:'event'},
+ {id:'meetings',name:'Meetings',color:'#ac76ff',kind:'meeting'},
  {id:'jobs',name:'Jobs / Site Work',color:'#16c784',kind:'job'},
  {id:'clients',name:'Customer Appointments',color:'#208be6',kind:'appointment'},
  {id:'proposals',name:'Proposals',color:'#974bf0',kind:'proposal'},
@@ -252,7 +254,6 @@ function directEditor(data){
  '<div class="tf-cal-direct-head"><i></i><strong>New event</strong><button type="button" data-calendar-action="direct-close" aria-label="Discard event draft">×</button></div>'+
  '<input name="title" id="tfCalDirectTitle" aria-label="Event title" maxlength="150" autocomplete="off" placeholder="Event title" value="'+e(q.title)+'">'+
  '<div class="tf-cal-direct-time"><label><span>Start</span><input type="time" name="start" step="300" value="'+e(q.time)+'"></label><span class="tf-cal-direct-time-arrow">→</span><label><span>End</span><input type="time" name="end" step="300" value="'+e(plusTime(q.time,q.duration))+'"></label></div>'+
- '<div class="tf-cal-direct-duration-control"><label for="tfCalDirectDuration">Duration <strong data-direct-duration-label="true">'+q.duration+' min</strong></label><div class="tf-cal-direct-slider-bubble" style="--duration-fill:'+Math.max(0,Math.min(100,(q.duration-30)/90*100))+'%"><input id="tfCalDirectDuration" name="durationSlider" type="range" min="30" max="120" step="30" value="'+q.duration+'" aria-label="Duration minutes"></div><div class="tf-cal-duration-marks"><span>30</span><span>60</span><span>90</span><span>120</span></div></div>'+
  '<div class="tf-cal-direct-types" aria-label="Event type">'+['Event','Task','Site visit','Meeting'].map(name=>'<button type="button" data-calendar-action="direct-kind" data-kind="'+e(name.toLowerCase())+'" class="tf-cal-type-'+e(name.toLowerCase().replace(/ /g,'-'))+(q.kind===name.toLowerCase()?' active':'')+'">'+e(name)+'</button>').join('')+'</div>'+
  '<details class="tf-cal-direct-more"><summary>More options</summary><label>Calendar<select name="calendarId">'+layers(data).map(l=>'<option value="'+e(l.id)+'" '+(q.calendarId===l.id?'selected':'')+'>'+e(l.name)+'</option>').join('')+'</select></label><label>Location<input name="location" maxlength="220" placeholder="Optional" value="'+e(q.location)+'"></label><label>Notes<textarea name="notes" rows="2" maxlength="1600" placeholder="Optional">'+e(q.notes)+'</textarea></label></details>'+
  '<div class="tf-cal-direct-feedback" role="status">'+(warnings?'<p>'+e(warnings)+'</p>':'')+'</div>'+
@@ -269,7 +270,7 @@ function updateDirectGhost(){
   if(top<0||top>track.offsetHeight){node?.remove();continue}
   if(!node){node=document.createElement('div');node.className='tf-cal-direct-preview';track.appendChild(node)}
   node.style.top=top+'px';node.style.height=Math.max(30,q.duration/60*64-3)+'px';
-  node.style.setProperty('--draft-color',q.kind==='task'?'#ff9f1c':q.kind==='site visit'?'#16c784':q.kind==='meeting'?'#91a8c2':'#12cfe6');
+  node.style.setProperty('--draft-color',q.kind==='task'?'#ff9f1c':q.kind==='site visit'?'#16c784':q.kind==='meeting'?'#ac76ff':'#12cfe6');
   node.innerHTML='<span>⠿ '+e(q.title||'New event')+'</span><small>'+e(clock(q.time))+' · '+q.duration+'m · hold to move</small>';
  }
 }
@@ -283,14 +284,14 @@ function refreshDirect(){
  const q=directDraft;
  const start=form.querySelector?.('[name="start"]'),end=form.querySelector?.('[name="end"]');
  if(start)start.value=q.time;if(end)end.value=plusTime(q.time,q.duration);
- const slider=form.querySelector?.('[name="durationSlider"]'),label=form.querySelector?.('[data-direct-duration-label]');if(slider)slider.value=String(q.duration);if(label)label.textContent=q.duration+' min';const bubble=form.querySelector?.('.tf-cal-direct-slider-bubble');if(bubble)bubble.style.setProperty('--duration-fill',Math.max(0,Math.min(100,(q.duration-30)/90*100))+'%');
+ 
  const issues=directConflicts(lastData||{},q.date,q.time,q.duration);
  const feedback=form.querySelector?.('.tf-cal-direct-feedback');
  if(feedback)feedback.textContent=directError||(issues.length?'Overlaps '+issues[0].title+'. Choose another time.':'');
  updateDirectGhost();
 }
 function openDirect(date,time){
- directDraft={date,time,title:'',duration:60,kind:'event',calendarId:'internal',location:'',notes:''};
+ directDraft={date,time,title:'',duration:60,kind:'event',calendarId:'events',location:'',notes:''};
  directError='';activeKey='';
  const root=typeof document!=='undefined'?document.querySelector?.('.tf-cal-page'):null;
  if(root?.insertAdjacentHTML){
@@ -307,7 +308,7 @@ function directInput(ev){
  if(x.name==='location')q.location=x.value.slice(0,220);
  if(x.name==='notes')q.notes=x.value.slice(0,1600);
  if(x.name==='calendarId')q.calendarId=x.value;
- if(x.name==='durationSlider'){q.duration=Number(x.value)||60;directError='';refreshDirect()}
+ 
  if(x.name==='kind'){q.kind=x.value;q.calendarId=q.kind==='task'?'tasks':q.kind==='site visit'?'jobs':'internal';const c=x.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(c)c.value=q.calendarId;}
  if(x.name==='start'&&validTime(x.value)){q.time=x.value;directError='';refreshDirect()}
  if(x.name==='end'&&validTime(x.value)){
@@ -436,8 +437,9 @@ async function click(evt){
  if(action==='direct-kind'){
   if(!directDraft)return;
   directDraft.kind=b.dataset.kind;
-  directDraft.calendarId=directDraft.kind==='task'?'tasks':directDraft.kind==='site visit'?'jobs':'internal';
+  directDraft.calendarId=directDraft.kind==='task'?'tasks':directDraft.kind==='site visit'?'jobs':directDraft.kind==='meeting'?'meetings':'events';
   const picker=b.closest?.('#tfCalDirectForm')?.querySelector?.('[name="calendarId"]');if(picker)picker.value=directDraft.calendarId;
+  updateDirectGhost();
   b.closest?.('.tf-cal-direct-types')?.querySelectorAll?.('[data-kind]').forEach(x=>x.classList.toggle('active',x.dataset.kind===directDraft.kind));
   return;
  }
