@@ -118,20 +118,87 @@ function detail(d){
  '<p class="tf-marketing-note">Draft only. No message sent, no review requested, no website edited and no advertising budget spent.</p>'+
  '</article></div>';
 }
+
+function metricCard(label,value,detail,icon,kind){
+ return '<div class="tf-ms-metric"><div class="tf-ms-metric-top"><span>'+e(label)+'</span><span class="tf-ms-icon '+(kind||'')+'">'+marketingIcon(icon)+'</span></div>'+
+ '<strong>'+value+'</strong><small>'+e(detail)+'</small></div>';
+}
+function sourceForm(d){
+ const customers=d.customers||[],campaigns=d.marketingCampaigns||[],existing=sourceData(d).find(x=>x.customerId===sourceCustomerId)||{};
+ return '<div class="tf-marketing-page tf-marketing-v2"><button type="button" class="tf-marketing-back" data-marketing-action="list">‹ Marketing Studio</button>'+
+ '<header class="tf-ms-heading"><div><span class="tf-marketing-kicker">TRADEFLOW / GROWTH</span><h1>Record customer source</h1><p>Manually associate an existing customer with their reported acquisition source. This is not automatically verified attribution.</p></div></header>'+
+ '<form id="tfMarketingSourceForm" class="tf-marketing-card tf-marketing-form">'+
+ select('customerId','Customer', [['','Choose customer']].concat(customers.map(x=>[x.id,x.name||'Unnamed customer'])),existing.customerId||sourceCustomerId)+
+ select('channel','Reported source',marketingChannels.map(x=>[x,x]),existing.channel||'Google Search')+
+ select('campaignId','Related TradeFlow campaign (optional)',[['','None / unknown']].concat(campaigns.map(x=>[x.id,x.title])),existing.campaignId||'')+
+ '<label><span>Date recorded</span><input type="date" name="date" value="'+e(existing.date||today())+'" required></label>'+
+ '<label><span>Source note (optional)</span><textarea name="note" maxlength="300" rows="3" placeholder="Customer mentioned finding us on Google">'+e(existing.note||'')+'</textarea></label>'+
+ '<p class="tf-marketing-note">One manually reported source per customer. This does not prove the campaign caused a sale. Changing a source updates future dashboard summaries.</p>'+
+ '<div class="tf-marketing-actions"><button class="tf-marketing-primary" type="submit">Save customer source</button><button class="tf-marketing-secondary" data-marketing-action="list" type="button">Cancel</button></div></form></div>';
+}
+function spendForm(d){
+ const all=d.marketingCampaigns||[];
+ return '<div class="tf-marketing-page tf-marketing-v2"><button type="button" class="tf-marketing-back" data-marketing-action="list">‹ Marketing Studio</button>'+
+ '<header class="tf-ms-heading"><div><span class="tf-marketing-kicker">TRADEFLOW / FINANCE</span><h1>Record marketing spend</h1><p>Log a real marketing expense into Finance. Do not enter a planned budget as money spent.</p></div></header>'+
+ '<form id="tfMarketingSpendForm" class="tf-marketing-card tf-marketing-form">'+
+ '<label><span>Expense description</span><input name="title" required maxlength="120" placeholder="Google Ads invoice · October"></label>'+
+ select('channel','Channel',marketingChannels.map(x=>[x,x]),'Paid Ads')+
+ select('campaignId','Linked campaign (optional)',[['','No campaign']].concat(all.map(x=>[x.id,x.title])),'')+
+ '<div class="tf-marketing-pair"><label><span>Amount paid (€)</span><input type="number" step=".01" min=".01" max="100000000" required name="amount"></label>'+
+ '<label><span>Payment date</span><input type="date" name="date" value="'+today()+'" required></label></div>'+
+ '<p class="tf-marketing-note">Creates one actual marketing expense in Finance. Do not add it again in Finance or costs will be duplicated. No ad platform is connected.</p>'+
+ '<div class="tf-marketing-actions"><button type="submit" class="tf-marketing-primary">Record marketing expense</button><button type="button" data-marketing-action="list" class="tf-marketing-secondary">Cancel</button></div></form></div>';
+}
 function list(d){
- const all=d.marketingCampaigns||[],show=filter==='all'?all:all.filter(x=>x.status===filter),pf=profiles(d);
- return '<div class="tf-marketing-page">'+nav()+header()+
- '<div class="tf-marketing-info"><strong>Acquiring new customers?</strong> Start with a verified research specification before drafting outreach. <button type="button" data-tab="research">Open Research Briefs ↗</button></div>'+
- '<div class="tf-marketing-metrics"><div><small>CAMPAIGNS</small><strong>'+all.length+'</strong></div><div><small>DRAFTS</small><strong>'+all.filter(x=>x.status==='Draft').length+'</strong></div><div><small>READY FOR REVIEW</small><strong>'+all.filter(x=>x.status==='Ready').length+'</strong></div></div>'+
- '<div class="tf-marketing-sectionhead"><div><h2>Campaign workspace</h2><p>Design around your target customer and buyer persona.</p></div><button type="button" class="tf-marketing-primary" data-marketing-action="new">+ New draft</button></div>'+
- (!pf.icps.length?'<div class="tf-marketing-info">Set an Ideal Customer Profile under Growth Intelligence before planning a targeted campaign. <button type="button" data-tab="growth">Set ICP ↗</button></div>':'')+
- '<div class="tf-marketing-filter" role="group" aria-label="Campaign status">'+[['all','All'],['Draft','Draft'],['Ready','Ready'],['Archived','Archived']].map(([id,label])=>'<button class="'+(filter===id?'active':'')+'" type="button" data-marketing-action="filter" data-filter="'+id+'">'+label+'</button>').join('')+'</div>'+
- (show.length?show.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).map(x=>
-  '<button type="button" class="tf-marketing-listrow" data-marketing-action="open" data-id="'+e(x.id)+'"><span><strong>'+e(x.title)+'</strong><small>'+e(x.channel)+' · '+e(x.plannedDate||'No date')+'</small></span>'+badge(x.status)+'<span class="tf-marketing-chevron">›</span></button>').join('')
-  :'<div class="tf-marketing-empty">No marketing drafts in this view. Save a campaign draft or start from a template.</div>')+
- '<div class="tf-marketing-sectionhead"><div><h2>Recommended starting points</h2><p>Templates to edit, not automatically generated or executed campaigns.</p></div></div>'+
- templates.map(x=>'<article class="tf-marketing-template"><div><strong>'+e(x.title)+'</strong><small>'+e(x.channel)+'</small></div><button type="button" data-marketing-action="template" data-key="'+e(x.key)+'">Create draft</button></article>').join('')+
- '<p class="tf-marketing-note">No automatic ads, email/SMS sending, Google profile edits, web crawling or billing are active here. Marketing work is stored only on this device until future account services exist.</p></div>';
+ const campaigns=d.marketingCampaigns||[],pf=profiles(d),summary=marketingSummary(d);
+ const shown=filter==='all'?campaigns:campaigns.filter(x=>x.status===filter);
+ const recordCount=summary.channels.reduce((s,x)=>s+x.customers,0);
+ const channels=summary.channels.filter(x=>x.customers>0||x.spendCount>0).sort((a,b)=>b.customers-a.customers||b.cash-a.cash);
+ const maxChannel=Math.max(1,...channels.map(x=>x.customers));
+ const steps=[['Source known',summary.tracked],['Quoted',summary.quotedCustomers],['With jobs',summary.bookedCustomers],['Paid',summary.paidCustomers]];
+ let output='<section class="tf-marketing-page tf-marketing-v2">'+
+ '<header class="tf-ms-heading"><div><span class="tf-marketing-kicker">TRADEFLOW / GROWTH</span><h1>Marketing Studio</h1><p>Connect marketing activity to customers, booked work and recorded cash.</p></div><span class="tf-ms-hero-icon">'+marketingIcon('chart')+'</span></header>'+
+ '<div class="tf-ms-metrics">'+
+ metricCard('Source-tracked customers',String(summary.tracked),'Manually recorded sources','people','cyan')+
+ metricCard('Jobs linked',String(summary.linkedJobs),'Jobs of tracked customers','job','blue')+
+ metricCard('Marketing spend',summary.spendCount?euro(summary.spend):'—',summary.spendCount?'Recorded in Finance':'No spend entered','ads','cyan')+
+ metricCard('Cash linked',euro(summary.cash),'Received from tracked customers','chart','green')+
+ '</div>'+
+ '<section class="tf-ms-panel"><div class="tf-ms-panel-head"><h2>Customer → Revenue</h2><span>All recorded history</span></div>'+
+ '<p class="tf-ms-helper">Unique customers with a manually recorded source, followed by their existing quotation, job and payment records.</p>'+
+ '<div class="tf-ms-funnel">'+steps.map(([label,count],i)=>'<div class="tf-ms-funnel-step step-'+i+'"><strong>'+count+'</strong><small>'+e(label)+'</small></div>').join('')+'</div>'+
+ (!summary.tracked?'<div class="tf-ms-empty-inline">No customer sources recorded yet. Start by tagging the acquisition source of an existing customer.</div>':
+ '<p class="tf-ms-caption">These are associations, not proof that marketing caused the job or payment. Counts are customers, not campaign clicks.</p>')+
+ '<div class="tf-ms-inline-actions"><button type="button" data-marketing-action="source-new">+ Record customer source</button><button type="button" data-marketing-action="spend-new">+ Record spend</button></div></section>'+
+ '<section class="tf-ms-panel"><div class="tf-ms-panel-head"><h2>Channel performance</h2><span>Recorded sources</span></div>'+
+ (channels.length?'<div class="tf-ms-channels">'+channels.map(c=>{
+  const width=Math.max(3,Math.round(c.customers/maxChannel*100));
+  return '<div class="tf-ms-channel"><div class="tf-ms-channel-title"><strong>'+e(c.name)+'</strong><span>'+c.customers+' customer'+(c.customers===1?'':'s')+'</span></div>'+
+  '<div class="tf-ms-channel-track"><span style="width:'+(c.customers?width:0)+'%"></span></div>'+
+  '<div class="tf-ms-channel-foot"><span>'+c.jobs+' linked job'+(c.jobs===1?'':'s')+'</span><span>'+euro(c.cash)+' cash linked'+(c.spendCount?' · '+euro(c.spend)+' spend':'')+'</span></div></div>';
+ }).join('')+'</div>':'<div class="tf-ms-empty-inline">Channel results will appear after you record customer sources or marketing expenses.</div>')+
+ '<p class="tf-ms-caption">Only manually recorded sources and spend are shown; no Google, Meta, calls or email accounts are connected.</p></section>'+
+ '<section class="tf-ms-campaigns"><div class="tf-ms-panel-head"><h2>Campaigns</h2><button type="button" data-marketing-action="new">+ Create draft</button></div>'+
+ '<div class="tf-ms-filters" role="group" aria-label="Campaign preparation status">'+[['all','All'],['Draft','Draft'],['Ready','Ready'],['Archived','Archived']].map(([id,label])=>'<button type="button" class="'+(filter===id?'active':'')+'" data-marketing-action="filter" data-filter="'+id+'" aria-pressed="'+(filter===id)+'">'+label+'</button>').join('')+'</div>'+
+ (shown.length?'<div class="tf-ms-campaign-list">'+shown.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).map(x=>
+ '<button class="tf-ms-campaign-row" type="button" data-marketing-action="open" data-id="'+e(x.id)+'"><span class="tf-ms-campaign-icon">'+marketingIcon(x.channel==='Email draft'?'mail':'ads')+'</span>'+
+ '<span class="tf-ms-campaign-text"><strong>'+e(x.title)+'</strong><small>'+e(x.channel)+' · '+e(x.plannedDate||'Unscheduled')+'</small></span>'+
+ badge(x.status)+'<span class="tf-marketing-chevron">›</span></button>').join('')+'</div>':
+ '<div class="tf-ms-empty-inline">'+(campaigns.length?'No campaigns in this preparation status.':'No campaigns created yet. Start from a template or create a new draft.')+'</div>')+
+ '<p class="tf-ms-caption">Ready means prepared for review—not active, published, sent or delivering results.</p></section>'+
+ '<section class="tf-ms-growth"><div class="tf-ms-panel-head"><h2>Growth tools</h2><span>Connected workspaces</span></div>'+
+ '<div class="tf-ms-growth-grid">'+
+ '<button data-tab="growth" type="button"><span>'+marketingIcon('target')+'</span><strong>Target customers</strong><small>'+pf.icps.length+' ICP profile'+(pf.icps.length===1?'':'s')+' · personas</small></button>'+
+ '<button data-marketing-action="template" data-key="review-request" type="button"><span>'+marketingIcon('star')+'</span><strong>Reviews</strong><small>Prepare honest requests</small></button>'+
+ '<button data-marketing-action="template" data-key="referral" type="button"><span>'+marketingIcon('people')+'</span><strong>Referrals</strong><small>Draft introductions</small></button>'+
+ '<button data-tab="research" type="button"><span>'+marketingIcon('search')+'</span><strong>Research</strong><small>Source-backed briefs</small></button>'+
+ '</div>'+
+ '<details class="tf-ms-templates"><summary>Campaign templates <span>Browse '+templates.length+' →</span></summary><div>'+
+ templates.map(x=>'<div class="tf-marketing-template"><div><strong>'+e(x.title)+'</strong><small>'+e(x.channel)+'</small></div><button type="button" data-marketing-action="template" data-key="'+e(x.key)+'">Use</button></div>').join('')+
+ '</div></details></section>'+
+ '<button type="button" class="tf-ms-create" data-marketing-action="new">＋ Create campaign</button>'+
+ '<p class="tf-ms-caption">Local-first preparation and manually recorded attribution only. No automated outreach, publishing, provider analytics or verified marketing ROI is active.</p></section>';
+ return output;
 }
 function render(tab,d){return tab==='marketing'?(mode==='edit'?editForm(d):mode==='detail'?detail(d):list(d)):''}
 async function onClick(event){
