@@ -151,7 +151,8 @@ function sidebar(d){
   return '<label class="tf-cal-layer"><input type="checkbox" data-calendar-layer="'+e(layer.id)+'" '+(!hiddenLayers.has(layer.id)?'checked':'')+'><span class="tf-cal-layer-dot" style="background:'+e(layer.color)+'"></span><span>'+e(layer.name)+'</span></label>';
  }).join('')+
  (calendarDraft?'<form id="tfCalNewCalendarForm" class="tf-cal-new-layer"><input name="name" maxlength="70" required placeholder="Calendar name" aria-label="Calendar name"><button type="submit">Create</button></form>':
- '<button type="button" class="tf-cal-new-layer-btn" data-calendar-action="new-calendar">+ New calendar</button>')+'</div>';
+ '<button type="button" class="tf-cal-new-layer-btn" data-calendar-action="new-calendar">+ New calendar</button>')+
+ '<label class="tf-cal-horizon"><span>Planning horizon</span><select data-calendar-pref="horizonDays" aria-label="Scheduling planning horizon">'+[7,14,21,30].map(function(n){return '<option value="'+n+'" '+(schedulingPlan(d).preferences.horizonDays===n?'selected':'')+'>'+n+' days</option>'}).join('')+'</select></label></div>';
 }
 function queue(d){
  var list=eventList(d).filter(function(x){return !x.time&&!x.done&&(x.kind==='task'||x.kind==='job')});
@@ -176,6 +177,27 @@ function eventPreview(d){
  '<div class="tf-cal-quick-actions"><button type="button" data-calendar-action="reschedule" data-key="'+e(x.key)+'">'+glyph('calendar')+' Reschedule</button>'+
  (!x.done?'<button type="button" data-calendar-action="complete" data-key="'+e(x.key)+'">✓ Complete</button>':'<span class="tf-cal-completed">✓ Completed</span>')+'</div></aside>';
 }
+
+function schedulingPlan(d){
+ return global.TradeFlowScheduler?.analyze(d)||{proposals:[],risks:[],preferences:{horizonDays:14}};
+}
+function renderSchedulingReview(d,report){
+ var proposals=report.proposals||[];
+ return '<section class="tf-cal-review" aria-label="Scheduling proposals"><header class="tf-cal-review-head"><div><span>LOCAL SCHEDULING · APPROVAL REQUIRED</span><h2>Scheduling proposals</h2><p>Suggested placements are not saved until you approve them.</p></div><button type="button" data-calendar-action="back-calendar">Back to calendar →</button></header>'+
+ (proposals.length?proposals.map(function(p){
+  return '<article class="tf-cal-proposal"><div class="tf-cal-proposal-top"><span class="tf-cal-proposal-icon">'+glyph('task')+'</span><div><strong>'+e(p.taskTitle)+'</strong><small>'+e(p.priority)+' priority · '+p.remainingMinutes+' minutes'+(p.deadline?' · due '+e(label(p.deadline)):'')+'</small></div></div>'+
+  '<p>'+e(p.reason)+'</p><div class="tf-cal-suggested-slots">'+p.slots.map(function(t){return '<span>'+e(label(t.date,{weekday:'short',month:'short',day:'numeric'}))+' · '+e(clock(t.time))+' · '+t.durationMinutes+' min</span>'}).join('')+'</div>'+
+  '<div class="tf-cal-proposal-actions"><button type="button" class="tf-cal-proposal-approve" data-calendar-action="approve-proposal" data-proposal-id="'+e(p.id)+'">✓ Approve</button><button type="button" data-calendar-action="dismiss-proposal" data-proposal-id="'+e(p.id)+'">Dismiss</button></div></article>';
+ }).join(''):'<div class="tf-cal-review-empty">No feasible unscheduled-task proposals right now. Tasks need an estimated duration, a permitted availability window and completed prerequisites.</div>')+
+ ((report.risks||[]).length?'<section class="tf-cal-review-risks"><h3>Needs attention</h3>'+report.risks.slice(0,12).map(function(x){
+   var t=(d.tasks||[]).find(function(y){return y.id===x.taskId});
+   return '<div>'+e(t?.title||'Task')+' — '+e(x.reason)+'</div>';
+  }).join('')+'</section>':'')+'</section>';
+}
+function renderConflictReview(d,issues){
+ return '<section class="tf-cal-review" aria-label="Scheduling conflicts"><header class="tf-cal-review-head"><div><span>CONFLICT REVIEW</span><h2>Scheduling conflicts</h2><p>Only recorded overlapping commitments are shown. Resolve conflicts in linked records.</p></div><button type="button" data-calendar-action="back-calendar">Back to calendar →</button></header>'+
+ (issues.length?issues.map(function(x){return '<article class="tf-cal-proposal tf-cal-conflict-record"><strong>'+e(label(x.date))+'</strong><p>'+e(x.a.title)+' overlaps '+e(x.b.title)+'</p><button type="button" data-calendar-action="event" data-key="'+e(x.a.key)+'">Open first event →</button></article>'}).join(''):'<p class="tf-cal-review-empty">No overlapping recorded commitments were found.</p>')+'</section>';
+}
 function appointmentForm(){
  return '<section class="tf-cal-formpanel" aria-label="Create or edit calendar entry"><div class="tf-cal-section-head"><div><h2>'+e(draft?.id?'Edit schedule':'New calendar entry')+'</h2><p>Connected tasks and events update across TradeFlow.</p></div><button type="button" data-calendar-action="cancel">×</button></div>'+
  '<form id="tfCalendarForm"><label>Title *<input name="title" required maxlength="150" value="'+e(draft?.title||'')+'" placeholder="e.g. Site visit with property manager"></label>'+
@@ -192,16 +214,17 @@ function render(d){
  if(!preferencesHydrated){var pref=(lastData.calendarPreferences||[]).find(function(p){return p.id==='local-owner'});hiddenLayers=new Set(pref?.hiddenLayerIds||[]);preferencesHydrated=true}
  var list=eventList(lastData),period=mode==='month'?label(selected,{month:'long',year:'numeric'}):mode==='week'?label(monday(selected),{month:'short',day:'numeric'})+' – '+label(shift(monday(selected),6),{month:'short',day:'numeric',year:'numeric'}):label(selected,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
  var current=mode==='day'?renderDay(list):mode==='month'?renderMonth(list):renderWeek(list);
- var issues=conflicts(lastData);
+ var issues=conflicts(lastData),report=schedulingPlan(lastData);
+ if(intelligenceFocus==='proposals')current=renderSchedulingReview(lastData,report);
+ if(intelligenceFocus==='conflicts')current=renderConflictReview(lastData,issues);
  return '<main class="tf-cal-page" aria-label="Calendar"><aside class="tf-cal-sidebar">'+sidebar(lastData)+'</aside><section class="tf-cal-work">'+
  '<div class="tf-cal-toolbar"><div class="tf-cal-date-tools"><button type="button" data-calendar-action="prev" aria-label="Previous">‹</button><button type="button" data-calendar-action="next" aria-label="Next">›</button><button type="button" data-calendar-action="today">Today</button><strong>'+e(period)+'</strong></div>'+
  '<div class="tf-cal-toolbar-right"><div class="tf-cal-modes">'+['day','week','month'].map(function(x){return '<button type="button" data-calendar-action="mode" data-mode="'+x+'" class="'+(mode===x?'active':'')+'">'+x[0].toUpperCase()+x.slice(1)+'</button>'}).join('')+'</div>'+
- '<button class="tf-cal-primary" type="button" data-calendar-action="new">+ Event</button><button class="tf-cal-layer-toggle" type="button" data-calendar-action="layers" aria-label="Calendar filters">'+glyph('calendar')+'</button></div></div>'+
- (issues.length?'<div class="tf-cal-conflict-banner"><span>⚠ '+issues.length+' overlapping commitment'+(issues.length===1?'':'s')+' identified in the current records</span><button data-calendar-action="conflicts">Review</button></div>':'')+
- (intelligenceFocus==='conflicts'&&issues.length?'<div class="tf-cal-conflict-list">'+issues.slice(0,5).map(function(x){return '<div>'+e(label(x.date))+' · '+e(x.a.title)+' overlaps '+e(x.b.title)+'</div>'}).join('')+'</div>':'')+
+ (report.proposals.length?'<button type="button" class="tf-cal-proposals-link" data-calendar-action="review-proposals">'+report.proposals.length+' proposals</button>':'')+'<button class="tf-cal-primary" type="button" data-calendar-action="new">+ Event</button><button class="tf-cal-layer-toggle" type="button" data-calendar-action="layers" aria-label="Calendar filters">'+glyph('calendar')+'</button></div></div>'+
+ (issues.length&&intelligenceFocus!=='conflicts'?'<div class="tf-cal-conflict-banner"><span>⚠ '+issues.length+' overlapping commitment'+(issues.length===1?'':'s')+' identified in the current records</span><button data-calendar-action="conflicts">Review</button></div>':'')+
  '<div class="tf-cal-mobile-queue-control"><button type="button" data-calendar-action="queue">'+(queueVisible?'Hide':'Show')+' unscheduled tasks · '+list.filter(function(x){return x.kind==='task'&&!x.time&&!x.done}).length+'</button></div>'+
  (draft?appointmentForm():current)+
- '<div class="tf-cal-queue-desktop">'+queue(lastData)+'</div>'+
+ (intelligenceFocus?'':'<div class="tf-cal-queue-desktop">'+queue(lastData)+'</div>')+
  '</section>'+(layerDrawer?'<div class="tf-cal-drawer-shade" data-calendar-action="layers"></div><aside class="tf-cal-mobile-drawer"><div class="tf-cal-drawer-head"><strong>Calendar layers</strong><button data-calendar-action="layers">×</button></div>'+sidebar(lastData)+'</aside>':'')+
  (queueVisible?'<aside class="tf-cal-mobile-queue">'+queue(lastData)+'</aside>':'')+
  (activeKey?eventPreview(lastData):'')+'</main>';
@@ -215,9 +238,18 @@ function mount(context){
  }
 }
 async function change(evt){
- var b=evt.target.closest?.('[data-calendar-layer]');if(!b||!bridge)return;
+ if(!bridge)return;
+ const option=evt.target.closest?.('[data-calendar-pref]');
+ if(option){
+  const previous=await bridge.get('calendarPreferences','local-owner')||{id:'local-owner'};
+  const horizon=Math.max(1,Math.min(90,Number(option.value)||14));
+  await bridge.put('calendarPreferences',{...previous,horizonDays:horizon,updatedAt:new Date().toISOString()});
+  await bridge.render();return;
+ }
+ var b=evt.target.closest?.('[data-calendar-layer]');if(!b)return;
  if(b.checked)hiddenLayers.delete(b.dataset.calendarLayer);else hiddenLayers.add(b.dataset.calendarLayer);
- await bridge.put('calendarPreferences',{id:'local-owner',hiddenLayerIds:[...hiddenLayers],updatedAt:new Date().toISOString()});
+ const previous=await bridge.get('calendarPreferences','local-owner')||{id:'local-owner'};
+ await bridge.put('calendarPreferences',{...previous,hiddenLayerIds:[...hiddenLayers],updatedAt:new Date().toISOString()});
  await bridge.render();
 }
 async function click(evt){
@@ -242,6 +274,20 @@ async function click(evt){
  if(action==='new'){draft={date:selected,kind:'event',calendarId:'internal'};activeKey='';await bridge.render();return}
  if(action==='cancel'){draft=null;activeKey='';await bridge.render();return}
  if(action==='conflicts'){intelligenceFocus=intelligenceFocus==='conflicts'?'':'conflicts';await bridge.render();return}
+ if(action==='back-calendar'){intelligenceFocus='';activeKey='';await bridge.render();return}
+ if(action==='review-proposals'){intelligenceFocus='proposals';draft=null;activeKey='';await bridge.render();return}
+ if(action==='approve-proposal'||action==='dismiss-proposal'){
+  var plan=schedulingPlan(lastData||{}).proposals.find(function(x){return x.id===b.dataset.proposalId});
+  if(!plan)return;
+  if(action==='dismiss-proposal'){
+   await bridge.put('calendarProposals',{id:'dismissed:'+plan.proposalKey,proposalKey:plan.proposalKey,status:'dismissed',taskId:plan.taskId,updatedAt:new Date().toISOString()});
+   await bridge.render();return;
+  }
+  if(!bridge.commitScheduleProposal){alert('Scheduling approval is unavailable.');return}
+  try{await bridge.commitScheduleProposal(plan);bridge.notify('Schedule approved — linked work sessions created')}
+  catch(error){alert('Schedule changed. Review the latest proposal before approving: '+error.message)}
+  return;
+ }
  if(action==='open-record'){
   var record=activeEvent(lastData||{});if(!record)return;
   if(bridge.openRecord){await bridge.openRecord(record.sourceKind,record.sourceId);return}
