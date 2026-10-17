@@ -6,7 +6,7 @@
  if(root)root.TradeFlowSupply=api;
 })(typeof globalThis==='object'?globalThis:null,function(){
  'use strict';
- let bridge=null,form='',editId='',repairStatus='',repairBusy=false,detailSupplierId='',detailOrderId='',supplierQuery='',supplierFilter='all',supplierSort='az',orderSupplierId='';
+ let bridge=null,form='',editId='',repairStatus='',repairBusy=false,detailSupplierId='',detailOrderId='',supplierQuery='',supplierFilter='all',supplierSort='az',orderSupplierId='',showAllOrders=false;
  const po=typeof globalThis==='object'?globalThis.TradeFlowPurchaseOrders:null;
  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const opts=(rows,value='')=>rows.map(([id,text])=>'<option value="'+esc(id)+'" '+(String(id)===String(value)?'selected':'')+'>'+esc(text)+'</option>').join('');
@@ -163,12 +163,13 @@
   let view=suppliers.slice();
   if(supplierFilter==='preferred')view=view.filter(x=>x.preferred);
   if(supplierFilter==='mapped')view=view.filter(x=>globalThis.TradeFlowCore?.position(x));
-  if(supplierQuery)view=view.filter(x=>(x.name+' '+(x.category||'')+' '+(x.address||'')).toLowerCase().includes(supplierQuery.toLowerCase()));
+
   view.sort(supplierSort==='recent'?(a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')):supplierSort==='za'?(a,b)=>String(b.name).localeCompare(String(a.name)):(a,b)=>String(a.name).localeCompare(String(b.name)));
-  area+=view.length?'<div class="tf-supplier-rows">'+view.map(s=>supplierCard(s,orders)).join('')+'</div>':
+  const matchingSuppliers=view.filter(s=>!supplierQuery||(s.name+' '+(s.category||'')+' '+(s.address||'')).toLowerCase().includes(supplierQuery.toLowerCase())).length;
+  area+=view.length?'<div class="tf-supplier-rows">'+view.map(s=>{const card=supplierCard(s,orders);return supplierQuery&&!(s.name+' '+(s.category||'')+' '+(s.address||'')).toLowerCase().includes(supplierQuery.toLowerCase())?card.replace('class="tf-supplier-row"','class="tf-supplier-row" hidden'):card}).join('')+'</div><p id="tfSupplierLiveEmpty" class="tf-supplier-empty" '+(matchingSuppliers?'hidden':'')+'>No matching suppliers. Change the search or filter.</p>':
     '<div class="tf-supplier-empty"><strong>'+(suppliers.length?'No matching suppliers':'No suppliers yet')+'</strong><p>'+(suppliers.length?'Adjust your search or filter.':'Add a supplier to start managing purchase orders and deliveries.')+'</p></div>';
   area+='<div class="tf-supplier-section-title"><h2>Purchase orders</h2><small>'+orders.length+' total</small></div>';
-  area+=orders.length?'<div class="tf-supplier-rows">'+orders.slice().sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||''))).slice(0,8).map(o=>orderCard(o,suppliers.find(s=>s.id===o.supplierId))).join('')+'</div>':
+  area+=orders.length?'<div class="tf-supplier-rows">'+orders.slice().sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||''))).slice(0,showAllOrders?orders.length:8).map(o=>orderCard(o,suppliers.find(s=>s.id===o.supplierId))).join('')+'</div>'+(orders.length>8?'<button type="button" class="tf-supplier-viewall" data-supply-action="toggleOrders">'+(showAllOrders?'Show recent only':'View all '+orders.length+' purchase orders')+'</button>':''):
    '<div class="tf-supplier-empty"><strong>No purchase orders</strong><p>Build an itemized PO, review it, and compose it in your native Mail app.</p></div>';
   area+='<div class="tf-supplier-secondary-actions"><button type="button" data-supply-action="resolve" '+(repairBusy?'disabled':'')+'>⌖ Locate addresses</button><span>'+mapped+' map-ready'+(repairStatus?' · '+esc(repairStatus):'')+'</span></div>'+
     '<p class="tf-supplier-disclaimer">Supplier locations require verification. Network lines are geographic connections, not transport routes or shipment tracking.</p>';
@@ -261,6 +262,7 @@
   else if(action==='supplierOpen'){detailSupplierId=id;detailOrderId='';form=''}
   else if(action==='orderOpen'){detailOrderId=id;form=''}
   else if(action==='filter'){supplierFilter=button.dataset.filter||'all'}
+  else if(action==='toggleOrders'){showAllOrders=!showAllOrders}
   else if(action==='addLine'){
    const container=document.getElementById('tfPoLines'),count=container?.querySelectorAll('[data-po-line]').length||0;
    if(!container||count>=35){bridge.notify('Maximum 35 items per purchase order');return}
