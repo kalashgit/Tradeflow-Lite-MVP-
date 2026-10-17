@@ -99,6 +99,7 @@ async function run(){
  assert.ok(current.includes('data-calendar-action="direct-kind"'),'Event type choices remain available in the editor');
  assert.ok(current.includes('tf-cal-direct-extra-fields'),'Optional event details exist below compact cutoff');
  assert.ok(current.includes('data-calendar-action="direct-expand"'),'Sheet includes explicit accessible expand/collapse grip');
+ assert.ok(js.includes('ev.clientY>=bounds.top')&&js.includes('.tf-cal-direct-field'),'Swipe region extends through title and stops above the time controls');
  assert.ok(current.indexOf('tf-cal-direct-types')<current.indexOf('tf-cal-direct-extra-fields'),'Compact sheet reveals event types before advanced fields');
  await click({preventDefault(){},target:{dataset:{calendarAction:'delete-event',key:'event:'+created.id},closest(){return this}}});
  assert.ok(!stores.calendarEntries[created.id],'Delete control removes the persisted event after approval');
