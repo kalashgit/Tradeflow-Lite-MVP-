@@ -29,3 +29,39 @@
  .tf-unified-brand .tf-home-logo{width:38px;height:35px}
  .tf-unified-brand .tf-unified-wordmark{font-size:12.5px;letter-spacing:.18em}
 }
+
+/* TradeFlow universal command header v1: fixed identity, one-line intelligence. */
+.tf-unified-header .tf-unified-inner{width:100%;max-width:none;justify-content:flex-start;gap:12px}
+.tf-unified-brand{flex:0 0 auto}
+.tf-unified-header .tf-intel-space{flex:1 1 auto;min-width:0;display:flex;align-items:center;height:100%;overflow:hidden}
+.tf-intel-summary{border:1px solid #254a60;background:#0b2333;color:#d7eff8;border-radius:12px;display:inline-flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;min-height:37px;max-width:100%;font-size:12px;font-weight:550;white-space:nowrap}
+.tf-intel-summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tf-intel-summary svg{flex-shrink:0;color:var(--tf-accent,#10cfe1)}
+.tf-unified-header [hidden]{display:none!important}
+.tf-intel-actions{display:flex;gap:7px;align-items:center;overflow-x:auto;min-width:0;max-width:100%;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.tf-intel-actions::-webkit-scrollbar{display:none}
+.tf-intel-chip{flex:0 0 auto;border:1px solid #335063;border-radius:9px;display:flex;align-items:center;gap:7px;padding:8px 10px;background:#0b2333;color:#e9f7ff;font-size:11px;min-height:36px}
+.tf-intel-chip svg{width:11px;height:11px;color:#7894aa}
+.tf-intel-symbol{font-size:18px;line-height:1;font-weight:750}
+.tf-intel-number{font-size:13px;font-weight:800}
+.tf-intel-name{font-size:11px}
+.tf-intel-task{border-color:#855725;background:#241b15}.tf-intel-task .tf-intel-symbol,.tf-intel-task .tf-intel-number{color:#ff9f1c}
+.tf-intel-conflict{border-color:#85324c;background:#241622}.tf-intel-conflict .tf-intel-symbol,.tf-intel-conflict .tf-intel-number{color:#ff477b}
+.tf-intel-proposal{border-color:#7043a0;background:#20152d}.tf-intel-proposal .tf-intel-symbol,.tf-intel-proposal .tf-intel-number{color:#ac76ff}
+.tf-intel-collapse{border:0;background:#0e293a;color:#d9f4fc;border-radius:7px;font-size:24px;line-height:1;flex:0 0 auto;padding:3px 8px;min-height:34px}
+.tf-unified-header .tf-notif-anchor{flex:0 0 auto;margin-left:auto}
+.tf-unified-header .tf-home-alert{width:40px;height:40px;border:0;background:transparent}
+.tf-unified-header .tf-home-alert svg{width:23px;height:23px}
+@media(max-width:850px){
+ .tf-unified-header .tf-unified-inner{gap:8px;padding:0 12px}
+ .tf-unified-brand{gap:7px}
+ .tf-unified-brand .tf-home-logo{width:31px;height:31px}
+ .tf-unified-brand .tf-unified-wordmark{font-size:11px;letter-spacing:.10em}
+ .tf-intel-summary{font-size:10.5px;padding:7px 8px;min-height:34px;gap:4px}
+ .tf-intel-chip{gap:4px;padding:7px 7px;font-size:10px}
+ .tf-intel-name{font-size:10px}
+ .tf-unified-header .tf-home-alert{width:34px;height:36px}
+ .tf-unified-header .tf-home-alert svg{width:21px;height:21px}
+}
+@media(max-width:375px){.tf-unified-brand .tf-unified-wordmark{font-size:10px;letter-spacing:.07em}.tf-unified-header .tf-unified-inner{gap:6px;padding:0 8px}}
+@media(prefers-reduced-motion:reduce){.tf-intel-chip,.tf-intel-summary{transition:none!important}}
