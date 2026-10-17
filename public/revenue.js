@@ -34,8 +34,7 @@ function sectionHeading(title,subtitle){
 function topNav(type){
  return '<nav class="tf-revenue-top" aria-label="Revenue tools">'+
  '<button type="button" data-tab="invoices" class="'+(type==='invoices'?'active':'')+'">Invoices</button>'+
- '<button type="button" data-tab="profitability" class="'+(type==='profitability'?'active':'')+'">Job costs</button>'+
- '<button type="button" data-tab="expenses">Finance ↗</button></nav>';
+ '<button type="button" data-tab="profitability" class="'+(type==='profitability'?'active':'')+'">Job costs</button></nav>';
 }
 function relatedName(id,rows,label){
  if(!id)return 'None';return esc(rows.find(r=>r.id===id)?.name||rows.find(r=>r.id===id)?.title||label||'Record no longer present');
