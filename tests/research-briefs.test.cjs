@@ -112,6 +112,17 @@ const click=listeners.click[0],submit=listeners.submit[0];
  assert.equal(mod._test.spec(briefs[0]).researchStatus,'quality_review_complete');
  assert.ok(mod.render(data).includes('Civic electrical solicitation'));
  assert.ok(mod.render(data).includes('Open original'));
+ const approvedCsv=mod._test.approvedResultsCsv(briefs[0],data);
+ assert.ok(approvedCsv.includes('https://data.austintexas.gov/permits/record-1'));
+ assert.ok(approvedCsv.includes('"Civic electrical solicitation"'));
+ assert.ok(!approvedCsv.includes('Unverified commercial remodel'),'Rejected records must never enter approved export');
+ const qcLog=mod._test.reviewLogCsv(briefs[0],data);
+ assert.ok(qcLog.includes('Missing original URL and date'));
+ assert.ok(qcLog.includes('"rejected"'));
+ assert.equal(approvedCsv.split('\r\n')[0].replaceAll('"',''),expected.join(','),'Approved CSV must preserve importer columns');
+ assert.ok(mod.render(data).includes('Export approved results CSV'));
+ assert.ok(mod.render(data).includes('Export QC log CSV'));
+
  await click(evt('review-reopen',briefs[0].id));
  briefs=mod._test.records(data);
  assert.equal(mod._test.stageOf(briefs[0],data),'In review');
