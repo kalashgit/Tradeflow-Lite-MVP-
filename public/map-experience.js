@@ -127,6 +127,19 @@
      '</div>'+
    '</div></div>';
  }
+ function updateAddress(address){
+  if(!opened||!sheet)return false;
+  const value=compact(address,360);
+  if(!value)return false;
+  opened.address=value;
+  opened.record.address=value;
+  const summary=sheet.querySelector('.tf-exp-heading>p');
+  if(summary)summary.textContent=value;
+  const addressRow=[...sheet.querySelectorAll('.tf-exp-contact')].find(row=>row.querySelector('small')?.textContent==='Address');
+  if(addressRow){const span=addressRow.querySelector('span');if(span)span.textContent=value}
+  sheet.querySelectorAll('[data-address]').forEach(el=>{el.dataset.address=value});
+  return true;
+ }
  function configure(next){bridge=next||{}}
  function selectedOrigin(){
   if(startOverride)return startOverride;
@@ -272,5 +285,5 @@
   if(window.requestAnimationFrame)window.requestAnimationFrame(()=>mapFit());
   return opened;
  }
- return Object.freeze({configure,open,close:clear,setStage,route,clearRoute,routeURL,fetchRoadRoute,markup,sheetData,formatDistance:fmtDist,formatTime:fmtTime});
+ return Object.freeze({configure,open,updateAddress,close:clear,setStage,route,clearRoute,routeURL,fetchRoadRoute,markup,sheetData,formatDistance:fmtDist,formatTime:fmtTime});
 });
