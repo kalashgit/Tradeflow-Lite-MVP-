@@ -21,7 +21,7 @@ assert.ok(html.includes('calendar.js')&&html.includes('calendar.css'));
 assert.ok(app.includes('window.TradeFlowCalendar?.render')&&app.includes("calendar:'Calendar'"));
 assert.ok(app.includes("['calendar','Calendar']"));
 assert.ok(app.includes('tfCalendarLinkedReturn')&&app.includes('completeSession:tfCompleteCalendarSession'),'Calendar must open linked records and complete sessions');
-assert.ok(html.includes('schedule-engine.js')&&html.includes('calendar-r05'),'Scheduler is bundled in the versioned offline app');
+assert.ok(html.includes('schedule-engine.js')&&html.includes('calendar-r06'),'Scheduler is bundled in the versioned offline app');
 const stores={tasks:{},jobs:{},calendarEntries:{},calendars:{},calendarPreferences:{},opportunities:{abc:{id:'abc',organization_name:'Office Plaza',city:'Austin',region:'TX'}}};
 let uid=0,lastTab='',renderCount=0,notice='';
 cal.configure({get:async(s,id)=>stores[s]?.[id],put:async(s,x)=>{stores[s][x.id]=x},uid:()=>String(++uid),render:async()=>{renderCount++},notify:s=>notice=s,navigate:s=>lastTab=s});
