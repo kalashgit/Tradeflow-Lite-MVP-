@@ -257,9 +257,28 @@ function directEditor(data){
  '<div class="tf-cal-direct-feedback" role="status">'+(directError||issues.length?'<p>'+e(directError||('Overlaps '+issues[0].title+'. Choose another time.'))+'</p>':'')+'</div>'+
  '<button type="submit" class="tf-cal-direct-save">Create event</button></form></aside>';
 }
+function updateDirectGhost(){
+ if(typeof document==='undefined')return;
+ const root=document.querySelector?.('.tf-cal-page');
+ root?.querySelectorAll?.('.tf-cal-direct-preview').forEach(node=>node.remove());
+ if(!directDraft||!root)return;
+ const q=directDraft;
+ for(const track of root.querySelectorAll?.('.tf-cal-day-track')||[]){
+  if(track.dataset.date!==q.date)continue;
+  const first=Number(track.dataset.firstHour)||7;
+  const top=(minutes(q.time)-first*60)/60*64;
+  if(top<0||top>track.offsetHeight)continue;
+  const node=document.createElement('div');
+  node.className='tf-cal-direct-preview';
+  node.style.top=top+'px';
+  node.style.height=Math.max(30,q.duration/60*64-3)+'px';
+  node.innerHTML='<span>＋ '+e(q.title||'New event')+'</span><small>'+e(clock(q.time))+' · '+q.duration+'m</small>';
+  track.appendChild(node);
+ }
+}
 function closeDirect(){
  directDraft=null;directError='';
- if(typeof document!=='undefined')document.querySelector?.('.tf-cal-page')?.querySelector?.('.tf-cal-direct-editor')?.remove?.();
+ if(typeof document!=='undefined'){const root=document.querySelector?.('.tf-cal-page');root?.querySelector?.('.tf-cal-direct-editor')?.remove?.();root?.querySelectorAll?.('.tf-cal-direct-preview').forEach(node=>node.remove());}
 }
 function refreshDirect(){
  if(!directDraft||typeof document==='undefined')return;
@@ -271,6 +290,7 @@ function refreshDirect(){
  const issues=directConflicts(lastData||{},q.date,q.time,q.duration);
  const feedback=form.querySelector?.('.tf-cal-direct-feedback');
  if(feedback)feedback.textContent=directError||(issues.length?'Overlaps '+issues[0].title+'. Choose another time.':'');
+ updateDirectGhost();
 }
 function openDirect(date,time){
  directDraft={date,time,title:'',duration:30,kind:'event',calendarId:'internal',location:'',notes:''};
@@ -279,13 +299,14 @@ function openDirect(date,time){
  if(root?.insertAdjacentHTML){
   root.querySelector?.('.tf-cal-direct-editor')?.remove?.();
   root.insertAdjacentHTML('beforeend',directEditor(lastData||{}));
+  updateDirectGhost();
   root.querySelector?.('#tfCalDirectTitle')?.focus?.({preventScroll:true});
  }else bridge?.render?.();
 }
 function directInput(ev){
  if(!directDraft||!ev.target.closest?.('#tfCalDirectForm'))return;
  const x=ev.target,q=directDraft;
- if(x.name==='title')q.title=x.value.slice(0,150);
+ if(x.name==='title'){q.title=x.value.slice(0,150);updateDirectGhost()}
  if(x.name==='location')q.location=x.value.slice(0,220);
  if(x.name==='notes')q.notes=x.value.slice(0,1600);
  if(x.name==='calendarId')q.calendarId=x.value;
@@ -370,7 +391,7 @@ async function click(evt){
  if(action==='direct-slot'){
   const rect=b.getBoundingClientRect?.();if(!rect)return;
   const raw=(Number(b.dataset.firstHour)||7)*60+((evt.clientY-rect.top)/64)*60;
-  const n=Math.min(1410,Math.max(0,Math.floor(raw/30)*30));
+  const n=Math.min(1380,Math.max(0,Math.floor(raw/30)*30));
   openDirect(b.dataset.date,String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0'));return;
  }
  if(action==='direct-close'){closeDirect();return}
