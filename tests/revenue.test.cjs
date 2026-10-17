@@ -11,6 +11,7 @@ assert.equal(total.subtotal,290.99);assert.equal(total.tax,24.01);assert.equal(t
 assert.equal(mod._test.state({id:'i1',status:'Issued',taxRate:0,lines:[{qty:1,unitPrice:100}]},[{id:'p',invoiceId:'i1',amount:30}]),'Part-paid');
 assert.equal(mod._test.state({id:'i1',status:'Issued',taxRate:0,lines:[{qty:1,unitPrice:100}]},[{id:'p',invoiceId:'i1',amount:100}]),'Paid');
 assert.ok(!mod._test.esc('<img src=x>').includes('<img'));
+assert.equal(typeof mod._test.jobSummary,'function');
 const store={customers:[{id:'c1',name:'Customer 1',email:'owner@example.com'}],jobs:[{id:'j1',title:'Installation',customerId:'c1'}],quotes:[],invoices:[],payments:[],expenses:[],jobCosts:[]};
 let next=1;
 mod.configure({get:async(s,id)=>store[s]?.find(x=>x.id===id),all:async s=>store[s]||[],
@@ -23,7 +24,8 @@ assert.ok(mod.render('invoices',store).includes('Draft invoices'));
 assert.ok(mod.render('invoices',store).includes('data-filter="Overdue"'));
 assert.ok(mod.render('invoices',store).includes('tf-inv-metrics'));
 
-assert.ok(mod.render('profitability',store).includes('Select a job'));
+assert.ok(mod.render('profitability',store).includes('Budget vs. actual'));
+assert.ok(mod.render('profitability',store).includes('Active jobs'));
 const click=handlers.click[0],submit=handlers.submit[0];
 const c=(action,id)=>({preventDefault(){},target:{closest:()=>({dataset:{revenueAction:action,id}})}});
 const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:extra,querySelectorAll(name){
@@ -46,6 +48,8 @@ const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:ext
  assert.equal(store.jobCosts.length,1);
  await click(c('job','j1'));
  const profit=mod.render('profitability',store);assert.ok(profit.includes('Cash contribution')&&profit.includes('€65.00'));
+ assert.ok(profit.includes('Cost categories'));
+ assert.ok(profit.includes('Recorded costs'));
  assert.ok(profit.includes('not an audited profit'));
  assert.ok(app.includes("'invoices','jobCosts'")&&app.includes('indexedDB.open(DB,9)'));
  assert.ok(app.includes('version:9,exportedAt')&&app.includes("data.version<6"));
