@@ -323,25 +323,35 @@
  async function submit(e){
   if(!bridge||!['tfSupplierForm','tfSupplyOrderForm'].includes(e.target.id))return;
   e.preventDefault();e.stopPropagation();
-  const el=e.target,f=Object.fromEntries(new FormData(el)),id=el.dataset.id;
+  const el=e.target,fd=new FormData(el),f=Object.fromEntries(fd),id=el.dataset.id;
   if(id)f.id=id;
   const kind=el.id==='tfSupplierForm'?'supplier.save':'supplyOrder.save';
-  if(kind==='supplyOrder.save')f.destinationId=f.destinationKind==='customer'?f.customerDestination:f.destinationKind==='job'?f.jobDestination:'';
+  if(kind==='supplyOrder.save'){
+   f.destinationId=f.destinationKind==='customer'?f.customerDestination:f.destinationKind==='job'?f.jobDestination:'';
+   const names=fd.getAll('lineDescription'),quantities=fd.getAll('lineQty'),units=fd.getAll('lineUnit'),prices=fd.getAll('linePrice');
+   f.lineItems=names.map((description,i)=>({description:String(description).trim(),quantity:quantities[i],unit:units[i],unitPrice:prices[i]}));
+   if(!f.lineItems.length||f.lineItems.some(x=>!x.description)){window.alert('Enter a description for every item');return}
+  }
   try{
    if(kind==='supplier.save'){
     const upload=f.photoUpload;
-    if(upload?.size){f.photoUrl=await tfSupplierPhoto(upload)}
+    if(upload?.size)f.photoUrl=await tfSupplierPhoto(upload);
     else if(!String(f.photoUrl||'').trim()&&f.savedPhotoData)f.photoUrl=f.savedPhotoData;
     delete f.photoUpload;delete f.savedPhotoData;
    }
    const result=await bridge.execute(kind,f);
    form='';editId='';repairStatus='';
-   const opts=kind==='supplier.save'?{supplierIds:[result.id],skipBusiness:true,max:1}:{orderIds:[result.id],includeBusiness:true,max:2};
-   const locate=await bridge.resolveLocations(opts);
-   if(locate.located)repairStatus='Location plotted · review on map';
-   else if(locate.checked)repairStatus='Saved · address needs mapping review';
-   await bridge.render();bridge.notify((kind==='supplier.save'?'Supplier':'Supply order')+' saved');
-  }catch(err){window.alert('Could not save: '+err.message)}
+   if(kind==='supplier.save'){detailSupplierId=result.id;detailOrderId=''}
+   else{detailOrderId=result.id;orderSupplierId=''}
+   // Address enrichment is a convenience, not a prerequisite for saving locally.
+   try{
+    const locate=await bridge.resolveLocations(kind==='supplier.save'?{supplierIds:[result.id],skipBusiness:true,max:1}:{orderIds:[result.id],includeBusiness:true,max:2});
+    if(locate.located)repairStatus='Location plotted · review on map';
+    else if(locate.checked)repairStatus='Location still needs mapping review';
+   }catch(error){repairStatus='Saved locally · address lookup unavailable'}
+   await bridge.render();
+   bridge.notify(kind==='supplier.save'?'Supplier saved':'Purchase order draft saved');
+  }catch(err){window.alert('Could not save: '+String(err.message||err))}
  }
  return Object.freeze({configure,render});
 });
