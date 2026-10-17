@@ -30,7 +30,7 @@ function jobLink(job,d){
  ' · '+esc(address(job,d)||'Address missing')+'</small></span>';
 }
 
-let assignmentJobId='',crewExpanded=false,unassignedExpanded=false;
+let assignmentJobId='',crewExpanded=false,unassignedExpanded=false,assignmentPickerOpen=false;
 const svg=(path)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="23" height="23" aria-hidden="true">'+path+'</svg>';
 const icons={
  calendar:svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>'),
@@ -163,6 +163,9 @@ function roster(d){
  '<small>'+esc(address(job,d)||'Address not recorded')+'</small></span><span class="tf-d-v2-unassigned-cta">Assign →</span></button>').join('')+
  '</div>':'<div class="tf-ops-empty">No unassigned jobs in this view.</div>')+'</section>'+
  (crewFormOpen?crewEditor(crew):'')+(assignmentJobId?assignmentForm(d):'')+
+ (assignmentPickerOpen?'<section class="tf-ops-panel"><h3>Select a job to assign</h3><div class="tf-d-v2-picker">'+jobs.filter(isActive).slice(0,150).map(j=>
+ '<button type="button" data-ops-action="assign-open" data-id="'+esc(j.id)+'">'+esc(j.title||'Untitled job')+' · '+esc(scheduledDate(j)||'Unscheduled')+'</button>').join('')+
+ '</div><button type="button" data-ops-action="assign-close" class="tf-ops-secondary">Close</button></section>':'')+
  '<button type="button" data-ops-action="assign-pick" class="tf-d-v2-primary">＋ Assign job</button>'+
  '<p class="tf-d-v2-caption">Local-first planning. Availability only becomes known after working days are entered. Updating dispatch saves to Jobs; Calendar can display those scheduled jobs. Future AI voice and silent recommendations will use the same records but are not yet active.</p></section>';
  return out;
@@ -289,6 +292,12 @@ async function onClick(ev){
  ev.preventDefault();
  const action=b.dataset.opsAction,id=b.dataset.id;
  try{
+  if(action==='day-prev'||action==='day-next'){activeDate=shiftDay(activeDate,action==='day-prev'?-1:1);api.render();return}
+  if(action==='crew-toggle'){crewExpanded=!crewExpanded;api.render();return}
+  if(action==='unassigned-toggle'){unassignedExpanded=!unassignedExpanded;api.render();return}
+  if(action==='assign-pick'){assignmentPickerOpen=true;assignmentJobId='';api.render();return}
+  if(action==='assign-open'){assignmentJobId=id;assignmentPickerOpen=false;api.render();return}
+  if(action==='assign-close'){assignmentJobId='';assignmentPickerOpen=false;api.render();return}
   if(action==='section'){section=b.dataset.section==='routes'?'routes':'crew';planId='';api.render();return}
   if(action==='crew-new'){crewFormOpen=true;crewEditId='';api.render();return}
   if(action==='crew-edit'){crewFormOpen=true;crewEditId=id;api.render();return}
@@ -339,19 +348,40 @@ async function onSubmit(ev){
  try{
   if(form.id==='tfOpsCrewForm'){
    const name=v('name',90),role=v('role',90),notes=v('notes',350);
+   const rawSkills=v('skills',240),skills=rawSkills?rawSkills.split(',').map(x=>trim(x,50)).filter(Boolean).slice(0,15):[];
+   const serviceArea=v('serviceArea',140),rawDays=v('daysOff',420);
+   const daysOff=rawDays?rawDays.split(',').map(x=>trim(x,10)).filter(Boolean):[];
+   if(daysOff.length>35||daysOff.some(x=>!validDate(x)))throw Error('Enter valid comma-separated days off (YYYY-MM-DD).');
+   const workDays=[0,1,2,3,4,5,6].filter(index=>fd.get('workDay'+index)==='on');
+
    if(!name)throw Error('Enter a crew member name.');
    const exists=crewEditId?await api.get('crew',crewEditId):null;
    if(crewEditId&&!exists)throw Error('Crew member no longer exists.');
    if(!exists&&(await api.all('crew')).length>=100)throw Error('Maximum 100 crew members.');
-   await api.put('crew',{...exists,id:exists?.id||api.uid(),name,role,notes,updatedAt:new Date().toISOString()});
+   await api.put('crew',{...exists,id:exists?.id||api.uid(),name,role,notes,skills,serviceArea,workDays,daysOff,updatedAt:new Date().toISOString()});
    crewFormOpen=false;crewEditId='';api.notify('Crew member saved');return;
   }
   if(form.id==='tfOpsAssignForm'){
    const job=await api.get('jobs',id);if(!job)throw Error('Job no longer exists.');
-   const crewId=v('crewId',120);
-   if(crewId&&!(await api.get('crew',crewId)))throw Error('Choose an existing crew member.');
-   await api.put('jobs',{...job,crewId,updatedAt:new Date().toISOString()});
-   api.notify('Job assignment saved locally');return;
+   const crewId=v('crewId',120),date=v('date',10),startTime=v('startTime',5),rawDuration=v('durationMinutes',6);
+   if(!validDate(date))throw Error('Choose a valid scheduled date.');
+   if(startTime&&!validTime(startTime))throw Error('Invalid start time.');
+   const durationMinutes=rawDuration?Number(rawDuration):null;
+   if(durationMinutes!==null&&(!Number.isInteger(durationMinutes)||durationMinutes<15||durationMinutes>1440))throw Error('Choose duration between 15 and 1,440 minutes.');
+   if(startTime&&durationMinutes===null)throw Error('Add an estimated duration when specifying a start time.');
+   if(durationMinutes!==null&&!startTime)throw Error('Add a start time when specifying a duration.');
+   const crew=crewId?await api.get('crew',crewId):null;
+   if(crewId&&!crew)throw Error('Choose an existing crew member.');
+   const updated={...job,crewId,date,startTime,durationMinutes,updatedAt:new Date().toISOString()};
+   const conflicts=conflictsFor(updated,await api.all('jobs'));
+   if(conflicts.length)throw Error('Time conflict with '+conflicts.map(x=>x.title||'another job').slice(0,3).join(', ')+'. Adjust the schedule or choose another crew member.');
+   if(crew){
+    const info=crewDay(crew,date,[updated]);
+    if(info.availability==='Off duty'&&!confirm('This crew member is marked off duty on '+date+'. Assign anyway?'))return;
+   }
+   await api.put('jobs',updated);
+   assignmentJobId='';assignmentPickerOpen=false;
+   api.notify('Job assignment and schedule saved locally');return;
   }
   if(form.id==='tfOpsPlanForm'){
    const name=v('name',110),date=v('date',10),crewId=v('crewId',120);
@@ -369,6 +399,11 @@ async function onSubmit(ev){
   await api.put('routePlans',plan);api.notify('Route stop added');
  }catch(error){alert('Could not save: '+error.message)}
 }
-function configure(bridge){api=bridge;document.addEventListener('click',onClick);document.addEventListener('submit',onSubmit)}
-global.TradeFlowOperations={configure,render,_test:{routeUrl,accountingCsv,validDate,esc,address}};
+function onChange(ev){
+ if(!api||ev.target?.id!=='tfOpsDispatchDate')return;
+ if(!validDate(ev.target.value))return;
+ activeDate=ev.target.value;api.render();
+}
+function configure(bridge){api=bridge;document.addEventListener('click',onClick);document.addEventListener('submit',onSubmit);document.addEventListener('change',onChange)}
+global.TradeFlowOperations={configure,render,_test:{routeUrl,accountingCsv,validDate,esc,address,validTime,scheduledDate,scheduledTime,jobWindow,conflictsFor,crewDay,dispatchSummary,shiftDay}};
 })(typeof window!=='undefined'?window:globalThis);
