@@ -226,20 +226,41 @@ function spec(row){
   output:'Use TradeFlow opportunity CSV schema after independent verification. Submit for human approval; never auto-publish raw results.'
  };
 }
+
 function detail(data){
  const row=records(data).find(x=>x.id===currentId);
  if(!row){mode='list';return list(data)}
- const p=row.snapshot||{},icp=p.icp,persona=p.persona;
- return '<section class="tf-rb-page">'+back()+header('Review and export this research assignment. No paid search has run.')+
- '<article class="tf-rb-card"><div class="tf-rb-detail-head"><div><small>RESEARCH DEFINITION</small><h2>'+e(row.title)+'</h2></div><span class="tf-rb-pill">BRIEF ONLY</span></div>'+
+ const p=row.snapshot||{},icp=p.icp,persona=p.persona,stats=briefMetrics(row,data),stage=stageOf(row,data);
+ const linkedIds=new Set((Array.isArray(row.researchItems)?row.researchItems:[]).map(x=>x.opportunityId));
+ const occupied=new Set(records(data).filter(x=>x.id!==row.id).flatMap(x=>(x.researchItems||[]).map(y=>y.opportunityId)));
+ const available=(data.opportunities||[]).filter(x=>x.id&&!linkedIds.has(x.id)&&!occupied.has(x.id));
+ const requested=Number(row.requestedCount)||0;
+ const progress=requested?Math.min(100,Math.round(stats.reviewed/requested*100)):0;
+ const choices=available.slice(0,300).map(x=>'<option value="'+e(x.id)+'">'+e(x.project_name||x.organization_name||x.id)+' · '+e([x.city,x.region].filter(Boolean).join(', ')||'Location not supplied')+'</option>').join('');
+ const rules=CLASSES.map(x=>'<span class="tf-rb-v2-legend"><i class="tf-rb-v2-dot '+x.tone+'"></i>'+e(x.label)+'</span>').join('');
+ return '<section class="tf-rb-page tf-rb-v2">'+back()+
+ '<header class="tf-rb-v2-heading"><div><span class="tf-rb-kicker">TRADEFLOW / RESEARCH DEFINITION</span><h1>'+e(row.title)+'</h1>'+
+ '<p>'+e(row.geography)+' · '+requested+' target records · '+e(stage)+'</p></div><span class="tf-rb-v2-hero-icon">'+svgIcon('brief')+'</span></header>'+
+ '<section class="tf-rb-v2-panel"><div class="tf-rb-v2-panelhead"><h2>Research progress</h2><span class="tf-rb-v2-status '+(stage==='Completed'?'complete':stage==='In review'?'review':'draft')+'">'+e(stage)+'</span></div>'+
+ '<div class="tf-rb-v2-progressstats"><div><small>LINKED RESULTS</small><strong>'+stats.linked+'</strong></div>'+
+ '<div><small>REVIEWED</small><strong>'+stats.reviewed+'</strong></div>'+
+ '<div><small>APPROVED</small><strong>'+stats.approved.length+'</strong></div>'+
+ '<div><small>PENDING</small><strong>'+stats.pending.length+'</strong></div></div>'+
+ '<div class="tf-rb-v2-progressbar"><span style="width:'+progress+'%"></span></div>'+
+ '<p class="tf-rb-v2-caption">'+stats.reviewed+' reviewed decisions against a requested target of '+requested+
+ '. This measures local quality-control activity, not automatically discovered or purchased leads. Rejected: '+stats.rejected.length+'.</p>'+
+ (stage==='Completed'?'<button type="button" class="tf-rb-secondary" data-research-action="review-reopen" data-id="'+e(row.id)+'">Reopen review</button>':
+ stats.linked&&stats.pending.length===0&&stats.reviewed?'<button type="button" class="tf-rb-primary" data-research-action="review-complete" data-id="'+e(row.id)+'">Mark quality review complete</button>':'')+
+ '</section>'+
+ '<article class="tf-rb-card"><div class="tf-rb-detail-head"><div><small>BRIEF ONLY · RESEARCH NOT EXECUTED</small><h2>Research specification</h2></div><span class="tf-rb-pill">'+e(stage)+'</span></div>'+
  '<div class="tf-rb-kv"><span>Target geography</span><strong>'+e(row.geography)+'</strong>'+
- '<span>Requested records</span><strong>'+Number(row.requestedCount)+'</strong>'+
+ '<span>Requested records</span><strong>'+requested+'</strong>'+
  '<span>Ideal customer profile</span><strong>'+e(icp?.name||'Not selected')+'</strong>'+
  '<span>Buyer persona</span><strong>'+e(persona?.name||'Not selected')+'</strong>'+
- '<span>Classification focus</span><strong>'+e(row.focus||'all')+'</strong>'+
+ '<span>Classification focus</span><strong>'+e(options.find(x=>x[0]===row.focus)?.[1]||'All types')+'</strong>'+
  '<span>Buying signals</span><strong>'+e(row.signals||'Not specified')+'</strong>'+
  '<span>Exclusions</span><strong>'+e(row.exclusions||'Not specified')+'</strong>'+
- '</div>'+
+ '<span>Verification requirements</span><strong>'+e(row.verification||'Original source and status review required')+'</strong></div>'+
  '<div class="tf-rb-actions"><button class="tf-rb-primary" type="button" data-research-action="export" data-id="'+e(row.id)+'">Export JSON brief</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="template" data-id="'+e(row.id)+'">Download blank CSV template</button>'+
  '<button class="tf-rb-secondary" type="button" data-research-action="copy" data-id="'+e(row.id)+'">Copy instructions</button>'+
@@ -247,9 +268,40 @@ function detail(data){
  '<button class="tf-rb-secondary" type="button" data-research-action="edit" data-id="'+e(row.id)+'">Edit</button>'+
  '<button class="tf-rb-danger" type="button" data-research-action="delete" data-id="'+e(row.id)+'">Delete</button></div>'+
  '<details><summary>See machine-readable specification</summary><pre>'+e(JSON.stringify(spec(row),null,2))+'</pre></details>'+
- '<p class="tf-rb-disclosure">Exporting these instructions does not run research. Only human-reviewed, evidence-backed results should be imported into Opportunities. Contact data must be appropriately sourced.</p></article>'+
- '<div class="tf-rb-notice"><strong>Next: quality-controlled opportunities</strong><p>After an actual research worker returns supported records, use the Opportunities CSV importer. Verify classification, sources, date, duplicates and contact provenance before publishing.</p><button type="button" class="tf-rb-secondary" data-tab="opportunities">Open Opportunities →</button></div>'+
- '</section>';
+ '<p class="tf-rb-disclosure">These instructions do not run searches. You can import sourced results through Opportunities, attach their saved records below, and document your human evidence review.</p></article>'+
+ '<section class="tf-rb-v2-panel"><div class="tf-rb-v2-panelhead"><h2>Link saved opportunities</h2><span>'+available.length+' unassigned</span></div>'+
+ (available.length?'<form class="tf-rb-v2-attach" id="tfResearchAttachForm" data-id="'+e(row.id)+'">'+
+ '<label class="tf-rb-field"><span>Select an existing saved opportunity</span><select name="opportunityId" required>'+choices+'</select></label>'+
+ '<button type="submit" class="tf-rb-primary">Attach to brief</button></form>':
+ '<p class="tf-rb-v2-caption">No unassigned saved Opportunities are available. Import sourced records first.</p>')+
+ (available.length>300?'<p class="tf-rb-v2-caption">Showing the first 300 unassigned Opportunities in this selector. Use Opportunities to manage the larger collection.</p>':'')+
+ '<button class="tf-rb-secondary" type="button" data-tab="opportunities">Open Opportunities / import results →</button>'+
+ '<p class="tf-rb-v2-caption">Attaching is a manual association, not a claim that TradeFlow researched or independently verified the record. A record can be attached to only one research brief.</p></section>'+
+ '<section class="tf-rb-v2-panel"><div class="tf-rb-v2-panelhead"><h2>Evidence review</h2><span>'+stats.items.length+' records</span></div>'+
+ '<div class="tf-rb-v2-legend-grid">'+rules+'</div>'+
+ (stats.items.length?stats.items.map((item,index)=>{
+  const op=item.record,state=effectiveDecision(item),source=safeSource(op.source_url)?String(op.source_url).trim():'';
+  const cls=CLASSES.find(x=>x.key===op.opportunity_type);
+  const adequate=validEvidence(op);
+  return '<article class="tf-rb-v2-evidence"><div class="tf-rb-v2-evidence-head"><span class="tf-rb-v2-index">'+(index+1)+'</span>'+
+  '<div><strong>'+e(op.project_name||op.organization_name||op.id)+'</strong>'+
+  '<small>'+e(op.city||'Location unknown')+' · '+e(cls?.label||'Not classified')+'</small></div>'+
+  '<span class="tf-rb-v2-status '+(state==='approved'?'complete':state==='rejected'?'rejected':'review')+'">'+e(state==='pending'?'Pending QC':state==='approved'?'Approved':'Rejected')+'</span></div>'+
+  '<div class="tf-rb-v2-evidence-details"><span>Source: '+(source?'<a href="'+e(source)+'" target="_blank" rel="noopener noreferrer">Open original ↗</a>':'Missing / invalid URL')+'</span>'+
+  '<span>Source date: '+e(op.source_date||'Missing')+'</span>'+
+  '<span>Evidence: '+e(op.evidence_status||'Unresolved')+'</span>'+
+  (item.reviewedAt?'<span>Decision saved: '+e(String(item.reviewedAt).slice(0,10))+'</span>':'')+'</div>'+
+  (!adequate?'<p class="tf-rb-v2-evidence-warning">This record cannot be approved until its original HTTPS source, date, classification and evidence status are complete in Opportunities.'+
+   (op.opportunity_type==='verified_request'?' Verified demand also requires a verified date.':'')+'</p>':'')+
+  '<details class="tf-rb-v2-qc"><summary>'+(state==='pending'?'Review record':'View / update QC decision')+' →</summary>'+
+  '<form id="tfResearchReviewForm" data-id="'+e(row.id)+'" data-opportunity-id="'+e(op.id)+'">'+
+  choose('decision','Quality-control decision',[['pending','Awaiting review'],['approved','Approve source-supported record'],['rejected','Reject record']],state)+
+  area('reviewNotes','Verification notes / rejection reason',item.reviewNotes||'',650,'Describe what you checked and why the record should be approved or rejected.')+
+  '<label class="tf-rb-v2-confirm"><input type="checkbox" name="reviewConfirmed" value="yes" required> I reviewed this record and its available evidence myself.</label>'+
+  '<div class="tf-rb-actions"><button type="submit" class="tf-rb-primary">Save review decision</button>'+
+  '<button type="button" class="tf-rb-danger" data-research-action="detach" data-id="'+e(row.id)+'" data-opportunity-id="'+e(op.id)+'">Detach record</button></div></form></details></article>';
+ }).join(''):'<div class="tf-rb-v2-empty"><strong>No linked results</strong><p>Start with the Opportunities importer, then associate relevant records with this brief and review their evidence.</p></div>')+
+ '</section><p class="tf-rb-v2-caption">Reviews and associations are saved locally alongside this brief. Source records are not modified. External sites are not checked automatically, and approved records must not be presented as confirmed purchasing intent without supporting evidence.</p></section>';
 }
 function render(data){return mode==='edit'?form(data):mode==='detail'?detail(data):list(data)}
 async function onSubmit(event){
