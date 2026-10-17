@@ -24,7 +24,7 @@ assert.ok(app.includes('tfCalendarLinkedReturn')&&app.includes('completeSession:
 assert.ok(html.includes('schedule-engine.js')&&html.includes('calendar-r06'),'Scheduler is bundled in the versioned offline app');
 const stores={tasks:{},jobs:{},calendarEntries:{},calendars:{},calendarPreferences:{},opportunities:{abc:{id:'abc',organization_name:'Office Plaza',city:'Austin',region:'TX'}}};
 let uid=0,lastTab='',renderCount=0,notice='';
-cal.configure({get:async(s,id)=>stores[s]?.[id],put:async(s,x)=>{stores[s][x.id]=x},uid:()=>String(++uid),render:async()=>{renderCount++},notify:s=>notice=s,navigate:s=>lastTab=s});
+cal.configure({get:async(s,id)=>stores[s]?.[id],all:async s=>Object.values(stores[s]||{}),put:async(s,x)=>{stores[s][x.id]=x},uid:()=>String(++uid),render:async()=>{renderCount++},notify:s=>notice=s,navigate:s=>lastTab=s});
 async function run(){
  const click=events.click[0],submit=events.submit[0];
  await click({preventDefault(){},target:{dataset:{calendarAction:'mode',mode:'day'},closest(){return this}}});
