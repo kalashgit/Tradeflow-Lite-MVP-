@@ -965,7 +965,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordClose'){
-  if(tfCalendarLinkedReturn){tfCalendarLinkedReturn=false;tfRecordListContext=null;tfMotionNext='back';tfRecordDetailId=null;tab='calendar';query='';await render();return}
+  if(tfCalendarLinkedReturn){tfCalendarLinkedReturn=false;tfRecordListContext=null;tfMotionNext='back';tfRecordDetailId=null;tab='calendar';query='';await render();window.TradeFlowCalendar?.restoreViewport?.();return}
   const previous=tfRecordListContext;
   tfMotionNext='back';tfRecordDetailId=null;query=previous?.query||'';
   await render();
