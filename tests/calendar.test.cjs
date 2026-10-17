@@ -15,7 +15,8 @@ assert.equal(cal._test.shift('2026-10-01',-1),'2026-09-30');
 assert.equal(cal._test.monday('2026-10-16'),'2026-10-12');
 const d={tasks:[{id:'t1',title:'Client follow-up',due:'2026-10-16',status:'Open'}],jobs:[{id:'j1',title:'Electrical installation',date:'2026-10-16',status:'Planned'}]};
 const entries=cal.records(d);assert.equal(entries.length,2);assert.equal(entries[0].date,'2026-10-16');
-assert.ok(cal.render(d).includes('Calendar'));assert.ok(cal.render(d).includes('data-calendar-action="mode"'));
+assert.ok(cal.render(d).includes('Calendar'));
+assert.ok(!/fake|placeholder intelligence counts/i.test(cal.render(d)),'No fabricated scheduling insight counts');assert.ok(cal.render(d).includes('data-calendar-action="mode"'));
 assert.ok(html.includes('calendar.js')&&html.includes('calendar.css'));
 assert.ok(app.includes('window.TradeFlowCalendar?.render')&&app.includes("calendar:'Calendar'"));
 assert.ok(app.includes("['calendar','Calendar']"));
@@ -27,7 +28,7 @@ async function run(){
  await click({preventDefault(){},target:{dataset:{calendarAction:'mode',mode:'day'},closest(){return this}}});
  await click({preventDefault(){},target:{dataset:{calendarAction:'new'},closest(){return this}}});
  assert.ok(cal.render(d).includes('tfCalendarForm'));
- await submit({preventDefault(){},target:{id:'tfCalendarForm',fields:{title:'Site visit',date:'2026-10-16',time:'16:00',duration:'45',location:'Downtown Austin',description:'Meet client'}}});
+ await submit({preventDefault(){},target:{id:'tfCalendarForm',fields:{title:'Site visit',date:'2026-10-16',time:'16:00',duration:'45',kind:'task',location:'Downtown Austin',description:'Meet client'}}});
  const saved=Object.values(stores.tasks)[0];assert.equal(saved.title,'Site visit');assert.equal(saved.due,'2026-10-16');assert.equal(saved.scheduleTime,'16:00');assert.equal(saved.kind,'appointment');
  assert.ok(notice.includes('Calendar'));assert.ok(cal.render({tasks:[saved],jobs:[]}).includes('Site visit'));
  await click({preventDefault(){},target:{dataset:{calendarAction:'opportunity',id:'abc'},closest(){return this}}});
