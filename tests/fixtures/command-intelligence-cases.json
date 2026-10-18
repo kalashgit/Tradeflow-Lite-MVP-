@@ -1,0 +1,492 @@
+{
+  "version": 1,
+  "context": {
+    "today": "2026-10-18",
+    "businessId": "local-business",
+    "customers": [
+      {
+        "id": "john",
+        "name": "John Smith",
+        "phone": "512-555-0198"
+      },
+      {
+        "id": "jane",
+        "name": "Jane Doe"
+      }
+    ],
+    "record": {
+      "store": "customers",
+      "id": "john"
+    }
+  },
+  "cases": [
+    {
+      "id": "electrical-jibs",
+      "transcript": "Hey TradeFlow, what electrical jibs have I got tomorrow?",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-19",
+          "trades": [
+            "electrical"
+          ]
+        }
+      }
+    },
+    {
+      "id": "plumbing-schedule",
+      "transcript": "Please check my plumbing work schedule tomorrow.",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-19",
+          "trades": [
+            "plumbing"
+          ]
+        }
+      }
+    },
+    {
+      "id": "hvac-shifts",
+      "transcript": "Do I have any HVAC shifts booked tomorrow?",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "trades": [
+            "hvac"
+          ]
+        }
+      }
+    },
+    {
+      "id": "date-reordered",
+      "transcript": "Tomorrow, what jobs have I got?",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-19"
+        }
+      }
+    },
+    {
+      "id": "date-first",
+      "transcript": "For tomorrow, list my appointments.",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-19",
+          "scope": "appointments"
+        }
+      }
+    },
+    {
+      "id": "quoted-estimate",
+      "transcript": "For John, prepare an estimate.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "recognized",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "john"
+          }
+        }
+      }
+    },
+    {
+      "id": "quote-selected",
+      "transcript": "Write up a quote for that customer.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "recognized",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "john"
+          }
+        }
+      }
+    },
+    {
+      "id": "qoute-error",
+      "transcript": "Please prepare a qoute for Jane.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "recognized",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "jane"
+          }
+        }
+      }
+    },
+    {
+      "id": "client-name-only",
+      "transcript": "Make me a new client. His name is Avery Jones.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "customer-name-led",
+      "transcript": "Add Avery as a customer, his number is 512-555-0177.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "name": "Avery",
+            "phone": "+15125550177"
+          }
+        }
+      }
+    },
+    {
+      "id": "name-labelled",
+      "transcript": "Create a customer, his name is Avery Jones and his number is 512-555-0177.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": "+15125550177"
+          }
+        }
+      }
+    },
+    {
+      "id": "phone-missing",
+      "transcript": "Add a customer called Avery Jones.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "phone": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "phone-short",
+      "transcript": "Add customer Avery Jones. Phone 555-0177.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "phone": "555-0177"
+          }
+        }
+      }
+    },
+    {
+      "id": "phone-words",
+      "transcript": "Add customer Avery Jones. Phone five one two five five five zero one seven seven.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "phone-ambiguous",
+      "transcript": "Add customer Avery Jones. Phone 512-555-0177 or 737-555-0144.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "name-uncertain",
+      "transcript": "Add customer maybe Avery Jones. Phone 512-555-0177.",
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "panel-task",
+      "transcript": "Prepare a task to inspect the electrical panel tomorrow.",
+      "expected": {
+        "intent": "task.prepare",
+        "status": "recognized",
+        "parameters": {
+          "title": "inspect the electrical panel",
+          "due": "2026-10-19"
+        }
+      }
+    },
+    {
+      "id": "hvac-task",
+      "transcript": "Create a reminder to replace the HVAC filter.",
+      "expected": {
+        "intent": "task.prepare",
+        "status": "recognized",
+        "parameters": {
+          "title": "replace the HVAC filter.",
+          "due": null
+        }
+      }
+    },
+    {
+      "id": "plumbing-job",
+      "transcript": "Prepare a job water heater replacement for Jane.",
+      "expected": {
+        "intent": "job.prepare",
+        "status": "recognized",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "jane"
+          },
+          "title": "water heater replacement"
+        }
+      }
+    },
+    {
+      "id": "job-scope-missing",
+      "transcript": "Prepare a job for John.",
+      "expected": {
+        "intent": "job.prepare",
+        "status": "needs_clarification",
+        "parameters": {
+          "title": ""
+        }
+      }
+    },
+    {
+      "id": "site-visit-incomplete",
+      "transcript": "Schedule a site visit tomorrow.",
+      "expected": {
+        "intent": "calendar.prepare",
+        "status": "needs_clarification",
+        "parameters": {
+          "time": null,
+          "durationMinutes": null
+        }
+      }
+    },
+    {
+      "id": "site-visit-explicit",
+      "transcript": "Schedule a site visit tomorrow at 09:00 for 60 minutes.",
+      "expected": {
+        "intent": "calendar.prepare",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-19",
+          "time": "09:00",
+          "durationMinutes": 60
+        }
+      }
+    },
+    {
+      "id": "two-start-times",
+      "transcript": "Schedule a meeting tomorrow at 09:00 or 10:00 for 60 minutes.",
+      "expected": {
+        "intent": "calendar.prepare",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "invalid-date",
+      "transcript": "What jobs do I have on 2026-02-30?",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "conflicting-dates",
+      "transcript": "Check jobs today or tomorrow.",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "unsupported-period",
+      "transcript": "What jobs do I have tomorrow and next week?",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "compound-read-write",
+      "transcript": "Check my jobs tomorrow and create a customer Avery Jones.",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "ambiguous"
+      }
+    },
+    {
+      "id": "compound-drafts",
+      "transcript": "Prepare a job for John and prepare a quotation for Jane.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "ambiguous"
+      }
+    },
+    {
+      "id": "send-not-authorized",
+      "transcript": "Prepare a quotation for John and send it without approval.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "negation",
+      "transcript": "Show my jobs tomorrow, not today.",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "ignore-filter",
+      "transcript": "Check my work tomorrow excluding plumbing.",
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "meta-reported",
+      "transcript": "What did John say about the jobs tomorrow?",
+      "expected": {
+        "intent": null,
+        "status": "unsupported"
+      }
+    },
+    {
+      "id": "tutorial",
+      "transcript": "How do I check my jobs tomorrow?",
+      "expected": {
+        "intent": null,
+        "status": "unsupported"
+      }
+    },
+    {
+      "id": "hypothetical",
+      "transcript": "What if I add a customer tomorrow?",
+      "expected": {
+        "intent": null,
+        "status": "unsupported"
+      }
+    },
+    {
+      "id": "narrative",
+      "transcript": "My customer said he has work tomorrow.",
+      "expected": {
+        "intent": null,
+        "status": "unsupported"
+      }
+    },
+    {
+      "id": "calendar-object",
+      "transcript": "I bought a calendar yesterday.",
+      "expected": {
+        "intent": null,
+        "status": "unsupported"
+      }
+    },
+    {
+      "id": "unsupported-instruction",
+      "transcript": "Repair the air conditioner.",
+      "expected": {
+        "intent": null,
+        "status": "unsupported"
+      }
+    },
+    {
+      "id": "unknown-identity",
+      "transcript": "Prepare an estimate for Someone Unlisted.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "different-people",
+      "transcript": "Prepare a quotation for John or Jane.",
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification"
+      }
+    },
+    {
+      "id": "business-query",
+      "transcript": "Show overdue invoices.",
+      "expected": {
+        "intent": "business.query",
+        "status": "recognized",
+        "parameters": {
+          "topics": [
+            "overdue invoices"
+          ]
+        },
+        "effect": "read_only"
+      }
+    },
+    {
+      "id": "business-time",
+      "transcript": "Show my expenses tomorrow.",
+      "expected": {
+        "intent": "business.query",
+        "status": "recognized",
+        "parameters": {
+          "topics": [
+            "expenses"
+          ],
+          "date": "2026-10-19"
+        }
+      }
+    },
+    {
+      "id": "record-find",
+      "transcript": "Find customer John.",
+      "expected": {
+        "intent": "record.find",
+        "status": "recognized",
+        "parameters": {
+          "store": "customers",
+          "query": "John"
+        }
+      }
+    },
+    {
+      "id": "finance-nav",
+      "transcript": "Take me to Finance.",
+      "expected": {
+        "intent": "workspace.open",
+        "status": "recognized",
+        "parameters": {
+          "workspace": "expenses"
+        }
+      }
+    },
+    {
+      "id": "ambiguous-nav",
+      "transcript": "Open Finance and Map.",
+      "expected": {
+        "intent": "workspace.open",
+        "status": "needs_clarification"
+      }
+    }
+  ]
+}

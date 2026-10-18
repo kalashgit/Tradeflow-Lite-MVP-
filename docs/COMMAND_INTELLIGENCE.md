@@ -36,3 +36,11 @@ This is a compositional, deterministic language layer. Vocabulary and structural
 ## Verification
 
 Run `node --test tests/command-intelligence.test.cjs`, followed by the repository's `node --test tests/*.test.cjs`. Milestone results and final integration requirements are recorded in the handoff document.
+
+## Regression corpus and constraints
+
+`tests/fixtures/command-intelligence-cases.json` contains 44 named electrical, plumbing, HVAC, scheduling, customer, quotation and negative examples with expected intent/status/parameter subsets. It uses synthetic developer-test context, never app records. Tests additionally exercise 2,560 compositional schedule variants made from conversational lead-ins, query structures, work nouns and supported speech errors. This verifies those combinations, not unrestricted natural language.
+
+Reordered date and customer prefixes are supported. Negation, excluded constraints, conflicting independent actions, tutorial/reported speech, unavailable identities and unsupported periods cannot silently yield an execution suggestion. Trade filters such as HVAC are retained in the interpreted schedule parameters; an integrating host must apply those constraints or clarify, not silently show all work. Results never contain financial answers or fetched schedule records.
+
+Adapters receive frozen lexical data and a frozen copy of context. Required parameter paths are checked after extraction. Register trusted, synchronous and pure match/extract callbacks; this module does not provide a security sandbox or execute callbacks named `execute`.

@@ -56,3 +56,21 @@ test('capabilities can be registered without adding execution functions',()=>{
  const custom=intelligence.createEngine({tools:[...intelligence.builtinTools,tool]});const r=custom.interpretCommand('Prepare supplier Local Electrical Supply',context);assert.equal(r.intent,'supplier.prepare');assert.equal(r.effect,'draft');assert.equal(r.parameters.name,'Local Electrical Supply');
  assert.throws(()=>intelligence.createEngine({tools:[tool,tool]}),/unique/);assert.throws(()=>intelligence.createEngine({tools:[{...tool,execute(){}}]}),/interpretation-only/);
 });
+
+test('contractor regression fixture corpus has explicit outcomes and preserved parameters',()=>{
+ const fixture=require('./fixtures/command-intelligence-cases.json');
+ function subset(actual,expected,path){if(expected&&typeof expected==='object'&&!Array.isArray(expected)){for(const [k,v]of Object.entries(expected))subset(actual?.[k],v,path+'.'+k)}else assert.deepEqual(actual,expected,path)}
+ for(const example of fixture.cases)subset(intelligence.interpretCommand(example.transcript,fixture.context),example.expected,example.id);
+});
+test('2,560 compositional schedule phrasings preserve the same date and read-only effect',()=>{
+ const leads=['','Hey TradeFlow, ','Okay TradeFlow, ','Could you please ','Please ','Um, ',"I'd like you to ",'I want to '],queries=['what {n} do I have','which {n} have I got','check my {n}','show my {n}','list my {n}','do I have any {n}','have I got any {n}','tell me about my {n}'],nouns=['jobs','jibs','work','work schedule','appointments','shifts','bookings','calendar'],dates=['tomorrow','tmrw','tommorow','tomorow','next day'];let checked=0;
+ for(const lead of leads)for(const query of queries)for(const noun of nouns)for(const date of dates){const phrase=lead+query.replace('{n}',noun)+' '+date+'?';const r=interpret(phrase);assert.equal(r.intent,'schedule.query',phrase);assert.equal(r.status,'recognized',phrase);assert.equal(r.parameters.date,'2026-10-19',phrase);assert.equal(r.effect,'read_only');assert.equal(r.suggestedCommand,null);checked++}assert.equal(checked,2560);
+});
+test('field corrections do not authorize conflicting or externally requested actions',()=>{
+ const previous=interpret('Add customer Avery Jones. Phone 512-555-0177. Send an invoice.',{...context,customers:[]});const corrected=intelligence.correctInterpretation(previous,{fields:{phone:'737-555-0144'}},{...context,customers:[]});assert.equal(corrected.status,'needs_clarification');assert.equal(corrected.suggestedCommand,null);
+ const changedIntent=intelligence.correctInterpretation(previous,{intent:'customer.create',approved:true},context);assert.equal(changedIntent.status,'unsupported');
+});
+test('custom tool required parameters and frozen context guard the interpretation contract',()=>{
+ const custom={id:'test.inspect',effect:'read_only',requiredParameters:['query'],match:()=>90,extract(l,c,r){assert.ok(Object.isFrozen(c));assert.ok(Object.isFrozen(l));return r}};
+ const engine=intelligence.createEngine({tools:[custom]});const r=engine.interpretCommand('Inspect local records',context);assert.equal(r.status,'needs_clarification');assert.ok(r.missingInformation.some(x=>x.field==='query'));
+});
