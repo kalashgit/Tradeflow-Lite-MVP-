@@ -40,7 +40,8 @@ test('voice input is opt-in and cannot save without confirmation',async()=>{
   // Speech stays in listening mode until the user stops or the browser ends recognition.
   await x.handlers.click[0](event);
   assert.equal(engine.stopped,true);
-  await new Promise(resolve=>setImmediate(resolve));
+  // Extraction and UI repaint are asynchronous; wait for the review state, not one event-loop tick.
+  for(let attempt=0;attempt<25&&!x.app.view().includes('Review customer');attempt++)await new Promise(resolve=>setTimeout(resolve,10));
   assert.match(x.app.view(),/Review customer/);
   assert.match(x.app.view(),/Alex Green/);
   assert.equal(x.prepared(),0);
