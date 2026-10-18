@@ -2,7 +2,7 @@
  * Parsing never authorizes execution. Hosts provide authorized snapshots and UI ports.
  * This local-owner capability boundary is not authentication or tenant isolation.
  */
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.TradeFlowCommands=api})(typeof globalThis==='object'?globalThis:null,function(){
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.TradeFlowCommands=api})(typeof globalThis==='object'?globalThis:null,function(records){
 'use strict';
 const VERSION=1;
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -25,7 +25,9 @@ const definitions=freeze([
  {id:'record.find',intent:'Find existing local records',aliases:['find','search','look for'],required:['query'],parameters:['query','store'],effect:'read',permission:'read',approval:'none'},
  {id:'record.open',intent:'Open one unambiguous existing record',aliases:['open record'],required:['ref or query or context.record'],parameters:['ref','query','store'],effect:'navigation',permission:'read',approval:'none'},
  {id:'view.filter',intent:'Filter a supported existing view',aliases:['show overdue','show open'],required:['workspace','filter'],parameters:['workspace','filter'],effect:'navigation',permission:'navigate',approval:'none'},
- {id:'draft.prepare',intent:'Prepare an unsaved task or quotation for review',aliases:['draft task','draft quote','prepare task','prepare quote'],required:['kind'],parameters:['kind','ref','title'],effect:'draft',permission:'draft',approval:'review_on_save'},
+ {id:'draft.prepare',intent:'Prepare an unsaved business record for review',aliases:['draft task','draft quote','draft job','draft calendar'],required:['kind'],parameters:['kind','ref','title','fields'],effect:'draft',permission:'draft',approval:'review_on_save'},
+ {id:'customer.create',intent:'Create a customer from reviewed structured fields',aliases:['add customer','create customer'],required:['fields'],parameters:['fields','reviewedDuplicateIds','sourceHash'],effect:'modification',permission:'modify:customer.create',approval:'explicit'},
+ {id:'customer.source.delete',intent:'Remove locally retained original wording',aliases:[],required:['ref'],parameters:['ref'],effect:'modification',permission:'modify:customer.create',approval:'explicit'},
  {id:'quotation.convert',intent:'Create a linked job from an accepted quotation',aliases:['convert quote to job'],required:['ref or context.record'],parameters:['ref'],effect:'modification',permission:'modify:quotation.convert',approval:'explicit'}
 ]);
 const definition=id=>definitions.find(x=>x.id===id);
@@ -93,26 +95,32 @@ function filterRecords(workspace,filter,data,options={}){
   return false;
  });
 }
-function prepareDraft(kind,ref,data,context={},title){
- if(!['task','quote'].includes(kind))throw Error('Supported drafts are task and quote');
+function prepareDraft(kind,ref,data,context={},title,overrides){
+ if(!['task','quote','job','calendar'].includes(kind))throw Error('Unsupported record draft');
  const sources=ref?validateReferences(data,[ref],context):[];
  const source=ref?lookup(data,ref,context):null;
  if(ref&&!['customers','quotes','jobs','tasks','opportunities'].includes(ref.store))throw Error('This record cannot supply draft defaults');
  const customerId=ref?.store==='customers'?source.id:source?.customerId||'';
- const fields=kind==='task'?{status:'Open',due:context.today||dateText(new Date())}:{status:'Draft',category:context.primaryTrade||'',amount:''};
+ const fields=kind==='task'?{status:'Open',due:context.today||dateText(new Date())}:kind==='job'?{status:'Planned',category:context.primaryTrade||'',date:''}:kind==='calendar'?{date:'',time:'',durationMinutes:'',location:'',notes:''}:{status:'Draft',category:context.primaryTrade||'',amount:''};
+ if(overrides!==undefined){
+  const allowed=kind==='task'?['title','due']:kind==='job'?['title','category','date']:kind==='calendar'?['title','date','time','durationMinutes','location','notes']:['title','category'];
+  if(!overrides||typeof overrides!=='object'||Array.isArray(overrides)||Object.keys(overrides).some(k=>!allowed.includes(k))||Object.values(overrides).some(v=>typeof v!=='string'))throw Error('Unsupported draft fields');
+  for(const [key,value] of Object.entries(overrides)){if(value.length>(key==='notes'?1600:key==='location'?220:150))throw Error('Draft field is too long');if(['due','date'].includes(key)&&value&&!isDate(value))throw Error('Enter a valid draft date');if(key==='time'&&value&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))throw Error('Enter a valid draft time');if(key==='durationMinutes'&&value&&(!/^\d+$/.test(value)||Number(value)<15||Number(value)>1440))throw Error('Enter a duration of 15–1440 minutes');fields[key]=value.trim()}
+ }
  const defaults={status:'new unsaved draft',...(kind==='task'?{due:'current local date; review before saving'}:{})};
  if(customerId){lookup(data,{store:'customers',id:customerId},context);fields.customerId=customerId;defaults.customerId='linked existing customer'}
  if(kind==='task'&&ref?.store==='jobs'){fields.jobId=source.id;defaults.jobId='source job'}
  if(kind==='task'&&ref?.store==='quotes'){fields.quoteId=source.id;defaults.quoteId='source quotation'}
- if(title)fields.title=text(title);else if(kind==='task'&&source){fields.title='Review '+String(source.title||source.name||source.project_name||'record');defaults.title='editable review suggestion based on source record'}
+ if(title)fields.title=text(title);else if(kind==='task'&&!fields.title&&source){fields.title='Review '+String(source.title||source.name||source.project_name||'record');defaults.title='editable review suggestion based on source record'}
  return {kind,fields,sourceRef:ref?clone(ref):null,provenance:defaults,requiresReview:true,recordRefs:sources.map(x=>x.ref)};
 }
 function validateDraft(draft,data,context={}){
- if(!draft||!['task','quote'].includes(draft.kind))throw Error('Unsupported draft');
+ if(!draft||!['task','quote','job'].includes(draft.kind))throw Error('Unsupported draft');
  const fields=draft.fields||{},refs=[...(draft.sourceRef?[draft.sourceRef]:[]),...(fields.customerId?[{store:'customers',id:fields.customerId}]:[]),...(fields.quoteId?[{store:'quotes',id:fields.quoteId}]:[]),...(fields.jobId?[{store:'jobs',id:fields.jobId}]:[])];
  validateReferences(data,refs,context);
  for(const [field,store] of [['quoteId','quotes'],['jobId','jobs']])if(fields[field]){const source=lookup(data,{store,id:fields[field]},context);if((source.customerId||'')!==(fields.customerId||''))throw Error('Draft and linked record must refer to the same customer')}
  if(draft.kind==='quote'&&!fields.customerId)throw Error('Select an existing customer for this quotation');
+ if(draft.kind==='job'&&(!fields.customerId||fields.date&&!isDate(fields.date)))throw Error('Select a customer and review the job date');
  if(draft.kind==='task'&&!isDate(fields.due))throw Error('Task draft needs a valid due date');
  return true;
 }
@@ -141,12 +149,31 @@ function resolve(input,data={},context={}){
   }
   if(def.id==='view.filter'&&!(filters[params.workspace]||[]).includes(params.filter))return problem('UNSUPPORTED_FILTER','That workspace does not support this filter.');
   if(def.id==='draft.prepare'){
-   if(!['task','quote'].includes(params.kind))return problem('UNSUPPORTED_DRAFT','Choose task or quote.');
+   if(!['task','quote','job','calendar'].includes(params.kind))return problem('UNSUPPORTED_DRAFT','Choose a supported record draft.');
    if(params.title!==undefined&&(typeof params.title!=='string'||!text(params.title)||params.title.length>150))return problem('INVALID_TITLE','Use a draft title of 1–150 characters.');
    if(!params.ref&&context.record)params.ref=clone(context.record);
-   result=prepareDraft(params.kind,params.ref,data,context,params.title);refs=result.recordRefs;
+   result=prepareDraft(params.kind,params.ref,data,context,params.title,params.fields);refs=result.recordRefs;
   }
   const guard=validateReferences(data,refs,context);
+  if(def.id==='customer.create'){
+   if(!records?.validateCustomer)return problem('INTERPRETER_UNAVAILABLE','Customer interpretation is unavailable.');
+   const review=records.validateCustomer(params.fields);
+   if(review.missingRequired.length||review.issues.some(x=>x.blocking))return problem('INVALID_CUSTOMER','Review the customer fields before saving.',{issues:review.issues,missingRequired:review.missingRequired});
+   params.fields=review.fields;
+   const duplicates=records.findDuplicates(params.fields,rows(data,'customers'),{businessId:context.businessId||'local-business'}).sort((a,b)=>a.ref.id.localeCompare(b.ref.id));
+   const reviewed=params.reviewedDuplicateIds===undefined?[]:params.reviewedDuplicateIds;
+   if(!Array.isArray(reviewed)||reviewed.some(x=>typeof x!=='string')||new Set(reviewed).size!==reviewed.length||canonical(reviewed.slice().sort())!==canonical(duplicates.map(x=>x.ref.id).sort()))return problem('DUPLICATE_REVIEW_REQUIRED','Review likely existing customers before creating a separate customer.',{duplicates});
+   params.reviewedDuplicateIds=reviewed.slice().sort();params.sourceHash=params.sourceHash===undefined?'':params.sourceHash;
+   if(typeof params.sourceHash!=='string'||params.sourceHash!==''&&!/^[a-f0-9]{64}$/.test(params.sourceHash))return problem('INVALID_SOURCE_HASH','Original wording retention needs a valid local hash.');
+   guard.push(...validateReferences(data,duplicates.map(x=>x.ref),context),{customerDuplicates:duplicates});
+   result={draft:{kind:'customer',fields:params.fields},duplicates,retainsOriginal:!!params.sourceHash};
+  }
+  if(def.id==='customer.source.delete'){
+   if(params.ref?.store!=='customers')return problem('INVALID_RECORD_TYPE','Choose an existing customer.');
+   guard.push(...validateReferences(data,[params.ref],context));
+   const retained=rows(data,'settings').find(x=>x.id==='customer-source:'+params.ref.id);
+   guard.push({customerSource:{sourceHash:retained?.sourceHash||''}});result={retained:!!retained};
+  }
   if(def.id==='quotation.convert'){
    if(params.ref.store!=='quotes')return problem('INVALID_RECORD_TYPE','Select an accepted quotation.');
    const q=lookup(data,params.ref,context);
@@ -226,6 +253,8 @@ function createRuntime(options){
    else if(row.commandId==='view.filter')result=await ports.filter(row.params.workspace,row.params.filter);
    else if(row.commandId==='draft.prepare')result=await ports.prepareDraft(clone(fresh.result));
    else if(row.commandId==='quotation.convert')result=await ports.operation('quotation.convert',{quoteId:row.params.ref.id},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard)});
+   else if(row.commandId==='customer.create')result=await ports.operation('customer.create',clone(row.params),{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
+   else if(row.commandId==='customer.source.delete')result=await ports.operation('customer.source.delete',{customerId:row.params.ref.id},{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
    else throw Error('Command adapter is not available');
   }catch(error){return fail({...row,status:'executing'},'failed','EXECUTION_FAILED',String(error.message||error),c)}
   const outcome={id,status:'succeeded',effect:row.effect,result:result??null};
