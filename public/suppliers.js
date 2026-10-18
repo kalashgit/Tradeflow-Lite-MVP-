@@ -158,7 +158,7 @@
     '<div class="tf-supplier-tools tf-supplier-primary-tools"><button type="button" data-supply-action="newSupplier" class="primary">+ Add supplier</button>'+
     '<button type="button" data-supply-action="newOrder" '+(!suppliers.length?'disabled':'')+'>+ Purchase order</button></div>'+
     '<div class="tf-supplier-toolbar"><label class="tf-supplier-search"><span aria-hidden="true">⌕</span><input id="tfSupplierSearch" value="'+esc(supplierQuery)+'" placeholder="Search suppliers" autocomplete="off" aria-label="Search suppliers"></label>'+
-    '<button type="button" data-supply-action="viewNetwork">▱ Map</button><button type="button" data-supply-action="filter" data-filter="'+(supplierFilter==='all'?'preferred':supplierFilter==='preferred'?'mapped':'all')+'">'+esc(supplierFilter==='all'?'All ▾':supplierFilter==='preferred'?'Preferred ▾':'Mapped ▾')+'</button></div>'+
+    '<button type="button" data-supply-action="viewNetwork" aria-label="View supplier map" title="View supplier map"><span aria-hidden="true">▱</span><span class="tf-supplier-map-label"> Map</span></button><button type="button" data-supply-action="filter" data-filter="'+(supplierFilter==='all'?'preferred':supplierFilter==='preferred'?'mapped':'all')+'">'+esc(supplierFilter==='all'?'All ▾':supplierFilter==='preferred'?'Preferred ▾':'Mapped ▾')+'</button></div>'+
     '<div class="tf-supplier-section-title"><h2>Suppliers</h2><label class="tf-supplier-sort">Sort <select id="tfSupplierSort">'+opts([['az','A–Z'],['za','Z–A'],['recent','Recent']],supplierSort)+'</select></label></div>';
   let view=suppliers.slice();
   if(supplierFilter==='preferred')view=view.filter(x=>x.preferred);
