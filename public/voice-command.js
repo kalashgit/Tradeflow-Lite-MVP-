@@ -53,7 +53,36 @@ function createController(host){
   if(busy)return;const instruction=String(text||'').trim();draft=instruction;
   if(!instruction){message='Speak or enter a command first.';await repaint();return}
   busy=true;message='';
+  let mapExecuted=false;
   try{
+   const mapIntent=globalThis.TradeFlowLaunchMapCommands?.parse(instruction);
+   if(mapIntent&&host.mapCommand){
+    // Close first so the map action runs after the voice overlay is dismissed.
+    // Do not repaint after invoking the host: map controls and search are UI stateful.
+    close();
+    mapExecuted=true;
+    await host.mapCommand(mapIntent);
+    return;
+   }
+   const workspaceIntent=globalThis.TradeFlowLaunchWorkspaceCommands?.parse(instruction);
+   if(workspaceIntent&&host.workspaceCommand){
+    close();
+    mapExecuted=true;
+    await host.workspaceCommand(workspaceIntent);
+    return;
+   }
+   const moreIntent=globalThis.TradeFlowLaunchMoreCommands?.parse(instruction);
+   if(moreIntent&&host.moreCommand){
+    if(moreIntent.action==='find'){
+     const outcome=await host.moreCommand(moreIntent);
+     message=outcome?.message||'No matching local records.';
+     return;
+    }
+    close();
+    mapExecuted=true;
+    await host.moreCommand(moreIntent);
+    return;
+   }
    const parsed=intent(instruction);
    if(parsed.kind==='customer'){
     // A complete voice instruction is the user's explicit authorization to add one customer.
@@ -94,7 +123,7 @@ function createController(host){
      else{const result=await host.commands.execute(plan.id);if(result.status==='succeeded'){close();return}message=result.error?.message||'Could not open quotation draft.'}
     }
    }else message='Currently supported: create a customer, prepare a quotation for an existing customer, or check tomorrow’s jobs.';
-  }catch(error){message=String(error.message||error)}finally{busy=false;await repaint()}
+  }catch(error){message=String(error.message||error);if(mapExecuted)host.mapError?.(message)}finally{busy=false;if(!mapExecuted)await repaint()}
  }
  function finish(active){
   if(!active||recognition!==active||active.finished)return;
