@@ -71,6 +71,18 @@ function createController(host){
     await host.workspaceCommand(workspaceIntent);
     return;
    }
+   const moreIntent=globalThis.TradeFlowLaunchMoreCommands?.parse(instruction);
+   if(moreIntent&&host.moreCommand){
+    if(moreIntent.action==='find'){
+     const outcome=await host.moreCommand(moreIntent);
+     message=outcome?.message||'No matching local records.';
+     return;
+    }
+    close();
+    mapExecuted=true;
+    await host.moreCommand(moreIntent);
+    return;
+   }
    const parsed=intent(instruction);
    if(parsed.kind==='customer'){
     // A complete voice instruction is the user's explicit authorization to add one customer.
