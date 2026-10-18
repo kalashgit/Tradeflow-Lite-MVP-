@@ -3,15 +3,32 @@
  * No AI, network, provider secrets, verified routing claims, or automatic data migrations.
  */
 (function(root,factory){
- const api=factory();
+ const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter);
  if(typeof module==='object'&&module.exports)module.exports=api;
  if(root)root.TradeFlowCore=api;
-})(typeof globalThis==='object'?globalThis:null,function(){
+})(typeof globalThis==='object'?globalThis:null,function(records){
  'use strict';
  const nonempty=v=>String(v==null?'':v).trim();
  const brief=(v,max=240)=>nonempty(v).slice(0,max);
  const validDate=v=>!v||(/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T12:00:00Z'))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v);
  const dataArray=(data,key)=>Array.isArray(data?.[key])?data[key]:[];
+ const stable=v=>JSON.stringify(stableOrder(v));
+ function stableOrder(v){if(Array.isArray(v))return v.map(stableOrder);if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>[k,stableOrder(v[k])]));return v}
+ async function hashSource(value){
+  if(typeof value!=='string'||!value.trim()||value.length>4000)throw Error('Original wording must contain 1–4000 characters');
+  if(!globalThis.crypto?.subtle)throw Error('Secure local hashing is unavailable');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');
+ }
+ function customerFields(input){
+  if(!records?.validateCustomer)throw Error('Customer interpreter is unavailable');
+  const review=records.validateCustomer(input);
+  if(review.missingRequired.length||review.issues.some(x=>x.blocking))throw Error(review.issues.find(x=>x.blocking)?.message||'Customer name is required');
+  return review.fields;
+ }
+ function customerDuplicates(fields,customers,businessId='local-business'){return records.findDuplicates(fields,customers,{businessId}).slice().sort((a,b)=>a.ref.id.localeCompare(b.ref.id))}
+ function validateDuplicateReview(duplicates,reviewed=[]){
+  if(!Array.isArray(reviewed)||reviewed.some(x=>typeof x!=='string')||new Set(reviewed).size!==reviewed.length||stable(reviewed.slice().sort())!==stable(duplicates.map(x=>x.ref.id).sort()))throw Error('Review likely existing customers before creating a separate customer');
+ }
  function position(obj){
   if(!obj)return null;
   let latitude=obj.latitude??obj.lat,longitude=obj.longitude??obj.lon??obj.lng;
@@ -24,11 +41,19 @@
   const lat=Number(latitude),lon=Number(longitude);
   return Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180?{lat,lon}:null;
  }
- function prepare(kind,input,data,uid,now){
+ function prepare(kind,input,data,uid,now,context={}){
   const id=typeof uid==='function'?uid():String(uid||'');
   if(!id)throw Error('Unique ID generator unavailable');
   const when=typeof now==='function'?now():now||new Date().toISOString();
   const body=input||{},get=(name,key)=>dataArray(data,name).find(x=>x.id===key);
+  if(kind==='customer.create'){
+   if(Object.keys(body).some(k=>!['fields','reviewedDuplicateIds','sourceHash'].includes(k)))throw Error('Unsupported customer command parameters');
+   const fields=customerFields(body.fields),duplicates=customerDuplicates(fields,dataArray(data,'customers'),context.businessId);
+   validateDuplicateReview(duplicates,body.reviewedDuplicateIds===undefined?[]:body.reviewedDuplicateIds);
+   if(body.sourceHash!==undefined&&body.sourceHash!==''&&!/^[a-f0-9]{64}$/.test(body.sourceHash))throw Error('Invalid original wording hash');
+   if(get('customers',id))throw Error('Customer identifier already exists');
+   return {resultId:id,writes:[{store:'customers',record:{...fields,id,updatedAt:when}}]};
+  }
   if(kind==='supplier.save'){
    const name=brief(body.name,140),existing=body.id?get('suppliers',body.id):null;
    if(!name)throw Error('Supplier name is required');
@@ -185,8 +210,56 @@
    for(const store of names.filter(x=>x!=='commandLog')){const req=tx.objectStore(store).getAll();req.onsuccess=()=>{data[store]=req.result;ready()}}
   });
  }
+ async function executeCustomer(args){
+  const {db,kind,payload={},uid,requestKey,actor='local-owner',businessId='local-business',recordGuard=[],sourceText}=args;
+  const removing=kind==='customer.source.delete',key=nonempty(requestKey)||'command:'+String(uid());
+  let sourceValid=false;
+  if(!removing&&payload.sourceHash&&typeof sourceText==='string')sourceValid=await hashSource(sourceText)===payload.sourceHash;
+  return new Promise((resolve,reject)=>{
+   let tx,outcome,error,prior=null,data={},pending=3;
+   try{tx=db.transaction(['commandLog','customers','settings'],'readwrite')}catch(err){reject(err);return}
+   tx.oncomplete=()=>resolve(outcome);tx.onabort=()=>reject(error||tx.error||Error('Customer command aborted'));tx.onerror=()=>reject(error||tx.error||Error('Customer command failed'));
+   const abort=err=>{error=err;tx.abort()};
+   function ready(){
+    if(--pending)return;
+    try{
+     if(prior){
+      if(prior.kind!==kind||prior.requestPayload!==stable(payload))throw Error('Request key is already bound to a different operation');
+      if(!removing&&!data.customers.some(x=>x.id===prior.resultId))throw Error('Previously created customer no longer exists');
+      outcome={id:prior.resultId,reused:true,commandKey:key,sourceSaved:!!prior.sourceSaved};return;
+     }
+     for(const expected of recordGuard){
+      if(expected.ref){if(expected.ref.store!=='customers')throw Error('Unsupported customer guard');const found=data.customers.filter(x=>x.id===expected.ref.id);if(found.length!==1||stable(found[0])!==stable(expected.record))throw Error('Reviewed customer changed before commit')}
+      if(expected.customerDuplicates&&stable(customerDuplicates(customerFields(payload.fields),data.customers,businessId))!==stable(expected.customerDuplicates))throw Error('Likely existing customers changed; review before saving');
+      if(expected.customerSource){const source=data.settings.find(x=>x.id==='customer-source:'+payload.customerId);if((source?.sourceHash||'')!==expected.customerSource.sourceHash)throw Error('Original wording changed; review again')}
+     }
+     const when=new Date().toISOString();let customerId,sourceSaved=false;
+     if(removing){
+      if(Object.keys(payload).some(k=>k!=='customerId')||typeof payload.customerId!=='string')throw Error('Invalid customer source reference');
+      const customer=data.customers.find(x=>x.id===payload.customerId);if(!customer||customer.businessId&&customer.businessId!==businessId)throw Error('Customer is not available in this business');
+      customerId=customer.id;tx.objectStore('settings').delete('customer-source:'+customerId);
+     }else{
+      const duplicates=customerDuplicates(customerFields(payload.fields),data.customers,businessId);validateDuplicateReview(duplicates,payload.reviewedDuplicateIds||[]);
+      if(payload.sourceHash&&!sourceValid)throw Error('Re-enter the original wording to retain it, or turn retention off');
+      const plan=prepare(kind,payload,data,uid,when,{businessId});customerId=plan.resultId;
+      if(data.customers.some(x=>x.id===customerId))throw Error('Customer identifier already exists');
+      for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+      if(payload.sourceHash){
+       const sourceId='customer-source:'+customerId;if(data.settings.some(x=>x.id===sourceId))throw Error('Original wording storage already exists');
+       tx.objectStore('settings').put({id:sourceId,customerId,text:sourceText,sourceHash:payload.sourceHash,createdAt:when});sourceSaved=true;
+      }
+     }
+     tx.objectStore('commandLog').put({id:key,kind,requestPayload:stable(payload),resultId:customerId,actor:brief(actor,40),createdAt:when,sourceSaved});
+     outcome={id:customerId,reused:false,commandKey:key,sourceSaved};
+    }catch(err){abort(err)}
+   }
+   const log=tx.objectStore('commandLog').get(key);log.onsuccess=()=>{prior=log.result;ready()};
+   for(const store of ['customers','settings']){const req=tx.objectStore(store).getAll();req.onsuccess=()=>{data[store]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
+  if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
@@ -296,5 +369,5 @@
   }
   return issues;
  }
- return Object.freeze({position,prepare,execute,greatCircle,supplierLinks,relationshipAudit});
+ return Object.freeze({position,prepare,execute,hashSource,greatCircle,supplierLinks,relationshipAudit});
 });
