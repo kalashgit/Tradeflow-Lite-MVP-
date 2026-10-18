@@ -4,13 +4,25 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalized=v=>String(v||'').trim().replace(/^(?:hey|hello|hi|okay|ok)\s+trade\s*flow\b[,!:. ]*/i,'').trim();
 function intent(input){
- const s=normalized(input);
- if(/^(?:please\s+)?(?:add|create|make|register|save|set up)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:customer|client)\b/i.test(s))return {kind:'customer',text:s};
- const m=s.match(/^(?:please\s+)?(?:prepare|create|draft|make)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:quotation|quote)\s+for\s+(.+?)[.!?]?$/i);
- if(m)return {kind:'quote',person:m[1].trim()};
- if(/\btomorrow\b/i.test(s)&&/\b(?:jobs?|schedule|calendar|appointments?)\b/i.test(s)&&/^(?:what|which|show|list|tell|do|are|have|what's|open)/i.test(s))return {kind:'tomorrow',navigate:/^(?:show|open)\b/i.test(s)};
- return {kind:'unknown'};
+ const original=normalized(input),s=original.toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim();
+ const tokens=s.split(' '),has=words=>words.some(w=>tokens.includes(w));
+ const work=has(['job','jobs','jib','jibs','appointment','appointments','calendar','schedule','shift','shifts','booking','bookings','work']);
+ const time=has(['tomorrow','tmrw'])||/\bnext day\b/.test(s);
+ const query=has(['what','which','when','list','show','tell','open','display','check','see','have','got','scheduled','booked']);
+ const customer=has(['customer','customers','client','clients','contact','contacts','custmer','custmr']);
+ const add=has(['add','create','make','register','save','new','set','put']);
+ const quote=has(['quote','quotes','quotation','estimate','estimates','pricing','proposal']);
+ const prepare=has(['prepare','create','draft','write','make','start','build','generate','new']);
+ const scores=[{kind:'tomorrow',score:(work?3:0)+(time?4:0)+(query?2:0)},
+  {kind:'customer',score:(customer?4:0)+(add?3:0)},
+  {kind:'quote',score:(quote?4:0)+(prepare?3:0)}].sort((a,b)=>b.score-a.score);
+ if(scores[0].score<7||scores[0].score===scores[1].score)return {kind:'unknown'};
+ if(scores[0].kind==='tomorrow')return {kind:'tomorrow',navigate:has(['show','open','display'])};
+ if(scores[0].kind==='customer')return {kind:'customer',text:original};
+ const person=original.match(/\bfor\s+(.+?)(?:[.!?]|$)/i)?.[1]?.trim()||'';
+ return person?{kind:'quote',person}:{kind:'unknown'};
 }
+
 function tomorrowDate(now=new Date()){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function tomorrowWork(data,date,calendarRecords){
  const entries=typeof calendarRecords==='function'?calendarRecords(data):[
@@ -43,7 +55,28 @@ function createController(host){
   busy=true;message='';
   try{
    const parsed=intent(instruction);
-   if(parsed.kind==='customer'){close();await host.customer.openReview(parsed.text,{source:'transcript'});return}
+   if(parsed.kind==='customer'){
+    // A complete voice instruction is the user's explicit authorization to add one customer.
+    // Ambiguous names, incomplete phones, duplicates and other unrecognized details always require review.
+    const instruction=parsed.text.replace(/^(?:please\s+)?(?:make|set up|add|create|register|save)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:customer|client)\b/i,'Add customer');
+    const review=await host.customer.interpret(instruction,{source:'transcript'});
+    const fields=review.draft?.fields||{};
+    const clean=review.intent==='customer.create'&&review.status==='needs_review'&&
+      !!fields.name?.trim()&&/^\+1\d{10}$/.test(fields.phone||'')&&
+      !review.issues?.length&&!review.duplicates?.length&&!review.relatedDrafts?.length;
+    if(!clean){
+      close();await host.customer.openReview(instruction,{source:'transcript'});return;
+    }
+    const plan=await host.customer.prepareCustomer(review);
+    if(plan.status!=='needs_review'){close();await host.customer.openReview(instruction,{source:'transcript'});return}
+    const approval=await host.commands.approve(plan.id);
+    if(approval.status!=='approved')throw Error(approval.error?.message||'Customer creation could not be approved.');
+    const outcome=await host.commands.execute(plan.id);
+    if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Customer was not saved; check the Customers screen before retrying.');
+    message='Customer added: '+fields.name+' ('+fields.phone+'). The Customers total has been updated.';
+    draft='';showCalendarDate='';
+    return;
+   }
    if(parsed.kind==='tomorrow'){
     const data=await host.snapshot(),date=tomorrowDate(host.now());
     const jobs=tomorrowWork(data,date,host.calendarRecords);
