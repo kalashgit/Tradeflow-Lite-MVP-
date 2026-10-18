@@ -60,3 +60,20 @@ test('Stop finalizes speech even when recognizer sends onend without final onres
   if(previous===undefined)delete globalThis.SpeechRecognition;else globalThis.SpeechRecognition=previous;
  }
 });
+
+test('tomorrow's schedule includes calendar appointments and jobs without double counting linked jobs',()=>{
+ const d={jobs:[{id:'j1',title:'Electrical inspection',date:'2026-10-19',status:'Planned'},{id:'j2',title:'Service call',date:'2026-10-19',status:'Planned'}],
+ calendarEntries:[{id:'e1',sourceKind:'job',sourceId:'j1',title:'Inspection scheduled',date:'2026-10-19',time:'09:00',status:'Scheduled'},{id:'e2',title:'Site walkthrough',date:'2026-10-19',time:'15:00',status:'Scheduled'}]};
+ const records=[...d.jobs.map(j=>({...j,kind:'job'})),...d.calendarEntries.map(e=>({...e,kind:'event'}))];
+ const items=voice.tomorrowWork(d,'2026-10-19',()=>records);
+ assert.equal(items.length,3);assert.ok(items.some(x=>x.title==='Inspection scheduled'));
+ assert.ok(!items.some(x=>x.title==='Electrical inspection'));assert.ok(items.some(x=>x.title==='Service call'));
+});
+test('open tomorrow calendar command navigates to day view without modifying records',async()=>{
+ let date='',writes=0;
+ const controller=voice.createController({document:{addEventListener:()=>{}},repaint:async()=>{},snapshot:async()=>({jobs:[],customers:[],calendarEntries:[]}),
+ now:()=>new Date(2026,9,18),calendarRecords:()=>[],openCalendar:async target=>{date=target},
+ commands:{prepare:async()=>{writes++}},customer:{openReview:async()=>{writes++}}});
+ controller.start();await controller.submit('Show tomorrow calendar');
+ assert.equal(date,'2026-10-19');assert.equal(writes,0);
+});
