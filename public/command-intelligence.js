@@ -1,0 +1,105 @@
+/* TradeFlow Command Intelligence v1. Interpretation only: no storage, microphone,
+ * network, navigation, authorization or business execution. Confidence is a rule
+ * strength indicator, not a calibrated probability. Hosts own all execution. */
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.TradeFlowCommandIntelligence=api})(typeof globalThis==='object'?globalThis:null,function(recordInterpreter){
+'use strict';
+const copy=x=>JSON.parse(JSON.stringify(x));
+const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x)}return x};
+const clean=x=>String(x??'').normalize('NFKC').replace(/[’]/g,"'").trim();
+const key=x=>clean(x).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+const validDate=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x+'T12:00:00Z'))&&new Date(x+'T12:00:00Z').toISOString().slice(0,10)===x;
+const phonetics=freeze({jib:'job',jibs:'jobs',custmer:'customer',custmr:'customer',costumer:'customer',cliant:'client',qoute:'quote',qoutes:'quotes',quotasion:'quotation',calender:'calendar',tommorow:'tomorrow',tomorow:'tomorrow',tmrw:'tomorrow'});
+const groups=freeze({customer:['customer','customers','client','clients','contact','contacts'],quote:['quote','quotes','quotation','quotations','estimate','estimates','proposal','proposals'],job:['job','jobs','work','shift','shifts'],calendar:['calendar','schedule','scheduled','booked','booking','bookings','appointment','appointments','meeting','meetings','site visit'],task:['task','tasks','reminder','reminders','todo','to do'],create:['add','create','make','register','save','onboard','set up'],prepare:['prepare','draft','write','write up','create','make','start','build','generate','put together'],query:['what','which','when','how','do','does','is','are','have','list','show','tell','check','see','look','give'],open:['open','go to','take me to','navigate to','switch to','show','view']});
+const workspaces=freeze({home:'dashboard',headquarters:'dashboard',map:'map',calendar:'calendar',finance:'expenses',more:'settings',customers:'customers',clients:'customers',quotations:'quotes',quotes:'quotes',jobs:'jobs',tasks:'tasks',invoices:'invoices',suppliers:'suppliers'});
+function withoutFiller(input){let value=clean(input);for(let i=0;i<8;i++){const next=value.replace(/^(?:(?:hey|hello|hi|okay|ok)(?:\s+there)?\s+trade\s*flow\b[\s,!:.]*|trade\s*flow\b[\s,!:.]+|(?:hey|hello|hi|okay|ok|um|uh|well|right|please)\b[\s,!:.]+|(?:could|would|can|will)\s+you\s+(?:please\s+)?|i(?:'d|\s+would)\s+like\s+(?:you\s+)?to\s+|i\s+(?:need|want)\s+(?:you\s+)?to\s+)/i,'').trim();if(next===value)break;value=next}return value}
+function lexical(input){const text=withoutFiller(input),raw=key(text).split(' ').filter(Boolean),normalizations=[];const tokens=raw.map(t=>{const to=phonetics[t];if(to)normalizations.push({from:t,to,scope:'intent_vocabulary'});return to||t});const normalized=tokens.join(' ');const has=values=>values.some(v=>(' '+normalized+' ').includes(' '+v+' '));return {text,normalized,tokens,normalizations,has,group:name=>has(groups[name]||[]),question:/^(?:what|which|when|how|do|does|is|are|have|list|show|tell|check|see|look|give)\b/.test(normalized),action:/^(?:add|create|make|register|save|onboard|set up|prepare|draft|write|start|build|generate|put together|schedule|book|plan|open|go to|take me to|navigate to|switch to|show|view)\b/.test(normalized)}}
+function result(intent=null,effect=null){return {version:1,intent,status:'unsupported',effect,parameters:{},confidence:{level:'low',score:0,method:'deterministic_rules'},missingInformation:[],warnings:[],clarification:{required:true,questions:[],reasonCodes:[]},explanation:[],normalizations:[],candidates:[],suggestedCommand:null,requiresAuthorization:effect==='proposes_modification'}}
+function missing(r,field,reason){r.missingInformation.push({field,reason})}
+function warn(r,code,message){r.warnings.push({code,message})}
+function clarify(r,code,message){if(!r.clarification.reasonCodes.includes(code))r.clarification.reasonCodes.push(code);if(message&&!r.clarification.questions.includes(message))r.clarification.questions.push(message);r.clarification.required=true}
+function customers(context){return (Array.isArray(context.customers)?context.customers:[]).filter(x=>x&&typeof x.id==='string'&&(!x.businessId||x.businessId===(context.businessId||'local-business')))}
+function resolveCustomer(text,context,r){
+ const supplied=clean(text).replace(/^["“]|["”]$/g,'').replace(/[.!?]+$/,'').trim(),list=customers(context);
+ if(/\b(?:or|maybe|possibly)\b/i.test(supplied)){missing(r,'customerRef','More than one identity or an uncertain identity was supplied.');clarify(r,'AMBIGUOUS_CUSTOMER','Which existing customer do you mean?');return null}
+ if(!supplied||/^(?:that|this|the|our)\s+(?:customer|client|contact)$/i.test(supplied)||/^(?:him|her|them)$/i.test(supplied)){
+  const selected=context.record||context.selectedRecord;
+  if(selected?.store==='customers'){const found=list.filter(x=>x.id===selected.id);if(found.length===1)return {store:'customers',id:found[0].id}}
+  missing(r,'customerRef','No verified selected customer is available.');clarify(r,'CUSTOMER_REQUIRED','Which existing customer is this for?');return null;
+ }
+ const search=key(supplied),exact=list.filter(x=>x.id===supplied||key(x.name)===search),matches=exact.length?exact:list.filter(x=>search&&(' '+key(x.name)+' ').includes(' '+search+' '));
+ if(matches.length!==1){r.parameters.customerCandidates=matches.map(x=>({store:'customers',id:x.id}));missing(r,'customerRef',matches.length?'Several saved customers match.':'No saved customer matches the supplied name or identifier.');clarify(r,matches.length?'AMBIGUOUS_CUSTOMER':'CUSTOMER_NOT_FOUND',matches.length?'Which matching customer do you mean?':'Choose an existing customer or create the customer first.');return null}
+ if(!exact.length)warn(r,'PARTIAL_CUSTOMER_MATCH','A partial name matched one currently available customer; review the reference.');
+ return {store:'customers',id:matches[0].id};
+}
+function dateParameter(l,context,r,required){
+ const dates=[...new Set(l.text.match(/\b\d{4}-\d{2}-\d{2}\b/g)||[])],relative=[];
+ if(l.has(['tomorrow','next day']))relative.push('tomorrow');if(l.has(['today']))relative.push('today');if(l.has(['yesterday']))relative.push('yesterday');
+ if(dates.length+relative.length>1){missing(r,'date','Conflicting dates were supplied.');clarify(r,'AMBIGUOUS_DATE','Which single date should I use?');return null}
+ if(dates.length){if(validDate(dates[0]))return dates[0];missing(r,'date','The supplied date is invalid.');clarify(r,'INVALID_DATE','Enter a valid date.');return null}
+ if(relative.length){r.parameters.period=relative[0];if(!validDate(context.today)){missing(r,'context.today','The host must supply the business-local date to resolve relative dates.');return null}const d=new Date(context.today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+({tomorrow:1,today:0,yesterday:-1}[relative[0]]));return d.toISOString().slice(0,10)}
+ if(required){missing(r,'date','No supported date was supplied.');clarify(r,'DATE_REQUIRED','Which date do you mean?')}return null;
+}
+function customerInstruction(l){
+ let text=l.text.replace(/^(?:make|create|add|register|save|onboard|set up)\s+(?:me\s+)?(?:(?:a|an)\s+)?(?:new\s+)?(?:customer|client|contact)\b/i,'Add customer');
+ text=text.replace(/^(?:make|create|add|register|save|onboard)\s+(?:me\s+)?(.+?)\s+(?:as\s+)?(?:a\s+)?(?:new\s+)?(?:customer|client|contact)\b/i,'Add $1 as a customer');
+ return text;
+}
+function customerReview(r,review){
+ r.parameters.fields=review.draft?.fields||{};r.recordReview=review;
+ for(const field of [...new Set([...(review.missingRequired||[]),...(!r.parameters.fields.phone?['phone']:[])])])missing(r,field,field==='phone'?'A complete US phone number is required by the current voice-create workflow.':'A required customer value is missing.');
+ for(const issue of review.issues||[])if(issue.blocking)clarify(r,issue.code,issue.message);else warn(r,issue.code,issue.message);
+ if(review.duplicates?.length){r.parameters.duplicateCandidates=review.duplicates.map(x=>x.ref);clarify(r,'POSSIBLE_DUPLICATE','Review likely existing customers before proposing a separate customer.')}
+ if(review.intent!=='customer.create')clarify(r,'UNSUPPORTED_CUSTOMER_DETAILS',review.clarification||'Please rephrase the customer details.');
+ if(!r.missingInformation.length&&!r.clarification.reasonCodes.length)r.suggestedCommand={commandId:'customer.create',params:{fields:r.parameters.fields}};
+ return r;
+}
+const builtinTools=[
+ {id:'customer.create',description:'Propose a validated customer draft',effect:'proposes_modification',requiredParameters:['name','phone'],match:l=>l.action&&l.group('customer')&&l.group('create')?90:0,extract(l,c,r,adapters){if(!adapters.records){clarify(r,'RECORD_ADAPTER_REQUIRED','Customer extraction adapter is unavailable.');return r}return customerReview(r,adapters.records.interpret(customerInstruction(l),{customers:customers(c),context:c}))}},
+ {id:'quotation.prepare',description:'Prepare a quotation for a verified existing customer',effect:'draft',requiredParameters:['customerRef'],match:l=>l.action&&l.group('quote')&&l.group('prepare')?90:0,extract(l,c,r){const person=l.text.match(/\bfor\s+(.+?)(?:[.!?]|$)/i)?.[1]||(/\b(?:that|this|the)\s+(?:customer|client)\b/i.test(l.text)?l.text.match(/\b(?:that|this|the)\s+(?:customer|client)\b/i)[0]:'');r.parameters.customerName=clean(person);const ref=resolveCustomer(person,c,r);if(ref){r.parameters.customerRef=ref;r.suggestedCommand={commandId:'draft.prepare',params:{kind:'quote',ref}}}return r}},
+ {id:'schedule.query',description:'Read booked work on one date through the existing Calendar adapter',effect:'read_only',requiredParameters:['date'],match:l=>l.question&&(l.group('job')||l.group('calendar'))&&(l.has(['tomorrow','next day','today','yesterday'])||/\b\d{4}-\d{2}-\d{2}\b/.test(l.text))?95:0,extract(l,c,r){r.parameters.date=dateParameter(l,c,r,true);r.parameters.scope=l.has(['tasks'])?'tasks':l.has(['appointments','meetings'])?'appointments':'scheduled_work';return r}},
+ {id:'workspace.open',description:'Navigate to an existing workspace',effect:'navigation',requiredParameters:['workspace'],match:l=>l.action&&l.group('open')&&Object.keys(workspaces).some(w=>l.has([w]))&&!l.has(['tomorrow','today','yesterday'])?65:0,extract(l,c,r){const found=[...new Set(Object.entries(workspaces).filter(([w])=>l.has([w])).map(([,value])=>value))];if(found.length!==1){clarify(r,'AMBIGUOUS_WORKSPACE','Which one workspace should I open?');return r}r.parameters.workspace=found[0];r.suggestedCommand={commandId:'workspace.open',params:{workspace:found[0]}};return r}},
+ {id:'record.find',description:'Find existing records without modifying them',effect:'read_only',requiredParameters:['query'],match:l=>/^(?:find|search|look up|look for)\b/.test(l.normalized)?75:0,extract(l,c,r){const m=l.text.match(/^(?:find|search(?: for)?|look (?:up|for))\s+(?:(customer|client|quote|quotation|job|task|invoice|supplier)s?\s+)?(.+?)\s*[.!?]?$/i);if(!m){missing(r,'query','A search term is required.');return r}const aliases={customer:'customers',client:'customers',quote:'quotes',quotation:'quotes',job:'jobs',task:'tasks',invoice:'invoices',supplier:'suppliers'};r.parameters={query:m[2],...(m[1]?{store:aliases[m[1].toLowerCase()]}:{})};r.suggestedCommand={commandId:'record.find',params:copy(r.parameters)};return r}},
+ {id:'task.prepare',description:'Prepare a task without saving or inventing its due date',effect:'draft',requiredParameters:['title'],match:l=>l.action&&l.group('task')&&(l.group('create')||l.group('prepare'))?85:0,extract(l,c,r){r.parameters.title=clean(l.text.replace(/^.*?\b(?:task|reminder|todo|to-do)\b\s*(?:to|for|called|named)?\s*/i,'').replace(/\s+(?:on\s+)?(?:tomorrow|today|\d{4}-\d{2}-\d{2})[.!?]*$/i,''));r.parameters.due=dateParameter(l,c,r,false);if(!r.parameters.title){missing(r,'title','Describe the task.')}return r}},
+ {id:'job.prepare',description:'Prepare a job draft for a verified customer',effect:'draft',requiredParameters:['customerRef','title'],match:l=>l.action&&l.has(['job','jobs','work order'])&&(l.group('create')||l.group('prepare'))?85:0,extract(l,c,r){r.parameters.title=clean(l.text.replace(/^.*?\b(?:job|work order)\b\s*(?:to|called|named)?\s*/i,'').replace(/\s+for\s+.+$/i,''));const person=l.text.match(/\bfor\s+(.+?)(?:[.!?]|$)/i)?.[1]||'';const ref=resolveCustomer(person,c,r);if(ref)r.parameters.customerRef=ref;if(!r.parameters.title)missing(r,'title','Describe the job scope.');r.parameters.date=dateParameter(l,c,r,false);return r}},
+ {id:'calendar.prepare',description:'Prepare an appointment draft without booking it',effect:'draft',requiredParameters:['date','time','durationMinutes'],match:l=>l.action&&l.has(['schedule','book','plan','create','prepare','add'])&&l.has(['appointment','event','meeting','site visit'])?90:0,extract(l,c,r){r.parameters.date=dateParameter(l,c,r,true);const time=l.text.match(/\b([01]\d|2[0-3]):([0-5]\d)\b/g)||[];r.parameters.time=time.length===1?time[0]:null;if(time.length!==1)missing(r,'time',time.length?'Conflicting times were supplied.':'Use an explicit 24-hour time; no appointment time was inferred.');const duration=l.text.match(/\b(?:for\s+)?(\d+)\s*(?:minutes?|mins?)\b/i);r.parameters.durationMinutes=duration?Number(duration[1]):null;if(!duration)missing(r,'durationMinutes','No duration was supplied.');else if(r.parameters.durationMinutes<15||r.parameters.durationMinutes>1440)missing(r,'durationMinutes','Duration must be 15–1440 minutes.');return r}},
+ {id:'business.query',description:'Ask for a read-only local business summary',effect:'read_only',requiredParameters:['topic'],match:l=>l.question&&l.has(['revenue','expenses','overdue invoices','open quotations','unpaid invoices','overdue tasks','business summary'])?80:0,extract(l,c,r){const topics=['revenue','expenses','overdue invoices','open quotations','unpaid invoices','overdue tasks','business summary'].filter(x=>l.has([x]));r.parameters.topics=topics;return r}}
+];
+function createEngine({tools=builtinTools,records=recordInterpreter}={}){
+ if(!Array.isArray(tools)||tools.some(t=>!t||typeof t.id!=='string'||!t.id||typeof t.match!=='function'||typeof t.extract!=='function'||!['read_only','navigation','draft','proposes_modification'].includes(t.effect)||t.execute)||new Set(tools.map(t=>t.id)).size!==tools.length)throw Error('Tools need unique IDs, interpretation-only match/extract functions and a supported effect.');
+ const registered=tools.map(t=>({...t}));
+ function interpretCommand(transcript,context={}){
+  const base=result();if(typeof transcript!=='string'||!transcript.trim()||transcript.length>8000||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(transcript)){clarify(base,'INVALID_INPUT','Enter a transcript of 1–8000 characters.');return base}
+  let c;try{c=freeze(copy(context))}catch{clarify(base,'INVALID_CONTEXT','Provide serializable local record context.');return base}
+  const l=lexical(transcript),candidates=[];
+  for(const tool of registered){try{const score=tool.match(l,c);if(Number.isFinite(score)&&score>0)candidates.push({intent:tool.id,score:Math.min(100,score),tool})}catch{warn(base,'TOOL_MATCH_UNAVAILABLE','A registered matcher could not evaluate this transcript.')}}
+  candidates.sort((a,b)=>b.score-a.score||a.intent.localeCompare(b.intent));base.candidates=candidates.map(({intent,score})=>({intent,score}));base.normalizations=l.normalizations;
+  if(!candidates.length){clarify(base,'UNKNOWN_INTENT','What would you like to do: add a customer, prepare a draft, or check existing work?');return base}
+  const selected=candidates[0];const r={...base,intent:selected.intent,effect:selected.tool.effect,parameters:{},requiresAuthorization:selected.tool.effect==='proposes_modification',explanation:['Matched '+selected.tool.id+' using action, domain and context constraints.']};
+  const modifying=candidates.filter(x=>['draft','proposes_modification'].includes(x.tool.effect));
+  if(modifying.length>1||/\b(?:and then|then also)\b/i.test(l.text)||(/\band\b/i.test(l.text)&&candidates.some(x=>x.intent==='schedule.query')&&modifying.length))clarify(r,'MULTIPLE_INTENTS','This contains multiple possible requests. Which one should I handle first?');
+  if(/\b(?:do not|don't|never|not yet|cancel|forget that|instead|actually|maybe|possibly|not sure)\b/i.test(l.text))clarify(r,'NEGATED_OR_UNCERTAIN','Please confirm the intended action and details. Nothing has been authorized.');
+  if(/\b(?:ignore (?:all|the)|override|bypass|without (?:approval|confirmation)|send|delete|charge)\b/i.test(l.text))clarify(r,'UNSUPPORTED_OR_EXTERNAL_ACTION','This layer cannot authorize external actions or bypass review. Clarify the supported request.');
+  try{selected.tool.extract(l,c,r,{records})}catch{clarify(r,'EXTRACTION_UNAVAILABLE','The parameters could not be safely interpreted. Please rephrase.')}
+  if(r.missingInformation.length)clarify(r,'MISSING_INFORMATION',r.missingInformation.map(x=>x.reason).join(' '));
+  r.status=r.clarification.reasonCodes.includes('MULTIPLE_INTENTS')?'ambiguous':r.clarification.required&&r.clarification.reasonCodes.length?'needs_clarification':'recognized';
+  r.clarification.required=r.status!=='recognized';
+  r.confidence={level:r.status==='ambiguous'?'low':r.status==='recognized'?'high':'medium',score:(r.status==='ambiguous'?Math.min(49,selected.score):r.status==='recognized'?selected.score:Math.min(69,selected.score))/100,method:'deterministic_rules'};
+  if(r.clarification.required)r.suggestedCommand=null;
+  return copy(r);
+ }
+ function correctInterpretation(previous,changes,context={}){
+  if(previous?.intent!=='customer.create'||!records?.correct||!changes||Object.keys(changes).some(k=>!['fields'].includes(k))){const r=result();clarify(r,'UNSUPPORTED_CORRECTION','Choose a customer field to correct, or re-enter the intended request.');return r}
+  let c;try{c=freeze(copy(context))}catch{const r=result();clarify(r,'INVALID_CONTEXT','Provide serializable context.');return r}
+  const seed=previous.recordReview||{intent:'customer.create',draft:{kind:'customer',fields:previous.parameters?.fields||{}},issues:[],relatedDrafts:[]};
+  const r=result('customer.create','proposes_modification');r.explanation=['Customer fields were explicitly corrected; no record was changed.'];
+  const review=records.correct(seed,changes.fields,{customers:customers(c),context:c});customerReview(r,review);
+  for(const w of previous.warnings||[])if(w.code==='UNSUPPORTED_OR_EXTERNAL_ACTION')clarify(r,w.code,w.message);
+  if(previous.clarification?.reasonCodes.some(x=>['MULTIPLE_INTENTS','NEGATED_OR_UNCERTAIN','UNSUPPORTED_OR_EXTERNAL_ACTION'].includes(x)))clarify(r,'ACTION_CONFIRMATION_REQUIRED','Re-enter the intended action; field correction does not resolve conflicting instructions.');
+  if(r.missingInformation.length)clarify(r,'MISSING_INFORMATION',r.missingInformation.map(x=>x.reason).join(' '));
+  r.status=r.clarification.reasonCodes.length?'needs_clarification':'recognized';r.clarification.required=r.status!=='recognized';r.confidence={level:r.status==='recognized'?'high':'medium',score:r.status==='recognized'?.9:.6,method:'deterministic_rules'};if(r.clarification.required)r.suggestedCommand=null;return copy(r);
+ }
+ return Object.freeze({version:1,interpretCommand,correctInterpretation,tools:freeze(registered.map(({id,description,effect,requiredParameters})=>({id,description,effect,requiredParameters:requiredParameters||[]})))});
+}
+const engine=createEngine();
+return Object.freeze({version:1,createEngine,interpretCommand:engine.interpretCommand,correctInterpretation:engine.correctInterpretation,vocabulary:groups,phonetics,builtinTools:freeze(builtinTools),tools:engine.tools});
+});
