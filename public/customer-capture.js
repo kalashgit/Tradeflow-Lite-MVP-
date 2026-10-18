@@ -28,23 +28,52 @@ function createController(host){
  function focus(selector){const document=host.document;if(document?.querySelector)document.querySelector(selector)?.focus()}
  function listen(){
   if(!state||state.busy||state.step!=='input')return;
-  if(recognition){const current=recognition;recognition=null;try{current.stop()}catch{}return}
+  if(recognition){
+   const current=recognition;
+   current.tfStopping=true;
+   const button=document?.querySelector?.('[data-customer-action="listen"]');
+   if(button){button.textContent='Finishing speech…';button.disabled=true}
+   try{current.stop()}catch{finishSpeech(current)}
+   // Some WebKit implementations never fire onend after stop.
+   setTimeout(()=>{if(recognition===current)finishSpeech(current)},1200);
+   return;
+  }
   const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
-  if(!Engine){state.error='Voice recognition is not available in this browser. Use Siri Shortcuts or your keyboard microphone.';void repaint();return}
+  if(!Engine){state.error='Voice recognition is not supported by this browser. Use the phone keyboard microphone.';void repaint();return}
   let current;
   try{
-   current=new Engine();recognition=current;current.lang='en-US';current.continuous=false;current.interimResults=false;current.maxAlternatives=1;
+   current=new Engine();recognition=current;
+   current.tfTranscript='';current.tfStopping=false;current.tfFinished=false;current.tfTimer=null;
+   current.lang='en-US';current.continuous=false;current.interimResults=true;current.maxAlternatives=1;
    current.onresult=event=>{
-    if(recognition!==current)return;
-    const transcript=String(event.results?.[0]?.[0]?.transcript||'').trim();
-    recognition=null;if(transcript)void openReview(transcript,{source:'transcript'});else{state.error='No speech was recognized. Try again.';void repaint()}
+    if(recognition!==current||current.tfFinished)return;
+    const parts=[];for(let i=0;i<event.results.length;i++)parts.push(String(event.results[i]?.[0]?.transcript||''));
+    current.tfTranscript=parts.join(' ').trim();
+    const textarea=document?.querySelector?.('#tfCustomerTextForm textarea[name="instruction"]');
+    if(textarea&&current.tfTranscript)textarea.value=current.tfTranscript;
+    if(current.tfStopping)finishSpeech(current);
    };
-   current.onerror=event=>{if(recognition!==current)return;recognition=null;state.error=event.error==='not-allowed'?'Microphone permission was denied. Enable it in your browser settings.':event.error==='no-speech'?'No speech detected. Try again.':'Voice recognition could not complete. Type your instruction instead.';void repaint()};
-   current.onend=()=>{if(recognition!==current)return;recognition=null;void repaint()};
+   current.onerror=event=>{
+    if(recognition!==current||current.tfFinished)return;
+    const error=event?.error||'';
+    if(error==='aborted'&&current.tfStopping){finishSpeech(current);return}
+    current.tfError=error==='not-allowed'?'Microphone permission was denied. Check your browser settings.':error==='no-speech'?'No speech was detected. Try speaking closer to the microphone.':'Speech recognition failed. You can type the customer details instead.';
+    finishSpeech(current);
+   };
+   current.onend=()=>finishSpeech(current);
    current.start();
    const button=document?.querySelector?.('[data-customer-action="listen"]');
-   if(button){button.textContent='Listening… tap to stop';button.setAttribute('aria-pressed','true')}
-  }catch(error){recognition=null;state.error='Microphone could not start. Check device permissions or use your keyboard microphone.';void repaint()}
+   if(button){button.textContent='■ Stop & review speech';button.setAttribute('aria-pressed','true')}
+  }catch(error){recognition=null;state.error='Could not start microphone recognition. Check permissions or use keyboard dictation.';void repaint()}
+ }
+ function finishSpeech(current){
+  if(!current||recognition!==current||current.tfFinished)return;
+  current.tfFinished=true;recognition=null;
+  if(current.tfTimer)clearTimeout(current.tfTimer);
+  const textarea=document?.querySelector?.('#tfCustomerTextForm textarea[name="instruction"]');
+  const spoken=String(current.tfTranscript||textarea?.value||'').trim();
+  if(spoken){void openReview(spoken,{source:'transcript'});return}
+  if(state){state.error=current.tfError||'No speech was captured. Tap Speak and try again.';void repaint()}
  }
 
  async function extract(text,options={}){
