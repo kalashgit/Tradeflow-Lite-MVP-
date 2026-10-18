@@ -38,3 +38,25 @@ test('quote intent requires exact customer and only opens an unsaved draft',asyn
  assert.deepEqual(prepared.params,{kind:'quote',ref:{store:'customers',id:'c1'}});
  assert.equal(executed,1);
 });
+
+test('Stop finalizes speech even when recognizer sends onend without final onresult',async()=>{
+ const previous=globalThis.SpeechRecognition;
+ let recognizer,received='';
+ class FakeSpeech{constructor(){recognizer=this}start(){}stop(){this.onend?.()}abort(){}}
+ globalThis.SpeechRecognition=FakeSpeech;
+ try{
+  const events={};
+  const controller=voice.createController({document:{addEventListener:(type,fn)=>(events[type]??=[]).push(fn)},repaint:async()=>{},
+   snapshot:async()=>({}),now:()=>new Date(),commands:{},
+   customer:{openReview:async text=>{received=text}}});
+  controller.start();
+  const click=async action=>events.click[0]({target:{closest:()=>({dataset:{voice:action}})},preventDefault(){}});
+  await click('mic');
+  recognizer.onresult({results:[[{transcript:'Hey TradeFlow, add customer Maria Black, phone 512-555-0198'}]]});
+  await click('mic');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(received,/Maria Black/);
+ }finally{
+  if(previous===undefined)delete globalThis.SpeechRecognition;else globalThis.SpeechRecognition=previous;
+ }
+});
