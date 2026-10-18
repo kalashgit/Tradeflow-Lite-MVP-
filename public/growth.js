@@ -400,7 +400,7 @@ function init(context){
 function renderPage(tab,d,prefs){
  if(tab==='growth')return targetList(d,prefs||{});
  if(tab==='missions')return missions(d);
- if(tab==='capabilities')return capabilityView();
+ 
  if(['growthAutomation','growthOptimization','growthCommunication','growthIntelligence'].includes(tab))return businessCapabilityPage(tab,d);
  return '';
 }
