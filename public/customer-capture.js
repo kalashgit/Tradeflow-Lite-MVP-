@@ -33,7 +33,7 @@ function createController(host){
  }
  async function changeField(name,value){
   const current=state;if(!current?.review||current.busy)return;
-  current.review=await correct(current.review,{[name]:value});current.duplicateAcknowledged=false;current.requestId=null;current.error='';await repaint();
+  current.review=await correct(current.review,{[name]:value});current.duplicateAcknowledged=false;current.requestId=null;current.error='';syncReview();
  }
  async function save(form){
   const current=state;if(!current?.review||current.busy||current.savedId)return;current.busy=true;current.error='';
@@ -84,9 +84,29 @@ function createController(host){
   }
   return '<div class="dialog tf-record-dialog tf-customer-dialog" role="dialog" aria-modal="true" aria-label="Customer smart entry"><section class="modal tf-record-modal tf-customer-modal">'+body+'</section></div>';
  }
+ // Keep form controls mounted during blur/checkbox events so iPhone taps are not swallowed.
+ function syncSubmit(){
+  const form=document?.getElementById?.('tfCustomerReviewForm');
+  if(!form||!state?.review)return;
+  const blocked=state.review.missingRequired.length||state.review.issues.some(x=>x.blocking)||
+   (state.review.duplicates.length&&!state.duplicateAcknowledged);
+  const button=form.querySelector('button[type=submit]');if(button)button.disabled=!!blocked||!!state.busy;
+ }
+ function syncReview(){
+  const form=document?.getElementById?.('tfCustomerReviewForm');
+  if(!form||!document.createElement)return;
+  const fresh=document.createElement('div');fresh.innerHTML=view();
+  const notices=form.querySelector('#tfCustomerReviewStatus'),nextNotices=fresh.querySelector('#tfCustomerReviewStatus');
+  if(notices&&nextNotices)notices.innerHTML=nextNotices.innerHTML;
+  const oldMatches=form.querySelector('.tf-customer-duplicates'),nextMatches=fresh.querySelector('.tf-customer-duplicates');
+  if(oldMatches&&nextMatches)oldMatches.replaceWith(nextMatches);
+  else if(oldMatches)oldMatches.remove();
+  else if(nextMatches){const before=form.querySelector('[name=retainOriginal]')?.closest('label');if(before)form.insertBefore(nextMatches,before)}
+  syncSubmit();
+ }
  const document=host.document;
  document?.addEventListener('submit',async e=>{if(!['tfCustomerTextForm','tfCustomerReviewForm'].includes(e.target.id))return;e.preventDefault();e.stopImmediatePropagation();if(e.target.id==='tfCustomerTextForm'){const text=new FormData(e.target).get('instruction');await extract(String(text||''),{source:state?.source||'typed'})}else await save(e.target)});
- document?.addEventListener('change',async e=>{if(!e.target.closest?.('#tfCustomerReviewForm')||!state||state.busy)return;if(fields.includes(e.target.name))await changeField(e.target.name,e.target.value);else if(['retainOriginal','duplicateAcknowledged'].includes(e.target.name)){state[e.target.name]=e.target.checked;await repaint()}});
+ document?.addEventListener('change',async e=>{if(!e.target.closest?.('#tfCustomerReviewForm')||!state||state.busy)return;if(fields.includes(e.target.name))await changeField(e.target.name,e.target.value);else if(['retainOriginal','duplicateAcknowledged'].includes(e.target.name)){state[e.target.name]=e.target.checked;syncSubmit()}});
  document?.addEventListener('click',async e=>{
   const el=e.target.closest?.('[data-customer-action],[data-action="tfCustomerCapture"],[data-action="tfCustomerSourceDelete"]');if(!el)return;e.preventDefault();
   if(el.dataset.action==='tfCustomerCapture'){await start();return}if(el.dataset.action==='tfCustomerSourceDelete'){await removeSource(el.dataset.id);return}
