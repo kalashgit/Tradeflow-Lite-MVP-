@@ -20,6 +20,8 @@ function parse(value){
  if(m&&m[2].trim().length>=2&&m[2].length<=160)return {action:'find',store:stores[m[1]],query:m[2].trim()};
  m=s.match(/^(?:open|show)\s+(?:the\s+)?(opportunities|opportunity|customers|customer|quotations|quotation|quotes|quote|jobs|job|tasks|task|invoices|invoice)\s+(.+)$/);
  if(m&&m[2].trim().length>=2&&m[2].length<=160)return {action:'openRecord',store:stores[m[1]],query:m[2].trim()};
+ let loc=s.match(/^(?:find|show|locate|where is)\s+(?:the\s+)?(.+?)(?:'s|s')?\s+job\s+(?:location|address)$/);
+ if(loc&&loc[1].length>=2&&loc[1].length<=100)return {action:'jobLocation',person:loc[1].replace(/(?:'s|s')$/,'').trim()};
  // Full named customer lookup and contextual generic record search.
  let named=s.match(/^(?:show|open|view)\s+(?:me\s+)?(.+?)\s+(?:customer\s+)?details$/);
  if(named&&named[1].length>=2&&named[1].length<=160)return {action:'openRecord',store:'customers',query:named[1]};
