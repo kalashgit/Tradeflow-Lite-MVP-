@@ -5,7 +5,7 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const fields=['name','phone','address','notes','email','company'];
 const labels={name:'Customer name *',phone:'Phone',address:'Location / address',notes:'Work requested / notes',email:'Email',company:'Company'};
 function createController(host){
- const sources=new Map();let state=null;
+ const sources=new Map();let state=null,recognition=null;
  const repaint=()=>host.repaint();
  const context=()=>host.context();
  async function interpret(text,{source='typed'}={}){
@@ -22,10 +22,31 @@ function createController(host){
   if(plan.status==='needs_review'&&retainOriginal)sources.set(plan.id,originalText);
   return plan;
  }
- function discard(){sources.clear();state=null}
+ function discard(){if(recognition){const current=recognition;recognition=null;try{current.abort()}catch{}}sources.clear();state=null}
  async function start(){discard();state={step:'input',input:'',source:'typed',review:null,retainOriginal:false,duplicateAcknowledged:false,busy:false,error:'',savedId:null};await host.show();focus('textarea[name="instruction"]')}
  async function openReview(text,options={}){await start();state.input=text;state.source=options.source||'typed';await extract(text,options);return state?.review}
  function focus(selector){const document=host.document;if(document?.querySelector)document.querySelector(selector)?.focus()}
+ function listen(){
+  if(!state||state.busy||state.step!=='input')return;
+  if(recognition){const current=recognition;recognition=null;try{current.stop()}catch{}return}
+  const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
+  if(!Engine){state.error='Voice recognition is not available in this browser. Use Siri Shortcuts or your keyboard microphone.';void repaint();return}
+  let current;
+  try{
+   current=new Engine();recognition=current;current.lang='en-US';current.continuous=false;current.interimResults=false;current.maxAlternatives=1;
+   current.onresult=event=>{
+    if(recognition!==current)return;
+    const transcript=String(event.results?.[0]?.[0]?.transcript||'').trim();
+    recognition=null;if(transcript)void openReview(transcript,{source:'transcript'});else{state.error='No speech was recognized. Try again.';void repaint()}
+   };
+   current.onerror=event=>{if(recognition!==current)return;recognition=null;state.error=event.error==='not-allowed'?'Microphone permission was denied. Enable it in your browser settings.':event.error==='no-speech'?'No speech detected. Try again.':'Voice recognition could not complete. Type your instruction instead.';void repaint()};
+   current.onend=()=>{if(recognition!==current)return;recognition=null;void repaint()};
+   current.start();
+   const button=document?.querySelector?.('[data-customer-action="listen"]');
+   if(button){button.textContent='Listening… tap to stop';button.setAttribute('aria-pressed','true')}
+  }catch(error){recognition=null;state.error='Microphone could not start. Check device permissions or use your keyboard microphone.';void repaint()}
+ }
+
  async function extract(text,options={}){
   const current=state;if(!current||current.busy)return;current.busy=true;current.error='';
   try{const review=await interpret(text,options);if(state!==current)return;current.input=text;current.review=review;current.step=review.intent==='customer.create'?'review':'input';current.error=review.intent==='customer.create'?'':review.clarification;current.duplicateAcknowledged=false;current.requestId=null}
@@ -71,8 +92,8 @@ function createController(host){
   const head=title=>'<div class="modalhead tf-record-modalhead"><h2>'+title+'</h2>'+close+'</div>';
   const error=s.error?'<p class="tf-customer-error" role="alert">'+escape(s.error)+'</p>':'';
   let body='';
-  if(s.step==='input')body=head('Describe a customer')+'<p class="tf-customer-hint">Type or paste what the customer told you. You can also use your phone keyboard’s dictation. Extraction works offline.</p>'+error+
-   '<form id="tfCustomerTextForm"><label class="field">Customer information<textarea name="instruction" rows="5" maxlength="4000" required placeholder="Add a new customer called John Smith. His number is 512-555-0198, and he needs electrical work in Austin." '+disabled+'>'+escape(s.input)+'</textarea></label><div class="actions tf-record-actions"><button type="button" class="tf-record-cancel" data-customer-action="close" '+disabled+'>Cancel</button><button class="tf-record-save" type="submit" '+disabled+'>'+(s.busy?'Reading…':'Review customer')+'</button></div></form><p class="tf-customer-hint">No customer is saved until you review and confirm.</p>';
+  if(s.step==='input')body=head('Describe a customer')+'<p class="tf-customer-hint">Type or paste what the customer told you. Tap Speak to dictate, or use your keyboard microphone. Speech recognition may require network access; customer extraction and saving work locally.</p>'+error+
+   '<form id="tfCustomerTextForm"><button type="button" class="tf-customer-speak" data-customer-action="listen" aria-pressed="false">🎙 Speak a customer command</button><label class="field">Customer information<textarea name="instruction" rows="5" maxlength="4000" required placeholder="Add a new customer called John Smith. His number is 512-555-0198, and he needs electrical work in Austin." '+disabled+'>'+escape(s.input)+'</textarea></label><div class="actions tf-record-actions"><button type="button" class="tf-record-cancel" data-customer-action="close" '+disabled+'>Cancel</button><button class="tf-record-save" type="submit" '+disabled+'>'+(s.busy?'Reading…':'Review customer')+'</button></div></form><p class="tf-customer-hint">No customer is saved until you review and confirm.</p>';
   else if(s.step==='success')body=head('Customer saved')+'<div role="status" class="tf-customer-success"><strong>'+escape(s.review.draft.fields.name)+'</strong><p>Your customer record is ready.'+(s.sourceSaved?' Original wording was kept locally.':'')+'</p></div><button type="button" class="tf-record-save tf-customer-wide" data-customer-action="open-saved" data-id="'+escape(s.savedId)+'">Open customer record →</button>'+
    (s.review.relatedDrafts.length?'<div class="tf-customer-linked"><h3>Continue with a draft</h3>'+s.review.relatedDrafts.map((d,i)=>'<button class="btn secondary" type="button" data-customer-action="linked" data-index="'+i+'">Review linked '+escape(d.kind)+' draft →</button>').join('')+'<small>Nothing is scheduled or saved automatically.</small></div>':'');
   else{
@@ -111,7 +132,7 @@ function createController(host){
   const el=e.target.closest?.('[data-customer-action],[data-action="tfCustomerCapture"],[data-action="tfCustomerSourceDelete"]');if(!el)return;e.preventDefault();
   if(el.dataset.action==='tfCustomerCapture'){await start();return}if(el.dataset.action==='tfCustomerSourceDelete'){await removeSource(el.dataset.id);return}
   const action=el.dataset.customerAction;if(state?.busy)return;
-  if(action==='close')await close();if(action==='restart'){state.step='input';await repaint();focus('textarea[name="instruction"]')}
+  if(action==='listen'){listen();return}if(action==='close')await close();if(action==='restart'){state.step='input';await repaint();focus('textarea[name="instruction"]')}
   if(action==='open-saved'||action==='open-duplicate')await openSaved(el.dataset.id);if(action==='linked')await linked(Number(el.dataset.index));
  });
  document?.addEventListener('keydown',e=>{if(e.key==='Escape'&&state){e.preventDefault();void close()}});
