@@ -818,7 +818,7 @@ function tfRecordDetailView(d,record,type){
 }
 function tfRecordHubView(d){
  const type=tab,spec=tfRecordTypes[type];if(!spec)return '';
- const records=d[type]||[],found=records.filter(x=>[...Object.entries(x).filter(([key])=>key!=='photoData').map(([,value])=>value),tfRecordPerson(d,x.customerId)].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
+ const records=d[type]||[],filtered=tfPilotFilter?.workspace===type&&window.TradeFlowCommands?window.TradeFlowCommands.filterRecords(type,tfPilotFilter.filter,d,{today:tfPilotContext().today}):records,found=filtered.filter(x=>[...Object.entries(x).filter(([key])=>key!=='photoData').map(([,value])=>value),tfRecordPerson(d,x.customerId)].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
  const detail=tfRecordDetailId&&records.find(x=>x.id===tfRecordDetailId);
  if(detail)return tfRecordDetailView(d,detail,type);
  const heading='<header class="tf-record-hub-header"><h1>'+esc(spec.label)+' <span>'+records.length+'</span></h1><p>'+spec.hint+'</p></header>';
@@ -831,7 +831,7 @@ const cats=[...new Set([...prefs.categories,...d.quotes.map(x=>x.category||'Othe
 const stats=cats.map(c=>({c,quotes:d.quotes.filter(x=>(x.category||'Other')===c),expenses:d.expenses.filter(x=>(x.category||'Other')===c)}));
 return `<section class="panel"><div class="panelhead"><h3>Trade performance</h3><span class="muted sub">By category</span></div><div class="tradegrid">${stats.map(x=>{const quoted=x.quotes.reduce((a,q)=>a+Number(q.amount||0),0),accepted=x.quotes.filter(q=>q.status==='Accepted').reduce((a,q)=>a+Number(q.amount||0),0),cost=x.expenses.reduce((a,e)=>a+Number(e.amount||0),0);return `<div class="tradebox"><div class="tradehead"><strong>${esc(x.c)}</strong><span>↗</span></div><div class="tradeamount">${euro(quoted)}</div><span class="muted sub">${x.quotes.length} quotes</span><div class="tradefoot"><span>Accepted <b>${euro(accepted)}</b></span><span>Expenses <b>${euro(cost)}</b></span></div></div>`}).join('')}</div><p class="muted sub">Quoted and accepted amounts are not payments received. Expenses are manually entered.</p></section>`}
 function formModal(d){
- const obj=modal.id?d[tab].find(x=>x.id===modal.id)||{}:{customerId:modal.prefillCustomerId||''};
+ const obj=modal.id?d[tab].find(x=>x.id===modal.id)||{}:{...modal.draftDefaults,customerId:modal.draftDefaults?.customerId||modal.prefillCustomerId||''};
  const customers=d.customers.map(c=>'<option value="'+esc(c.id)+'" '+(obj.customerId===c.id?'selected':'')+'>'+esc(c.name)+'</option>').join('');
  const defs={
  customers:[['name','Customer name','text',true],['phone','Phone','tel'],['email','Email','email'],['address','Address','text'],['company','Company','text'],['notes','Notes','textarea']],
@@ -869,7 +869,7 @@ function formModal(d){
  }).join('');
  return '<div class="dialog tf-record-dialog"><form class="modal tf-record-modal" id="recordForm"><div class="modalhead tf-record-modalhead"><h2>'+(modal.id?'Edit':'New')+' '+titleNames[tab]+'</h2><button class="tf-record-close" type="button" data-action="close" aria-label="Close form"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18"/></svg></button></div><div class="formgrid tf-record-grid">'+fields+'</div>'+(tfSafeImage(tfPhotoPending?.target===tab?tfPhotoPending.dataUrl:obj.photoData)?'<div class="tf-photo-form-preview"><strong>Attached photo</strong><img src="'+tfSafeImage(tfPhotoPending?.target===tab?tfPhotoPending.dataUrl:obj.photoData)+'" alt="Photo ready to save with this record"><small>Saved with the record after you submit.</small></div>':'')+'<div class="actions tf-record-actions"><button type="button" class="tf-record-cancel" data-action="close">Cancel</button><button class="tf-record-save" type="submit">Save record</button></div></form></div>';
 }
-async function saveForm(form){const f=Object.fromEntries(new FormData(form));if(tab==='customers'){f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}const id=modal.id||uid(),old=modal.id?await get(tab,id):{};if(tfPhotoPending?.target===tab)f.photoData=tfPhotoPending.dataUrl;await put(tab,{...old,...f,id,updatedAt:new Date().toISOString()});tfPhotoPending=null;await event(`${modal.id?'Updated':'Created'} ${tab.slice(0,-1)}: ${f.name||f.title}`);if(tab==='quotes'&&f.status==='Sent'&&old.status!=='Sent'){const tasks=await all('tasks');if(!tasks.some(t=>t.quoteId===id)){await put('tasks',{id:uid(),title:`Follow up quote: ${f.title}`,customerId:f.customerId,due:new Date(Date.now()+3*86400000).toISOString().slice(0,10),status:'Open',quoteId:id});await event('Created quote follow-up task')}}modal=null;query='';notify('Record saved')}
+async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntries(new FormData(form))};if(modal.commandDraft){try{window.TradeFlowCommands.validateDraft({...modal.commandDraft,fields:f},await tfPilotSnapshot(),tfPilotContext())}catch(error){alert('Draft needs review: '+error.message);return}}if(tab==='customers'){f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}const id=modal.id||uid(),old=modal.id?await get(tab,id):{};if(tfPhotoPending?.target===tab)f.photoData=tfPhotoPending.dataUrl;await put(tab,{...old,...f,id,updatedAt:new Date().toISOString()});tfPhotoPending=null;await event(`${modal.id?'Updated':'Created'} ${tab.slice(0,-1)}: ${f.name||f.title}`);if(tab==='quotes'&&f.status==='Sent'&&old.status!=='Sent'){const tasks=await all('tasks');if(!tasks.some(t=>t.quoteId===id)){await put('tasks',{id:uid(),title:`Follow up quote: ${f.title}`,customerId:f.customerId,due:new Date(Date.now()+3*86400000).toISOString().slice(0,10),status:'Open',quoteId:id});await event('Created quote follow-up task')}}modal=null;query='';notify('Record saved')}
 async function exportData(){const data={format:'tradeflow-lite',version:9,exportedAt:new Date().toISOString(),stores:Object.fromEntries(await Promise.all(STORES.map(async s=>[s,await all(s)])))};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 async function restore(file){let data;try{data=JSON.parse(await file.text());if(data.format!=='tradeflow-lite'||![1,2,3,4,5,6,7,8,9].includes(data.version)||!data.stores||!STORES.every(s=>Array.isArray(data.stores[s]||((data.version<4||s==='pins'||(s==='payments'&&data.version<5)||(['invoices','jobCosts'].includes(s)&&data.version<6)||(['marketingCampaigns','crew','routePlans'].includes(s)&&data.version<7)||(['suppliers','supplyOrders','commandLog'].includes(s)&&data.version<8)||(['calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'].includes(s)&&data.version<9))?[]:null))&&(data.stores[s]||[]).every(x=>x&&typeof x.id==='string')))throw Error('Invalid backup');if(!confirm('Replace ALL existing local records with this backup? This cannot be undone.'))return;const t=db.transaction(STORES,'readwrite');for(const s of STORES){const st=t.objectStore(s);st.clear();for(const item of (data.stores[s]||[]))st.put(item)}await new Promise((resolve,reject)=>{t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error)});notify('Backup restored')}catch(e){alert(`Restore failed: ${e.message}`)}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab],[data-action],[data-edit],[data-delete],[data-convert]');if(!el)return;
@@ -1058,7 +1058,7 @@ if(el.dataset.action==='mapMyLocation'){
  await tfResolveSupplyLocations({onlyBusiness:true,max:1,interactive:true});
  const now=window.TradeFlowCore?.position({latitude:prefs.homeLat,longitude:prefs.homeLon});
  if(now){mapLastView={center:[now.lon,now.lat],zoom:15};await render()}return;
-}if(el.dataset.action==='mapHome'){setMapHome();return}if(el.dataset.action==='mapPinDelete'){if(confirm('Delete this saved map pin?')){await del('pins',el.dataset.id);render()}return}if(el.dataset.action==='mapPinView'){focusMapPin(el.dataset.id);return}if(el.dataset.action==='opportunityReviewClose'){opportunityImportDraft=null;render();return}if(el.dataset.action==='opportunityReviewTab'){opportunityImportTab=el.dataset.filter;render();return}if(el.dataset.action==='opportunityReviewSave'){await saveOpportunityImportDraft();return}if(el.dataset.action==='opportunityMapAll'){mapLastView=null;tab='map';await render();void locateOpportunityBatch(await all('opportunities'),{automatic:true,all:true}).catch(err=>console.warn('Mapping skipped:',err));return}if(el.dataset.action==='opportunityMapRemaining'){await locateOpportunityBatch(await all('opportunities'));return}if(el.dataset.action==='opportunityLocate'){const r=await get('opportunities',el.dataset.id);if(!r)return;const address=[r.address,r.city,r.region].filter(Boolean).join(', ')||[r.project_name,r.city,r.region].filter(Boolean).join(', ');if(!address)return alert('No address available for this record.');if(!confirm('Look up the location for '+r.project_name+'? Internet is required. Please verify the result on the map.'))return;try{const result=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address));if(!result.length)throw Error('No matching address');const lat=Number(result[0].lat),lon=Number(result[0].lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw Error('Invalid location');r.latitude=lat;r.longitude=lon;r.map_enabled=true;r.map_address_result=String(result[0].display_name||'');r.map_location_status='needs_review';await put('opportunities',r);mapLastView={center:[lon,lat],zoom:14};tab='map';await render();notify('Approximate location plotted — verify the pin before relying on it.')}catch(err){alert('Could not locate record: '+err.message)}return}if(el.dataset.action==='opportunityMapFilters'){opportunityFilter=opportunityFilter==='unmapped'?'all':'unmapped';opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityImportToggle'){const box=document.getElementById('opportunityImportTools');if(box)box.hidden=!box.hidden;return}if(el.dataset.action==='opportunityFilter'){opportunityFilter=el.dataset.filter;opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityDetail'){opportunityDetailId=el.dataset.id;opportunityDetailScreen='dossier';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityWorkflow'){opportunityDetailId=el.dataset.id||opportunityDetailId;opportunityDetailScreen='workflow';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityBack'){if(opportunityDetailScreen==='workflow'){opportunityDetailScreen='dossier'}else{opportunityDetailId=null;opportunityDetailScreen='dossier'}await render();return}if(el.dataset.action==='opportunityClose'){opportunityDetailId=null;opportunityDetailScreen='dossier';render();return}if(el.dataset.action==='opportunityMap'){const r=await get('opportunities',el.dataset.id);if(r&&opportunityMapped(r)){mapLastView={center:[r.longitude,r.latitude],zoom:15};tab='map';render()}return}if(el.dataset.action==='importOpportunities'){document.getElementById('opportunityFile')?.click();return}if(el.dataset.action==='exportOpportunities'){exportOpportunities();return}if(el.dataset.action==='opportunityStatus'){const r=await get('opportunities',el.dataset.id);if(r){r.status=el.dataset.status;await put('opportunities',r);notify('Opportunity updated')}return}if(el.dataset.tab){tfCalendarLinkedReturn=false;tfAiPanelOpen=false;if(tab!==el.dataset.tab)tfMotionNext=el.dataset.tab==='map'?'':'tab';tab=el.dataset.tab;query='';tfRecordListContext=null;modal=null;tfRecordDetailId=null;tfPhotoPending=null;tfCapture=null;render()}else if(el.dataset.action==='new'){if(['quotes','jobs','tasks'].includes(tab)&&(await all('customers')).length===0){alert('Create a customer first.');tab='customers';render();return}modal={};render()}else if(el.dataset.action==='close'){modal=null;tfPhotoPending=null;render()}else if(el.dataset.action==='export')exportData();else if(el.dataset.edit){modal={id:el.dataset.edit};render()}else if(el.dataset.delete){if(!confirm('Delete this record? This cannot be undone.'))return;const id=el.dataset.delete;if(tab==='customers'){const refs=await Promise.all(['quotes','jobs','tasks'].map(all));if(refs.some(a=>a.some(x=>x.customerId===id))){alert('This customer has linked records. Remove or reassign those first.');return}}await del(tab,id);tfRecordDetailId=null;await event(`Deleted ${tab.slice(0,-1)}`);notify('Record deleted')}else if(el.dataset.convert){const q=await get('quotes',el.dataset.convert);if(q?.status!=='Accepted')return;const jobs=await all('jobs');if(jobs.some(j=>j.quoteId===q.id))return;await tfExecuteCommand('quotation.convert',{quoteId:q.id},'quotation:convert:'+q.id);await event(`Created job from accepted quotation: ${q.title}`);notify('Job created')}});
+}if(el.dataset.action==='mapHome'){setMapHome();return}if(el.dataset.action==='mapPinDelete'){if(confirm('Delete this saved map pin?')){await del('pins',el.dataset.id);render()}return}if(el.dataset.action==='mapPinView'){focusMapPin(el.dataset.id);return}if(el.dataset.action==='opportunityReviewClose'){opportunityImportDraft=null;render();return}if(el.dataset.action==='opportunityReviewTab'){opportunityImportTab=el.dataset.filter;render();return}if(el.dataset.action==='opportunityReviewSave'){await saveOpportunityImportDraft();return}if(el.dataset.action==='opportunityMapAll'){mapLastView=null;tab='map';await render();void locateOpportunityBatch(await all('opportunities'),{automatic:true,all:true}).catch(err=>console.warn('Mapping skipped:',err));return}if(el.dataset.action==='opportunityMapRemaining'){await locateOpportunityBatch(await all('opportunities'));return}if(el.dataset.action==='opportunityLocate'){const r=await get('opportunities',el.dataset.id);if(!r)return;const address=[r.address,r.city,r.region].filter(Boolean).join(', ')||[r.project_name,r.city,r.region].filter(Boolean).join(', ');if(!address)return alert('No address available for this record.');if(!confirm('Look up the location for '+r.project_name+'? Internet is required. Please verify the result on the map.'))return;try{const result=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(address));if(!result.length)throw Error('No matching address');const lat=Number(result[0].lat),lon=Number(result[0].lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))throw Error('Invalid location');r.latitude=lat;r.longitude=lon;r.map_enabled=true;r.map_address_result=String(result[0].display_name||'');r.map_location_status='needs_review';await put('opportunities',r);mapLastView={center:[lon,lat],zoom:14};tab='map';await render();notify('Approximate location plotted — verify the pin before relying on it.')}catch(err){alert('Could not locate record: '+err.message)}return}if(el.dataset.action==='opportunityMapFilters'){opportunityFilter=opportunityFilter==='unmapped'?'all':'unmapped';opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityImportToggle'){const box=document.getElementById('opportunityImportTools');if(box)box.hidden=!box.hidden;return}if(el.dataset.action==='opportunityFilter'){opportunityFilter=el.dataset.filter;opportunityDetailId=null;render();return}if(el.dataset.action==='opportunityDetail'){opportunityDetailId=el.dataset.id;opportunityDetailScreen='dossier';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityWorkflow'){opportunityDetailId=el.dataset.id||opportunityDetailId;opportunityDetailScreen='workflow';await render();document.querySelector('.tf-od-screen')?.scrollIntoView({block:'start',behavior:'instant'});return}if(el.dataset.action==='opportunityBack'){if(opportunityDetailScreen==='workflow'){opportunityDetailScreen='dossier'}else{opportunityDetailId=null;opportunityDetailScreen='dossier'}await render();return}if(el.dataset.action==='opportunityClose'){opportunityDetailId=null;opportunityDetailScreen='dossier';render();return}if(el.dataset.action==='opportunityMap'){const r=await get('opportunities',el.dataset.id);if(r&&opportunityMapped(r)){mapLastView={center:[r.longitude,r.latitude],zoom:15};tab='map';render()}return}if(el.dataset.action==='importOpportunities'){document.getElementById('opportunityFile')?.click();return}if(el.dataset.action==='exportOpportunities'){exportOpportunities();return}if(el.dataset.action==='opportunityStatus'){const r=await get('opportunities',el.dataset.id);if(r){r.status=el.dataset.status;await put('opportunities',r);notify('Opportunity updated')}return}if(el.dataset.tab){await tfNavigateWorkspace(el.dataset.tab)}else if(el.dataset.action==='new'){if(['quotes','jobs','tasks'].includes(tab)&&(await all('customers')).length===0){alert('Create a customer first.');tab='customers';render();return}modal={};render()}else if(el.dataset.action==='close'){modal=null;tfPhotoPending=null;render()}else if(el.dataset.action==='export')exportData();else if(el.dataset.edit){modal={id:el.dataset.edit};render()}else if(el.dataset.delete){if(!confirm('Delete this record? This cannot be undone.'))return;const id=el.dataset.delete;if(tab==='customers'){const refs=await Promise.all(['quotes','jobs','tasks'].map(all));if(refs.some(a=>a.some(x=>x.customerId===id))){alert('This customer has linked records. Remove or reassign those first.');return}}await del(tab,id);tfRecordDetailId=null;await event(`Deleted ${tab.slice(0,-1)}`);notify('Record deleted')}else if(el.dataset.convert){const q=await get('quotes',el.dataset.convert);if(q?.status!=='Accepted')return;const jobs=await all('jobs');if(jobs.some(j=>j.quoteId===q.id))return;const outcome=await tfReviewQuotationHandoff(q);if(!outcome)return;if(!outcome.reused)await event(`Created job from accepted quotation: ${q.title}`);notify(outcome.reused?'Linked job already exists':'Job created')}});
 document.addEventListener('change',e=>{if(e.target.id==='tfFinancePeriod'){tfFinancePeriod=e.target.value;render();return}});
 document.addEventListener('input',e=>{if(e.target.id==='tfFinanceSearch'){tfFinanceSearch=e.target.value;const cursor=e.target.selectionStart;render().then(()=>{const input=document.getElementById('tfFinanceSearch');if(input){input.focus();input.setSelectionRange(cursor,cursor)}})}});
 document.addEventListener('change',e=>{if(e.target.id==='tfImportMapChoice'&&opportunityImportDraft)opportunityImportDraft.mapLocations=e.target.checked});
@@ -1580,6 +1580,84 @@ function tfCompleteCalendarSession(sessionId){
  });
 }
 
+/* Pilot foundation adapters: one local snapshot, existing screens/forms, no AI tools. */
+let tfPilotFilter=null;
+function tfPilotContext(){
+ const calendar=tab==='calendar'?window.TradeFlowCalendar?.currentContext?.():null;
+ const record=tfRecordDetailId&&['customers','quotes','jobs','tasks'].includes(tab)?{store:tab,id:tfRecordDetailId}:
+  tab==='opportunities'&&opportunityDetailId?{store:'opportunities',id:opportunityDetailId}:
+  tab==='invoices'?window.TradeFlowRevenue?.currentRecord?.():tab==='suppliers'?window.TradeFlowSupply?.currentRecord?.():calendar?.record||null;
+ return {actor:'local-owner',businessId:'local-business',sourcePage:tab,record:record||null,today:window.TradeFlowCommands.dateText(new Date()),primaryTrade:prefs.primaryTrade||'',calendarDate:calendar?.date||null,filter:tfPilotFilter};
+}
+function tfPilotSnapshot(){
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(STORES,'readonly'),data={};
+  for(const store of STORES){const request=tx.objectStore(store).getAll();request.onsuccess=()=>{data[store]=request.result}}
+  tx.oncomplete=()=>resolve(data);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+ });
+}
+function tfResetWorkspace(next){
+ tfCalendarLinkedReturn=false;tfAiPanelOpen=false;if(tab!==next)tfMotionNext=next==='map'?'':'tab';
+ tab=next;query='';tfRecordListContext=null;modal=null;tfRecordDetailId=null;tfPhotoPending=null;tfCapture=null;tfPilotFilter=null;
+}
+async function tfNavigateWorkspace(next){tfResetWorkspace(next);await render();return {workspace:next}}
+async function tfPilotOpenRecord(ref){
+ const record=await get(ref.store,ref.id);if(!record)throw Error('Record no longer exists');
+ if(['customers','quotes','jobs','tasks'].includes(ref.store)){tfResetWorkspace(ref.store);tfRecordDetailId=ref.id}
+ else if(ref.store==='opportunities'){tfResetWorkspace('opportunities');opportunityDetailId=ref.id;opportunityDetailScreen='dossier'}
+ else if(ref.store==='invoices'){tfResetWorkspace('invoices');window.TradeFlowRevenue.focusRecord(ref.id)}
+ else if(ref.store==='suppliers'){tfResetWorkspace('suppliers');window.TradeFlowSupply.focusRecord(ref.id)}
+ else if(ref.store==='calendarEntries'){tfResetWorkspace('calendar');window.TradeFlowCalendar.focusRecord(ref.id,record.date||String(record.startAt||'').slice(0,10))}
+ else throw Error('That record has no supported screen');
+ await render();return {ref};
+}
+async function tfPilotApplyFilter(workspace,filter){
+ tfResetWorkspace(workspace);
+ if(['tasks','quotes'].includes(workspace))tfPilotFilter={workspace,filter};
+ else if(workspace==='invoices')window.TradeFlowRevenue.filterView({all:'All',overdue:'Overdue',unpaid:'Unpaid',draft:'Draft'}[filter]);
+ else if(workspace==='calendar')window.TradeFlowCalendar.focusIntelligence(filter);
+ else throw Error('Unsupported view filter');
+ await render();return {workspace,filter};
+}
+async function tfPilotPrepareDraft(prepared){
+ tfResetWorkspace(prepared.kind==='task'?'tasks':'quotes');
+ modal={draftDefaults:prepared.fields,commandDraft:prepared};
+ await render();return {kind:prepared.kind,fields:prepared.fields,sourceRef:prepared.sourceRef,requiresReview:true,persisted:false};
+}
+function tfInitializePilot(){
+ if(!window.TradeFlowCommands||!window.TradeFlowIntelligence)return;
+ const commands=window.TradeFlowCommands;
+ const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials});
+ const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert'].includes(permission),
+  ports:{navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
+   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,recordGuard:proof.recordGuard})}
+ });
+ // Header evaluation does not copy image payloads or the growing command journal.
+ const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','calendarEntries','calendars','calendarPreferences'];
+ const evaluateSnapshot=(data,options={})=>intelligence.evaluate(Object.fromEntries(intelligenceStores.map(store=>[store,(data[store]||[]).map(({photoData,...record})=>record)])),{...tfPilotContext(),...options});
+ window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
+  evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
+}
+async function tfPilotNavigateCommand(workspace){
+ if(!window.TradeFlowPilot)return tfNavigateWorkspace(workspace);
+ const command=await window.TradeFlowPilot.commands.prepare({commandId:'workspace.open',params:{workspace}});
+ const result=command.status==='ready'?await window.TradeFlowPilot.commands.execute(command.id):command;
+ if(result.status!=='succeeded')notify(result.error?.message||'Command could not complete');
+}
+async function tfReviewQuotationHandoff(quote){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command foundation unavailable. Reload the preview.');return null}
+ const plan=await commands.prepare({commandId:'quotation.convert',params:{ref:{store:'quotes',id:quote.id}}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Quotation needs review');return null}
+ if(!confirm('Create a linked job from accepted quotation “'+String(quote.title||'Quotation')+'”? Review the customer and scope before continuing. Nothing will be sent externally.')){await commands.reject(plan.id);return null}
+ const approved=await commands.approve(plan.id);
+ if(approved.status!=='approved'){notify(approved.error?.message||'Quotation changed; review again');return null}
+ const outcome=await commands.execute(plan.id);
+ if(outcome.status!=='succeeded'){notify(outcome.error?.message||'Job could not be created');return null}
+ return outcome.result;
+}
+
 window.TradeFlowCalendar?.configure({
  get,put,all,del,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
@@ -1621,7 +1699,7 @@ window.TradeFlowGrowth?.configure({
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openAI:async function(prompt){tab='ai';modal=null;tfAiPanelOpen=false;await render();const input=document.getElementById('tfAiPrompt');if(input){input.value=prompt;input.focus()}}
 });
-(async()=>{try{db=await openDB();await render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
+(async()=>{try{db=await openDB();tfInitializePilot();await render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
 
 // V0.5: online MapLibre street tiles are optional. Records, pins and CRM stay in IndexedDB.
 let tfMapNetworkFocus=false;
@@ -1974,8 +2052,9 @@ function tfIntelligenceStats(d){
  const localDate=(()=>{const x=new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')})();
  const active=(d.tasks||[]).filter(x=>x.status!=='Done'&&x.status!=='Completed'&&x.status!=='Cancelled');
  const urgent=active.filter(x=>['p1','p2','high','critical','urgent'].includes(String(x.priority||'').toLowerCase())&&x.due&&x.due<=localDate).length;
- const overdue=active.filter(x=>x.due&&x.due<localDate).length;
- const conflicts=window.TradeFlowCalendar?.conflicts?.(d)?.length||0;
+ const report=window.TradeFlowPilot?.evaluateSnapshot(d);
+ const overdue=report?report.findings.filter(x=>x.detectorId==='task.overdue').length:active.filter(x=>x.due&&x.due<localDate).length;
+ const conflicts=report?report.findings.filter(x=>x.detectorId==='calendar.conflict').length:window.TradeFlowCalendar?.conflicts?.(d)?.length||0;
  const proposals=window.TradeFlowScheduler?.analyze(d).proposals.length||0;
  return {urgent,overdue,conflicts,proposals};
 }
@@ -2009,7 +2088,7 @@ document.addEventListener('click',async function(e){
   (tfIntelligenceExpanded?actions?.querySelector('.tf-intel-chip'):summary)?.focus({preventScroll:true});
   return;
  }
- if(action==='tasks'){tab='tasks';modal=null;await render();return}
+ if(action==='tasks'){await tfPilotNavigateCommand('tasks');return}
  if(action==='conflicts'||action==='proposals'){
   tab='calendar';modal=null;window.TradeFlowCalendar?.focusIntelligence?.(action);await render();
  }

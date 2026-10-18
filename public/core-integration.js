@@ -146,8 +146,48 @@
   }
   throw Error('Unsupported command');
  }
+ // Accepted-quote handoff is revalidated inside the same transaction as its job
+ // and idempotency log. This also serializes different requests across tabs.
+ function executeQuotation(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',recordGuard=[]}=args;
+  const stable=v=>JSON.stringify(order(v));
+  function order(v){if(Array.isArray(v))return v.map(order);if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,order(v[k])]));return v}
+  const key=nonempty(requestKey)||'command:'+String(uid());
+  const allowed=['quotes','customers','jobs','tasks','invoices','opportunities','suppliers','calendarEntries'];
+  const extra=recordGuard.filter(x=>x.ref).map(x=>x.ref.store);
+  if(extra.some(x=>!allowed.includes(x)))return Promise.reject(Error('Unsupported command guard store'));
+  const names=[...new Set(['commandLog','quotes','customers','jobs',...extra])];
+  return new Promise((resolve,reject)=>{
+   let tx,outcome,error,prior=null,pending=names.length,data={};
+   const abort=err=>{error=err;try{tx.abort()}catch{reject(err)}};
+   try{tx=db.transaction(names,'readwrite')}catch(err){reject(err);return}
+   tx.oncomplete=()=>resolve(outcome);tx.onabort=()=>reject(error||tx.error||Error('Quotation command aborted'));tx.onerror=()=>reject(error||tx.error||Error('Quotation command failed'));
+   function ready(){
+    if(--pending)return;
+    try{
+     if(prior){
+      if(prior.kind!=='quotation.convert'||(prior.requestPayload&&prior.requestPayload!==stable(payload)))throw Error('Request key is already bound to a different operation');
+      const job=data.jobs.find(x=>x.id===prior.resultId);
+      if(!job||job.quoteId!==payload.quoteId)throw Error('The previously executed job link requires review');
+      outcome={id:prior.resultId,reused:true,commandKey:key};return;
+     }
+     for(const expected of recordGuard){
+      if(expected.ref){const current=(data[expected.ref.store]||[]).filter(x=>x.id===expected.ref.id);if(current.length!==1||stable(current[0])!==stable(expected.record))throw Error('Approved records changed before commit; prepare and review again')}
+      if(expected.linkedJobs&&stable(data.jobs.filter(x=>x.quoteId===payload.quoteId))!==stable(expected.linkedJobs))throw Error('Quotation job links changed before commit; review the existing job');
+     }
+     const when=new Date().toISOString(),plan=prepare('quotation.convert',payload,data,uid,when);
+     for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+     tx.objectStore('commandLog').put({id:key,kind:'quotation.convert',requestPayload:stable(payload),resultId:plan.resultId,recordIds:plan.writes.map(x=>x.record.id),actor:brief(actor,40),createdAt:when,reused:!!plan.reused});
+     outcome={id:plan.resultId,reused:!!plan.reused,commandKey:key};
+    }catch(err){abort(err)}
+   }
+   const log=tx.objectStore('commandLog').get(key);log.onsuccess=()=>{prior=log.result;ready()};
+   for(const store of names.filter(x=>x!=='commandLog')){const req=tx.objectStore(store).getAll();req.onsuccess=()=>{data[store]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
+  if(kind==='quotation.convert')return executeQuotation(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
   const key=nonempty(requestKey)||'command:'+String(uid());

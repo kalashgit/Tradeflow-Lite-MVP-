@@ -41,9 +41,9 @@ function relatedName(id,rows,label){
 }
 function statusBadge(status){return '<span class="tf-revenue-status tf-revenue-'+status.toLowerCase().replace(/[^a-z]/g,'')+'">'+esc(status)+'</span>'}
 let invoiceFilter='All';
-function invoiceDisplayState(inv,payments){
+function invoiceDisplayState(inv,payments,asOf=today()){
  const s=state(inv,payments);
- if(s==='Issued'&&inv.dueDate&&inv.dueDate<today())return 'Overdue';
+ if(inv.status==='Issued'&&['Issued','Part-paid'].includes(s)&&inv.dueDate&&inv.dueDate<asOf)return 'Overdue';
  return s==='Issued'?'Unpaid':s;
 }
 function invoicesPage(d){
@@ -58,7 +58,7 @@ function invoicesPage(d){
  const drafts=existing.filter(x=>state(x,payments)==='Draft');
  const draftValue=drafts.reduce((v,x)=>v+totals(x).total,0);
  const filtered=existing.filter(x=>invoiceFilter==='All'||invoiceDisplayState(x,payments)===invoiceFilter||
- (invoiceFilter==='Unpaid'&&invoiceDisplayState(x,payments)==='Part-paid'));
+ (invoiceFilter==='Unpaid'&&['Part-paid','Overdue'].includes(invoiceDisplayState(x,payments))));
  const ordered=filtered.slice().sort((a,b)=>String(b.issuedDate||b.createdAt||'').localeCompare(String(a.issuedDate||a.createdAt||'')));
  const metric=(title,value,icon,color)=>'<div class="tf-inv-metric"><div class="tf-inv-metric-label"><span>'+title+'</span><span class="tf-inv-icon tf-inv-'+color+'">'+icon+'</span></div><strong>'+value+'</strong></div>';
  const invoiceIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>';
@@ -383,5 +383,7 @@ function init(bridge){
  api=bridge;document.addEventListener('submit',onSubmit);document.addEventListener('click',onClick);
 }
 document.addEventListener('change',event=>{if(event.target?.id==='tfJobCostSearch'){jobCostQuery=trim(event.target.value,100);api?.render()}});
-global.TradeFlowRevenue={configure:init,render:view,_test:{totals,collected,state,esc,parseLines,jobSummary}};
+global.TradeFlowRevenue={configure:init,render:view,financials:Object.freeze({totals,collected,state,displayState:invoiceDisplayState}),
+ focusRecord:id=>{mode='detail';invoiceId=id},currentRecord:()=>invoiceId&&mode==='detail'?{store:'invoices',id:invoiceId}:null,
+ filterView:value=>{if(!['All','Overdue','Unpaid','Draft'].includes(value))throw Error('Unsupported invoice filter');invoiceFilter=value;mode='list';invoiceId=''},_test:{totals,collected,state,esc,parseLines,jobSummary}};
 })(typeof window!=='undefined'?window:globalThis);

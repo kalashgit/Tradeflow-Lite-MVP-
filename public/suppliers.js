@@ -357,5 +357,5 @@
    bridge.notify(kind==='supplier.save'?'Supplier saved':'Purchase order draft saved');
   }catch(err){window.alert('Could not save: '+String(err.message||err))}
  }
- return Object.freeze({configure,render});
+ return Object.freeze({configure,render,focusRecord:id=>{detailSupplierId=id;detailOrderId='';form=null},currentRecord:()=>detailSupplierId?{store:'suppliers',id:detailSupplierId}:null});
 });
