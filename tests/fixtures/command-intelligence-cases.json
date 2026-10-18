@@ -199,7 +199,12 @@
       "transcript": "Add customer Avery Jones. Phone five one two five five five zero one seven seven.",
       "expected": {
         "intent": "customer.create",
-        "status": "needs_clarification"
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "phone": "+15125550177"
+          }
+        }
       }
     },
     {
@@ -337,7 +342,7 @@
       "id": "compound-drafts",
       "transcript": "Prepare a job for John and prepare a quotation for Jane.",
       "expected": {
-        "intent": "quotation.prepare",
+        "intent": "job.prepare",
         "status": "ambiguous"
       }
     },
