@@ -12,7 +12,54 @@ const phonetics=freeze({jib:'job',jibs:'jobs',custmer:'customer',custmr:'custome
 const groups=freeze({customer:['customer','customers','client','clients','contact','contacts'],quote:['quote','quotes','quotation','quotations','estimate','estimates','proposal','proposals'],job:['job','jobs','work','shift','shifts'],calendar:['calendar','schedule','scheduled','booked','booking','bookings','appointment','appointments','meeting','meetings','site visit'],task:['task','tasks','reminder','reminders','todo','to do'],create:['add','create','make','register','save','onboard','set up'],prepare:['prepare','draft','write','write up','create','make','start','build','generate','put together'],query:['what','which','when','how','do','does','is','are','have','list','show','tell','check','see','look','give'],open:['open','go to','take me to','navigate to','switch to','show','view']});
 const workspaces=freeze({home:'dashboard',headquarters:'dashboard',map:'map',calendar:'calendar',finance:'expenses',more:'settings',customers:'customers',clients:'customers',quotations:'quotes',quotes:'quotes',jobs:'jobs',tasks:'tasks',invoices:'invoices',suppliers:'suppliers'});
 function withoutFiller(input){let value=clean(input);for(let i=0;i<8;i++){const next=value.replace(/^(?:(?:hey|hello|hi|okay|ok)(?:\s+there)?\s+trade\s*flow\b[\s,!:.]*|trade\s*flow\b[\s,!:.]+|(?:hey|hello|hi|okay|ok|um|uh|well|right|please)\b[\s,!:.]+|(?:could|would|can|will)\s+you\s+(?:please\s+)?|i(?:'d|\s+would)\s+like\s+(?:you\s+)?to\s+|i\s+(?:need|want)\s+(?:you\s+)?to\s+)/i,'').trim();if(next===value)break;value=next}return value}
-function lexical(input){let text=withoutFiller(input);text=text.replace(/^for\s+([^,]+),\s+((?:prepare|draft|write|create|make|build|start)\b.+)$/i,'$2 for $1').replace(/^(?:for\s+)?(tomorrow|tmrw|tommorow|tomorow|today)[,:]?\s+((?:what|which|when|do|is|are|have|show|list|check|tell)\b.+)$/i,'$2 $1');const raw=key(text).split(' ').filter(Boolean),normalizations=[];const tokens=raw.map(t=>{const to=phonetics[t];if(to)normalizations.push({from:t,to,scope:'intent_vocabulary'});return to||t});const normalized=tokens.join(' ');const has=values=>values.some(v=>(' '+normalized+' ').includes(' '+v+' '));return {text,normalized,tokens,normalizations,has,group:name=>has(groups[name]||[]),question:/^(?:what|which|when|how|do|does|is|are|have|list|show|tell|check|see|look|give)\b/.test(normalized),action:/^(?:add|create|make|register|save|onboard|set up|prepare|draft|write|start|build|generate|put together|schedule|book|plan|open|go to|take me to|navigate to|switch to|show|view)\b/.test(normalized)}}
+// Normalize grammar at structural boundaries; never repair names or phone digits.
+function clauses(text){return text.replace(/\b([A-Z])\.(?=\s+[A-Z][a-z])/g,'$1\uE000').split(/(?<=[.!?])\s+|[;\n]+/).map(x=>x.replace(/\uE000/g,'.').trim()).filter(Boolean)}
+function normalizeSpeechText(input){
+ let text=withoutFiller(input);const normalizations=[];
+ const change=(from,to,scope)=>{if(from!==to)normalizations.push({from,to,scope});return to};
+ text=text.replace(/(^|[,;]\s*|\.\s+)(?:(?:um|uh|erm)\b[\s,]*)+/gi,(all,boundary)=>change(all,boundary,'boundary_filler'));
+ const verbs=groups.create.concat(groups.prepare,['show','check','list','open','schedule','book']).sort((a,b)=>b.length-a.length).join('|');
+ const actionRepeat=new RegExp('^('+verbs+')(?:\\s+\\1)+(?=\\s+(?:(?:me|a|an|new|my)\\s+)*(?:customer|client|contact|quote|quotation|estimate|task|reminder|job|appointment|event|calendar|schedule|work|jobs)\\b)','i');
+ text=text.replace(actionRepeat,(all,verb)=>change(all,verb,'repeated_action'));
+ let parts=clauses(text);
+ parts=parts.map(part=>{
+  const phonePrefix=/^((?:(?:his|her|their|the|customer's|client's)\s+)?(?:phone|number|mobile|telephone|cell)(?:\s+(?:phone|number|mobile|telephone|cell))*(?:\s+(?:is\s+)*is|\s*[:=])?\s*)(?=[+\d(])/i;
+  const labelPrefix=/^((?:(?:his|her|their|the|customer's|client's)\s+)?(name|email|address|company)(?:\s+\2)*(?:\s+(?:is\s+)*is|\s*[:=])\s*)/i;
+  return part.replace(phonePrefix,from=>change(from,from.replace(/\b(phone|number|mobile|telephone|cell|is)(?:\s+\1)+\b/gi,'$1'),'repeated_field_label')).replace(labelPrefix,from=>change(from,from.replace(/\b(name|email|address|company|is)(?:\s+\1)+\b/gi,'$1'),'repeated_field_label'));
+ });
+ const action=/^(?:make|create|add|register|save|onboard|set up)\s+(?:me\s+)?(?:(?:a|an)\s+)?(?:new\s+)?(?:customer|client|contact)\b/i;
+ const field=/^(?:(?:his|her|their|the|customer's|client's)\s+)?(?:name|phone|number|mobile|telephone|cell|email|address|location|company|notes?)\b/i;
+ const actions=parts.map((part,i)=>action.test(part)?i:-1).filter(i=>i>=0);
+ if(actions.length===1&&actions[0]>0&&parts.slice(0,actions[0]).every(part=>field.test(part))){const index=actions[0];parts=[parts[index],...parts.slice(0,index),...parts.slice(index+1)];normalizations.push({from:'field clauses before customer action',to:'customer action before field clauses',scope:'clause_order'})}
+ text=parts.map((part,i)=>i<parts.length-1&&!/[.!?]$/.test(part)?part+'.':part).join(' ').trim();
+ if(/^(?:what|which|show|check|list|do|have|tell)\b/i.test(text)){
+  text=text.replace(/^(what|which|show|check|list|do|have|tell)(?:\s+\1)+\b/i,(all,word)=>change(all,word,'repeated_query_word'));
+  text=text.replace(/\b(i|we|you)\s+(have|do|can)(?:\s+\2)+\b/gi,(all,subject,word)=>change(all,subject+' '+word,'repeated_auxiliary'));
+  text=text.replace(/\b(what|which|my|any)\s+(jobs|work|schedule|appointments|shifts|bookings)(?:\s+\2)+\b/gi,(all,prefix,word)=>change(all,prefix+' '+word,'repeated_query_noun'));
+ }
+ return {text,normalizations};
+}
+function protectCustomerIdentity(review,text,records,context){
+ if(review.intent!=='customer.create'||!review.draft?.fields)return review;
+ const candidates=[],add=(value,source)=>{value=clean(value).replace(/[.!?]+$/,'').replace(/^['"“]|['"”]$/g,'').trim();if(value)candidates.push({value,source})};
+ if(review.draft.fields.name)add(review.draft.fields.name,'customer_action');
+ for(const original of clauses(text)){
+  const part=original.replace(/\b([A-Z])\.(?=\s+[A-Z][a-z])/g,'$1\uE000');
+  const labels=/\b(?:(?:(?:his|her|their|customer(?:'s)?|client(?:'s)?|the customer(?:'s)?)\s+)?name\s*(?:(?:is|was)\s+|[:=]\s*)?|(?:he|she|they|the customer)\s+(?:is\s+|are\s+)?(?:called|named)\s+|(?:also known as|goes by|aka)\s+)(.+?)(?=\s+(?:and\s+)?(?:(?:his|her|their)\s+)?(?:phone|number|email|address|name)\b|[;,.!?]|$)/gi;
+  let match;while((match=labels.exec(part)))add(match[1].replace(/\uE000/g,'.'),'explicit_identity');
+ }
+ const distinct=[...new Map(candidates.map(x=>[key(x.value),x])).values()];
+ const alias=candidates.some(x=>/\b(?:also known as|aka|or|versus|instead|actually)\b/i.test(x.value));
+ const repeated=candidates.some(x=>{const words=key(x.value).split(' ');return words.some((w,i)=>i>0&&w===words[i-1])});
+ if(distinct.length>1||alias||repeated){
+  const message=repeated?'Repeated name words may be a transcription error. Confirm the exact customer name.':'Contradictory customer names were supplied. Confirm one exact name.';
+  review.draft.fields.name='';review.missingRequired=[...new Set([...(review.missingRequired||[]),'name'])];review.issues=[...(review.issues||[]),{field:'name',code:'AMBIGUOUS_NAME',message,blocking:true}];review.status='needs_clarification';review.clarification=message;
+  review.duplicates=records.findDuplicates?.(review.draft.fields,customers(context),{businessId:context.businessId||'local-business'})||[];
+ }
+ return {review,candidates:distinct};
+}
+
+function lexical(input){const speech=normalizeSpeechText(input);let text=speech.text;text=text.replace(/^for\s+([^,]+),\s+((?:prepare|draft|write|create|make|build|start)\b.+)$/i,'$2 for $1').replace(/^(?:for\s+)?(tomorrow|tmrw|tommorow|tomorow|today)[,:]?\s+((?:what|which|when|do|is|are|have|show|list|check|tell)\b.+)$/i,'$2 $1');const raw=key(text).split(' ').filter(Boolean),normalizations=[...speech.normalizations];const tokens=raw.map(t=>{const to=phonetics[t];if(to)normalizations.push({from:t,to,scope:'intent_vocabulary'});return to||t});const normalized=tokens.join(' ');const has=values=>values.some(v=>(' '+normalized+' ').includes(' '+v+' '));return {text,normalized,tokens,normalizations,has,group:name=>has(groups[name]||[]),question:/^(?:what|which|when|how|do|does|is|are|have|list|show|tell|check|see|look|give)\b/.test(normalized),action:/^(?:add|create|make|register|save|onboard|set up|prepare|draft|write|start|build|generate|put together|schedule|book|plan|open|go to|take me to|navigate to|switch to|show|view)\b/.test(normalized)}}
 function result(intent=null,effect=null){return {version:1,intent,status:'unsupported',effect,parameters:{},confidence:{level:'low',score:0,method:'deterministic_rules'},missingInformation:[],warnings:[],clarification:{required:true,questions:[],reasonCodes:[]},explanation:[],normalizations:[],candidates:[],suggestedCommand:null,requiresAuthorization:effect==='proposes_modification'}}
 function missing(r,field,reason){r.missingInformation.push({field,reason})}
 function warn(r,code,message){r.warnings.push({code,message})}
@@ -42,7 +89,7 @@ function dateParameter(l,context,r,required){
 function customerInstruction(l){
  let text=l.text.replace(/^(?:make|create|add|register|save|onboard|set up)\s+(?:me\s+)?(?:(?:a|an)\s+)?(?:new\s+)?(?:customer|client|contact)\b/i,'Add customer');
  text=text.replace(/^(?:make|create|add|register|save|onboard)\s+(?:me\s+)?(.+?)\s+(?:as\s+)?(?:a\s+)?(?:new\s+)?(?:customer|client|contact)\b/i,'Add $1 as a customer');
- return text;
+ return /[.!?]$/.test(text)?text:text+'.';
 }
 function customerReview(r,review){
  r.parameters.fields=review.draft?.fields||{};r.recordReview=review;
@@ -54,7 +101,7 @@ function customerReview(r,review){
  return r;
 }
 const builtinTools=[
- {id:'customer.create',description:'Propose a validated customer draft',effect:'proposes_modification',requiredParameters:['fields.name','fields.phone'],match:l=>l.action&&l.group('customer')&&l.group('create')?90:0,extract(l,c,r,adapters){if(!adapters.records){clarify(r,'RECORD_ADAPTER_REQUIRED','Customer extraction adapter is unavailable.');return r}return customerReview(r,adapters.records.interpret(customerInstruction(l),{customers:customers(c),context:c}))}},
+ {id:'customer.create',description:'Propose a validated customer draft',effect:'proposes_modification',requiredParameters:['fields.name','fields.phone'],match:l=>l.action&&l.group('customer')&&l.group('create')?90:0,extract(l,c,r,adapters){if(!adapters.records){clarify(r,'RECORD_ADAPTER_REQUIRED','Customer extraction adapter is unavailable.');return r}const parsed=adapters.records.interpret(customerInstruction(l),{customers:customers(c),context:c});const protectedIdentity=protectCustomerIdentity(copy(parsed),l.text,adapters.records,c);if(protectedIdentity.candidates?.length)r.entityCandidates={name:protectedIdentity.candidates};return customerReview(r,protectedIdentity.review||protectedIdentity)}},
  {id:'quotation.prepare',description:'Prepare a quotation for a verified existing customer',effect:'draft',requiredParameters:['customerRef'],match:l=>l.action&&l.group('quote')&&l.group('prepare')?90:0,extract(l,c,r){const person=l.text.match(/\bfor\s+(.+?)(?:[.!?]|$)/i)?.[1]||(/\b(?:that|this|the)\s+(?:customer|client)\b/i.test(l.text)?l.text.match(/\b(?:that|this|the)\s+(?:customer|client)\b/i)[0]:'');r.parameters.customerName=clean(person);const ref=resolveCustomer(person,c,r);if(ref){r.parameters.customerRef=ref;r.suggestedCommand={commandId:'draft.prepare',params:{kind:'quote',ref}}}return r}},
  {id:'schedule.query',description:'Read booked work on one date through the existing Calendar adapter',effect:'read_only',requiredParameters:['date'],match:l=>l.question&&(l.group('job')||l.group('calendar'))&&(l.has(['tomorrow','next day','today','yesterday'])||/\b\d{4}-\d{2}-\d{2}\b/.test(l.text))?95:0,extract(l,c,r){r.parameters.date=dateParameter(l,c,r,true);r.parameters.scope=l.has(['tasks'])?'tasks':l.has(['appointments','meetings'])?'appointments':'scheduled_work';const trades=['electrical','plumbing','hvac','construction'].filter(x=>l.has([x]));if(trades.length)r.parameters.trades=trades;return r}},
  {id:'workspace.open',description:'Navigate to an existing workspace',effect:'navigation',requiredParameters:['workspace'],match:l=>l.action&&l.group('open')&&Object.keys(workspaces).some(w=>l.has([w]))&&!l.has(['tomorrow','today','yesterday'])?65:0,extract(l,c,r){const found=[...new Set(Object.entries(workspaces).filter(([w])=>l.has([w])).map(([,value])=>value))];if(found.length!==1){clarify(r,'AMBIGUOUS_WORKSPACE','Which one workspace should I open?');return r}r.parameters.workspace=found[0];r.suggestedCommand={commandId:'workspace.open',params:{workspace:found[0]}};return r}},

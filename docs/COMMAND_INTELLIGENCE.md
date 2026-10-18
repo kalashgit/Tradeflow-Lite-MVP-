@@ -58,3 +58,9 @@ The lab limits collections to 300 fixtures, transcripts to 8,000 characters and 
 A dedicated `voice-command-lab-sw.js` registration is scoped to **`./voice-command-lab.html`**. It caches only lab dependencies in `tradeflow-command-lab-*`, never the main application's cache namespace. On a secure origin/localhost, offline reload is available after first installation. On file origins or unsupported browsers, local assets and fixture functionality remain usable where the browser permits; service-worker installation is not claimed. The main `sw.js` is unchanged.
 
 No microphone is used, no audio is collected and no network/model call is needed for interpretation or fixture regression. The dedicated worker fetches static assets for installation/update only.
+
+## Compositional speech normalization (18 October continuation)
+
+The engine composes action/domain vocabularies, field labels and local context. Fixtures are never runtime lookup rules. Structural repetitions and boundary fillers are normalized; repeated name words and ambiguous identities require clarification instead of speculative repair. Customer field clauses can precede the action. Clause delimiters are preserved for the existing extraction adapter, including final punctuation for its phone parser. Phone digits are never rewritten, deduplicated or completed. Names with initials, apostrophes and hyphens are preserved.
+
+`tests/command-intelligence-metamorphic.test.cjs` generates 2,016 customer combinations (four names × seven phone formats × six clause orders × four prefixes × three delimiters), plus repeated-word, contradictory-name, correction, missing-field and contractor-task properties. These augment the existing 2,560 schedule combinations. All are synthetic combinations; passing them measures bounded regression coverage, not production speech accuracy.
