@@ -29,3 +29,7 @@
 .tf-customer-smart-launch{background:color-mix(in srgb,var(--tf-accent,#65d3e1) 12%,#2a2c31)!important;color:#f5f5f5!important;border:1px solid color-mix(in srgb,var(--tf-accent,#65d3e1) 24%,#34373d)!important}
 @media(min-width:640px){.tf-customer-dialog{align-items:center;padding:24px}.tf-customer-modal{border-radius:22px;max-height:calc(100dvh - 48px)}.tf-customer-fields{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}.tf-customer-fields .field:has(textarea){grid-column:1/-1}}
 @media(prefers-reduced-motion:reduce){.tf-customer-modal *{scroll-behavior:auto!important}}
+
+/* Optional browser speech entry — accent follows the user's selected TradeFlow theme. */
+.tf-customer-speak{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:47px;margin:0 0 16px;padding:11px 15px;border-radius:13px;background:color-mix(in srgb,var(--tf-accent,#65d3e1) 10%,#292b2f);border:1px solid color-mix(in srgb,var(--tf-accent,#65d3e1) 34%,#34373d);color:#f5f5f5;font-size:14px;font-weight:650;cursor:pointer}
+.tf-customer-speak[aria-pressed=true]{border-color:var(--tf-accent,#65d3e1);box-shadow:0 0 0 2px color-mix(in srgb,var(--tf-accent,#65d3e1) 15%,transparent)}
