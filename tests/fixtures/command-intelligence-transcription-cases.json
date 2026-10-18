@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "context": {"today": "2026-10-18", "customers": []},
+  "cases": [
+    {
+      "id": "supplied-jibs", "name": "User-supplied jobs/jibs example",
+      "transcript": "What jibs have I got tomorrow?",
+      "provenance": {"kind": "user_supplied", "source": "Example supplied in the Command Intelligence assignment; no audio or device trace supplied.", "intendedText": "What jobs have I got tomorrow?"},
+      "expected": {"intent": "schedule.query", "status": "recognized", "effect": "read_only", "parameters": {"date": "2026-10-19", "scope": "scheduled_work"}, "clarificationRequired": false}
+    },
+    {
+      "id": "synthetic-query-repeats", "name": "Synthetic repeated query words",
+      "transcript": "Hey TradeFlow, what what jobs jobs do I have have tomorrow?",
+      "provenance": {"kind": "synthetic", "source": "Generated structural-word repetition mutation; not a recorded recognition error.", "intendedText": "What jobs do I have tomorrow?"},
+      "expected": {"intent": "schedule.query", "status": "recognized", "effect": "read_only", "parameters": {"date": "2026-10-19"}, "clarificationRequired": false}
+    },
+    {
+      "id": "synthetic-name-conflict", "name": "Synthetic contradictory identity",
+      "transcript": "Add customer Avery Jones. Her name is Jane Doe. Phone 512-555-0177.",
+      "provenance": {"kind": "synthetic", "source": "Safety mutation introducing a conflicting identity; no intended identity can be inferred."},
+      "expected": {"intent": "customer.create", "status": "needs_clarification", "parameters": {"fields": {"name": "", "phone": "+15125550177"}}, "clarificationRequired": true}
+    },
+    {
+      "id": "synthetic-customer-order", "name": "Synthetic phone-first customer instruction",
+      "transcript": "His number number is is (512) 555-0177; His name is Avery Jones; Add add customer.",
+      "provenance": {"kind": "synthetic", "source": "Generated clause permutation, repeated grammar words and phone formatting."},
+      "expected": {"intent": "customer.create", "status": "recognized", "parameters": {"fields": {"name": "Avery Jones", "phone": "+15125550177"}}, "clarificationRequired": false}
+    }
+  ]
+}

@@ -94,3 +94,27 @@ The original `/workspace/Tradeflow` was on `feature/v05-map` at `387ec34`, with 
 - `manifest.json`: original SHA, paths and per-file SHA-256 hashes.
 
 The work includes the earlier customer interpreter/capture, approved customer commands, source-retention handling, Calendar drafts and tests. GitHub's newer baseline already contains recovered/improved versions of those integration-owned modules. Applying the old patch would risk overwriting that newer work, so it was **not merged, reset, deleted or committed onto the integration branch**. A final hash check confirms that every preserved original file is unchanged. The earlier browser artifact reported failure and is retained as historical evidence, not reported as a passing test.
+
+## Continuation: compositional tests and independent evaluation
+
+The 18 October additional requirement is implemented in two further milestones:
+
+- `7bf120f`: boundary-filler/repeated-grammar normalization, field-clause permutation, contradictory identity protection and generated metamorphic tests. No whole-phrase training lookup was introduced. Existing business parser files remain unchanged.
+- The following evaluation milestone adds transcript provenance, separate interpretation metrics and labeled transcription examples. `interpretCommand(transcript, context)` and `correctInterpretation(previous, changes, context)` retain their existing interfaces. `runRegression` adds a backward-compatible `metrics` object and per-case `initialIntent`.
+
+Additional paths: `tests/command-intelligence-metamorphic.test.cjs` and `tests/fixtures/command-intelligence-transcription-cases.json`. Updated isolated paths: `public/command-intelligence.js`, `public/voice-command-lab.js`, `public/voice-command-lab.html`, `public/voice-command-lab-sw.js`, `tests/voice-command-lab.test.cjs`, and both module documents. Lab cache is versioned separately as `tradeflow-command-lab-v2`.
+
+Validation: **138 Node tests passed, 0 failed**, using `node --test tests/*.test.cjs`. Generated coverage includes 2,016 customer combinations and 2,560 schedule combinations, plus contradictory names, repeated identity/digits, missing data, explicit corrections, and electrical/plumbing/HVAC task scopes. Chromium checks passed at 320/390/1440 widths and the provenance/metrics checks passed online and offline at 390. No page errors, horizontal overflow or business IndexedDB creation was observed. No physical iPhone/microphone claim is made.
+
+Evaluation across the two imported corpora:
+
+| Stage | Result | Scope |
+| --- | --- | --- |
+| Transcription | Not measured | Text-only lab; no audio or device-recognition evaluation |
+| Intent | 48/48 expected intents | Labeled regression fixtures, not production accuracy |
+| Field extraction | 48/48 annotated parameter leaves | Unannotated fields are not evaluated; corrected cases excluded |
+| Business execution | Not measured | This layer never executes business commands |
+
+The new corpus contains one **user-supplied** jobs→jibs text example without audio/device provenance and three **synthetic** mutations. The original 44 cases have unspecified provenance. No additional observed iPhone errors were supplied during this work; the lab supports importing user-reported pairs without mislabeling synthetic examples. Fixture pass rates do not establish unrestricted natural-language generalization or independent recognizer accuracy.
+
+Evidence is under `/workspace/artifacts/tradeflow-command-intelligence/`: `generalization-metrics.json`, `browser-generalization-verification.json`, `browser-generalization-check.cjs`, `lab-generalization-390.png`, plus the existing desktop/mobile browser verification. Main app wiring still belongs to the integration team at the points documented above. No integration-owned files, production resources or deployment workflows were changed, and no deployment was attempted.

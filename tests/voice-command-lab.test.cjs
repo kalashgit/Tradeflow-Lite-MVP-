@@ -41,3 +41,23 @@ test('adapter failures are visible per case and do not abort the whole regressio
 test('lab is standalone and its worker scope/cache cannot replace the application shell',()=>{
  const html=fs.readFileSync('public/voice-command-lab.html','utf8'),js=fs.readFileSync('public/voice-command-lab.js','utf8'),sw=fs.readFileSync('public/voice-command-lab-sw.js','utf8');assert.ok(html.includes("scope:'./voice-command-lab.html'"));assert.ok(!html.includes('src="./app.js'));assert.ok(!html.includes('src="./voice-command.js'));for(const name of ['indexedDB','getUserMedia','SpeechRecognition','TradeFlowPilot','commands.execute'])assert.ok(!js.includes(name),name);assert.ok(sw.includes("key.startsWith('tradeflow-command-lab-')"));assert.ok(!sw.includes("tradeflow-lite-"));assert.ok(!sw.includes('localStorage'));assert.ok(html.includes('do not retrain Apple'));
 });
+
+test('metrics separate intent, parameter extraction, explicit corrections and unmeasured stages',()=>{
+ const corrected=fixture('corrected',{transcript:'Add customer Avery Jones. Phone 555-0177.',correction:{fields:{phone:'512-555-0177'}},expected:{intent:'customer.create',status:'recognized',parameters:{fields:{name:'Avery Jones',phone:'+15125550177'}}}});
+ const wrong=fixture('wrong-metric',{expected:{intent:'task.prepare',status:'recognized',parameters:{date:'2026-10-20'}}});
+ const report=lab.runRegression([fixture(),wrong,corrected],engine),m=report.metrics;
+ assert.deepEqual(m.intent,{evaluated:3,correct:2,accuracy:2/3});assert.equal(m.fieldExtraction.evaluated,2);assert.equal(m.fieldExtraction.correct,1);assert.equal(m.correctedFields.evaluated,2);assert.equal(m.correctedFields.correct,2);
+ assert.equal(m.transcription.status,'not_measured');assert.equal(m.transcription.accuracy,null);assert.equal(m.execution.status,'not_measured');assert.equal(m.execution.accuracy,null);
+ const empty=lab.runRegression([],engine).metrics;assert.equal(empty.intent.accuracy,null);assert.equal(empty.fieldExtraction.accuracy,null);
+ const failed=lab.runRegression([fixture()],{interpretCommand(){throw Error('Failure')}}).metrics;assert.equal(failed.intent.correct,0);assert.equal(failed.fieldExtraction.correct,0);
+});
+test('transcription provenance survives explicit import/export without claiming measured recognition accuracy',()=>{
+ const store=lab.createFixtureStore();store.importJSON(fs.readFileSync('tests/fixtures/command-intelligence-transcription-cases.json','utf8'));
+ const before=store.exportJSON(),report=lab.runRegression(store.list(),engine);assert.equal(report.failed,0,JSON.stringify(report.cases.filter(x=>!x.passed)));
+ assert.deepEqual(report.metrics.fixtureProvenance,{user_supplied:1,user_reported:0,synthetic:3,unspecified:0});assert.equal(report.metrics.transcription.accuracy,null);assert.equal(report.metrics.intent.correct,4);assert.equal(report.metrics.fieldExtraction.correct,7);
+ const second=lab.createFixtureStore();second.importJSON(before);assert.deepEqual(second.list(),store.list());assert.equal(store.exportJSON(),before);assert.match(store.list()[0].provenance.source,/no audio/);
+});
+test('provenance rejects raw audio, unsupported claims and malformed references',()=>{
+ for(const provenance of [{kind:'synthetic',source:'Mutation',audio:'base64'},{kind:'device_verified',source:'No reference'},{kind:'user_reported',source:''},{kind:'user_supplied',source:'Example',intendedText:42}])assert.throws(()=>lab.validateFixture(fixture('bad-provenance',{provenance})));
+ const accepted=lab.validateFixture(fixture('reported',{provenance:{kind:'user_reported',source:'Developer pasted intended and recognized text',intendedText:'What jobs have I got tomorrow?'}}));assert.equal(accepted.provenance.kind,'user_reported');
+});

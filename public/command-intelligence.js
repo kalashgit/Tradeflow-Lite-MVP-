@@ -23,6 +23,7 @@ function normalizeSpeechText(input){
  text=text.replace(actionRepeat,(all,verb)=>change(all,verb,'repeated_action'));
  let parts=clauses(text);
  parts=parts.map(part=>{
+  part=part.replace(actionRepeat,(all,verb)=>change(all,verb,'repeated_action'));
   const phonePrefix=/^((?:(?:his|her|their|the|customer's|client's)\s+)?(?:phone|number|mobile|telephone|cell)(?:\s+(?:phone|number|mobile|telephone|cell))*(?:\s+(?:is\s+)*is|\s*[:=])?\s*)(?=[+\d(])/i;
   const labelPrefix=/^((?:(?:his|her|their|the|customer's|client's)\s+)?(name|email|address|company)(?:\s+\2)*(?:\s+(?:is\s+)*is|\s*[:=])\s*)/i;
   return part.replace(phonePrefix,from=>change(from,from.replace(/\b(phone|number|mobile|telephone|cell|is)(?:\s+\1)+\b/gi,'$1'),'repeated_field_label')).replace(labelPrefix,from=>change(from,from.replace(/\b(name|email|address|company|is)(?:\s+\1)+\b/gi,'$1'),'repeated_field_label'));

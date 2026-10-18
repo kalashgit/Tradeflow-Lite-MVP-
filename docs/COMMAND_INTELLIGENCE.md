@@ -64,3 +64,19 @@ No microphone is used, no audio is collected and no network/model call is needed
 The engine composes action/domain vocabularies, field labels and local context. Fixtures are never runtime lookup rules. Structural repetitions and boundary fillers are normalized; repeated name words and ambiguous identities require clarification instead of speculative repair. Customer field clauses can precede the action. Clause delimiters are preserved for the existing extraction adapter, including final punctuation for its phone parser. Phone digits are never rewritten, deduplicated or completed. Names with initials, apostrophes and hyphens are preserved.
 
 `tests/command-intelligence-metamorphic.test.cjs` generates 2,016 customer combinations (four names × seven phone formats × six clause orders × four prefixes × three delimiters), plus repeated-word, contradictory-name, correction, missing-field and contractor-task properties. These augment the existing 2,560 schedule combinations. All are synthetic combinations; passing them measures bounded regression coverage, not production speech accuracy.
+
+## Evaluation and provenance
+
+`runRegression(fixtures, engine).metrics` separates:
+
+- `intent`: original interpretation versus annotated expected intent.
+- `fieldExtraction`: exact expected parameter-leaf matches, excluding corrected fixtures. Partial annotations measure only supplied labels; arrays count as one leaf. Missing output and adapter failures count as incorrect.
+- `correctedFields`: a separate result for explicitly corrected drafts, never included in initial extraction accuracy.
+- `transcription`: `not_measured`, with null accuracy. This lab receives text and has no audio/device reference evaluation.
+- `execution`: `not_measured`, with null accuracy. Interpretation never calls business execution.
+
+Empty evaluations have null accuracy, never an implied 100%. Metrics describe fixture agreement, not unrestricted language accuracy. Review expectations independently: accepting the engine's suggested expectations unchanged can reproduce its own mistakes.
+
+Fixtures optionally include `provenance: {kind, source, intendedText?}`. Supported kinds are `user_supplied`, `user_reported`, and `synthetic`; omitted metadata is counted as unspecified. This is source labeling, not proof that a device recording was verified. Import/export preserves the labels; explicit saves retain imported metadata only while its transcript is unchanged. No raw audio is accepted.
+
+`tests/fixtures/command-intelligence-transcription-cases.json` contains the user's jobs→jibs example, explicitly labeled as supplied without audio/device evidence, plus three labeled synthetic safety/normalization mutations. It can be imported alongside the original corpus. Further real iPhone errors need intended and recognized text from the developer; synthetic mutations must never be represented as observed errors. Adding fixture text does not add parser rules or retrain speech recognition.
