@@ -865,6 +865,13 @@ async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntr
 async function exportData(){const data={format:'tradeflow-lite',version:9,exportedAt:new Date().toISOString(),stores:Object.fromEntries(await Promise.all(STORES.map(async s=>[s,await all(s)])))};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 async function restore(file){let data;try{data=JSON.parse(await file.text());if(data.format!=='tradeflow-lite'||![1,2,3,4,5,6,7,8,9].includes(data.version)||!data.stores||!STORES.every(s=>Array.isArray(data.stores[s]||((data.version<4||s==='pins'||(s==='payments'&&data.version<5)||(['invoices','jobCosts'].includes(s)&&data.version<6)||(['marketingCampaigns','crew','routePlans'].includes(s)&&data.version<7)||(['suppliers','supplyOrders','commandLog'].includes(s)&&data.version<8)||(['calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'].includes(s)&&data.version<9))?[]:null))&&(data.stores[s]||[]).every(x=>x&&typeof x.id==='string')))throw Error('Invalid backup');if(!confirm('Replace ALL existing local records with this backup? This cannot be undone.'))return;const t=db.transaction(STORES,'readwrite');for(const s of STORES){const st=t.objectStore(s);st.clear();for(const item of (data.stores[s]||[]))st.put(item)}await new Promise((resolve,reject)=>{t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error)});notify('Backup restored')}catch(e){alert(`Restore failed: ${e.message}`)}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab],[data-action],[data-edit],[data-delete],[data-convert]');if(!el)return;
+ if(el.dataset.action==='loadAustinElectricalStarter'){
+  const data={opportunities:await all('opportunities')};
+  const added=await tfSeedAustinStarter(data,prefs,true);
+  await render();
+  notify(added?added+' Austin electrical research leads added': 'Austin electrical starter leads are already saved');
+  return;
+ }
  if(el.dataset.action==='tfTradeChoose'){
   const chosen=String(el.dataset.trade||'');
   if(!tfTradeCatalog.some(([name])=>name===chosen))return;
@@ -1495,7 +1502,7 @@ return `<section class="tf-op-workspace tf-op-v3 tf-op5"><header class="tf-op5-t
 <p id="tfMapProgress" class="tf-op5-map-progress" role="status" hidden></p></section>
 <div class="tf-op3-chips">${counts.map(([label,n,key])=>`<button type="button" class="${opportunityFilter===key?'active':''}" data-action="opportunityFilter" data-filter="${key}">${label}</button>`).join('')}<button type="button" data-tab="suppliers" aria-label="Open supplier network">Suppliers ↗</button></div>
 <div class="tf-op3-search"><span>⌕</span><input id="opportunitySearch" placeholder="Search projects, companies, cities..." value="${esc(opSearch)}" aria-label="Search opportunities"></div>
-${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article class="tf-op3-row"><button type="button" class="tf-op3-open" data-action="opportunityDetail" data-id="${esc(x.id)}"><span class="tf-op3-status tf-stage-${opportunityStage(x)}">${opportunityStageSvg(x)}</span><span class="tf-op3-copy"><strong>${esc(x.project_name)}</strong><small>${esc([x.city,x.region].filter(Boolean).join(', ')||'Location unavailable')} · ${esc(opportunityStageName(x))}</small></span></button>${opportunityMapped(x)?`<button class="tf-op3-pin" type="button" data-action="opportunityMap" data-id="${esc(x.id)}" aria-label="View ${esc(x.project_name)} on map">⌖</button>` :`<button class="tf-op3-pin tf-op3-locate" type="button" data-action="opportunityLocate" data-id="${esc(x.id)}" aria-label="Locate ${esc(x.project_name)} on map">⊕</button>`}<span class="tf-op3-chevron">›</span></article>`).join('')||`<div class="tf-op-empty"><h3>${data.length?'No matching opportunities':'No research records imported yet'}</h3><p>${data.length?'Try another filter or search.':'Import a research CSV to begin.'}</p><button class="btn secondary small" data-op-ux="import">Import records</button></div>`}</div>${filtered.length>200?'<p class="muted sub">Showing first 200 records; refine search for more.</p>':''}</section>${opportunityReviewModal()}`;
+${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article class="tf-op3-row"><button type="button" class="tf-op3-open" data-action="opportunityDetail" data-id="${esc(x.id)}"><span class="tf-op3-status tf-stage-${opportunityStage(x)}">${opportunityStageSvg(x)}</span><span class="tf-op3-copy"><strong>${esc(x.project_name)}</strong><small>${esc([x.city,x.region].filter(Boolean).join(', ')||'Location unavailable')} · ${esc(opportunityStageName(x))}</small></span></button>${opportunityMapped(x)?`<button class="tf-op3-pin" type="button" data-action="opportunityMap" data-id="${esc(x.id)}" aria-label="View ${esc(x.project_name)} on map">⌖</button>` :`<button class="tf-op3-pin tf-op3-locate" type="button" data-action="opportunityLocate" data-id="${esc(x.id)}" aria-label="Locate ${esc(x.project_name)} on map">⊕</button>`}<span class="tf-op3-chevron">›</span></article>`).join('')||`<div class="tf-op-empty"><h3>${data.length?'No matching opportunities':'No research records imported yet'}</h3><p>${data.length?'Try another filter or search.':'Import a research CSV to begin.'}</p><button class="btn secondary small" data-action="loadAustinElectricalStarter">Load 25 Austin electrical leads</button> <button class="btn secondary small" data-op-ux="import">Import records</button></div>`}</div>${filtered.length>200?'<p class="muted sub">Showing first 200 records; refine search for more.</p>':''}</section>${opportunityReviewModal()}`;
 }
 
 window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,resolveLocations:tfResolveSupplyLocations,navigate:async function(next,options={}){if(next==='map'&&options.network)tfMapNetworkFocus=true;tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
@@ -2248,12 +2255,12 @@ function tfScrollOpenedPageToTop(){
  move();
  requestAnimationFrame(move);
 }
-async function tfSeedAustinStarter(data,profile){
+async function tfSeedAustinStarter(data,profile,force=false){
  const pack=window.TradeFlowAustinStarter;
- if(!pack?.matches(profile))return 0;
+ if(!pack||( !force&&!pack.matches(profile)))return 0;
  const known=new Set((data.opportunities||[]).flatMap(x=>[String(x.id||''),String(x.originalRecordId||''),String(x.original_record_id||'')]));
  let count=0;
- for(const record of pack.records(profile)){
+ for(const record of pack.records(profile,force)){
   if(known.has(record.id)||known.has(record.originalRecordId))continue;
   await put('opportunities',record);
   data.opportunities.push(record);
