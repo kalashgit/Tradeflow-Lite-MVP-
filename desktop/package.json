@@ -1,0 +1,50 @@
+{
+  "name": "tradeflow-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first TradeFlow Core desktop distribution",
+  "main": "main.cjs",
+  "scripts": {
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.tradeflow.core",
+    "productName": "TradeFlow Core",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      {
+        "from": "../public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "TradeFlow-Core-Windows-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "artifactName": "TradeFlow-Core-macOS-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "artifactName": "TradeFlow-Core-Linux-${version}.${ext}"
+    }
+  }
+}
