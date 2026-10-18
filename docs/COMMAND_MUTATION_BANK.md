@@ -28,8 +28,8 @@ Current result:
 
 | Classification | Rows |
 | --- | ---: |
-| Contextual agreement | 41 |
-| Clarification or recovery gap | 80 |
+| Contextual agreement | 42 |
+| Clarification or recovery gap | 79 |
 | Semantic difference requiring review | 15 |
 | No contextual template for the lexical domain | 102 |
 | Baseline itself needs clarification | 4 |
@@ -39,16 +39,16 @@ Current result:
 
 These classes are disjoint. Clarification/recovery gaps deliberately combine conservative rejection with unresolved recognition failures; neither is counted as successful understanding. Semantic differences need human review rather than automatic failure or acceptance.
 
-Of **202 lexical rows**, 100 have templates; 96 of those have a recognized canonical baseline. For those 96, **48 preserve intent**, **29 preserve intent and parameters**, and **25 preserve intent, parameters and recognized status**. This is bounded canonical agreement, not measured real-world accuracy. Stricter navigation checks can reduce agreement when a mutation is understood only as a candidate but cannot faithfully open the requested workspace.
+Of **202 lexical rows**, 100 have templates; 96 of those have a recognized canonical baseline. For those 96, **88 preserve intent**, **72 preserve intent and parameters**, and **26 preserve intent, parameters and recognized status**. The standalone ranker proposes the matching top intent in **89/96** cases (also 89/96 in the top three). The other four templated canonical baselines require clarification, including navigation/query ambiguity. Recovered write/draft vocabulary requires review, so full recognized-status agreement is intentionally much lower than intent agreement. This is bounded canonical agreement, not measured real-world accuracy. Stricter navigation checks can reduce agreement when a mutation is understood only as a candidate but cannot faithfully open the requested workspace.
 
 **31/31 designated safety gates passed**, covering negation, conflicting entities, missing fields, conditions, compound requests, identity ambiguity, truncation, help/reported speech and marked interference. This only proves the tested interpretation requests clarification and suppresses command suggestions; no operation was executed. The bank exposed `Show my jobs to` being incorrectly accepted as navigation. The engine now blocks trailing prepositions and refuses to discard unsupported view/time constraints. Field-only corrections also cannot dismiss a conditional request.
 
-Remaining gaps include many lexical candidates, colloquial and elliptical grammar, ambiguous grouped numbers, route/report vocabulary, some pronoun references and unsupported financial/external operations. The bank's spelling variants have not been wholesale installed as aliases. Additional support should be developed through reusable grammar/entity rules with independent safety tests.
+Remaining gaps include unsupported lexical domains, colloquial and elliptical grammar, ambiguous grouped numbers, route/report vocabulary, some pronoun references and unsupported financial/external operations. Candidate ranking now uses reusable spelling/phonetic/segmentation evidence in structural roles; unfamiliar critical values are never corrected to match the bank. The bank's spelling variants have not been wholesale installed as aliases. Additional support should be developed through reusable grammar/entity rules with independent safety tests.
 
 ## Separate measured stages
 
 - Transcription: **not measured**. No audio, recognizer integration or verified device references.
-- Intent and fields: the bank provides canonical agreement where evaluable, not fully annotated accuracy. The separate labeled regression corpora pass **68/68 intents and 79/79 annotated parameter leaves**.
+- Intent and fields: the bank provides canonical agreement where evaluable, not fully annotated accuracy. The separate labeled regression corpora pass **88/88 intents and 103/103 annotated parameter leaves**.
 - Execution: **not measured**. This branch never calls the business executor.
 
-The 20 error-category fixtures can be imported into the standalone Voice Command Lab using `tests/fixtures/command-intelligence-error-categories.json`. The raw mutation bank intentionally remains a CLI evaluation input: its advisory recommendations must not be converted silently into expected outputs or approvals. Complete per-row evidence is in `/workspace/artifacts/tradeflow-command-intelligence/mutation-bank-evaluation.json`.
+The 20 error-category fixtures can be imported into the standalone Voice Command Lab using `tests/fixtures/command-intelligence-error-categories.json`. The raw mutation bank intentionally remains a CLI evaluation input: its advisory recommendations must not be converted silently into expected outputs or approvals. Complete per-row evidence is in `/workspace/artifacts/tradeflow-command-intelligence/universal-ranker-bank.json`.

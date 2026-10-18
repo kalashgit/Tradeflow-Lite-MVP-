@@ -75,3 +75,8 @@ test('candidate-ranking context retains only bounded minimal record identities',
  const input=fixture('contextual',{context:{today:'2026-10-21',sourcePage:'jobs',records:{warranties:[{id:'w1',name:'Panel warranty',businessId:'local-business'}]}}});const checked=lab.validateFixture(input);assert.deepEqual(checked.context,input.context);
  for(const context of [{sourcePage:42},{records:{warranties:[{id:'w1',name:'Panel warranty',secret:'excluded'}]}},{records:{warranties:Array.from({length:201},(_,i)=>({id:'w'+i}))}},{records:{warranties:'not records'}}])assert.throws(()=>lab.validateFixture(fixture('bad-context',{context})));
 });
+
+test('20 independent contextual-ranker fixtures retain intent, critical fields and review requirements',()=>{
+ const store=lab.createFixtureStore();store.importJSON(fs.readFileSync('tests/fixtures/speech-mutation-cases.json','utf8'));const r=lab.runRegression(store.list(),engine);assert.equal(r.total,20);assert.equal(r.failed,0,JSON.stringify(r.cases.filter(c=>!c.passed)));assert.equal(r.metrics.fixtureProvenance.synthetic,20);assert.equal(r.metrics.transcription.accuracy,null);assert.equal(r.metrics.execution.accuracy,null);
+ for(const c of r.cases.filter(c=>['ranker-quoted-navigation','ranker-action-spelling','ranker-conflicting-amount'].includes(c.id)))assert.equal(c.actual.suggestedCommand,null);
+});

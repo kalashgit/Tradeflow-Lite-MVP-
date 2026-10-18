@@ -29,7 +29,7 @@ Customer field corrections use `correctInterpretation(previous, {fields: {phone:
 
 ## Future capability registration
 
-`createEngine({tools, records})` registers explicit, trusted interpretation adapters. Each tool has a unique `id`, `description`, `effect`, `requiredParameters`, `match(lexical, context)` returning a rule score, and `extract(lexical, context, result, adapters)` filling the result. `builtinTools` can be combined with custom tools. No executor is accepted. The host must register pure callbacks; this JavaScript API is not a sandbox for untrusted code.
+`createEngine({tools, records})` registers explicit, trusted interpretation adapters. Each tool has a unique `id` and `effect`. Existing callback tools use `match(lexical, context)` and `extract(lexical, context, result, adapters)`; declarative tools may instead provide `language` vocabulary and typed fields without those callbacks. Required parameter paths are checked in both forms. `builtinTools` can be combined with custom tools. No executor is accepted. The host must register pure callbacks; this JavaScript API is not a sandbox for untrusted code.
 
 This is a compositional, deterministic language layer. Vocabulary and structural rules cover phrase variations without one exact sentence per command; it is not an unrestricted language model, speech recognizer or universal semantic parser. Phonetic corrections affect intent vocabulary only, never customer names or phone digits. Unknown actions, uncertain facts and unsupported external requests need clarification. Additional synonyms and tools can be added without rewriting authorized execution.
 
@@ -53,7 +53,7 @@ The lab displays the structured result, lets the developer change expected inten
 
 `TradeFlowVoiceCommandLab` exports `validateFixture`, `createFixtureStore`, `runRegression` and `mount`. The store uses **only** `localStorage['tradeflow:voice-command-lab:v1']`. No app IndexedDB is opened. Saving/importing is explicit. Export, load, edit, delete and clear operate only on lab fixtures. Exported fixture JSON and the named contractor test corpus are importable; conflicting IDs and invalid collections are rejected atomically. Corrupt/unknown versions are not silently replaced. Memory-only fallback is labeled; quota/access errors are displayed.
 
-The lab limits collections to 300 fixtures, transcripts to 8,000 characters and imported files to 2 MiB, with a conservative collection-storage budget. Context permits date, business, customer interpretation fields and selected references; it excludes photos, secrets and unrelated business datasets. Test transcripts and extracted contact information can still be sensitive. The developer controls explicit retention and exported copies.
+The lab limits collections to 300 fixtures, transcripts to 8,000 characters and imported files to 2 MiB, with a conservative collection-storage budget. Context permits date, business, customer interpretation fields, selected references, sourcePage and bounded minimal record identities; it excludes photos, secrets and unrelated business datasets. Test transcripts and extracted contact information can still be sensitive. The developer controls explicit retention and exported copies.
 
 A dedicated `voice-command-lab-sw.js` registration is scoped to **`./voice-command-lab.html`**. It caches only lab dependencies in `tradeflow-command-lab-*`, never the main application's cache namespace. On a secure origin/localhost, offline reload is available after first installation. On file origins or unsupported browsers, local assets and fixture functionality remain usable where the browser permits; service-worker installation is not claimed. The main `sw.js` is unchanged.
 
@@ -102,3 +102,10 @@ Marked transcript interference and truncation also block unknown commands. Field
 ## Mutation-bank evaluation
 
 See [COMMAND_MUTATION_BANK.md](COMMAND_MUTATION_BANK.md) for the supplied 282-row synthetic bank, CLI evaluation, source hashes, coverage gaps and safety results. It remains test input, not runtime training data. The 20 category fixtures and 648 mixed-mutation combinations extend the earlier 4,576 generated customer/schedule combinations. Fixture agreement, bank candidate agreement, transcription and business execution are reported separately.
+
+
+## Universal contextual candidates
+
+See [SPEECH_MUTATION_ENGINE.md](SPEECH_MUTATION_ENGINE.md) for the standalone ranker, declarative tool registration, critical evidence and exact integration API. Load record-interpreter.js, command-registry.js, speech-mutation-engine.js, then command-intelligence.js. Shared application integration files remain unchanged. The lab already loads these dependencies within its own scope. `rankCommandCandidates` is available alongside `interpretCommand`; a ranked candidate never grants authorization.
+
+The supplied 361-row command library is audited separately in [COMMAND_LIBRARY_AUDIT.md](COMMAND_LIBRARY_AUDIT.md). Its unverified desired phrases are not installed as runtime aliases. Pure navigation interpretation reuses the existing registry and validates composite labels against a single destination.

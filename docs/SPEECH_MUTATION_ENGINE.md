@@ -26,7 +26,7 @@ The module has independent tests, including generated variations of a new permit
 
 ## Existing interpreter integration
 
-Load `record-interpreter.js`, `speech-mutation-engine.js`, then `command-intelligence.js`. The existing application team owns inserting those scripts into the main app. The standalone lab already loads and caches the new dependency in its own scope.
+Load `record-interpreter.js`, `command-registry.js`, `speech-mutation-engine.js`, then `command-intelligence.js`. The registry dependency is used only for pure workspace parsing/validation. The existing application team owns inserting those scripts into the main app. The standalone lab already loads and caches the new dependency in its own scope.
 
 ```js
 const engine = TradeFlowCommandIntelligence.createEngine({tools: [
@@ -47,3 +47,16 @@ Built-in exact interpretation paths continue reusing their current business extr
 Custom-tool verbs participate in compound draft planning; plans remain `executable:false`. No registry or database write is added. After a user explicitly chooses a candidate, the host may re-interpret its `normalizedTranscript`; this structural-only view still retains negation, conditions and original critical values. Only the existing authoritative registry may prepare, approve and execute the actual operation.
 
 The fixture expectations for qoute/coats/estimit/sight drafts were deliberately tightened from recognized to review-required. This is a safety-policy change under the new requirement, not a transcription accuracy improvement. Labeled intent and field evaluation remains separate from these status expectations.
+
+
+## Verified coverage and limits
+
+185 automated Node tests passed with no failures. Four labeled fixture corpora pass 88/88 intent labels, all expected safety statuses, and 103/103 annotated parameter leaves. Generated coverage includes 2,016 customer combinations, 2,560 schedule phrasings, 648 mixed mutations and 288 future-tool variations (5,512 combinations, separate from Node test count). The future permit/warranty tools never appeared in the mutation bank and need no custom parsing callbacks.
+
+The 282-row bank is entirely synthetic. Of 96 contextual lexical cases with a recognized canonical baseline, 88 preserve interpreted intent, 72 preserve intent and parameters, and 26 preserve full recognized-status agreement. The ranker proposes the matching intent in 89/96 top candidates. Recovered draft/action words often require review, so a plausible candidate is not counted as an accepted command. All 31 designated safety gates pass. There are still unsupported domains, grouped number words, colloquial/elliptical grammar and ambiguities; no unrestricted understanding claim is made.
+
+The separate 361-entry library audit matches 192/225 annotated navigation targets. Thirty-three require clarification/mapping; other operation entries remain partially mapped or unsupported. These counts do not verify actual workspace pages or business operations.
+
+Transcription accuracy is not measured: no audio or device references were evaluated. Successful execution is not measured: this layer has no executor. Browser checks verify the standalone lab, offline module caching, fixture regressions and structured results at mobile/desktop widths. Physical iPhone microphone behavior and main-app wiring remain with the integration team.
+
+The standalone lab worker uses cache `tradeflow-command-lab-v5`; no shared application cache or deployment workflow was edited. Fixture retention remains explicit. Generic record context stores at most 200 minimal id/name/businessId records across at most ten stores; unrelated data is rejected.

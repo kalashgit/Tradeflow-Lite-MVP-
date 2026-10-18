@@ -1,0 +1,373 @@
+{
+  "version": 1,
+  "context": {
+    "today": "2026-10-21",
+    "businessTimeZone": "America/Chicago",
+    "sourcePage": "calendar",
+    "customers": [
+      {
+        "id": "j",
+        "name": "John Smith"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "ranker-jobz",
+      "name": "Jobz",
+      "transcript": "What jobz do I have tomorrow?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "ranker-jobbs",
+      "name": "Jobbs",
+      "transcript": "Check my jobbs tomorrow",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "ranker-jops",
+      "name": "Jops",
+      "transcript": "Which jops have I got tomorrow?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "ranker-action-spelling",
+      "name": "Action Spelling",
+      "transcript": "Prepair a quote for John Smith",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "j"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-object-spelling",
+      "name": "Object Spelling",
+      "transcript": "Prepare an estemate for John Smith",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "j"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-customer-spelling",
+      "name": "Customer Spelling",
+      "transcript": "Add custmer Avery Jones. Phone 512-555-0149.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": "+15125550149"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-two-uncertain-slots",
+      "name": "Two Uncertain Slots",
+      "transcript": "Prepair an estemate for John Smith",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "j"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-unrepresented-amount",
+      "name": "Unrepresented Amount",
+      "transcript": "Prepare a quote for John Smith. Amount $350.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "j"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-conflicting-amount",
+      "name": "Conflicting Amount",
+      "transcript": "Prepare a quote for John Smith. Amount $350 or $530.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-unrepresented-time",
+      "name": "Unrepresented Time",
+      "transcript": "What jobs do I have tomorrow at 09:00?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-condition",
+      "name": "Condition",
+      "transcript": "What jobz do I have tomorrow if approved?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-negation",
+      "name": "Negation",
+      "transcript": "Don't show jobz tomorrow",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": null,
+        "status": "unsupported",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-help-question",
+      "name": "Help Question",
+      "transcript": "How do I prepare a qoute for John Smith?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": null,
+        "status": "unsupported",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-literal-entity",
+      "name": "Literal Entity",
+      "transcript": "Create customer Jobz Coats. Phone 5125550149.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "name": "Jobz Coats",
+            "phone": "+15125550149"
+          }
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "ranker-no-identity-repair",
+      "name": "No Identity Repair",
+      "transcript": "Prepare a quote for Jon Smith",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "needs_clarification",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-conflicting-date",
+      "name": "Conflicting Date",
+      "transcript": "What jobz do I have today or tomorrow?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification",
+        "parameters": {
+          "date": null
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-weekday",
+      "name": "Weekday",
+      "transcript": "What jobz do I have next Friday?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification",
+        "parameters": {
+          "date": null,
+          "dateCandidates": [
+            "2026-10-23",
+            "2026-10-30"
+          ]
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-quoted-navigation",
+      "name": "Quoted Navigation",
+      "transcript": "\"Open Calendar\"",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "workspace.open",
+        "status": "needs_clarification",
+        "parameters": {
+          "workspace": "calendar"
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-noise",
+      "name": "Noise",
+      "transcript": "What jobz do I have tomorrow [noise]?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "ranker-truncated",
+      "name": "Truncated",
+      "transcript": "Add custmer Avery Jones. Phone",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Independent contextual-ranker regression scenario; not an observed speech-recognition failure."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": ""
+          }
+        },
+        "clarificationRequired": true
+      }
+    }
+  ]
+}

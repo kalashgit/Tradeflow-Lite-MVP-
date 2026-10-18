@@ -29,3 +29,10 @@ test('candidate fallback does not promote incidental entity vocabulary into anot
  const r=intelligence.interpretCommand('Create customer Coats Sail. Phone 5125550149.',{customers:[]});assert.equal(r.intent,'customer.create');assert.equal(r.parameters.fields.name,'Coats Sail');assert.equal(r.status,'recognized');
  const rank=intelligence.rankCommandCandidates('What jobz do I have tomorrow?',context);assert.equal(rank.candidates[0].intent,'schedule.query');assert.ok(rank.candidates[0].normalizations.every(n=>['structural_action','structural_object'].includes(n.scope)));
 });
+
+test('navigation reuses shared registry targets and rejects unsupported aliases or conflicting labels',()=>{
+ for(const [text,target]of [['Open Dashboard','dashboard'],['Bring up Crew & Dispatch','dispatch'],['Open Settings / Preferences','preferences'],['I want to see Finance / Expenses','expenses'],['Switch to Research Briefs','research']]){const r=intelligence.interpretCommand(text);assert.equal(r.intent,'workspace.open',text);assert.equal(r.status,'recognized',text);assert.equal(r.parameters.workspace,target);assert.equal(r.suggestedCommand.commandId,'workspace.open')}
+ const conflict=intelligence.interpretCommand('Open Finance / Map');assert.notEqual(conflict.status,'recognized');assert.equal(conflict.suggestedCommand,null);
+ const unknown=intelligence.interpretCommand('Open a secret nonexistent workspace');assert.notEqual(unknown.status,'recognized');assert.equal(unknown.suggestedCommand,null);
+ const spy={calls:[],parse(text){this.calls.push(text);return {status:'unsupported'}},resolve(){return {status:'invalid'}}};const isolated=intelligence.createEngine({commands:spy});isolated.interpretCommand('Open a nonexistent workspace');assert.ok(spy.calls.length>0);
+});

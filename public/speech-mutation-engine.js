@@ -36,6 +36,7 @@ function criticalSpans(text){
 }
 function safety(text){
  const issues=[];const add=(code,message)=>issues.push({code,message});
+ if(/^["“'][\s\S]*["”']$/.test(text.trim()))add('QUOTED_INSTRUCTION','A quoted instruction needs clarification before it becomes an action.');
  if(/\b(?:don't|dont|do not|never|not|cannot|can't|no longer|cancel)\b/i.test(text))add('NEGATION_PRESERVED','A negated request is not authorization for a positive action.');
  if(/\b(?:if|unless|only when|provided that)\b/i.test(text))add('CONDITION_PRESERVED','The host must verify the condition; it cannot be discarded.');
  if(/^(?:how (?:do|can|would)|can i|could i|what (?:happens|if)|suppose|pretend)\b/i.test(text.trim()))add('QUESTION_ABOUT_ACTION','This asks about an action rather than instructing it.');

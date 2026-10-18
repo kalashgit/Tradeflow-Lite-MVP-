@@ -143,3 +143,46 @@ Final labeled fixture evaluation: **68/68 intent labels and 79/79 annotated para
 Chromium browser verification passed the standalone lab at 320/390/1440 widths. New category workflows passed at 390 online and offline: spoken phones, explicit name corrections, timezone/date alternatives and dependent plans. The 68-fixture offline run passed, no horizontal overflow/page errors were observed, and no business database was created. Browser harness setup failures (an interrupted local server and an unopened context disclosure) were corrected and the checks rerun successfully; neither is claimed as a product failure or an initial successful run. Physical iPhone/microphone validation remains outstanding.
 
 New evidence: `error-category-metrics.json`, `mutation-bank-evaluation.json`, `browser-error-categories-verification.json`, `browser-error-categories.cjs` and `lab-error-categories-390.png` under the existing artifacts directory. Original unfinished work remains preserved; no integration-owned path or production resource was changed.
+
+## Universal contextual ranking and master library continuation
+
+Milestones:
+
+- `7b0a28b`: standalone `public/speech-mutation-engine.js`, typed-field evidence, contextual ranking and independent tests; 170 Node tests passed.
+- `d25f482`: default interpreter integration, declarative tools, generic compound verbs, critical-field preservation and standalone lab wiring; 179 Node tests passed.
+- Final evaluation/navigation milestone: read-only shared-registry navigation, whole-quoted instruction protection, 20 additional labeled fixtures, master-library audit, and separate candidate metrics. **185 Node tests passed, 0 failed**, via `node --test tests/*.test.cjs`.
+
+New paths in this continuation: `public/speech-mutation-engine.js`, `tests/speech-mutation-engine.test.cjs`, `tests/speech-mutation-integration.test.cjs`, `tests/command-library-audit.test.cjs`, `tests/fixtures/speech-mutation-cases.json`, `tests/fixtures/TradeFlow_Master_Voice_Command_Library_v1.json`, `scripts/evaluate-command-library.cjs`, `docs/SPEECH_MUTATION_ENGINE.md`, and `docs/COMMAND_LIBRARY_AUDIT.md`. Existing isolated engine/lab code, mutation evaluator, fixture policy expectations and module docs were updated. No integration-owned file was edited.
+
+### Integration API
+
+Load the existing `record-interpreter.js` and `command-registry.js`, then the new `speech-mutation-engine.js` and `command-intelligence.js`. Main app script/worker edits require integration-team coordination and are **not applied** here. The standalone lab loads/cache these dependencies itself using its narrow `tradeflow-command-lab-v5` cache.
+
+- `TradeFlowCommandIntelligence.interpretCommand(transcript, context)` remains the application entry point.
+- `rankCommandCandidates(transcript, context)` exposes candidate alternatives, structural normalizations, protected spans, contextual evidence and conservative review requirements.
+- `createEngine({tools, records, commands})` accepts existing callback tools or declarative `language` definitions. A new tool declares actions/action concepts, objects/synonyms, contexts and typed fields; no phrase-by-phrase parser is required.
+- `commands` defaults to the existing registry API and is used only for pure workspace parsing/validation. Composite labels must resolve to one destination. Registry runtime creation, approval and execution are never called.
+- `candidateRanking`, `interpretationPath`, `criticalEvidence` and `parameterEvidence` explain the result. Unrepresented amounts/dates/times trigger clarification. Recovered action/draft vocabulary requires review. A field correction cannot dismiss unresolved action, condition or critical-detail ambiguity.
+- Compound steps use all registered tool verbs. `proposedPlan.executable` remains false. No unsaved draft becomes a fabricated record ID or authorized commitment.
+
+The authoritative business-command registry still owns permissions, approvals, duplicate checks, atomic writes and idempotency. No database/schema/storage migration occurred.
+
+### Final evidence
+
+| Evaluation | Result | Interpretation |
+| --- | --- | --- |
+| Labeled fixture corpora | 88/88 intent expectations and safety statuses | 103/103 annotated parameter leaves; unannotated fields not measured |
+| Synthetic bank safety | 31/31 designated gates | Clarification and proposal suppression only |
+| Bank contextual lexical interpretation | 88/96 intent, 72/96 intent+parameters, 26/96 full status agreement | Recovered draft mutations intentionally remain review-required |
+| Ranked bank candidates | 89/96 matching top candidate (89/96 top-three) | Plausibility, not authorization or production accuracy |
+| Master library | 192/225 annotated navigation targets agree | 33 need mapping/clarification; no rendered-page verification |
+| Transcription | Not measured | Synthetic text, no device/audio reference evaluation |
+| Successful execution | Not measured | No executor in this layer |
+
+All 282 mutation rows receive classifications. 102 lexical entries lack a supported context template; four templated baselines require clarification. The master library has 361 entries and retains its unverified implementation labels and exclusions. Operation rows without full expectations remain coverage observations, not passing outcome tests. Review [COMMAND_MUTATION_BANK.md](COMMAND_MUTATION_BANK.md) and [COMMAND_LIBRARY_AUDIT.md](COMMAND_LIBRARY_AUDIT.md) for full denominators and limitations.
+
+Generated tests include 5,512 customer/schedule/mixed/future-tool combinations. This demonstrates reusable composition across unseen tool metadata, not unlimited language understanding. Grouped spoken numbers, unfamiliar colloquial/elliptical grammar, some pronouns, future domains and unsupported external/high-impact operations remain unresolved or require adapters.
+
+Chromium verification passed at 320/390/1440 widths, with no horizontal overflow/page errors or business database creation. The new ranker and shared registry load offline, all 88 fixtures run offline, fuzzy actions require review, critical amounts remain visible, and custom declarative tools produce unexecuted compound plans. Physical iPhone recognition and application execution remain unverified.
+
+Evidence directory: `/workspace/artifacts/tradeflow-command-intelligence/`. Current reports: `universal-ranker-fixtures.json`, `universal-ranker-bank.json`, `universal-command-library-audit.json`, `browser-universal-ranker-verification.json`, `browser-shared-navigation-verification.json` and `lab-universal-ranker-390.png`. Browser scripts are retained alongside them. Original unfinished work remains preserved. No branch CI, preview deployment or production action is claimed.
