@@ -1,5 +1,5 @@
 /* TradeFlow Appearance Intelligence v1: portable, deterministic contrast-safe palettes.
-   User hue is preserved; interface accent can be lifted for legibility on navy.
+   User hue is preserved; interface accent can be lifted for legibility on graphite.
    No external libraries, network, device or provider calls. */
 (function(root,factory){
  const api=factory();
@@ -17,15 +17,15 @@
  const usable=(raw,background,minimum)=>{const base=hexToRgb(raw);if(contrast(raw,background)>=minimum)return raw.toLowerCase();for(let i=1;i<=100;i++){const value=mix(base,[255,255,255],i/100);if(contrast(value,background)>=minimum)return value}return '#ffffff'};
  function palette(value){
   const raw=hexToRgb(value)?value.toLowerCase():'#10cfe1';
-  const bg='#07131f',raised='#102638',white='#f2fbff',black='#031522';
+  const bg='#111214',raised='#34363b',white='#f5f5f5',black='#111214';
   const text=usable(raw,raised,4.5);
   const action=usable(raw,raised,4.5);
   const onAction=contrast(action,black)>=contrast(action,white)?black:white;
-  const border=mix(hexToRgb(action),hexToRgb('#315165'),.23);
+  const border='#34373d';
   const rgb=hexToRgb(action);
   return Object.freeze({
    original:raw,accent:action,accentText:text,onAccent:onAction,bg,raised,border,
-   muted:'#acc3d0',text:'#f1f9fc',secondary:'#d7e8ee',
+   muted:'#a9adb2',text:'#f5f5f5',secondary:'#a9adb2',
    rgb:rgb.join(' '),income:'#00ed64',expense:'#ff334d',
    contrastOnButton:contrast(action,onAction),contrastLabel:contrast(text,raised)
   });
@@ -38,8 +38,8 @@
    '--tf-accent-original':p.original,'--brand-accent':p.accent,'--tf-accent':p.accent,
    '--tf-action-cyan':p.accent,'--tf-action-cyan-hover':p.accent,
    '--tf-accent-text':p.accentText,'--tf-accent-contrast':p.onAccent,
-   '--tf-accent-rgb':p.rgb,'--tf-muted':p.muted,'--tf-border':p.border,
-   '--tf-text':p.text,'--tf-income-neon':p.income,'--tf-expense-neon':p.expense
+   '--tf-accent-rgb':p.rgb,
+   '--tf-income-neon':p.income,'--tf-expense-neon':p.expense
   };
   Object.entries(entries).forEach(([key,color])=>target.setProperty(key,color));
   return p;

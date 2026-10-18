@@ -1,85 +1,587 @@
-/* TradeFlow Graphite A — Almost Black; reversible appearance-only layer. */
-:root{color-scheme:dark;--tf-bg:#111214;--tf-panel:#1c1d20;--tf-panel-raised:#292b2f;--tf-surface:#1c1d20;--tf-surface-raised:#292b2f;--tf-hairline:#373a3f;--tf-border:#373a3f;--tf-text:#f5f5f5;--tf-muted:#a9adb2;--tf-accent-contrast:#101316;background:#111214}
-html,body,.shell,.main{background:#111214!important;color:#f5f5f5}.sidebar{background:#191b1e!important;border-color:#373a3f!important}
-.top,.tf-unified-header{background:#161719!important;border-color:#373a3f!important;color:#f5f5f5!important}
-.tf-unified-header .tf-home-alert{background:#24262a;border-color:#3b4045;color:#e1e4e7}.tf-unified-header .tf-home-alert i{border-color:#161719}.tf-unified-header .tf-unified-wordmark{color:#f5f5f5}
-.content,.tf-home-v2,.tf-cal-page,.tf-supplier-page,.tf-growth-page,.tf-settings-v2,.tf-marketing-page,.tf-research-page,.tf-finance-page,.tf-opportunities-page,.tf-operations-page,.tf-integrations-page{color:#f5f5f5}
-.card,.panel,.tf-supplier-metrics>div,.tf-supplier-empty,.tf-supplier-row,.tf-supplier-order-row,.tf-supplier-edit,.tf-cal-queue,.tf-cal-quick-card,.tf-cal-formpanel,.tf-ai-chat-box,.tf-settings-card,.tf-op5-card,.tf-record-card,.tf-home-v2 .card{background:#1c1d20!important;border-color:#373a3f!important;color:#f5f5f5;box-shadow:none}
-.tf-supplier-metrics>div,.tf-supplier-row,.tf-supplier-order-row,.tf-supplier-empty{background:#222428!important}
-.tf-supplier-metrics small,.tf-supplier-heading p,.tf-supplier-disclaimer,.tf-supplier-section-title small,.tf-cal-day-heading small,.tf-cal-time-label,.content .muted,.content .sub{color:#a9adb2}
-.tf-supplier-search,.tf-supplier-toolbar button,.tf-supplier-sort select,.tf-cal-modes button,.tf-cal-layer-toggle,.tf-cal-queue button,.tf-ai-chat-box input,.tf-ai-chat-box textarea,.content :is(.tf-cash-input,.input,.tf-settings-form input,.tf-settings-form textarea,.tf-settings-form select):not([type=color]){background:#292b2f!important;border-color:#41444a!important;color:#f5f5f5}
-.tf-supplier-metrics strong,.tf-supplier-heading h1,.tf-supplier-section-title h2{color:#f5f5f5}
-.tf-cal-work,.tf-cal-sidebar,.tf-cal-timeline,.tf-cal-timeline-inner,.tf-cal-time-axis,.tf-cal-day-column,.tf-cal-day-track,.tf-cal-all-day,.tf-cal-day-heading,.tf-cal-queue-desktop{background-color:#17181b!important;border-color:#36393e!important}
-.tf-cal-day-track{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--cal-hour) - 1px),#393b40 calc(var(--cal-hour) - 1px),#393b40 var(--cal-hour))!important}
-.tf-cal-day-column:nth-child(2n) .tf-cal-day-track{background-color:#1e2023!important}
-.tf-cal-toolbar,.tf-cal-queue,.tf-cal-mobile-drawer{background-color:#1c1d20;border-color:#373a3f}
-.tf-cal-modes button.active{background:#273a3e!important;border-color:#5dd7e8!important;color:#7fe6f0!important}
-.mobilebar{background:linear-gradient(180deg,#202226,#191a1d)!important;border-color:#373a3f!important}.mobilebar button{color:#b9bec4}.mobilebar button.active{color:#5dd7e8!important;background:#28383c!important;border-color:#4aa7b5!important}
-.tf-map-screen .tf-map-top{background:linear-gradient(180deg,rgba(17,18,20,.97),rgba(17,18,20,.52) 85%,transparent)}
-.tf-map-screen .tf-map-search,.tf-map-screen .tf-map-actions-float button,.tf-map-screen .maplibregl-ctrl-top-right .maplibregl-ctrl-group{background:rgba(29,31,35,.96)!important;border-color:#41464d!important}
-.tf-map-screen .tf-map-search input{color:#f5f5f5}.tf-map-screen .tf-map-suggestions{background:#24262a;border-color:#41464d}.tf-map-screen .tf-map-hq-shortcut{background:#25272b;border-color:#4c8891}
-.tf-supplier-page button:focus-visible,.tf-cal-page button:focus-visible{outline-color:var(--tf-accent,#5dd7e8)}
-/* Preserve map tiles and semantic danger/success colors. */
+/* TradeFlow Graphite V2 — shared presentation tokens and component surfaces.
+ * Loaded last to bridge legacy module styles. No cartography or data semantics here.
+ * Accent values belong to the existing contrast-safe appearance engine, not this file.
+ */
+:root {
+  color-scheme: dark;
+  --tf-graphite-canvas: #111214;
+  --tf-graphite-panel: #17181B;
+  --tf-graphite-raised: #2A2C31;
+  --tf-graphite-hover: #34363B;
+  --tf-graphite-border-soft: #2B2E33;
+  --tf-graphite-border: #34373D;
+  --tf-graphite-text: #F5F5F5;
+  --tf-graphite-subtext: #A9ADB2;
+  --tf-graphite-cyan: #65D3E1;
+  --tf-radius-panel: 22px;
+  --tf-radius-card: 18px;
+  --tf-radius-control: 12px;
+  --tf-radius-nav: 14px;
+  --tf-space-panel: 20px;
+  --tf-space-card: 16px;
+  --tf-gap-card: 12px;
+  --tf-gap-section: 22px;
+  --tf-icon-size: 22px;
+  --tf-icon-stroke: 1.8;
+  --tf-ui-font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --tf-bg: var(--tf-graphite-canvas);
+  --tf-panel: var(--tf-graphite-panel);
+  --tf-panel-raised: var(--tf-graphite-raised);
+  --tf-surface: var(--tf-graphite-panel);
+  --tf-surface-raised: var(--tf-graphite-raised);
+  --tf-border: var(--tf-graphite-border);
+  --tf-hairline: var(--tf-graphite-border-soft);
+  --tf-text: var(--tf-graphite-text);
+  --tf-muted: var(--tf-graphite-subtext);
+  --tf-selected-fill: color-mix(in srgb, var(--tf-accent, var(--tf-graphite-cyan)) 10%, var(--tf-graphite-raised));
+  --tf-selected-border: color-mix(in srgb, var(--tf-accent, var(--tf-graphite-cyan)) 38%, var(--tf-graphite-border));
+  --tf-focus: var(--tf-accent, var(--tf-graphite-cyan));
+}
+html, body, .shell, .main {
+  background: var(--tf-bg) !important;
+  color: var(--tf-text);
+}
+body { font-family: var(--tf-ui-font); }
+.main, .content { min-width: 0; }
+.content { gap: var(--tf-gap-section); }
+.sidebar, .top, .tf-unified-header {
+  background: var(--tf-panel) !important;
+  border-color: var(--tf-hairline) !important;
+  color: var(--tf-text);
+  box-shadow: none;
+}
+.sidebar .brand { color: var(--tf-text); text-shadow: none; }
+.sidebar .nav { border-radius: var(--tf-radius-nav); color: var(--tf-muted); }
+.sidebar .nav.active {
+  color: var(--tf-accent-text, var(--tf-focus));
+  background: var(--tf-selected-fill);
+  box-shadow: inset 2px 0 0 var(--tf-selected-border);
+}
+.tf-unified-header .tf-unified-wordmark { color: var(--tf-text); }
+.tf-unified-header .tf-home-logo { filter: none; }
+.tf-unified-header .tf-home-alert {
+  background: var(--tf-graphite-raised);
+  color: var(--tf-text);
+  border: 1px solid var(--tf-border);
+  box-shadow: none;
+}
+.tf-unified-header .tf-home-alert i { border-color: var(--tf-graphite-raised); }
+.tf-unified-header .tf-intel-summary, .tf-unified-header .tf-intel-collapse {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  border-radius: var(--tf-radius-control);
+}
+.tf-unified-header .tf-intel-chip {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  border-radius: var(--tf-radius-control);
+}
+/* Keep the header's existing structure, height, fixed brand and horizontal actions. */
+.content :is(.card, .panel) {
+  background: var(--tf-panel) !important;
+  border: 1px solid var(--tf-hairline) !important;
+  border-radius: var(--tf-radius-panel);
+  color: var(--tf-text);
+  box-shadow: none !important;
+}
+.content .card { background: var(--tf-graphite-raised) !important; border-color: var(--tf-border) !important; border-radius: var(--tf-radius-card); }
+.content .card::before { background: none; }
+.content :is(.muted, .sub, .empty) { color: var(--tf-muted); }
+.content :is(h1, h2, h3) { letter-spacing: -.025em; }
+.content :is(p, small, label) { line-height: 1.45; }
+.content :is(input, textarea, select):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]) {
+  background: var(--tf-graphite-raised) !important;
+  border-color: var(--tf-border) !important;
+  border-radius: var(--tf-radius-control);
+  color: var(--tf-text) !important;
+  caret-color: var(--tf-accent-text, var(--tf-focus));
+}
+.content :is(input, textarea)::placeholder { color: var(--tf-muted) !important; }
+.content :is(.btn, .segment) { border-radius: var(--tf-radius-control); box-shadow: none !important; }
+.content .btn.secondary { background: var(--tf-graphite-raised) !important; border-color: var(--tf-border); color: var(--tf-text); }
+.content .segment { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-muted); }
+.content .segment.active { background: var(--tf-selected-fill); border-color: var(--tf-selected-border); color: var(--tf-accent-text, var(--tf-focus)); }
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--tf-focus) !important;
+  outline-offset: 3px;
+}
+/* Older global press styles added glow to every ordinary card. */
+button:active, .btn:active, [role=button]:active {
+  box-shadow: none !important;
+  filter: none;
+}
+/* Home — three distinct levels: canvas, enclosing sections, raised KPI cards. */
+.tf-home-v2 { gap: var(--tf-gap-section); color: var(--tf-text); }
+.tf-home-v2 .tf-home-intro h1 { color: var(--tf-text); font-size: clamp(26px, 5.6vw, 36px); }
+.tf-home-v2 .tf-home-intro p { color: var(--tf-muted); font-size: 14px; }
+.tf-home-v2 .tf-home-stats {
+  padding: var(--tf-space-panel);
+  gap: var(--tf-gap-card);
+  background: var(--tf-panel);
+  border: 1px solid var(--tf-hairline);
+  border-radius: var(--tf-radius-panel);
+}
+.tf-home-v2 .tf-home-stat {
+  background: var(--tf-graphite-raised);
+  border: 1px solid var(--tf-border);
+  border-radius: var(--tf-radius-card);
+  padding: var(--tf-space-card);
+  box-shadow: none;
+  min-height: 112px;
+  color: var(--tf-text);
+}
+.tf-home-v2 .tf-home-stat strong { font-size: clamp(30px, 7.2vw, 40px); font-weight: 650; font-variant-numeric: tabular-nums; }
+.tf-home-v2 .tf-home-stat > span:last-child { color: var(--tf-muted); font-size: 13px; }
+.tf-home-v2 .tf-stat-icon { top: 16px; right: 14px; filter: none; color: var(--tf-accent-text, var(--tf-focus)); }
+.tf-home-v2 .tf-stat-icon svg { width: var(--tf-icon-size); height: var(--tf-icon-size); stroke-width: var(--tf-icon-stroke); }
+.tf-home-v2 :is(.tf-home-finance, .tf-home-trade, .tf-home-activity) {
+  background: var(--tf-panel);
+  border: 1px solid var(--tf-hairline);
+  border-radius: var(--tf-radius-panel);
+  box-shadow: none;
+  padding: var(--tf-space-panel);
+}
+.tf-home-v2 :is(.tf-home-kicker, .tf-home-sectionhead h2, .tf-home-event-text) { color: var(--tf-text); }
+.tf-home-v2 :is(.tf-home-growth, .tf-home-empty, .tf-home-sectionhead > span, .tf-home-trade-label small, .tf-home-trade-metrics small, .tf-home-progress-caption, .tf-home-event time) { color: var(--tf-muted); }
+.tf-home-v2 .tf-home-sectionhead > button { color: var(--tf-accent-text, var(--tf-focus)); }
+.tf-home-v2 .tf-home-period { border-color: var(--tf-border); color: var(--tf-text); border-radius: var(--tf-radius-control); }
+.tf-home-v2 :is(.tf-home-trade-icon, .tf-home-event-icon) { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-accent-text, var(--tf-focus)); }
+.tf-home-v2 :is(.tf-home-trade-metrics > div, .tf-home-event) { border-color: var(--tf-hairline); }
+.tf-home-v2 .tf-home-progress { background: var(--tf-graphite-raised); }
+.tf-chart-tooltip { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-text); }
+.tf-chart-tooltip small { color: var(--tf-muted); }
+/* Five existing navigation destinations retain their geometry and handlers. */
+body .mobilebar, body:has(.tf-home-v2) .mobilebar {
+  background: var(--tf-panel) !important;
+  border: 1px solid var(--tf-hairline) !important;
+  border-bottom: 0 !important;
+  border-radius: var(--tf-radius-panel) var(--tf-radius-panel) 0 0 !important;
+  box-shadow: none !important;
+}
+body .mobilebar button { color: var(--tf-muted) !important; border-radius: var(--tf-radius-nav); }
+body .mobilebar button.active, body:has(.tf-home-v2) .mobilebar button.active {
+  background: var(--tf-selected-fill) !important;
+  border-color: var(--tf-selected-border) !important;
+  color: var(--tf-accent-text, var(--tf-focus)) !important;
+  box-shadow: none !important;
+}
+body .mobilebar button .navicon { filter: none !important; }
+body .mobilebar button .navicon svg { width: var(--tf-icon-size); height: var(--tf-icon-size); stroke-width: var(--tf-icon-stroke); }
+@media (hover: hover) {
+  .tf-home-v2 .tf-home-stat:hover, .sidebar .nav:hover { background: var(--tf-graphite-hover); }
+  .tf-unified-header :is(.tf-home-alert, .tf-intel-summary):hover { background: var(--tf-graphite-hover); }
+}
+@media (max-width: 480px) {
+  :root { --tf-space-panel: 16px; --tf-space-card: 14px; --tf-gap-section: 20px; }
+  .tf-home-v2 .tf-home-stat { min-height: 108px; }
+}
+@media (max-width: 360px) {
+  .tf-home-v2 .tf-home-stats { padding: 12px; gap: 10px; }
+  .tf-home-v2 .tf-home-stat { padding: 12px; }
+  .tf-home-v2 .tf-stat-icon { right: 10px; top: 12px; }
+}
 
-/* TRADEFLOW GRAPHITE — LOCKED DESIGN TOKENS (2026-10-18)
-   Screenshot-derived direction: charcoal nested surfaces, spacious rounded panels,
-   subtle neutral borders, clear typography and restrained cyan action emphasis.
-   Map cartography, event/category status colors and financial semantics are not neutralized. */
-:root{
- --tf-graphite-canvas:#111214;
- --tf-graphite-panel:#1c1d20;
- --tf-graphite-raised:#292b2f;
- --tf-graphite-hover:#32353a;
- --tf-graphite-border:#373a3f;
- --tf-graphite-border-soft:#323438;
- --tf-graphite-text:#f5f5f5;
- --tf-graphite-subtext:#a9adb2;
- --tf-graphite-icon:#bfc3c7;
- --tf-graphite-cyan:#65d3e1;
- --tf-radius-panel:22px;
- --tf-radius-card:18px;
- --tf-radius-control:12px;
- --tf-space-panel:20px;
- --tf-space-card:16px;
- --tf-gap-card:12px;
- --tf-ui-font:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
- --tf-bg:var(--tf-graphite-canvas);
- --tf-panel:var(--tf-graphite-panel);
- --tf-panel-raised:var(--tf-graphite-raised);
- --tf-surface:var(--tf-graphite-panel);
- --tf-surface-raised:var(--tf-graphite-raised);
- --tf-border:var(--tf-graphite-border);
- --tf-hairline:var(--tf-graphite-border);
- --tf-text:var(--tf-graphite-text);
- --tf-muted:var(--tf-graphite-subtext);
+/* Calendar — neutral chrome; category colors and warnings keep their own roles. */
+.tf-cal-page {
+  --cal-border: var(--tf-hairline);
+  --cal-panel: var(--tf-panel);
+  background: var(--tf-panel);
+  border-color: var(--tf-hairline);
+  border-radius: var(--tf-radius-panel);
+  color: var(--tf-text);
 }
-body{font-family:var(--tf-ui-font)}
-/* Shared panel and card shape: retain established page-specific sizes where functional. */
-.content :is(.card,.panel,.tf-record-card,.tf-supplier-metrics>div,.tf-supplier-row,.tf-supplier-order-row,.tf-supplier-empty,.tf-cal-quick-card,.tf-cal-formpanel,.tf-settings-card,.tf-ai-chat-box){
- border:1px solid var(--tf-graphite-border)!important;
- border-radius:var(--tf-radius-card);
+.tf-cal-page :is(.tf-cal-sidebar, .tf-cal-work, .tf-cal-toolbar, .tf-cal-timeline, .tf-cal-time-axis, .tf-cal-day-heading, .tf-cal-all-day, .tf-cal-month-layout, .tf-cal-review, .tf-cal-queue-desktop, .tf-cal-mobile-queue-control) {
+  background: var(--tf-panel);
+  border-color: var(--tf-hairline);
 }
-.content :is(.panel,.tf-cal-formpanel,.tf-settings-card,.tf-ai-chat-box){border-radius:var(--tf-radius-panel)}
-.content :is(.card,.panel,.tf-supplier-metrics>div,.tf-record-card,.tf-cal-formpanel){
- box-shadow:none!important;
+.tf-cal-page :is(.tf-cal-day-column, .tf-cal-all-day-axis, .tf-cal-mini-grid, .tf-cal-horizon, .tf-cal-schedule-controls, .tf-cal-review-head, .tf-cal-review-risks) { border-color: var(--tf-hairline); }
+.tf-cal-page .tf-cal-day-track {
+  background-color: var(--tf-bg);
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--cal-hour) - 1px), var(--tf-hairline) calc(var(--cal-hour) - 1px), var(--tf-hairline) var(--cal-hour));
 }
-.content :is(input,textarea,select):not([type=checkbox]):not([type=radio]):not([type=color]){
- border-color:var(--tf-graphite-border);
- border-radius:var(--tf-radius-control);
+.tf-cal-page .tf-cal-day-column:nth-child(2n) .tf-cal-day-track { background-color: var(--tf-panel); }
+.tf-cal-page :is(.tf-cal-date-tools button, .tf-cal-layer-toggle, .tf-cal-secondary, .tf-cal-new-layer-btn, .tf-cal-new-layer button, .tf-cal-mobile-queue-control button, .tf-cal-review-head button, .tf-cal-conflict-record button) {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  border-radius: var(--tf-radius-control);
+  color: var(--tf-text);
+  box-shadow: none;
 }
-.content :is(button,.btn):not(.tf-unified-brand):focus-visible{
- outline:2px solid var(--tf-accent,#65d3e1);
- outline-offset:2px;
+.tf-cal-page .tf-cal-modes { background: var(--tf-graphite-raised); border-color: var(--tf-border); border-radius: var(--tf-radius-control); }
+.tf-cal-page .tf-cal-modes button { background: transparent; color: var(--tf-muted); box-shadow: none; }
+.tf-cal-page .tf-cal-modes button.active {
+  background: var(--tf-selected-fill);
+  color: var(--tf-accent-text, var(--tf-focus));
+  box-shadow: inset 0 0 0 1px var(--tf-selected-border);
 }
-.content :is(h1,h2,h3){letter-spacing:-.025em}
-.content :is(p,small,.muted){line-height:1.45}
-.content :is(.tf-supplier-search,.tf-record-search,.tf-import-picker){
- border-radius:var(--tf-radius-control);
+.tf-cal-primary, .tf-cal-page .tf-cal-primary, .tf-cal-direct-save {
+  background: var(--tf-accent, var(--tf-graphite-cyan));
+  border-color: var(--tf-accent, var(--tf-graphite-cyan));
+  color: var(--tf-accent-contrast);
+  border-radius: var(--tf-radius-control);
+  box-shadow: none;
 }
-/* Maintain original five destinations and interaction geometry. */
-.mobilebar{border-radius:22px 22px 0 0!important}
-.mobilebar button{border-radius:14px}
-.mobilebar button.active{box-shadow:none!important}
-/* Map controls harmonize while map features/road styles remain untouched. */
-.tf-map-screen .tf-map-search{border-radius:15px}
-.tf-map-screen .tf-map-actions-float button{border-radius:12px}
+.tf-cal-page .tf-cal-mini-grid button.active, .tf-cal-page .tf-cal-month-grid button.active {
+  background: var(--tf-selected-fill);
+  color: var(--tf-accent-text, var(--tf-focus));
+  border-color: var(--tf-selected-border);
+  box-shadow: none;
+}
+.tf-cal-page .tf-cal-mini-grid button.active { box-shadow: inset 0 0 0 1px var(--tf-selected-border); }
+.tf-cal-page .tf-cal-day-heading button.active { color: var(--tf-accent-text, var(--tf-focus)); }
+.tf-cal-page :is(.tf-cal-month-grid button, .tf-cal-queue, .tf-cal-formpanel, .tf-cal-proposal, .tf-cal-resources) {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  box-shadow: none;
+}
+.tf-cal-page :is(.tf-cal-queue, .tf-cal-formpanel, .tf-cal-proposal, .tf-cal-resources) { border-radius: var(--tf-radius-card); }
+.tf-cal-page :is(.tf-cal-time-label, .tf-cal-all-day-axis, .tf-cal-day-heading small, .tf-cal-mini-grid small, .tf-cal-month-labels span, .tf-cal-layer, .tf-cal-schedule-controls button, .tf-cal-queue p, .tf-cal-queue small, .tf-cal-review-head p, .tf-cal-proposal p, .tf-cal-proposal small, .tf-cal-section-head p, .tf-cal-empty, .tf-cal-disclosure) { color: var(--tf-muted); }
+.tf-cal-page :is(.tf-cal-mini-head, .tf-cal-layer-top strong, .tf-cal-review-head h2, .tf-cal-proposal strong, .tf-cal-date-tools strong) { color: var(--tf-text); }
+.tf-cal-page .tf-cal-event {
+  background: color-mix(in srgb, var(--event-color) 13%, var(--tf-panel));
+  border-color: color-mix(in srgb, var(--event-color) 45%, var(--tf-border));
+  border-left-color: var(--event-color);
+  color: var(--tf-text);
+}
+.tf-cal-page .tf-cal-event-details small { color: var(--tf-text); }
+.tf-cal-page .tf-cal-month-grid button small { background: color-mix(in srgb, var(--event-color) 13%, var(--tf-panel)); color: var(--tf-text); }
+.tf-cal-mobile-drawer, .tf-cal-quick-card, .tf-cal-direct-editor {
+  background: var(--tf-panel);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  box-shadow: none;
+}
+.tf-cal-quick-card, .tf-cal-direct-editor { border-radius: var(--tf-radius-card); }
+.tf-cal-direct-editor :is(input, select, textarea):not([type=range]), .tf-cal-direct-editor .tf-cal-input-icon {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+}
+.tf-cal-direct-editor .tf-cal-direct-head button { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-text); }
+.tf-cal-direct-editor :is(.tf-cal-direct-label, .tf-cal-direct-field, .tf-cal-direct-field > span, .tf-cal-direct-time label, .tf-cal-direct-more, .tf-cal-direct-duration-readout span) { color: var(--tf-muted); }
+.tf-cal-direct-editor :is(.tf-cal-direct-head strong, .tf-cal-direct-duration-readout strong) { color: var(--tf-text); }
+.tf-cal-direct-editor .tf-cal-input-icon input { background: transparent !important; }
+.tf-cal-direct-editor .tf-cal-direct-types button:not(.active) { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-muted); }
+.tf-cal-direct-editor .tf-cal-direct-types button { box-shadow: none; }
+.tf-cal-direct-editor .tf-cal-direct-extra-fields, .tf-cal-direct-editor .tf-cal-direct-more, .tf-cal-drawer-head { border-color: var(--tf-hairline); }
+.tf-cal-direct-editor .tf-cal-editor-grip span { background: var(--tf-muted); }
+.tf-cal-page input[type=checkbox] { accent-color: var(--tf-focus); }
+.tf-cal-timeline, .tf-cal-sidebar-inner { scrollbar-color: var(--tf-border) transparent; }
+
+/* Map UI only. Do not recolor, filter or replace the map canvas, tiles or markers. */
+.tf-map-screen .tf-map-top { background: transparent; }
+.tf-map-screen :is(.tf-map-search, .tf-map-suggestions, .tf-map-controls, .tf-map-hq-shortcut),
+.tf-map-screen .tf-map-actions-float button,
+.tf-map-screen :is(.maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right) .maplibregl-ctrl-group {
+  background: var(--tf-panel);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  border-radius: var(--tf-radius-control);
+  box-shadow: none;
+}
+.tf-map-screen .tf-map-search { border: 1px solid var(--tf-border); }
+.tf-map-screen .tf-map-search input { background: transparent !important; color: var(--tf-text); }
+.tf-map-screen .tf-map-search input::placeholder { color: var(--tf-muted); }
+.tf-map-screen .tf-map-search button { color: var(--tf-accent-text, var(--tf-focus)); }
+.tf-map-screen .tf-map-suggestions button { color: var(--tf-text); border-color: var(--tf-hairline); }
+.tf-map-screen .tf-map-suggestions small, .tf-map-screen .tf-map-legend { color: var(--tf-muted); }
+.tf-map-screen .tf-map-actions-float { top: 76px; }
+.tf-map-screen .tf-map-actions-float svg { width: var(--tf-icon-size); height: var(--tf-icon-size); stroke-width: var(--tf-icon-stroke); }
+.tf-map-screen .tf-map-modes .btn { border-color: var(--tf-border); box-shadow: none; }
+.tf-map-screen .tf-map-modes .btn:not(.secondary) { background: var(--tf-selected-fill); border-color: var(--tf-selected-border); color: var(--tf-accent-text, var(--tf-focus)) !important; }
+.tf-map-screen .tf-map-legend { background: var(--tf-panel); border-color: var(--tf-hairline); }
+.tf-map-screen :is(.maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right) .maplibregl-ctrl-group button {
+  background: transparent;
+  filter: none;
+  border-color: var(--tf-hairline);
+}
+.tf-map-screen .maplibregl-ctrl-group .maplibregl-ctrl-icon { filter: invert(.85); }
+.tf-map-screen .tf-map-controls { margin-right: 54px; max-height: calc(100dvh - 260px); overflow-y: auto; }
+.tf-map-screen .tf-map-footer { color: var(--tf-muted); }
+body > .tf-location-sheet, body > .tf-experience-sheet {
+  background: var(--tf-panel) !important;
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  border-radius: var(--tf-radius-panel) var(--tf-radius-panel) 0 0;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.tf-experience-sheet :is(.tf-exp-thumb, .tf-exp-close, .tf-exp-action:not(.tf-exp-directions)),
+.tf-location-sheet :is(.tf-sheet-close, .tf-sheet-primary-action:not(:first-child)) {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  border-radius: var(--tf-radius-control);
+  box-shadow: none;
+}
+.tf-experience-sheet :is(.tf-exp-heading > p, .tf-exp-contact small, .tf-exp-address-hint), .tf-location-sheet .tf-sheet-address { color: var(--tf-muted) !important; }
+.tf-experience-sheet :is(.tf-exp-actions, .tf-exp-contact, .tf-exp-deep), .tf-location-sheet .tf-sheet-more { border-color: var(--tf-hairline); }
+@media (hover: hover) {
+  .tf-map-screen :is(.tf-map-actions-float button, .tf-map-suggestions button):hover { background: var(--tf-graphite-hover); }
+}
+
+/* Record workspaces — shared section, inner card and control recipes.
+ * Explicit component selectors avoid changing status badges, charts, documents or maps.
+ */
+.content :is(
+  .tf-cash-summary, .tf-cash-chart, .tf-cash-history, .tf-cash-form,
+  .tf-finance-tool-menu, .tf-settings-brand, .tf-settings-group, .tf-settings-panel,
+  .tf-pref-group, .tf-more-subpanel, .tf-record-dossier-identity, .tf-record-dossier-box,
+  .tf-op3-mapcard, .tf-od-hero, .tf-od-card, .tf-revenue-card, .tf-supplier-list,
+  .tf-supplier-edit, .tf-supplier-contact, .tf-route-card, .tf-ops-panel,
+  .tf-d-v2-panel, .tf-target-hero, .tf-target-active, .tf-marketing-card,
+  .tf-ms-panel, .tf-ms-campaigns, .tf-ms-growth, .tf-ms-templates,
+  .tf-rb-card, .tf-rb-v2-panel, .tf-rb-v2-briefs, .tf-rb-v2-tools,
+  .tf-int-hero, .tf-int-list, .tf-int-local, .tf-int-detail-panel, .tf-job-form,
+  .tf-inv-attention, .tf-inv-records, .tf-jc-panel, .tf-jc-form, .tf-growth-category
+) {
+  background: var(--tf-panel) !important;
+  border-color: var(--tf-hairline) !important;
+  border-radius: var(--tf-radius-panel) !important;
+  box-shadow: none !important;
+  color: var(--tf-text);
+}
+.content :is(
+  .tf-cash-summary, .tf-cash-history, .tf-cash-form, .tf-record-dossier-box,
+  .tf-op3-mapcard, .tf-revenue-card, .tf-route-card, .tf-ops-panel,
+  .tf-target-active, .tf-ms-panel, .tf-ms-campaigns, .tf-ms-growth,
+  .tf-rb-card, .tf-rb-v2-panel, .tf-rb-v2-briefs, .tf-rb-v2-tools
+) { padding: var(--tf-space-panel); }
+.content :is(
+  .tf-record-card, .tf-record-empty, .tf-supplier-empty, .tf-supplier-row,
+  .tf-supplier-order-row, .tf-supplier-metrics > div, .tf-po-line, .tf-po-totals,
+  .tf-revenue-stats > div, .tf-revenue-listitem, .tf-revenue-empty, .tf-revenue-line,
+  .tf-op3-stats > div, .tf-op3-row, .tf-op-row, .opitem,
+  .tf-route-statrow > div, .tf-route-empty, .tf-route-integration,
+  .tf-ops-stats > div, .tf-ops-listitem, .tf-ops-empty, .tf-ops-stop,
+  .tf-d-v2-metric, .tf-d-v2-member, .tf-d-v2-visit, .tf-d-v2-unassigned,
+  .tf-growth-summary, .tf-growth-card, .tf-growth-empty, .tf-growth-route,
+  .tf-target-metric, .tf-target-profile-card, .tf-target-workspaces button,
+  .tf-marketing-metrics > div, .tf-marketing-listrow, .tf-marketing-empty,
+  .tf-marketing-template, .tf-marketing-preview, .tf-ms-metric,
+  .tf-ms-campaign-row, .tf-ms-growth-grid > button,
+  .tf-rb-stats > div, .tf-rb-listrow, .tf-rb-empty, .tf-rb-v2-metric,
+  .tf-rb-v2-row, .tf-rb-v2-tools-grid > button, .tf-rb-v2-empty,
+  .tf-rb-v2-evidence, .tf-rb-v2-index, .tf-rb-v2-qc,
+  .tf-int-metrics article, .tf-int-app-card, .tf-int-local-grid button, .tf-job-checkline,
+  .tf-inv-metric, .tf-jc-tile, .tf-jc-job-row, .tf-op-empty
+) {
+  background: var(--tf-graphite-raised) !important;
+  border-color: var(--tf-border) !important;
+  border-radius: var(--tf-radius-card) !important;
+  box-shadow: none !important;
+  color: var(--tf-text);
+}
+.content :is(.tf-record-card, .tf-supplier-empty, .tf-revenue-stats > div, .tf-target-metric, .tf-ms-metric, .tf-rb-v2-metric) { padding: var(--tf-space-card); }
+.content :is(.tf-supplier-metrics, .tf-record-list, .tf-revenue-stats, .tf-target-metrics, .tf-ms-metrics, .tf-rb-v2-metrics, .tf-int-metrics) { gap: var(--tf-gap-card); }
+.content :is(
+  .tf-cash-tabs button, .tf-cash-filtertabs button, .tf-cash-outline:not([data-kind=expense]),
+  .tf-cash-category-btn, .tf-cash-date-shell, .tf-cash-imports button, .tf-cash-photo-actions button,
+  .tf-finance-tool-row button:not(.primary), .tf-finance-tool-options button,
+  .tf-record-search, .tf-record-control, .tf-record-import, .tf-record-photo,
+  .tf-record-attach-btn, .tf-record-contact-actions a, .tf-record-related-grid button,
+  .tf-record-actions .tf-record-cancel, .tf-record-modalhead .tf-record-close,
+  .tf-supplier-tools button:not(.primary), .tf-supplier-primary-tools button:not(.primary),
+  .tf-supplier-toolbar button, .tf-supplier-search, .tf-supplier-sort select,
+  .tf-supplier-actions button:not(.primary), .tf-supplier-edit button:not(.primary):not(.tf-po-remove),
+  .tf-supplier-dossier-actions button:not(.primary), .tf-supplier-viewall,
+  .tf-po-detail-actions button:not(.primary), .tf-po-status-edit select,
+  .tf-revenue-secondary, .tf-revenue-top button, .tf-revenue-line > div > button,
+  .tf-op5-top-actions button:not(.primary), .tf-op5-action:not(.primary),
+  .tf-op3-search, .tf-op3-upload, .tf-op3-chips button,
+  .tf-od-outline, .tf-od-nav button, .tf-od-date-field,
+  .tf-od-quick :is(a,button,.tf-od-disabled), .tf-od-more-menu,
+  .tf-settings-heading > button, .tf-settings-brand-edit, .tf-settings-backup :is(button,label),
+  .tf-pref-back, .tf-more-gear, .tf-route-secondary, .tf-route-nav button,
+  .tf-ops-secondary, .tf-ops-nav, .tf-ops-switch, .tf-ops-stopcontrols button,
+  .tf-d-v2-date button, .tf-d-v2-picker button, .tf-growth-tabs button,
+  .tf-growth-secondary, .tf-growth-buttons button, .tf-target-switch,
+  .tf-target-active-buttons button:not(:first-child), .tf-target-view,
+  .tf-marketing-secondary, .tf-marketing-filter button, .tf-marketing-template button,
+  .tf-ms-filters button, .tf-ms-inline-actions button, .tf-ms-source-row button,
+  .tf-rb-secondary, .tf-rb-v2-filters button, .tf-int-search, .tf-int-filterbar button,
+  .tf-int-details, .tf-int-action-secondary, .tf-int-action-link,
+  .tf-job-checkline button, .tf-job-form-actions button, .tf-inv-filters button,
+  .tf-jc-filters button, .tf-jc-secondary, .tf-growth-category-open,
+  .tf-supplier-secondary-actions button, .tf-cash-formhead button
+) {
+  background: var(--tf-graphite-raised) !important;
+  border-color: var(--tf-border) !important;
+  border-radius: var(--tf-radius-control);
+  color: var(--tf-text) !important;
+  box-shadow: none !important;
+}
+.content :is(.tf-record-search input, .tf-record-control > .input, .tf-op3-search input, .tf-int-search input) { background: transparent !important; }
+.content :is(.tf-record-card-icon, .tf-supplier-avatar, .tf-op3-mapicon, .tf-target-metric-icon, .tf-target-profile-icon, .tf-ms-hero-icon, .tf-ms-campaign-icon, .tf-rb-v2-hero-icon, .tf-rb-v2-row-icon) {
+  background: var(--tf-panel);
+  border-color: var(--tf-border);
+  box-shadow: none;
+}
+.content :is(.tf-record-card-icon, .tf-settings-rowicon, .tf-more-itemicon, .tf-supplier-avatar) svg {
+  width: var(--tf-icon-size);
+  height: var(--tf-icon-size);
+  stroke-width: var(--tf-icon-stroke);
+  filter: none;
+}
+.content :is(
+  .tf-cash-tabs button.active, .tf-cash-filtertabs button.active,
+  .tf-op3-chips button.active, .tf-revenue-top button.active,
+  .tf-route-nav button.active, .tf-ops-nav button.active, .tf-ops-switch button.active,
+  .tf-growth-tabs button.active, .tf-target-switch button.active,
+  .tf-marketing-filter button.active, .tf-ms-filters button.active,
+  .tf-rb-v2-filters button.active, .tf-int-filterbar button.active,
+  .tf-inv-filters button.active, .tf-jc-filters button.active
+) {
+  background: var(--tf-selected-fill) !important;
+  border-color: var(--tf-selected-border) !important;
+  color: var(--tf-accent-text, var(--tf-focus)) !important;
+  box-shadow: none !important;
+}
+/* Semantic income, expense, opportunity stages, order state and warnings are retained. */
+.content :is(
+  .tf-cash-primary, .tf-record-save, .tf-record-create, .tf-record-dossier-primary,
+  .tf-supplier-tools button.primary, .tf-supplier-actions button.primary,
+  .tf-supplier-dossier-actions button.primary, .tf-po-detail-actions button.primary,
+  .tf-revenue-primary, .tf-route-primary, .tf-ops-primary, .tf-d-v2-primary,
+  .tf-growth-primary, .tf-target-active-buttons button:first-child,
+  .tf-marketing-primary, .tf-ms-create, .tf-rb-primary, .tf-rb-v2-create,
+  .tf-op5-action.primary, .tf-od-primary, .tf-settings-save, .tf-import-save, .tf-op5-photo-submit,
+  .tf-inv-create, .tf-jc-primary
+) {
+  background: var(--tf-accent, var(--tf-graphite-cyan)) !important;
+  border-color: var(--tf-accent, var(--tf-graphite-cyan)) !important;
+  color: var(--tf-accent-contrast) !important;
+  border-radius: var(--tf-radius-control);
+  box-shadow: none !important;
+}
+.content :is(.tf-cash-categories, .tf-cash-category-screen .tf-cash-categories) {
+  background: var(--tf-panel) !important;
+  border-color: var(--tf-hairline) !important;
+  border-radius: var(--tf-radius-panel) !important;
+}
+.content .tf-cash-categories > .tf-cash-cat-row { border-color: var(--tf-hairline) !important; }
+.content .tf-cash-categories > .tf-cash-cat-row.is-selected {
+  background: var(--tf-selected-fill) !important;
+  border-color: var(--tf-selected-border) !important;
+  box-shadow: none !important;
+}
+:is(.tf-record-modal, .tf-import-panel, .tf-import-dialog, .tf-photo-panel), .tf-op5-sheet {
+  background: var(--tf-panel) !important;
+  border-color: var(--tf-border) !important;
+  border-radius: var(--tf-radius-panel) !important;
+  color: var(--tf-text) !important;
+  box-shadow: none !important;
+}
+:is(.tf-op5-sheet-option, .tf-op5-sheet-cancel, .tf-import-picker, .tf-import-head > button, .tf-import-tabs button) {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  border-radius: var(--tf-radius-control);
+  box-shadow: none;
+}
+.content :is(.tf-record-grid .tf-record-field, .tf-cash-form > label, .tf-cash-category-name, .tf-record-modalhead h2, .tf-home-event-text) { color: var(--tf-text) !important; }
+.content :is(
+  .tf-cash-description, .tf-cash-period-label, .tf-cash-history small:not(.positive):not(.negative),
+  .tf-record-hub-header p, .tf-record-card-main small, .tf-record-info-row small,
+  .tf-record-related-grid small, .tf-record-dossier-box p,
+  .tf-supplier-heading p, .tf-supplier-metrics small, .tf-supplier-row-main small,
+  .tf-supplier-section-title small, .tf-supplier-disclaimer, .tf-supplier-location-status, .tf-supplier-empty p, .tf-cash-head p,
+  .tf-revenue-heading p, .tf-revenue-stats small, .tf-revenue-listitem small,
+  .tf-revenue-empty p, .tf-revenue-facts > span, .tf-revenue-notes,
+  .tf-settings-heading p, .tf-settings-rowcopy small, .tf-settings-form p,
+  .tf-op3-stats small, .tf-op3-mapheading small, .tf-op3-copy small,
+  .tf-od-sub, .tf-od-fact small, .tf-route-heading p, .tf-route-card p,
+  .tf-ms-helper, .tf-ms-caption, .tf-ms-metric > small, .tf-ms-campaign-text small,
+  .tf-rb-v2-heading p, .tf-rb-v2-metric small, .tf-rb-v2-row small,
+  .tf-int-heading p, .tf-int-metrics small, .tf-int-app-copy p
+) { color: var(--tf-muted); }
+.content :is(.tf-cash-chart, .tf-finance-tool-menu, .tf-record-hub, .tf-record-dossier, .tf-more-screen, .tf-settings-v2, .tf-supplier-page, .tf-revenue-page) { color: var(--tf-text); }
+.content :is(.tf-record-info-row, .tf-supplier-contact p, .tf-po-section-label, .tf-po-totals .tf-po-total, .tf-settings-row + .tf-settings-row, .tf-more-header, .tf-revenue-summary, .tf-revenue-invoice-lines, .tf-revenue-invoice-lines .total) { border-color: var(--tf-hairline) !important; }
+.tf-more-divider { background: var(--tf-hairline); }
+.content .tf-settings-row:active, .content .tf-more-item:active { background: var(--tf-graphite-hover) !important; }
+.content :is(.tf-record-control, .tf-record-search, .tf-cash-date-shell):focus-within {
+  outline: 2px solid var(--tf-focus);
+  outline-offset: 3px;
+  border-color: var(--tf-selected-border) !important;
+  box-shadow: none !important;
+}
+.tf-home-v2 .tf-revenue-plot svg > line:not(.tf-chart-crosshair), .tf-cash-svg > path { stroke: var(--tf-border); stroke-opacity: 1; }
+.tf-home-v2 .tf-revenue-plot svg > text, .tf-cash-svg > text { fill: var(--tf-muted); }
+/* Existing notification and advice surfaces share the palette; no new AI behavior. */
+.tf-notif-panel, .tf-notif-panel-head, .tf-notif-panel-footer, .tf-ai-mini-panel, .tf-ai-chat-box {
+  background: var(--tf-panel);
+  border-color: var(--tf-border);
+  color: var(--tf-text);
+  box-shadow: none;
+}
+.tf-notif-dismiss, .tf-ai-orb, .tf-ai-mini-close, .tf-ai-mini-gate, .tf-ai-mini-composer, .tf-ai-mini-message, .tf-ai-chat-composer {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  box-shadow: none;
+}
+.tf-ai-orb::before { border-color: var(--tf-border); animation: none; }
+.tf-ai-orb:hover { box-shadow: none; }
+.tf-notif-item.unread { background: var(--tf-selected-fill); }
+.tf-notif-group, .tf-notif-panel-footer, .tf-ai-mini-head, .tf-ai-mini-context { border-color: var(--tf-hairline); }
+.tf-notif-item:hover, .tf-notif-item:focus-visible { background: var(--tf-graphite-hover); }
+.tf-notif-copy small, .tf-notif-group h3, .tf-notif-side, .tf-notif-panel-footer small { color: var(--tf-muted); }
+/* Keep retired discovery entries out of the visible navigation. */
+.sidebar [data-tab=missions] { display: none; }
+body .mobilebar > button { border-radius: var(--tf-radius-nav) !important; }
+/* Legacy appearance selectors combine module-specific actions: match their scope. */
+.content .tf-op5 .tf-op5-top-actions button.tf-op5-action:not(.primary), .content .tf-cash .tf-finance-tool-row button:not(.primary) {
+  background: var(--tf-graphite-raised) !important;
+  border-color: var(--tf-border) !important;
+  color: var(--tf-text) !important;
+}
+.content :is(.tf-route-notice, .tf-route-integration-banner, .tf-int-disclosure, .tf-ops-note, .tf-ops-explain, .tf-marketing-info, .tf-marketing-note, .tf-rb-notice, .tf-rb-disclosure) {
+  background: var(--tf-panel);
+  border-color: var(--tf-hairline);
+  color: var(--tf-muted);
+}
+.content :is(.tf-inv-metric-label, .tf-inv-heading p, .tf-inv-row-detail small, .tf-inv-disclaimer, .tf-jc-tile-label, .tf-jc-tile small, .tf-jc-panel p, .tf-jc-footnote, .tf-cash-numbers small, .tf-cash-empty) { color: var(--tf-muted); }
+.content :is(.tf-cash-numbers > div, .tf-cash-row, .tf-inv-row, .tf-jc-category, .tf-jc-entry) { border-color: var(--tf-hairline); }
+.tf-jc-track, .tf-ms-channel-track, .tf-rb-v2-progressbar { background: var(--tf-graphite-raised); }
+/* First-run setup uses the same component system without changing its fields. */
+.tf-setup-screen { background: var(--tf-bg); color: var(--tf-text); }
+.tf-setup-trades, .tf-setup-details { background: var(--tf-panel); border-color: var(--tf-hairline); border-radius: var(--tf-radius-panel); }
+.tf-setup-trade { background: var(--tf-graphite-raised) !important; border-color: var(--tf-border) !important; color: var(--tf-text) !important; border-radius: var(--tf-radius-control) !important; }
+.tf-setup-trade.is-selected { background: var(--tf-selected-fill) !important; border-color: var(--tf-selected-border) !important; box-shadow: none !important; }
+.tf-setup-other input, .tf-setup-details input { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-text); }
+.tf-setup-submit { box-shadow: none !important; }
+.content .tf-supplier-empty p, .content .tf-cash-head p { color: var(--tf-muted); }
+.tf-map-screen .tf-map-search button { font-family: var(--tf-ui-font); font-variant-emoji: text; }
+.tf-map-screen .tf-map-search button svg { width: var(--tf-icon-size); height: var(--tf-icon-size); stroke-width: var(--tf-icon-stroke); }
+/* Record/import dialogs mount outside .content; give their controls the same tokens. */
+.tf-record-dialog, .tf-import-overlay, .tf-import-backdrop, .tf-op5-sheet-shade {
+  background: color-mix(in srgb, var(--tf-bg) 82%, transparent);
+}
+body .tf-record-modal :is(.tf-record-control, .tf-record-close, .tf-record-cancel),
+.tf-import-panel :is(input, select, textarea), .tf-import-dialog :is(input, select, textarea) {
+  background: var(--tf-graphite-raised) !important;
+  border-color: var(--tf-border) !important;
+  color: var(--tf-text) !important;
+  box-shadow: none !important;
+  border-radius: var(--tf-radius-control) !important;
+}
+body .tf-record-modal .tf-record-save {
+  background: var(--tf-accent, var(--tf-graphite-cyan)) !important;
+  border-color: var(--tf-accent, var(--tf-graphite-cyan)) !important;
+  color: var(--tf-accent-contrast) !important;
+  box-shadow: none !important;
+}
+body .tf-record-modal .tf-record-control:focus-within {
+  outline: 2px solid var(--tf-focus);
+  outline-offset: 3px;
+}
+body .tf-record-modal .tf-record-control > .input::placeholder { color: var(--tf-muted) !important; }
+.tf-photo-overlay { background: color-mix(in srgb, var(--tf-bg) 82%, transparent); }
+.tf-photo-panel :is(.tf-photo-head button, .tf-photo-options label, .tf-photo-placeholder, .tf-photo-ai-lock, .tf-photo-ai-lock button) {
+  background: var(--tf-graphite-raised);
+  border-color: var(--tf-border);
+  box-shadow: none;
+  color: var(--tf-text);
+}
+.tf-photo-panel > p, .tf-photo-panel small { color: var(--tf-muted); }

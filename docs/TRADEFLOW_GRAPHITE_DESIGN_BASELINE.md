@@ -1,5 +1,5 @@
 # TradeFlow Graphite — Locked Design Baseline
-Approved 2026-10-18. Status: binding visual specification for new work and incremental existing-screen harmonization.
+Approved 2026-10-18; updated for the Graphite V2 component restyle. Status: binding visual specification for new work and incremental existing-screen harmonization.
 
 ## Primary design reference
 User-approved ChatGPT-inspired TradeFlow Graphite concept screenshot shared in the design conversation. Do not assume the screenshot is an exported pixel-accurate implementation. Its decisions are binding: nested neutral graphite surfaces, low-contrast grey border separation, softly rounded cards, crisp typography, restrained cyan icon accents, aligned layout and spacious-but-efficient content organization.
@@ -7,9 +7,10 @@ User-approved ChatGPT-inspired TradeFlow Graphite concept screenshot shared in t
 ## Color tokens
 Use `public/graphite-theme.css` as the implementation source of truth:
 - canvas `#111214` (selected over slightly lighter `#1B1C1F`)
-- outer panel `#1C1D20`
-- inner/raised cards `#292B2F`
-- subtle border `#373A3F`
+- outer panel `#17181B`
+- inner/raised cards `#2A2C31`
+- section border `#2B2E33`; card border `#34373D`
+- hover surface `#34363B`
 - foreground `#F5F5F5`
 - muted foreground `#A9ADB2`
 - restrained graphical accent `#65D3E1`
@@ -31,8 +32,8 @@ Maintain legacy, user-selectable accent if applicable; semantic red/green/amber 
 - Map controls must not overlap search, zoom or system safe areas.
 - Do not add another AI orb or Business Missions/Explore Capabilities page.
 
-## New intelligence interfaces
-Universal Command, TradeFlow Library and Headquarters War Room inherit these tokens and spacing rules. They must serve the owner-operator with low-friction, understandable interactions; no fake autonomous features or fabricated business data.
+## Current styling scope
+Existing components only. This restyle adds no intelligence, voice, Library, War Room, Business Missions or Explore Capabilities features. Preserve business logic, data models and the v9 database. Accent adaptation owns accent roles; neutral component colors come from the shared stylesheet.
 
 ## Change safety
 Incremental visual changes only; no IndexedDB migrations, functional rewrites or production deployment as part of theme work. Test actual iPhone safe areas, legibility, interactive controls and data-preserving workflows. Protected production worker `calm-rice-1ea7` must not be modified.
