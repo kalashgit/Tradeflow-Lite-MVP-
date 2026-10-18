@@ -155,7 +155,7 @@ function tfImportDate(v){
  yyyy+'-'+String(mm).padStart(2,'0')+'-'+String(dd).padStart(2,'0'):null;
 }
 function tfImportAmount(v){
- let t=String(v??'').trim().replace(/[$$£\s]/g,'');
+ let t=String(v??'').trim().replace(/[€$£\s]/g,'');
  if(!t)return null;
  if(/^\(.*\)$/.test(t))t='-'+t.slice(1,-1);
  if(t.includes(',')&&t.includes('.'))t=t.lastIndexOf(',')>t.lastIndexOf('.')?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');
