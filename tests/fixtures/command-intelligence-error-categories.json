@@ -1,0 +1,403 @@
+{
+  "version": 1,
+  "context": {
+    "today": "2026-10-21",
+    "businessTimeZone": "America/Chicago",
+    "customers": [
+      {
+        "id": "john",
+        "name": "John Smith"
+      },
+      {
+        "id": "j2",
+        "name": "John Adams"
+      },
+      {
+        "id": "j3",
+        "name": "John Jones"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "category-phonetic",
+      "name": "Phonetic",
+      "transcript": "Prepare coats for John Smith.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "recognized",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "john"
+          }
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-homophone",
+      "name": "Homophone",
+      "transcript": "Schedule a sight visit tomorrow at 09:00 for 60 minutes.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "calendar.prepare",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-22",
+          "time": "09:00",
+          "durationMinutes": 60
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-missing-words",
+      "name": "Missing Words",
+      "transcript": "Create customer John Smith",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "John Smith",
+            "phone": ""
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-filler",
+      "name": "Filler",
+      "transcript": "Uh, hey, could you just create customer Avery Jones phone 5125550177",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": "+15125550177"
+          }
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-repetition",
+      "name": "Repetition",
+      "transcript": "Add add a new customer",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "",
+            "phone": ""
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-word-splitting",
+      "name": "Word Splitting",
+      "transcript": "Find in voice 123",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "record.find",
+        "status": "recognized",
+        "parameters": {
+          "store": "invoices",
+          "query": "123"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-word-merging",
+      "name": "Word Merging",
+      "transcript": "Create a task to followup on the HVAC estimate tomorrow",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "task.prepare",
+        "status": "recognized",
+        "parameters": {
+          "title": "followup on the HVAC estimate",
+          "due": "2026-10-22"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-punctuation",
+      "name": "Punctuation",
+      "transcript": "Create customer Avery Jones phone 5125550177",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": "+15125550177"
+          }
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-phone-words",
+      "name": "Phone Words",
+      "transcript": "Create customer Avery Jones phone five one two five five five zero one seven seven",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "recognized",
+        "parameters": {
+          "fields": {
+            "name": "Avery Jones",
+            "phone": "+15125550177"
+          }
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-singular-plural",
+      "name": "Singular Plural",
+      "transcript": "What job do I have tomorrow?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-tense",
+      "name": "Tense",
+      "transcript": "What work is scheduled tomorrow?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "recognized",
+        "parameters": {
+          "date": "2026-10-22"
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-accent",
+      "name": "Accent",
+      "transcript": "Prepare an estimit for John Smith",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "quotation.prepare",
+        "status": "recognized",
+        "parameters": {
+          "customerRef": {
+            "store": "customers",
+            "id": "john"
+          }
+        },
+        "clarificationRequired": false
+      }
+    },
+    {
+      "id": "category-truncated",
+      "name": "Truncated",
+      "transcript": "Add Michael, his phone\u2026",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": null,
+        "status": "unsupported",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-self-correction",
+      "name": "Self Correction",
+      "transcript": "Add customer Mark\u2014sorry, Michael. Phone 5125550177.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "Michael",
+            "phone": "+15125550177"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-contradiction",
+      "name": "Contradiction",
+      "transcript": "Add customer Mark Anderson, Michael Anderson. Phone 5125550177.",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "customer.create",
+        "status": "needs_clarification",
+        "parameters": {
+          "fields": {
+            "name": "",
+            "phone": "+15125550177"
+          }
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-negation",
+      "name": "Negation",
+      "transcript": "Don't send that invoice",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": null,
+        "status": "unsupported",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-temporal-ambiguity",
+      "name": "Temporal Ambiguity",
+      "transcript": "What jobs do I have next Friday?",
+      "provenance": {
+        "kind": "synthetic",
+        "source": "Generated from the user error category to exercise business grammar; not an observed device transcription."
+      },
+      "expected": {
+        "intent": "schedule.query",
+        "status": "needs_clarification",
+        "parameters": {
+          "date": null,
+          "dateCandidates": [
+            "2026-10-23",
+            "2026-10-30"
+          ]
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-entity-ambiguity",
+      "name": "Entity Ambiguity",
+      "transcript": "Call John",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": "customer.contact",
+        "status": "needs_clarification",
+        "parameters": {
+          "customerCandidates": [
+            {
+              "store": "customers",
+              "id": "john"
+            },
+            {
+              "store": "customers",
+              "id": "j2"
+            },
+            {
+              "store": "customers",
+              "id": "j3"
+            }
+          ]
+        },
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-multi-command",
+      "name": "Multi Command",
+      "transcript": "Create the job and schedule it",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": "job.prepare",
+        "status": "ambiguous",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    },
+    {
+      "id": "category-background",
+      "name": "Background",
+      "transcript": "Create a job [unrelated speech]",
+      "provenance": {
+        "kind": "user_supplied",
+        "source": "Literal example from the user error taxonomy; no audio/device trace provided."
+      },
+      "expected": {
+        "intent": "job.prepare",
+        "status": "needs_clarification",
+        "parameters": {},
+        "clarificationRequired": true
+      }
+    }
+  ]
+}

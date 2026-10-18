@@ -98,3 +98,7 @@ Hosts can supply `businessTimeZone` (IANA), `now` (explicit timestamp with offse
 Compound requests add `proposedPlan: {status, executable:false, steps, reason}`. Each step includes interpreted parameters, missing fields and clarification. Scheduling an unsaved job includes an unresolved `jobRef` binding to the prior step, never an invented record ID. All compound requests remain ambiguous/review-required and have no command suggestion. Plans do not authorize or execute anything. Unsupported steps (including sending) remain unsupported. Up to eight proposed operations are described; larger requests need splitting.
 
 Marked transcript interference and truncation also block unknown commands. Field corrections cannot dismiss those safety conditions. Host integration must display contextual-recovery warnings, name-correction review and proposed-plan status before considering execution. No automatic multi-step executor is implemented.
+
+## Mutation-bank evaluation
+
+See [COMMAND_MUTATION_BANK.md](COMMAND_MUTATION_BANK.md) for the supplied 282-row synthetic bank, CLI evaluation, source hashes, coverage gaps and safety results. It remains test input, not runtime training data. The 20 category fixtures and 648 mixed-mutation combinations extend the earlier 4,576 generated customer/schedule combinations. Fixture agreement, bank candidate agreement, transcription and business execution are reported separately.

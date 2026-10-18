@@ -118,3 +118,28 @@ Evaluation across the two imported corpora:
 The new corpus contains one **user-supplied** jobs→jibs text example without audio/device provenance and three **synthetic** mutations. The original 44 cases have unspecified provenance. No additional observed iPhone errors were supplied during this work; the lab supports importing user-reported pairs without mislabeling synthetic examples. Fixture pass rates do not establish unrestricted natural-language generalization or independent recognizer accuracy.
 
 Evidence is under `/workspace/artifacts/tradeflow-command-intelligence/`: `generalization-metrics.json`, `browser-generalization-verification.json`, `browser-generalization-check.cjs`, `lab-generalization-390.png`, plus the existing desktop/mobile browser verification. Main app wiring still belongs to the integration team at the points documented above. No integration-owned files, production resources or deployment workflows were changed, and no deployment was attempted.
+
+## Additional error taxonomy and supplied mutation bank
+
+Further milestones:
+
+- `209abf6`: contextual coats/sight/sail/in voice recovery, structural action-object selection, field-scoped spoken digits, explicit name-correction review, marked-noise safeguards. Validation: 143 Node tests passed.
+- `0b7fe32`: business timezone/date interpretation, explicit next-weekday ambiguity policy, contact-reference review and unexecuted dependent draft plans. Validation: 148 Node tests passed.
+- Following evaluation milestone: 20 error-category fixtures, 648 additional mixed mutations, the supplied 282-row synthetic bank, transparent CLI coverage, and safety fixes for truncated navigation/conditions. Validation: **157 Node tests passed, 0 failed**. No deployment or branch CI is claimed.
+
+New paths are `tests/command-intelligence-error-categories.test.cjs`, `tests/command-intelligence-mutation-bank.test.cjs`, `tests/fixtures/command-intelligence-error-categories.json`, `tests/fixtures/TradeFlow_Universal_Mutation_Bank_v1.jsonl`, `scripts/evaluate-command-mutations.cjs`, and `docs/COMMAND_MUTATION_BANK.md`. Existing isolated engine/lab tests, fixture expectations and module docs were updated. Main-app files remain unchanged.
+
+Important integration additions:
+
+1. Supply `businessTimeZone`, a business-local `today` or an explicit `now` timestamp. An optional explicit `nextWeekdayPolicy` distinguishes upcoming from following-week dates. Otherwise show the supplied date alternatives; never infer a business policy from the phone timezone.
+2. Show `CORRECTION_REVIEW`, contextual-recovery warnings and all clarification reasons. The draft may contain a clearly corrected name, but the host still owns approval. Grouped/uncertain spoken numbers remain unresolved.
+3. Treat `proposedPlan.executable:false` as a draft for review. Step dependencies reference unsaved draft steps, not business record IDs. No autonomous executor is supplied.
+4. `customer.contact` only resolves candidates for review. It never dials. Sales-query topics also require a real host read adapter; the interpreter produces no financial answer.
+5. Navigation refuses to discard extra date/filter constraints. Conditional requests and visibly truncated instructions remain blocked even after a field correction.
+6. Lab-only worker cache is now `tradeflow-command-lab-v3`; main application service worker and deployment workflow remain integration-owned and unchanged.
+
+Final labeled fixture evaluation: **68/68 intent labels and 79/79 annotated parameter leaves matched**. Separately, the mutation bank has **31/31 designated safety gates** but incomplete language coverage: **25/96 full lexical agreement** in recognized contextual baselines. These are different datasets and metrics. The [mutation bank report](COMMAND_MUTATION_BANK.md) documents unsupported cases and all denominators. Transcription and successful execution remain unmeasured.
+
+Chromium browser verification passed the standalone lab at 320/390/1440 widths. New category workflows passed at 390 online and offline: spoken phones, explicit name corrections, timezone/date alternatives and dependent plans. The 68-fixture offline run passed, no horizontal overflow/page errors were observed, and no business database was created. Browser harness setup failures (an interrupted local server and an unopened context disclosure) were corrected and the checks rerun successfully; neither is claimed as a product failure or an initial successful run. Physical iPhone/microphone validation remains outstanding.
+
+New evidence: `error-category-metrics.json`, `mutation-bank-evaluation.json`, `browser-error-categories-verification.json`, `browser-error-categories.cjs` and `lab-error-categories-390.png` under the existing artifacts directory. Original unfinished work remains preserved; no integration-owned path or production resource was changed.

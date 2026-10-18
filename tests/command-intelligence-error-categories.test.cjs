@@ -62,3 +62,17 @@ test('ambiguous contact identity is resolved only from supplied records and neve
  const r=run('Call John',{customers:[{id:'one',name:'John Smith'},{id:'two',name:'John Adams'},{id:'three',name:'John Jones'}]});assert.equal(r.intent,'customer.contact');assert.equal(r.status,'needs_clarification');assert.equal(r.parameters.customerRef,undefined);assert.equal(r.parameters.customerCandidates.length,3);assert.equal(r.suggestedCommand,null);
  const unique=run('Call John');assert.equal(unique.parameters.customerRef.id,'john');assert.equal(unique.status,'needs_clarification');assert.equal(unique.suggestedCommand,null);
 });
+
+test('648 mixed mutations compose phone words, repetition, fillers and reordered fields',()=>{
+ const permutations=items=>items.length===1?[items]:items.flatMap((item,index)=>permutations(items.filter((_,i)=>i!==index)).map(tail=>[item,...tail]));let checked=0;
+ for(const name of ['Avery Jones',"Sam O'Neill"])for(const verb of ['Add add customer','Create create client','Make make a new customer'])for(const phone of ['five one two five five five zero one seven seven','five-one-two-five-five-five-oh-one-seven-seven','one five one two five five five zero one seven seven'])for(const order of permutations([verb,`His name name is is ${name}`,`His number number is is ${phone}`]))for(const lead of ['', 'Uh, hey, could you just ', 'Please '])for(const separator of ['. ', '; ']){
+  const phrase=lead+order.join(separator),r=run(phrase,{customers:[]});assert.equal(r.status,'recognized',phrase+' '+JSON.stringify(r.clarification));assert.equal(r.parameters.fields.name,name);assert.equal(r.parameters.fields.phone,'+15125550177');assert.equal(r.requiresAuthorization,true);checked++;
+ }
+ assert.equal(checked,648);
+});
+test('query recovery does not mistake voice mode or entity names for invoice records',()=>{
+ const r=run('Find in voice mode');assert.equal(r.parameters.store,undefined);assert.equal(r.parameters.query,'in voice mode');
+ const identity=run('Add customer In Voice. Phone 5125550177.',{customers:[]});assert.equal(identity.parameters.fields.name,'In Voice');
+ const negated=run("Don't send that invoice");assert.ok(negated.clarification.reasonCodes.includes('NEGATED_OR_UNCERTAIN'));
+ const partial=run('Add Michael, his phone…');assert.ok(partial.clarification.reasonCodes.includes('TRUNCATED_TRANSCRIPT'));
+});

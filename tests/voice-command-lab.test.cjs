@@ -61,3 +61,12 @@ test('provenance rejects raw audio, unsupported claims and malformed references'
  for(const provenance of [{kind:'synthetic',source:'Mutation',audio:'base64'},{kind:'device_verified',source:'No reference'},{kind:'user_reported',source:''},{kind:'user_supplied',source:'Example',intendedText:42}])assert.throws(()=>lab.validateFixture(fixture('bad-provenance',{provenance})));
  const accepted=lab.validateFixture(fixture('reported',{provenance:{kind:'user_reported',source:'Developer pasted intended and recognized text',intendedText:'What jobs have I got tomorrow?'}}));assert.equal(accepted.provenance.kind,'user_reported');
 });
+
+test('all 20 supplied error categories import with explicit provenance and safe expected outcomes',()=>{
+ const store=lab.createFixtureStore();store.importJSON(fs.readFileSync('tests/fixtures/command-intelligence-error-categories.json','utf8'));const report=lab.runRegression(store.list(),engine);assert.equal(report.total,20);assert.equal(report.failed,0,JSON.stringify(report.cases.filter(c=>!c.passed)));assert.deepEqual(report.metrics.fixtureProvenance,{user_supplied:7,user_reported:0,synthetic:13,unspecified:0});assert.equal(report.metrics.transcription.accuracy,null);assert.equal(report.metrics.execution.accuracy,null);
+ const plan=report.cases.find(c=>c.id==='category-multi-command').actual;assert.equal(plan.proposedPlan.executable,false);assert.equal(plan.suggestedCommand,null);
+});
+test('business timezone and explicit weekday policy round-trip in local fixtures',()=>{
+ const store=lab.createFixtureStore();store.upsert(fixture('weekday',{transcript:'Check my jobs next Friday',context:{now:'2026-10-22T01:00:00Z',businessTimeZone:'America/Chicago',nextWeekdayPolicy:'upcoming'},expected:{intent:'schedule.query',status:'recognized',parameters:{date:'2026-10-23'}}}));const second=lab.createFixtureStore();second.importJSON(store.exportJSON());assert.deepEqual(second.list(),store.list());assert.equal(lab.runRegression(second.list(),engine).failed,0);
+ for(const context of [{businessTimeZone:'Invalid/Zone'},{nextWeekdayPolicy:'guess'},{now:42}])assert.throws(()=>lab.validateFixture(fixture('invalid-date-context',{context})));
+});
