@@ -13,8 +13,8 @@ function parse(input){
  if(/^(?:show|find|go to|center on|open)\s+(?:my\s+|the\s+)?(?:business\s+)?(?:headquarters|hq)(?:\s+on\s+(?:the\s+)?map)?$/.test(s))return {kind:'headquarters'};
  let m=s.match(/^(?:(?:set|switch|change)\s+(?:the\s+)?map\s+(?:to\s+)?|(?:show|use)\s+)(standard|terrain|intelligence)(?:\s+(?:view|mode|map))?$/);
  if(m)return {kind:'mode',mode:m[1]};
- m=String(input||'').trim().match(/^(?:(?:hey|ok|okay)\s+trade\s*flow[, ]*)?(?:(?:search|find|look up|locate)\s+(?:on\s+)?(?:the\s+)?map\s+(?:for\s+)?|(?:show|find|locate)\s+)(.+)$/i);
- if(m){const query=m[1].trim().replace(/[.!?]+$/,'');if(query.length>=3&&query.length<=180&&!/^(?:my location|current location|headquarters|hq|map|overdue tasks)$/i.test(query))return {kind:'search',query};}
+ m=String(input||'').trim().match(/^(?:(?:hey|ok|okay)\s+trade\s*flow[, ]*)?(?:(?:search|find|look up|locate)\s+(?:on\s+)?(?:the\s+)?map\s+(?:for\s+)?|(?:show|find|locate)\s+(.+?)\s+on\s+(?:the\s+)?map\s*$)(.+)?$/i);
+ if(m){const query=String(m[1]||m[2]||'').trim().replace(/[.!?]+$/,'');if(query.length>=3&&query.length<=180&&!/^(?:my location|current location|headquarters|hq|map|overdue tasks)$/i.test(query))return {kind:'search',query};}
  return null;
 }
 return Object.freeze({parse});
