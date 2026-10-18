@@ -1,6 +1,6 @@
 /* TradeFlow Graphite A — Almost Black; reversible appearance-only layer. */
-:root{color-scheme:dark;--tf-bg:#111214;--tf-panel:#1c1d20;--tf-panel-raised:#292b2f;--tf-surface:#1c1d20;--tf-surface-raised:#292b2f;--tf-hairline:#373a3f;--tf-border:#373a3f;--tf-text:#f5f5f5;--tf-muted:#a9adb2;--tf-accent-contrast:#101316;background:#111214}
-html,body,.shell,.main{background:#111214!important;color:#f5f5f5}.sidebar{background:#191b1e!important;border-color:#373a3f!important}
+:root{color-scheme:dark;--tf-bg:#1b1c1f;--tf-panel:#1c1d20;--tf-panel-raised:#292b2f;--tf-surface:#1c1d20;--tf-surface-raised:#292b2f;--tf-hairline:#373a3f;--tf-border:#373a3f;--tf-text:#f5f5f5;--tf-muted:#a9adb2;--tf-accent-contrast:#101316;background:#1b1c1f}
+html,body,.shell,.main{background:#1b1c1f!important;color:#f5f5f5}.sidebar{background:#191b1e!important;border-color:#373a3f!important}
 .top,.tf-unified-header{background:#161719!important;border-color:#373a3f!important;color:#f5f5f5!important}
 .tf-unified-header .tf-home-alert{background:#24262a;border-color:#3b4045;color:#e1e4e7}.tf-unified-header .tf-home-alert i{border-color:#161719}.tf-unified-header .tf-unified-wordmark{color:#f5f5f5}
 .content,.tf-home-v2,.tf-cal-page,.tf-supplier-page,.tf-growth-page,.tf-settings-v2,.tf-marketing-page,.tf-research-page,.tf-finance-page,.tf-opportunities-page,.tf-operations-page,.tf-integrations-page{color:#f5f5f5}
