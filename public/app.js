@@ -1700,7 +1700,19 @@ window.TradeFlowGrowth?.configure({
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openAI:async function(prompt){tab='ai';modal=null;tfAiPanelOpen=false;await render();const input=document.getElementById('tfAiPrompt');if(input){input.value=prompt;input.focus()}}
 });
-(async()=>{try{db=await openDB();tfInitializePilot();await render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
+async function tfReceiveSiriCustomer(){
+ const prefix='#tf-customer=',raw=window.location.hash;
+ if(!raw.startsWith(prefix))return;
+ // Fragments are not sent in HTTP requests. Remove the transient text from the visible URL immediately.
+ try{history.replaceState(history.state,'',window.location.pathname+window.location.search)}catch{}
+ const text=(()=>{try{return decodeURIComponent(raw.slice(prefix.length))}catch{return ''}})();
+ if(!text.trim()||text.length>4000){notify('The Siri customer command was empty or too long.');return}
+ const instruction=/^(?:please\s+)?(?:add|create|save|register)\b/i.test(text.trim())?text:'Add customer '+text;
+ if(!window.TradeFlowCustomerEntry){notify('Customer voice entry is not ready.');return}
+ await window.TradeFlowCustomerEntry.openReview(instruction,{source:'transcript'});
+}
+window.addEventListener('hashchange',()=>{void tfReceiveSiriCustomer()});
+(async()=>{try{db=await openDB();tfInitializePilot();await render();await tfReceiveSiriCustomer();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
 
 // V0.5: online MapLibre street tiles are optional. Records, pins and CRM stay in IndexedDB.
 let tfMapNetworkFocus=false;
