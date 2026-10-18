@@ -13,7 +13,7 @@ test('split and merged vocabulary remains confined to supported business grammar
  assert.deepEqual(run('Find in voice 123').parameters,{query:'123',store:'invoices'});
  assert.deepEqual(run('Find in voices 123').parameters,{query:'123',store:'invoices'});
  assert.deepEqual(run('Show sail totals').parameters.topics,['sales']);
- for(const verb of ['Schedule','Scheduling']){const r=run(`${verb} a sight visit tomorrow at 09:00 for 60 minutes`);assert.equal(r.intent,'calendar.prepare');assert.equal(r.status,'recognized');assert.equal(r.parameters.time,'09:00')}
+ for(const verb of ['Schedule','Scheduling']){const r=run(`${verb} a sight visit tomorrow at 09:00 for 60 minutes`);assert.equal(r.intent,'calendar.prepare');assert.equal(r.status,'needs_clarification');assert.equal(r.parameters.time,'09:00')}
  const r=run('Create a task to followup on the HVAC estimate tomorrow');assert.equal(r.intent,'task.prepare');assert.ok(r.normalizations.some(n=>n.from==='followup'));
 });
 test('phone digit words normalize by field type without filling truncated or ambiguous digits',()=>{

@@ -117,7 +117,7 @@
       "transcript": "Please prepare a qoute for Jane.",
       "expected": {
         "intent": "quotation.prepare",
-        "status": "recognized",
+        "status": "needs_clarification",
         "parameters": {
           "customerRef": {
             "store": "customers",

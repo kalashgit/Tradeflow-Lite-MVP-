@@ -70,3 +70,8 @@ test('business timezone and explicit weekday policy round-trip in local fixtures
  const store=lab.createFixtureStore();store.upsert(fixture('weekday',{transcript:'Check my jobs next Friday',context:{now:'2026-10-22T01:00:00Z',businessTimeZone:'America/Chicago',nextWeekdayPolicy:'upcoming'},expected:{intent:'schedule.query',status:'recognized',parameters:{date:'2026-10-23'}}}));const second=lab.createFixtureStore();second.importJSON(store.exportJSON());assert.deepEqual(second.list(),store.list());assert.equal(lab.runRegression(second.list(),engine).failed,0);
  for(const context of [{businessTimeZone:'Invalid/Zone'},{nextWeekdayPolicy:'guess'},{now:42}])assert.throws(()=>lab.validateFixture(fixture('invalid-date-context',{context})));
 });
+
+test('candidate-ranking context retains only bounded minimal record identities',()=>{
+ const input=fixture('contextual',{context:{today:'2026-10-21',sourcePage:'jobs',records:{warranties:[{id:'w1',name:'Panel warranty',businessId:'local-business'}]}}});const checked=lab.validateFixture(input);assert.deepEqual(checked.context,input.context);
+ for(const context of [{sourcePage:42},{records:{warranties:[{id:'w1',name:'Panel warranty',secret:'excluded'}]}},{records:{warranties:Array.from({length:201},(_,i)=>({id:'w'+i}))}},{records:{warranties:'not records'}}])assert.throws(()=>lab.validateFixture(fixture('bad-context',{context})));
+});

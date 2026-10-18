@@ -70,3 +70,16 @@ test('288 generated future-tool variations generalize through metadata, not exam
  let checked=0;const future={id:'permit.inspect',effect:'read_only',language:{actions:['inspect','review'],objects:['permit','authorization'],contexts:['jobs'],fields:[{name:'recordId',type:'identifier',markers:['number'],required:true}]}};
  const engine=speech.createEngine({tools:[future]});for(const lead of ['', 'Uh, ', 'Could you please ', 'Hey TradeFlow, '])for(const verb of ['inspect','review'])for(const noun of ['permit','authorization','permitt'])for(const id of ['P-0017','P-0001','P-0018','W-0130'])for(const casing of [x=>x,x=>x.toUpperCase(),x=>x.toLowerCase()]){const r=engine.rankCandidates(casing(lead+verb+' '+noun+' number '+id),{sourcePage:'jobs'});assert.equal(r.candidates[0].intent,'permit.inspect');assert.equal(r.candidates[0].parameters.recordId,casing(id));assert.equal(r.status,'recognized',JSON.stringify(r));checked++}assert.equal(checked,288);
 });
+
+test('generic structural repetition and filler do not deduplicate names, phone digits or IDs',()=>{
+ for(const phrase of ['Inspect inspect a new new warranty number W-0017','Could you just like inspect a warranty number W-0017','Review a, you know, guarantee number W-0017']){const r=rank(phrase,{sourcePage:'jobs'});assert.equal(r.status,'recognized',JSON.stringify(r));assert.equal(r.candidates[0].parameters.recordId,'W-0017')}
+ const name=top('Create customer John John Smith. Phone 5125550147');assert.equal(name.accepted,false);assert.equal(name.parameters.fields.name,'John John Smith');
+ const phone=top('Create customer Michael. Phone 512 555 555 0147');assert.equal(phone.accepted,false);assert.equal(phone.parameters.fields.phone,'512 555 555 0147');
+});
+
+test('initials, quoted names, malformed phone prefixes and unsupported dates remain exact',()=>{
+ const r=top('Create customer John A. Smith. Phone 5125550147');assert.equal(r.parameters.fields.name,'John A. Smith');
+ const quoted=top('Create customer "Smith, John". Phone 5125550147');assert.equal(quoted.parameters.fields.name,'Smith, John');
+ for(const phone of ['++15125550147','1+5125550147','+5125550147']){const value=top('Create customer Michael. Phone '+phone);assert.equal(value.accepted,false);assert.equal(value.parameters.fields.phone,phone)}
+ const e=speech.createEngine({tools:[{id:'test.date',effect:'draft',language:{actions:['prepare'],objects:['appointment'],fields:[{name:'date',type:'date',markers:['date'],required:true}]}}]});assert.equal(e.rankCandidates('Prepare appointment date 2026-02-30').candidates[0].accepted,false);
+});

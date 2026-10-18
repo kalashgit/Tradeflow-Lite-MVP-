@@ -29,14 +29,14 @@
       },
       "expected": {
         "intent": "quotation.prepare",
-        "status": "recognized",
+        "status": "needs_clarification",
         "parameters": {
           "customerRef": {
             "store": "customers",
             "id": "john"
           }
         },
-        "clarificationRequired": false
+        "clarificationRequired": true
       }
     },
     {
@@ -49,13 +49,13 @@
       },
       "expected": {
         "intent": "calendar.prepare",
-        "status": "recognized",
+        "status": "needs_clarification",
         "parameters": {
           "date": "2026-10-22",
           "time": "09:00",
           "durationMinutes": 60
         },
-        "clarificationRequired": false
+        "clarificationRequired": true
       }
     },
     {
@@ -238,14 +238,14 @@
       },
       "expected": {
         "intent": "quotation.prepare",
-        "status": "recognized",
+        "status": "needs_clarification",
         "parameters": {
           "customerRef": {
             "store": "customers",
             "id": "john"
           }
         },
-        "clarificationRequired": false
+        "clarificationRequired": true
       }
     },
     {

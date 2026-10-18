@@ -13,7 +13,7 @@ const stop=new Set(['a','an','the','new','my','our','me','please','just']);
 function tokenize(text){return [...text.matchAll(/[\p{L}\p{N}]+(?:['’][\p{L}]+)?/gu)].map(m=>({text:m[0],key:key(m[0]),start:m.index,end:m.index+m[0].length}))}
 function distance(a,b){if(a===b)return 0;if(Math.abs(a.length-b.length)>2)return 3;let row=Array.from({length:b.length+1},(_,i)=>i),previous=null;for(let i=1;i<=a.length;i++){const next=[i];for(let j=1;j<=b.length;j++){next[j]=Math.min(row[j]+1,next[j-1]+1,row[j-1]+Number(a[i-1]!==b[j-1]));if(previous&&i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])next[j]=Math.min(next[j],previous[j-2]+1)}previous=row;row=next}return row[b.length]}
 function phonetic(value){return key(value).replace(/\s+/g,'').replace(/ght/g,'t').replace(/ph/g,'f').replace(/qu/g,'k').replace(/ck/g,'k').replace(/c(?=[eiy])/g,'s').replace(/c/g,'k').replace(/z/g,'s').replace(/v/g,'f').replace(/[aeiouywh]/g,'').replace(/(.)\1+/g,'$1')}
-function similarity(from,to){const a=key(from).replace(/ /g,''),b=key(to).replace(/ /g,'');if(a===b)return {score:1,method:key(from)===key(to)?'exact':'segmentation'};if(a.length<3||b.length<3||a.length>40||b.length>40)return null;const edits=distance(a,b);if(edits===1)return {score:.87,method:'edit_distance'};if(edits===2&&Math.min(a.length,b.length)>=7)return {score:.77,method:'edit_distance'};const code=phonetic(a);if(code.length>=2&&code===phonetic(b)&&Math.abs(a.length-b.length)<=3)return {score:.79,method:'phonetic'};return null}
+function similarity(from,to){const a=key(from).replace(/ /g,''),b=key(to).replace(/ /g,'');if(a===b)return {score:1,method:key(from)===key(to)?'exact':'segmentation'};if(a.length<3||b.length<3||a.length>40||b.length>40)return null;const stems=v=>new Set([v,v.replace(/ies$/,'y'),v.replace(/s$/,''),v.replace(/ing$/,''),v.replace(/ing$/,'e'),v.replace(/ed$/,''),v.replace(/d$/,'')]);if([...stems(a)].some(x=>x.length>=4&&stems(b).has(x)))return {score:.96,method:'inflection'};const edits=distance(a,b);if(edits===1)return {score:.87,method:'edit_distance'};if(edits===2&&Math.min(a.length,b.length)>=7)return {score:.77,method:'edit_distance'};const code=phonetic(a);if(code.length>=2&&code===phonetic(b)&&Math.abs(a.length-b.length)<=3)return {score:.79,method:'phonetic'};return null}
 function validateTool(tool){
  if(!tool||typeof tool.id!=='string'||!tool.id||!['read_only','navigation','draft','proposes_modification'].includes(tool.effect)||tool.execute||!tool.language)throw Error('Speech tools require an ID, effect and declarative language; execution is forbidden');
  const l=tool.language;for(const field of ['actions','objects','actionConcepts','contexts'])if(l[field]!==undefined&&(!Array.isArray(l[field])||l[field].length>40||l[field].some(x=>typeof x!=='string'||!x.trim()||x.length>80)))throw Error('Invalid speech vocabulary');
@@ -29,7 +29,8 @@ function validateTool(tool){
 function criticalSpans(text){
  const spans=[];const collect=(type,regex)=>{for(const m of text.matchAll(regex))spans.push({type,start:m.index,end:m.index+m[0].length,raw:m[0]})};
  collect('quoted',/["“][^"”\n]*["”]/g);collect('quoted',/(?<![\p{L}])'[^'\n]+'(?![\p{L}])/gu);collect('email',/\b[^\s,;]+@[^\s,;]+\b/g);collect('number',/(?<![\p{L}\p{N}])(?:\+?\d[\d\s().,/:#-]*\d|\d)(?![\p{L}\p{N}])/gu);
- collect('money',/(?:[$£€]\s*\d[\d,.]*|\b\d[\d,.]*\s*(?:dollars?|usd|euros?|pounds?)\b)/gi);
+ collect('date',/\b\d{4}-\d{2}-\d{2}\b/g);collect('time',/\b(?:[01]\d|2[0-3]):[0-5]\d\b/g);
+ collect('money',/(?:[$£€]\s*\d[\d,]*(?:\.\d{1,2})?|\b\d[\d,]*(?:\.\d{1,2})?\s*(?:dollars?|usd|euros?|pounds?)\b)/gi);
  collect('condition',/\b(?:if|unless|only when|provided that)\b[^.!?;]*/gi);collect('negation',/\b(?:don't|dont|do not|never|not|cannot|can't|no longer|cancel)\b/gi);
  return spans.sort((a,b)=>a.start-b.start||b.end-a.end);
 }
@@ -52,6 +53,7 @@ function grammarTokens(text){
   if(['hey','hi','hello','okay','ok','um','uh','erm','so','well','please','just'].includes(tokens[0].key)){remove(0,1,'prefix_filler');continue}
   if(tokens[0].key==='trade'&&tokens[1]?.key==='flow'){remove(0,2,'wake_word');continue}
   if(tokens[0].key==='tradeflow'){remove(0,1,'wake_word');continue}
+  if(tokens[0].key==='like'&&removed.some(n=>n.scope==='polite_request')){remove(0,1,'prefix_filler');continue}
   if(['can','could','would','will'].includes(tokens[0].key)&&tokens[1]?.key==='you'){remove(0,2,'polite_request');continue}break;
  }
  // Only explicit comma-delimited filler is removed internally; names are retained.
@@ -68,7 +70,7 @@ function spanEnd(text,start,markers){
 function getValues(field,text,object,fields){
  const values=[],markers=fields.flatMap(f=>f.markers||[]),add=(start,end,source)=>{let raw=text.slice(start,end).trim();raw=raw.replace(/^[\s,:=]+/,'').replace(/[.!?;]+$/,'').trim();if(raw)values.push({raw,start,end,source})};
  for(const marker of field.markers||[]){const re=new RegExp('\\b'+escape(marker).replace(/ /g,'\\s+')+'\\b\\s*(?:is\\b|:|=)?\\s*','gi');let m;while((m=re.exec(text))){const start=m.index+m[0].length;add(start,spanEnd(text,start,markers),'marker:'+marker)}}
- if(field.position==='afterObject'&&object){let start=object.end;const rest=text.slice(start),lead=rest.match(/^\s*(?:called|named|name\s+is)\s+/i);if(lead)start+=lead[0].length;let end=spanEnd(text,start,markers);const first=text.slice(start,end).match(/[.!?;](?:\s|$)/);if(first)end=start+first.index;if(!/^\s*(?:his|her|their|phone|number|email|address|name|for|tomorrow|today)\b/i.test(text.slice(start,end)))add(start,end,'after_object')}
+ if(field.position==='afterObject'&&object){let start=object.end;const rest=text.slice(start),lead=rest.match(/^\s*(?:called|named|name\s+is)\s+/i);if(lead)start+=lead[0].length;let end=spanEnd(text,start,markers);const segment=text.slice(start,end).replace(/\b([A-Z])\.(?=\s+[A-Z][a-z])/g,'$1\uE000'),first=segment.match(/[.!?;](?:\s|$)/);if(first)end=start+first.index;if(!/^\s*(?:his|her|their|phone|number|email|address|name|for|tomorrow|today)\b/i.test(text.slice(start,end)))add(start,end,'after_object')}
  if(field.position==='remaining'&&object)add(object.end,spanEnd(text,object.end,markers),'remaining');
  return [...new Map(values.map(v=>[key(v.raw),v])).values()];
 }
@@ -76,14 +78,15 @@ function corrected(value){const m=value.match(/^(.*?)\s*(?:—|--|,)\s*(?:sorry|
 function parseValue(field,value,context){
  const raw=value.raw,fix=corrected(raw),v=fix?fix.corrected:raw,issues=[];let parsed=v;
  if(fix)issues.push({code:'EXPLICIT_CORRECTION_REVIEW',field:field.name,message:'Review the explicitly corrected value.',original:fix.original,corrected:fix.corrected});
- if(field.type==='name'&&(v.includes(',')||/\b(?:or|also known as|versus|instead|actually)\b/i.test(v)||key(v).split(' ').some((w,i,a)=>i>0&&w===a[i-1])))issues.push({code:'CONFLICTING_CRITICAL_VALUES',field:field.name,message:'Confirm one exact name.'});
+ const quotedName=/^["“'][\s\S]*["”']$/.test(v);if(field.type==='name'&&quotedName)parsed=v.slice(1,-1);
+ if(field.type==='name'&&((v.includes(',')&&!quotedName)||/\b(?:or|also known as|versus|instead|actually)\b/i.test(v)||key(v).split(' ').some((w,i,a)=>i>0&&w===a[i-1])))issues.push({code:'CONFLICTING_CRITICAL_VALUES',field:field.name,message:'Confirm one exact name.'});
  if(field.type==='record'){
-  const list=(context.records?.[field.store]||(field.store==='customers'?context.customers:[])||[]).filter(x=>x&&typeof x.id==='string'&&(!x.businessId||x.businessId===(context.businessId||'local-business')));
+  const available=context.records?.[field.store]||(field.store==='customers'?context.customers:[])||[],list=(Array.isArray(available)?available:[]).filter(x=>x&&typeof x.id==='string'&&(!x.businessId||x.businessId===(context.businessId||'local-business')));
   const search=key(v),exact=list.filter(x=>x.id===v||key(x.name)===search),matches=exact.length?exact:list.filter(x=>search&&(' '+key(x.name)+' ').includes(' '+search+' '));
-  if(matches.length===1)parsed={store:field.store,id:matches[0].id};else{parsed=null;issues.push({code:matches.length?'AMBIGUOUS_RECORD':'RECORD_NOT_FOUND',field:field.name,message:matches.length?'Choose one verified record.':'No supplied record matches this identity.',candidates:matches.map(x=>({store:field.store,id:x.id}))})}
+  if(matches.length===1){parsed={store:field.store,id:matches[0].id};if(!exact.length)issues.push({code:'PARTIAL_RECORD_MATCH_REVIEW',field:field.name,message:'Confirm the complete record identity before using a partial name.'})}else{parsed=null;issues.push({code:matches.length?'AMBIGUOUS_RECORD':'RECORD_NOT_FOUND',field:field.name,message:matches.length?'Choose one verified record.':'No supplied record matches this identity.',candidates:matches.map(x=>({store:field.store,id:x.id}))})}
  }
  if(field.type==='phone'){
-  const digitWords={zero:'0',oh:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'},words=key(v).split(' ');let digits=/^[+\d\s().-]+$/.test(v)?v.replace(/\D/g,''):words.every(w=>Object.hasOwn(digitWords,w))?words.map(w=>digitWords[w]).join(''):'';
+  const digitWords={zero:'0',oh:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'},words=key(v).split(' ');let digits=/^\+?[\d\s().-]+$/.test(v)&&(!v.startsWith('+')||v.startsWith('+1'))?v.replace(/\D/g,''):words.every(w=>Object.hasOwn(digitWords,w))?words.map(w=>digitWords[w]).join(''):'';
   if(digits.length===11&&digits[0]==='1')digits=digits.slice(1);if(digits.length===10&&/[2-9]/.test(digits[0])&&/[2-9]/.test(digits[3]))parsed='+1'+digits;else{parsed=v;issues.push({code:'INVALID_PHONE',field:field.name,message:'Supply a complete US phone number; ambiguous words and missing digits cannot be repaired.'})}
  }
  if(field.type==='money'){
@@ -105,23 +108,23 @@ function createEngine({tools=[]}={}){
   const protectedSpans=criticalSpans(text),globalIssues=safety(text),view=grammarTokens(text),tokens=view.tokens;if(tokens.length>512)return {status:'unsupported',candidates:[],safety:[{code:'INPUT_LIMIT',message:'Split this request into shorter instructions.'}],criticalSpans:protectedSpans,normalizations:view.normalizations};
   const candidates=[];
   for(const tool of registered){
-   const l=tool.language,actions=matchAt(tokens,0,l.actions,protectedSpans,'action');if(!actions.length)continue;const action=actions[0];let index=action.count;while(stop.has(tokens[index]?.key))index++;
-   // Repetition is safe only inside the structural action/article prefix.
-   if(tokens[index]?.key===tokens[0]?.key&&action.count===1){index++;while(stop.has(tokens[index]?.key))index++}
+   const l=tool.language,actions=matchAt(tokens,0,l.actions,protectedSpans,'action');if(!actions.length)continue;const action=actions[0],repetitions=[];let index=action.count;
+   while(tokens[index]){if(stop.has(tokens[index].key)){index++;continue}const repeated=tokens.slice(index,index+action.count);if(repeated.length===action.count&&repeated.map(t=>t.key).join(' ')===key(action.term)){repetitions.push({from:repeated.map(t=>t.text).join(' '),term:'',role:'action',method:'repetition',start:repeated[0].start,end:repeated.at(-1).end});index+=action.count;continue}break}
+
    let objects=matchAt(tokens,index,l.objects,protectedSpans,'object');if(!objects.length&&l.mode!=='instruction')for(let i=index+1;i<Math.min(tokens.length,index+5);i++){if(['for','named','called','name','phone','number','address'].includes(tokens[i-1]?.key))break;objects.push(...matchAt(tokens,i,l.objects,protectedSpans,'object'))}
    if(!objects.length)continue;objects.sort((a,b)=>b.score-a.score||a.start-b.start);const object=objects[0];
    const query=/^(?:what|which|when|how|do|does|have|is|are|check|show|list|tell)\b/i.test(tokens.map(t=>t.key).join(' '));if(l.mode==='query'&&!query||l.mode==='instruction'&&query&&!l.actions.some(a=>/^(?:show|list|check)\b/.test(a)))continue;
-   const extracted=extract(tool,text,object,context),edits=[action,object].filter(x=>x.method!=='exact'),fuzzy=edits,actionFuzzy=fuzzy.some(x=>x.role==='action');
-   const pageSupport=(l.contexts||[]).includes(context.sourcePage),recordSupport=extracted.evidence.some(e=>e.type==='record')&&!extracted.issues.some(i=>['AMBIGUOUS_RECORD','RECORD_NOT_FOUND'].includes(i.code)),dateSupport=/\b(?:today|tomorrow|\d{4}-\d{2}-\d{2})\b/i.test(text)&&/^\d{4}-\d{2}-\d{2}$/.test(context.today||'');
-   const exactAnchor=action.method==='exact'||object.method==='exact',supported=exactAnchor&&(pageSupport||recordSupport||dateSupport),issues=[...globalIssues,...extracted.issues];
+   const extracted=extract(tool,text,object,context),edits=[...repetitions,...[action,object].filter(x=>x.method!=='exact')],fuzzy=edits.filter(x=>x.method!=='repetition'&&(x.method!=='inflection'||x.role==='action')),actionFuzzy=fuzzy.some(x=>x.role==='action');
+   const pageSupport=(l.contexts||[]).includes(context.sourcePage),recordSupport=extracted.evidence.some(e=>e.type==='record')&&!extracted.issues.some(i=>['AMBIGUOUS_RECORD','RECORD_NOT_FOUND'].includes(i.code)),dateSupport=/\b(?:today|tomorrow|tmrw|tmr|tomorow|tommorow|next day|\d{4}-\d{2}-\d{2})\b/i.test(text)&&/^\d{4}-\d{2}-\d{2}$/.test(context.today||'');
+   const identifierSupport=extracted.evidence.some(e=>e.type==='identifier'||/^[A-Z0-9#-]+$/i.test(e.raw)&&/\d/.test(e.raw)),exactAnchor=action.method==='exact'||object.method==='exact',supported=exactAnchor&&(pageSupport||recordSupport||dateSupport||identifierSupport),issues=[...globalIssues,...extracted.issues];
    if(fuzzy.length&&(!supported||actionFuzzy||['draft','proposes_modification'].includes(tool.effect)))issues.push({code:'UNCERTAIN_SPEECH_CANDIDATE',message:'A plausible vocabulary match needs review; critical data was not rewritten.'});
-   const fieldWords=new Set(l.fields.flatMap(f=>(f.markers||[]).flatMap(m=>key(m).split(' ')))),grammar=new Set(['do','does','i','we','you','have','got','any','anything','my','our','a','an','the','me','about','please','just','is','his','her','their']);
-   const leftovers=tokens.filter(t=>!(t.start>=action.start&&t.end<=action.end)&&!(t.start>=object.start&&t.end<=object.end)&&!extracted.evidence.some(e=>t.start>=e.start&&t.end<=e.end)&&!fieldWords.has(t.key)&&!grammar.has(t.key));
+   const fieldWords=new Set(l.fields.flatMap(f=>(f.markers||[]).flatMap(m=>key(m).split(' ')))),grammar=new Set([...stop,'do','does','i','we','you','have','got','any','anything','my','our','a','an','the','me','about','please','just','is','his','her','their']);
+   const leftovers=tokens.filter(t=>!(t.start>=action.start&&t.end<=action.end)&&!repetitions.some(e=>t.start>=e.start&&t.end<=e.end)&&!(t.start>=object.start&&t.end<=object.end)&&!extracted.evidence.some(e=>t.start>=e.start&&t.end<=e.end)&&!fieldWords.has(t.key)&&!grammar.has(t.key));
    if(leftovers.length&&!l.allowContextTail)issues.push({code:'UNPARSED_DETAILS',message:'Some supplied details are outside the registered parameter schema. Clarify before using this interpretation.',words:leftovers.map(t=>t.text)});
    const score=Math.min(.99,action.score*.44+object.score*.44+(pageSupport?.06:0)+(recordSupport?.06:0)+(dateSupport?.03:0));
-   candidates.push({intent:tool.id,effect:tool.effect,score:Number(score.toFixed(4)),accepted:!issues.length&&!extracted.missing.length,parameters:extracted.parameters,missingInformation:extracted.missing,issues,evidence:extracted.evidence,normalizations:edits.map(x=>({from:x.from,to:x.term,scope:'structural_'+x.role,method:x.method,start:x.start,end:x.end})),normalizedTranscript:editsText(text,edits),contextEvidence:{pageSupport,recordSupport,dateSupport,exactAnchor},requiresAuthorization:tool.effect==='proposes_modification'});
+   candidates.push({intent:tool.id,effect:tool.effect,contextCompatible:!issues.some(i=>i.code==='UNPARSED_DETAILS'),score:Number(score.toFixed(4)),accepted:!issues.length&&!extracted.missing.length,parameters:extracted.parameters,missingInformation:extracted.missing,issues,evidence:extracted.evidence,normalizations:edits.map(x=>({from:x.from,to:x.term,scope:'structural_'+x.role,method:x.method,start:x.start,end:x.end})),normalizedTranscript:editsText(text,edits),contextEvidence:{pageSupport,recordSupport,dateSupport,identifierSupport,exactAnchor},requiresAuthorization:tool.effect==='proposes_modification'});
   }
-  candidates.sort((a,b)=>b.score-a.score||a.intent.localeCompare(b.intent));const selected=candidates[0],runner=candidates[1],tied=!!runner&&selected.score-runner.score<.06;if(tied){selected.accepted=false;selected.issues.push({code:'AMBIGUOUS_TOOL',message:'Several registered tools fit this request; choose the intended action.'})}
+  candidates.sort((a,b)=>Number(b.contextCompatible)-Number(a.contextCompatible)||b.score-a.score||a.intent.localeCompare(b.intent));const selected=candidates[0],runner=candidates[1],tied=!!runner&&selected.contextCompatible===runner.contextCompatible&&selected.score-runner.score<.06;if(tied){selected.accepted=false;selected.issues.push({code:'AMBIGUOUS_TOOL',message:'Several registered tools fit this request; choose the intended action.'})}
   return {version:1,status:!selected?'unsupported':tied?'ambiguous':selected.accepted?'recognized':'needs_clarification',candidates:candidates.slice(0,12),safety:globalIssues,criticalSpans:protectedSpans,normalizations:view.normalizations,confidenceMethod:'contextual_rules_not_probability'};
  }
  function rankCandidates(text,context={}){let c;try{if(!context||typeof context!=='object'||Array.isArray(context))throw Error();c=freeze(clone(context))}catch{return {status:'unsupported',candidates:[],safety:[{code:'INVALID_CONTEXT',message:'Supply serializable local context.'}],criticalSpans:[],normalizations:[]}}return rankSingle(text,c)}
