@@ -48,8 +48,9 @@ function parse(input){
  if((m=value.match(/^(?:open|go to|show) (.+)$/i))){const destination=workspaceAliases[normalize(m[1])];if(destination)return {status:'parsed',commandId:'workspace.open',params:{workspace:destination}};if(normalize(m[1])==='this record')return {status:'parsed',commandId:'record.open',params:{}};const scoped=m[1].match(/^(customer|quote|quotation|job|task|invoice|supplier|opportunity|event) (.+)$/i);return {status:'parsed',commandId:'record.open',params:scoped?{store:storeAliases[normalize(scoped[1])],query:text(scoped[2])}:{query:text(m[1])}}}
  return {status:'unsupported',error:{code:'UNSUPPORTED_TEXT',message:'Use a registered command. Free-form instructions, sending and approval by text are not supported.'}};
 }
+function validRef(ref){return !!ref&&typeof ref==='object'&&!Array.isArray(ref)&&Object.keys(ref).every(k=>['store','id'].includes(k))&&stores.includes(ref.store)&&!!text(ref.id)&&ref.id.length<=160}
 function lookup(data,ref,context={}){
- if(!ref||typeof ref!=='object'||Array.isArray(ref)||Object.keys(ref).some(k=>!['store','id'].includes(k))||!stores.includes(ref.store)||!text(ref.id)||ref.id.length>160)throw Error('Invalid record reference');
+ if(!validRef(ref))throw Error('Invalid record reference');
  const matches=rows(data,ref.store).filter(r=>r.id===ref.id);
  if(matches.length!==1)throw Error(matches.length?'Duplicate record identifier requires review':'Referenced record no longer exists');
  const record=matches[0];
@@ -121,7 +122,11 @@ function resolve(input,data={},context={}){
  if(!p||typeof p!=='object'||Array.isArray(p)||Object.keys(p).some(k=>!def.parameters.includes(k)))return problem('INVALID_PARAMETERS','Unknown command parameters are not accepted.');
  try{
   const params=clone(p);let refs=[],result=null;
+  if(params.ref!==undefined&&!validRef(params.ref))return problem('INVALID_RECORD','Use a typed record reference with a store and identifier.');
+  if(params.query!==undefined&&(!text(params.query)||params.query.length>160))return problem('MISSING_QUERY','Enter a record name or identifier.');
+  if(params.store!==undefined&&!stores.includes(params.store))return problem('UNSUPPORTED_STORE','Record type is not supported.');
   if(def.id==='record.open'&&params.ref&&(params.query!==undefined||params.store!==undefined))return problem('AMBIGUOUS_PARAMETERS','Use a record reference or a search query, not both.');
+  if(def.id==='record.open'&&params.store!==undefined&&params.query===undefined)return problem('MISSING_QUERY','A record type needs a search query or an explicit record reference.');
   if(def.id==='workspace.open'){if(!workspaces.includes(params.workspace))return problem('UNSUPPORTED_WORKSPACE','Choose an existing supported workspace.')}
   if(def.id==='record.find'||(def.id==='record.open'&&params.query)){
    if(params.store&&!stores.includes(params.store))return problem('UNSUPPORTED_STORE','Record type is not supported.');

@@ -30,6 +30,9 @@ test('ambiguous records require choice; exact IDs and context resolve without gu
  assert.equal(commands.resolve('open this record',data).error.code,'MISSING_RECORD');
  assert.equal(commands.resolve('open customer missing',data).status,'not_found');
  assert.equal(commands.resolve({commandId:'record.open',params:{ref:{store:'customers',id:'c1'},query:'c2'}},data).error.code,'AMBIGUOUS_PARAMETERS');
+ for(const ref of [null,false,0])assert.equal(commands.resolve({commandId:'record.open',params:{ref}},data,{record:{store:'quotes',id:'q1'}}).status,'invalid');
+ for(const query of [null,'',0])assert.equal(commands.resolve({commandId:'record.open',params:{query}},data,{record:{store:'quotes',id:'q1'}}).status,'invalid');
+ assert.equal(commands.resolve({commandId:'record.open',params:{store:'customers'}},data,{record:{store:'quotes',id:'q1'}}).status,'invalid');
 });
 test('record references reject missing, duplicate, cross-customer and cross-business relationships',()=>{
  const data=records();data.jobs=[{id:'j',customerId:'c2',quoteId:'q1'}];
