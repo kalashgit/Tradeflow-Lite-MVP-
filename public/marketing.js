@@ -25,7 +25,7 @@ const marketingChannels=['Google Search','Referrals','Email','Social','Paid Ads'
 const SOURCE_KEY='marketing-attribution-v2';
 let sourceCustomerId='',spendCampaignId='';
 const number=v=>Number.isFinite(Number(v))?Number(v):0;
-const euro=v=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(number(v));
+const euro=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(number(v));
 function sourceData(d){
  const saved=(d.settings||[]).find(x=>x.id===SOURCE_KEY);
  return Array.isArray(saved?.entries)?saved.entries.filter(x=>x&&x.customerId):[];
@@ -92,7 +92,7 @@ function editForm(d){
  select('icpId','Ideal customer profile',choices,campaign.icpId||pf.active)+
  select('personaId','Buyer persona',personas,campaign.personaId||'')+
  '<div class="tf-marketing-pair"><label><span>Planned date</span><input type="date" name="plannedDate" value="'+e(campaign.plannedDate||today())+'"></label>'+
- '<label><span>Planned budget (EUR; no spending)</span><input name="plannedBudget" type="number" min="0" step=".01" max="100000000" value="'+e(campaign.plannedBudget||0)+'"></label></div>'+
+ '<label><span>Planned budget (USD; no spending)</span><input name="plannedBudget" type="number" min="0" step=".01" max="100000000" value="'+e(campaign.plannedBudget||0)+'"></label></div>'+
  '<label><span>Subject / headline</span><input name="subject" maxlength="200" value="'+e(campaign.subject||'')+'"></label>'+
  '<label><span>Message, plan or creative draft *</span><textarea name="message" rows="9" required maxlength="5000">'+e(campaign.message||'')+'</textarea></label>'+
  '<label><span>Desired call to action</span><input name="cta" maxlength="180" value="'+e(campaign.cta||'')+'"></label>'+
@@ -154,7 +154,7 @@ function spendForm(d){
  '<label><span>Expense description</span><input name="title" required maxlength="120" placeholder="Google Ads invoice · October"></label>'+
  select('channel','Channel',marketingChannels.map(x=>[x,x]),'Paid Ads')+
  select('campaignId','Linked campaign (optional)',[['','No campaign']].concat(all.map(x=>[x.id,x.title])),spendCampaignId)+
- '<div class="tf-marketing-pair"><label><span>Amount paid (€)</span><input type="number" step=".01" min=".01" max="100000000" required name="amount"></label>'+
+ '<div class="tf-marketing-pair"><label><span>Amount paid ($)</span><input type="number" step=".01" min=".01" max="100000000" required name="amount"></label>'+
  '<label><span>Payment date</span><input type="date" name="date" value="'+today()+'" required></label></div>'+
  '<p class="tf-marketing-note">Creates one actual marketing expense in Finance. Do not add it again in Finance or costs will be duplicated. No ad platform is connected.</p>'+
  '<div class="tf-marketing-actions"><button type="submit" class="tf-marketing-primary">Record marketing expense</button><button type="button" data-marketing-action="list" class="tf-marketing-secondary">Cancel</button></div></form></div>';
@@ -305,7 +305,7 @@ async function onMarketingDataSubmit(event){
   if(!title)throw Error('Describe the marketing expense.');
   if(!Number.isFinite(amount)||amount<=0||amount>100000000||Math.abs(amount*100-Math.round(amount*100))>1e-6)throw Error('Enter an amount with up to two decimal places.');
   await api.put('expenses',{id:api.uid(),title,category:'Marketing',amount:Math.round(amount*100)/100,date,
-    marketingSpend:true,marketingChannel:channel,marketingCampaignId:campaignId,currency:'EUR',
+    marketingSpend:true,marketingChannel:channel,marketingCampaignId:campaignId,currency:'USD',
     createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
   spendCampaignId='';mode='list';api.notify('Marketing expense recorded in Finance');return;
  }catch(error){alert('Could not save marketing record: '+error.message)}
