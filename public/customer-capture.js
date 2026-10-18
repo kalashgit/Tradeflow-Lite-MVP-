@@ -3,7 +3,7 @@
 'use strict';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fields=['name','phone','address','notes','email','company'];
-const labels={name:'Customer name *',phone:'Phone',address:'Location / address',notes:'Work requested / notes',email:'Email',company:'Company'};
+const labels={name:'Customer name *',phone:'Phone *',address:'Location / address',notes:'Work requested / notes',email:'Email',company:'Company'};
 function createController(host){
  const sources=new Map();let state=null,recognition=null;
  const repaint=()=>host.repaint();
@@ -22,7 +22,7 @@ function createController(host){
  async function prepareCustomer(review,{retainOriginal=false,originalText='',reviewedDuplicateIds=[]}={}){
   if(!review||review.intent!=='customer.create'||review.draft?.kind!=='customer')return {status:'invalid',error:{code:'CUSTOMER_REVIEW_REQUIRED',message:'Review a supported customer draft first.'}};
   const fresh=await correct(review,{});
-  if(fresh.missingRequired.length||fresh.issues.some(x=>x.blocking))return {status:'invalid',error:{code:'CUSTOMER_REVIEW_REQUIRED',message:fresh.clarification||'Correct the highlighted customer fields.'},review:fresh};
+  if(!fresh.draft.fields.phone||fresh.missingRequired.length||fresh.issues.some(x=>x.blocking))return {status:'invalid',error:{code:'CUSTOMER_REVIEW_REQUIRED',message:fresh.clarification||'Correct the highlighted customer fields.'},review:fresh};
   const sourceHash=retainOriginal?await host.hashSource(originalText):'';
   const plan=await host.commands.prepare({commandId:'customer.create',params:{fields:fresh.draft.fields,reviewedDuplicateIds,sourceHash}});
   if(plan.status==='needs_review'&&retainOriginal)sources.set(plan.id,originalText);
@@ -99,6 +99,7 @@ function createController(host){
    current.review=await correct(current.review,changes);
    current.retainOriginal=!!form.querySelector('[name="retainOriginal"]')?.checked;
    current.duplicateAcknowledged=!!form.querySelector('[name="duplicateAcknowledged"]')?.checked;
+   if(!current.review.draft.fields.phone)throw Error('Enter the customer phone number.');
    if(current.review.issues.some(x=>x.blocking))throw Error(current.review.clarification||'Correct the highlighted values before saving.');
    const ids=current.duplicateAcknowledged?current.review.duplicates.map(x=>x.ref.id):[];
    const plan=await prepareCustomer(current.review,{retainOriginal:current.retainOriginal,originalText:current.input,reviewedDuplicateIds:ids});
@@ -132,7 +133,7 @@ function createController(host){
   else if(s.step==='success')body=head('Customer saved')+'<div role="status" class="tf-customer-success"><strong>'+escape(s.review.draft.fields.name)+'</strong><p>Your customer record is ready.'+(s.sourceSaved?' Original wording was kept locally.':'')+'</p></div><button type="button" class="tf-record-save tf-customer-wide" data-customer-action="open-saved" data-id="'+escape(s.savedId)+'">Open customer record →</button>'+
    (s.review.relatedDrafts.length?'<div class="tf-customer-linked"><h3>Continue with a draft</h3>'+s.review.relatedDrafts.map((d,i)=>'<button class="btn secondary" type="button" data-customer-action="linked" data-index="'+i+'">Review linked '+escape(d.kind)+' draft →</button>').join('')+'<small>Nothing is scheduled or saved automatically.</small></div>':'');
   else{
-   const blocked=s.review.issues.some(x=>x.blocking)||s.review.missingRequired.length>0;
+   const blocked=!s.review.draft.fields.phone||s.review.issues.some(x=>x.blocking)||s.review.missingRequired.length>0;
    const notices=s.review.issues.filter(x=>x.code!=='POSSIBLE_DUPLICATE');
    const controls=fields.map(field=>{const value=s.review.draft.fields[field]||'',type=field==='phone'?'tel':field==='email'?'email':'text';return '<label class="field"><span>'+labels[field]+'</span>'+(field==='notes'?'<textarea name="notes" rows="2" maxlength="4000" '+disabled+'>'+escape(value)+'</textarea>':'<input name="'+field+'" type="'+type+'" value="'+escape(value)+'" '+(field==='name'?'required':'')+' '+disabled+'>')+'</label>'}).join('');
    const matches=s.review.duplicates.length?'<section class="tf-customer-duplicates"><h3>Possible existing customers</h3>'+s.review.duplicates.map(x=>'<button type="button" data-customer-action="open-duplicate" data-id="'+escape(x.ref.id)+'" '+disabled+'>'+escape(x.name||'Customer')+' <small>'+escape(x.reasons.map(r=>r.replace(/_/g,' ')).join(', '))+'</small> →</button>').join('')+'<label class="tf-customer-check"><input type="checkbox" name="duplicateAcknowledged" '+(s.duplicateAcknowledged?'checked':'')+' '+disabled+'> I reviewed these matches; create a separate customer.</label></section>':'';
@@ -144,7 +145,7 @@ function createController(host){
  function syncSubmit(){
   const form=document?.getElementById?.('tfCustomerReviewForm');
   if(!form||!state?.review)return;
-  const blocked=state.review.missingRequired.length||state.review.issues.some(x=>x.blocking)||
+  const blocked=!state.review.draft.fields.phone||state.review.missingRequired.length||state.review.issues.some(x=>x.blocking)||
    (state.review.duplicates.length&&!state.duplicateAcknowledged);
   const button=form.querySelector('button[type=submit]');if(button)button.disabled=!!blocked||!!state.busy;
  }
