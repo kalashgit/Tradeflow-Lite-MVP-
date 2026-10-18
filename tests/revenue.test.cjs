@@ -47,7 +47,7 @@ const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:ext
  await submit(f('tfRevenueCostForm',{title:'Labor',amount:'35.00',type:'actual',category:'Labor'},{id:'j1'}));
  assert.equal(store.jobCosts.length,1);
  await click(c('job','j1'));
- const profit=mod.render('profitability',store);assert.ok(profit.includes('Cash contribution')&&profit.includes('€65.00'));
+ const profit=mod.render('profitability',store);assert.ok(profit.includes('Cash contribution')&&profit.includes('$65.00'));
  assert.ok(profit.includes('Cost categories'));
  assert.ok(profit.includes('Actual cost'));
  assert.ok(profit.includes('not final profit'));
