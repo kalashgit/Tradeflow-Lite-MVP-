@@ -12,7 +12,7 @@ function intent(input){
  const customer=has(['customer','customers','client','clients','contact','contacts','custmer','custmr']);
  const add=has(['add','create','make','register','save','new','set','put']);
  const quote=has(['quote','quotes','quotation','estimate','estimates','pricing','proposal']);
- const prepare=has(['prepare','create','draft','write','make','start','build','generate','new']);
+ const prepare=has(['prepare','create','draft','write','make','start','build','generate','new','need','want','price','priceup']);
  const scores=[{kind:'tomorrow',score:(work?3:0)+(time?4:0)+(query?2:0)},
   {kind:'customer',score:(customer?4:0)+(add?3:0)},
   {kind:'quote',score:(quote?4:0)+(prepare?3:0)}].sort((a,b)=>b.score-a.score);
