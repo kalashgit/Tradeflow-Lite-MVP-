@@ -12,6 +12,8 @@ function parse(text){
  }
  if(/^(?:show|open|check|view)\s+(?:the\s+)?(?:calendar\s+)?(conflicts|proposals)(?:\s+(?:on|in)\s+(?:the\s+)?calendar)?$/.test(s))return {area:'calendar',action:'filter',filter:s.includes('conflicts')?'conflicts':'proposals'};
  if(/^(?:(?:open|go to|show|view)\s+(?:the\s+)?)finance(?:\s+(?:page|workspace|screen))?$/.test(s))return {area:'finance',action:'screen',screen:'overview'};
+ if(/^(?:show|view|check)\s+(?:(?:this|current)\s+month'?s\s+)?(?:income|revenue)(?:\s+(?:for|this)\s+month)?$/.test(s))return {area:'finance',action:'incomeMonth'};
+ if(/^(?:show|view|find|list)\s+(?:(?:my|all|the)\s+)?(?:outstanding|unpaid)\s+invoices?$/.test(s))return {area:'invoices',action:'filter',filter:'unpaid'};
  let m=s.match(/^(?:(?:open|show|view|go to)\s+(?:the\s+)?)?(?:finance\s+)?(overview|income|expenses|reports)(?:\s+(?:in\s+)?finance)?$/);
  if(m)return {area:'finance',action:'screen',screen:m[1]};
  m=s.match(/^(?:show|view|set|switch to)\s+(?:finance\s+)?(this month|last 7 days|this year|all time)(?:\s+(?:in\s+)?finance)?$/);
