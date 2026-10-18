@@ -56,7 +56,7 @@
    '<div class="tf-po-section-label"><strong>Items & prices</strong><span>Editable order lines</span></div>'+
    '<div id="tfPoLines">'+items.map(lineRow).join('')+'</div>'+
    '<button type="button" class="tf-po-addline" data-supply-action="addLine">+ Add item</button>'+
-   '<div class="tf-supplier-grid"><label>Currency<select name="currency">'+opts(['EUR','USD','GBP','AUD','CAD'].map(x=>[x,x]),rec?.currency||'EUR')+'</select></label><label>Tax rate (%)<input name="taxRate" type="number" min="0" max="100" step=".01" value="'+esc(rec?.taxRate??0)+'"></label></div>'+
+   '<div class="tf-supplier-grid"><label>Currency<select name="currency">'+opts(['USD','USD','GBP','AUD','CAD'].map(x=>[x,x]),rec?.currency||'USD')+'</select></label><label>Tax rate (%)<input name="taxRate" type="number" min="0" max="100" step=".01" value="'+esc(rec?.taxRate??0)+'"></label></div>'+
    '<label>Shipping charges<input name="shipping" type="number" min="0" step=".01" value="'+esc(rec?.shipping??0)+'"></label>'+
    '<div class="tf-po-totals" aria-live="polite"><div>Subtotal <strong data-po-subtotal>—</strong></div><div>Tax <strong data-po-tax>—</strong></div><div>Shipping <strong data-po-shipping>—</strong></div><div class="tf-po-total">Total <strong data-po-total>—</strong></div></div>'+
    '<div class="tf-po-section-label"><strong>Delivery & connections</strong></div>'+
@@ -191,7 +191,7 @@
    quantity:Number(el.querySelector('[name="lineQty"]')?.value)||0,
    unitPrice:Number(el.querySelector('[name="linePrice"]')?.value)||0
   }));
-  const currency=formEl.querySelector('[name="currency"]')?.value||'EUR';
+  const currency=formEl.querySelector('[name="currency"]')?.value||'USD';
   const {subtotal,tax,shipping,total}=po.totals({lineItems:lines,currency,taxRate:Number(formEl.querySelector('[name="taxRate"]')?.value)||0,shipping:Number(formEl.querySelector('[name="shipping"]')?.value)||0});
   for(const [name,number] of Object.entries({subtotal,tax,shipping,total})){
    const out=formEl.querySelector('[data-po-'+name+']');

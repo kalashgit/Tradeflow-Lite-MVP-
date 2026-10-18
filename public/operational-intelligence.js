@@ -36,14 +36,14 @@ const builtins=[
   const result=[];
   for(const inv of list(d,'invoices')){
    if(state(inv.status)!=='issued'||!c.commands.isDate(inv.dueDate)||inv.dueDate>=c.today)continue;
-   const payments=list(d,'payments').filter(p=>p.invoiceId===inv.id),currency=inv.currency||'EUR';
+   const payments=list(d,'payments').filter(p=>p.invoiceId===inv.id),currency=inv.currency||'USD';
    let invalid=!Array.isArray(inv.lines)||!inv.lines.length||inv.lines.some(x=>!Number.isFinite(Number(x.qty))||Number(x.qty)<=0||!Number.isFinite(Number(x.unitPrice))||Number(x.unitPrice)<0)||!Number.isFinite(Number(inv.taxRate||0))||Number(inv.taxRate||0)<0||Number(inv.taxRate||0)>100||payments.some(p=>!Number.isFinite(Number(p.amount))||Number(p.amount)<0||(p.currency&&p.currency!==currency)||(p.customerId&&p.customerId!==inv.customerId));
    const balance=invalid?null:c.revenue.totals(inv).total-c.revenue.collected(inv,payments);
    if(!Number.isFinite(balance)||!Number.isFinite(balance*100))invalid=true;
    const remaining=invalid?null:Math.round(balance*100)/100;
    if(!invalid&&remaining<=.005)continue;
    const r=ref('invoices',inv.id);
-   result.push({type:this.id,refs:[r],explanation:invalid?'An issued invoice is past its due date, but its amount or payment links need review.':'An issued invoice is past its due date with a recorded unpaid balance.',confidence:invalid?'limited':'record_based',limitations:['Payments are local ledger entries, not bank or provider-confirmed settlements.','Currency is preserved from the invoice; legacy invoice screens use EUR.'],priority:{tier:1,score:Math.min(90,days(c.today,inv.dueDate))},constraints:invalid?['financial_record_invalid']:[],action:open(r),evidence:{dueDate:inv.dueDate,remaining,currency,paymentRefs:payments.map(p=>ref('payments',p.id))}});
+   result.push({type:this.id,refs:[r],explanation:invalid?'An issued invoice is past its due date, but its amount or payment links need review.':'An issued invoice is past its due date with a recorded unpaid balance.',confidence:invalid?'limited':'record_based',limitations:['Payments are local ledger entries, not bank or provider-confirmed settlements.','Currency is preserved from the invoice; legacy invoice screens use USD.'],priority:{tier:1,score:Math.min(90,days(c.today,inv.dueDate))},constraints:invalid?['financial_record_invalid']:[],action:open(r),evidence:{dueDate:inv.dueDate,remaining,currency,paymentRefs:payments.map(p=>ref('payments',p.id))}});
   }
   return result;
  }},

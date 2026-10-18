@@ -44,6 +44,9 @@ jobs:
       - name: Verify pilot command and intelligence foundation
         run: node --test tests/command-registry.test.cjs tests/operational-intelligence.test.cjs tests/pilot-integration.test.cjs tests/record-interpreter.test.cjs tests/customer-create.test.cjs tests/customer-capture.test.cjs tests/voice-entry.test.cjs tests/voice-command.test.cjs tests/launch-more-commands.test.cjs tests/launch-workspace-commands.test.cjs tests/voice-command-integration-fix.test.cjs && node --check public/command-registry.js && node --check public/operational-intelligence.js && node --check public/voice-command.js && node --check public/customer-capture.js
 
+      - name: Verify US locale and imperial unit defaults
+        run: node --test tests/us-conventions.test.cjs && node --check public/us-conventions.js
+
       - name: Verify preview-only Wrangler configuration
         shell: bash
         run: |
