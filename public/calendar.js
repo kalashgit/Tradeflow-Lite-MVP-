@@ -780,6 +780,7 @@ async function submit(evt){
 }
 global.TradeFlowCalendar={configure:mount,render:render,records:records,conflicts:conflicts,
  focusRecord:function(id,date){if(validDate(date))selected=date;mode='day';activeKey='event:'+id;draft=null;directDraft=null;intelligenceFocus=''},
+ focusDate:function(date){if(validDate(date)){selected=date;mode='day';activeKey='';draft=null;directDraft=null;intelligenceFocus=''}},
  currentContext:function(){var active=lastData&&activeEvent(lastData);return {date:selected,record:directDraft?.id?{store:'calendarEntries',id:directDraft.id}:active?{store:active.kind==='task'?'tasks':active.kind==='job'?'jobs':'calendarEntries',id:active.id}:null}},prepareOpportunity:function(item){
  selected=day();mode='day';draft={kind:'task',date:selected,title:'Contact: '+String(item.organization_name||item.project_name||'Opportunity').slice(0,140),
  location:[item.city,item.region].filter(Boolean).join(', ')};},focusIntelligence:function(kind){intelligenceFocus=kind;draft=null;activeKey='';},restoreViewport:restoreViewport,_test:{validDate:validDate,shift:shift,monday:monday,validTime:validTime,clock:clock}};
