@@ -1629,7 +1629,28 @@ function tfInitializePilot(){
  const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','calendarEntries','calendars','calendarPreferences'];
  const evaluateSnapshot=(data,options={})=>intelligence.evaluate(Object.fromEntries(intelligenceStores.map(store=>[store,(data[store]||[]).map(({photoData,...record})=>record)])),{...tfPilotContext(),...options});
  if(window.TradeFlowCustomerCapture){window.TradeFlowCustomerEntry=window.TradeFlowCustomerCapture.createController({document,snapshot:tfPilotSnapshot,context:tfPilotContext,interpreter:window.TradeFlowRecordInterpreter,commands:runtime,hashSource:window.TradeFlowCore.hashSource,repaint:render,show:render,close:render,notify,confirm:message=>window.confirm(message),openRecord:tfPilotOpenRecord,prepareLinked:async(draft,id)=>{if(draft.kind==='task'||draft.kind==='job'){tfResetWorkspace(draft.kind==='task'?'tasks':'jobs');modal={draftDefaults:{...draft.fields,customerId:id}};await render();return}tfResetWorkspace('calendar');await render();notify('Calendar draft needs a date, time and duration. Review the customer information before creating an event.');}});}
-  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+  async function runMapVoiceAction(request){
+   if(!request||typeof request.kind!=='string')return {handled:false};
+   await tfNavigateWorkspace('map');
+   if(request.kind==='open')return {handled:true,close:true};
+   let selector='';
+   if(request.kind==='location')selector='[data-action="mapMyLocation"]';
+   else if(request.kind==='layers')selector='[data-action="mapFilters"]';
+   else if(request.kind==='clearRoute')selector='[data-action="mapClearRoute"]';
+   else if(request.kind==='headquarters')selector='[data-action="mapViewHQ"],[data-action="businessLocate"]';
+   else if(request.kind==='mode'&&['standard','terrain','intelligence'].includes(request.mode))selector='[data-action="mapMode"][data-mode="'+request.mode+'"]';
+   else if(request.kind==='search'&&request.query){
+    const field=document.getElementById('mapAddress');
+    if(!field)throw Error('Map search field is unavailable');
+    field.value=request.query;
+    selector='[data-action="mapSearch"]';
+   }else return {handled:false};
+   const control=document.querySelector(selector);
+   if(!control)throw Error(request.kind==='headquarters'?'Set a business address before using headquarters navigation.':'This map control is unavailable.');
+   control.click();
+   return {handled:true,close:true};
+  }
+  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
