@@ -10,7 +10,13 @@ function createController(host){
  const context=()=>host.context();
  async function interpret(text,{source='typed'}={}){
   if(!['typed','transcript'].includes(source))throw Error('Use typed text or a transcript');
-  const data=await host.snapshot();return {...host.interpreter.interpret(text,{customers:data.customers,context:context()}),inputSource:source};
+  const data=await host.snapshot();
+  // Accept a conversational in-app invocation; the recorded transcript is kept intact.
+  let instruction=String(text||'').trim().replace(/^(?:hey|hi|okay|ok)\s+trade\s*flow[,!:. ]*/i,'').trim();
+  instruction=instruction.replace(/^(?:please\s+)?(?:make|set up)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?customer\b/i,'Add customer');
+  instruction=instruction.replace(/^(?:please\s+)?(?:create|add)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?customer\b/i,'Add customer');
+  const result=host.interpreter.interpret(instruction,{customers:data.customers,context:context()});
+  return {...result,inputSource:source};
  }
  async function correct(review,changes){const data=await host.snapshot();return {...host.interpreter.correct(review,changes,{customers:data.customers,context:context()}),inputSource:review.inputSource||'typed'}}
  async function prepareCustomer(review,{retainOriginal=false,originalText='',reviewedDuplicateIds=[]}={}){
