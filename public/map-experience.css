@@ -203,3 +203,11 @@ body>.tf-experience-sheet.tf-exp-dragging .tf-exp-body{overflow:hidden}
  .tf-map-screen .maplibregl-ctrl-top-right{top:73px!important;right:auto!important;left:12px!important}
  .tf-map-screen .maplibregl-ctrl-top-right .maplibregl-ctrl-group button{height:38px;width:38px}
 }
+
+/* Consented device position: compact GTA-inspired map cursor, not a saved pin. */
+.tf-map-screen .tf-map-current-position{position:relative;width:40px;height:40px;display:grid;place-items:center;pointer-events:none;filter:drop-shadow(0 2px 5px #000c)}
+.tf-map-screen .tf-map-position-accuracy{position:absolute;width:36px;height:36px;border-radius:50%;background:#48d9f42a;border:1px solid #65e7f68a;box-shadow:0 0 13px #1abfdd33}
+.tf-map-screen .tf-map-position-arrow{position:relative;width:28px;height:28px;display:grid;place-items:center;transform-origin:center;transition:transform .2s ease}
+.tf-map-screen .tf-map-position-arrow svg{width:28px;height:28px;overflow:visible;fill:#eaffff;stroke:#073b57;stroke-width:3px;stroke-linejoin:round}
+.tf-map-screen .tf-map-current-position.has-heading .tf-map-position-accuracy{border-color:#85efff}
+@media(prefers-reduced-motion:reduce){.tf-map-screen .tf-map-position-arrow{transition:none}}
