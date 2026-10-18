@@ -54,6 +54,15 @@ function createController(host){
   if(!instruction){message='Speak or enter a command first.';await repaint();return}
   busy=true;message='';
   try{
+   const mapIntent=globalThis.TradeFlowLaunchMapCommands?.parse(instruction);
+   if(mapIntent&&host.mapCommand){
+    const outcome=await host.mapCommand(mapIntent);
+    if(outcome?.handled){
+     if(outcome.close){close();return}
+     message=outcome.message||'Map request received.';
+     return;
+    }
+   }
    const parsed=intent(instruction);
    if(parsed.kind==='customer'){
     // A complete voice instruction is the user's explicit authorization to add one customer.
