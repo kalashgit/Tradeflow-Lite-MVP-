@@ -27,10 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     environment: tradeflow-preview
     steps:
+      - name: Guard preview source branch
+        env:
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          case "$SOURCE_BRANCH" in
+            feature/v05-map|feature/voice-intelligence-integration) ;;
+            *) echo "Deployment blocked: source branch is not allowlisted"; exit 1 ;;
+          esac
+
       - name: Checkout development branch
         uses: actions/checkout@v4
         with:
-          ref: feature/v05-map
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -43,6 +52,9 @@ jobs:
 
       - name: Verify pilot command and intelligence foundation
         run: node --test tests/command-registry.test.cjs tests/operational-intelligence.test.cjs tests/pilot-integration.test.cjs tests/record-interpreter.test.cjs tests/customer-create.test.cjs tests/customer-capture.test.cjs tests/voice-entry.test.cjs tests/voice-command.test.cjs && node --check public/command-registry.js && node --check public/operational-intelligence.js && node --check public/voice-command.js && node --check public/customer-capture.js
+
+      - name: Verify complete command intelligence regression suite
+        run: node --test tests/*.test.cjs
 
       - name: Verify preview-only Wrangler configuration
         shell: bash
@@ -59,6 +71,37 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Verify real voice application execution in Chromium
+        env:
+          TRADEFLOW_TEST_ARTIFACTS: /tmp/tradeflow-voice-integration
+        run: |
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4175 --directory public > /tmp/tradeflow-test-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl --silent --fail http://127.0.0.1:4175/ > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:voice:browser
+
+      - name: Upload voice execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-application-execution
+          path: /tmp/tradeflow-voice-integration
+          if-no-files-found: ignore
+
+      - name: Stamp preview source commit
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process');
+          const commit=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          if(commit!==process.env.GITHUB_SHA)throw Error('Checkout does not match workflow commit');
+          fs.writeFileSync('public/preview-build.json',JSON.stringify({commit,runId:process.env.GITHUB_RUN_ID,worker:'tradeflow-v05-preview'}));
+          NODE
+
       - name: Deploy to Cloudflare preview
         run: npx wrangler deploy --config wrangler.jsonc --name tradeflow-v05-preview
         env:
@@ -72,7 +115,10 @@ jobs:
           const root='https://tradeflow-v05-preview.bartoszszarafinski.workers.dev';
           const digest=x=>createHash('sha256').update(x).digest('hex');
           (async()=>{
-            for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','sw.js']){
+            const build=await (await fetch(root+'/preview-build.json?verify='+Date.now(),{cache:'no-store'})).json();
+            assert.equal(build.commit,process.env.GITHUB_SHA);assert.equal(build.worker,'tradeflow-v05-preview');
+            console.log('Verified deployed source commit:',build.commit,'run:',build.runId);
+            for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','speech-mutation-engine.js','command-intelligence.js','voice-intelligence-integration.js','sw.js']){
               const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
               assert.equal(response.status,200,file+' must be reachable');
               assert.equal(digest(Buffer.from(await response.arrayBuffer())),digest(fs.readFileSync('public/'+file)),file+' must match this checkout');

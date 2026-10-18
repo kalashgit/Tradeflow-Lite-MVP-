@@ -1576,10 +1576,13 @@ function tfCompleteCalendarSession(sessionId){
 let tfPilotFilter=null;
 function tfPilotContext(){
  const calendar=tab==='calendar'?window.TradeFlowCalendar?.currentContext?.():null;
+ const businessTimeZone=prefs.businessTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone;
+ let localDate=window.TradeFlowCommands.dateText(new Date());
+ try{const parts=new Intl.DateTimeFormat('en-US',{timeZone:businessTimeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const value=type=>parts.find(p=>p.type===type).value;localDate=value('year')+'-'+value('month')+'-'+value('day')}catch{}
  const record=tfRecordDetailId&&['customers','quotes','jobs','tasks'].includes(tab)?{store:tab,id:tfRecordDetailId}:
   tab==='opportunities'&&opportunityDetailId?{store:'opportunities',id:opportunityDetailId}:
   tab==='invoices'?window.TradeFlowRevenue?.currentRecord?.():tab==='suppliers'?window.TradeFlowSupply?.currentRecord?.():calendar?.record||null;
- return {businessTimeZone:prefs.businessTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,now:new Date().toISOString(),actor:'local-owner',businessId:'local-business',sourcePage:tab,record:record||null,today:window.TradeFlowCommands.dateText(new Date()),primaryTrade:prefs.primaryTrade||'',calendarDate:calendar?.date||null,filter:tfPilotFilter};
+ return {businessTimeZone,now:new Date().toISOString(),actor:'local-owner',businessId:'local-business',sourcePage:tab,record:record||null,today:localDate,primaryTrade:prefs.primaryTrade||'',calendarDate:calendar?.date||null,filter:tfPilotFilter};
 }
 function tfPilotSnapshot(){
  return new Promise((resolve,reject)=>{
@@ -1624,7 +1627,7 @@ function tfInitializePilot(){
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
   ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:customer.create'].includes(permission),
   ports:{navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
-   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
+   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,sourceText:kind==='customer.create'?window.TradeFlowCustomerEntry?.sourceForRequest(proof.requestId):undefined})}
  });
  // Header evaluation does not copy image payloads or the growing command journal.
  const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','calendarEntries','calendars','calendarPreferences'];
