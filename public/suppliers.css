@@ -192,3 +192,5 @@
  .tf-supplier-search{height:42px}
  .tf-supplier-section-title{margin-top:15px}
 }
+
+@media(max-width:460px){.tf-supplier-toolbar button[data-supply-action="viewNetwork"]{font-size:16px}.tf-supplier-map-label{display:none}}
