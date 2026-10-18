@@ -61,7 +61,7 @@ test('Stop finalizes speech even when recognizer sends onend without final onres
  }
 });
 
-test('tomorrow's schedule includes calendar appointments and jobs without double counting linked jobs',()=>{
+test("tomorrow’s schedule includes calendar appointments and jobs without double counting linked jobs",()=>{
  const d={jobs:[{id:'j1',title:'Electrical inspection',date:'2026-10-19',status:'Planned'},{id:'j2',title:'Service call',date:'2026-10-19',status:'Planned'}],
  calendarEntries:[{id:'e1',sourceKind:'job',sourceId:'j1',title:'Inspection scheduled',date:'2026-10-19',time:'09:00',status:'Scheduled'},{id:'e2',title:'Site walkthrough',date:'2026-10-19',time:'15:00',status:'Scheduled'}]};
  const records=[...d.jobs.map(j=>({...j,kind:'job'})),...d.calendarEntries.map(e=>({...e,kind:'event'}))];
