@@ -863,7 +863,35 @@ function formModal(d){
 }
 async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntries(new FormData(form))};if(modal.commandDraft){try{window.TradeFlowCommands.validateDraft({...modal.commandDraft,fields:f},await tfPilotSnapshot(),tfPilotContext())}catch(error){alert('Draft needs review: '+error.message);return}}if(tab==='customers'){if(!modal.id&&!String(f.phone||'').trim()){alert('Customer phone number is required.');return}f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}const id=modal.id||uid(),old=modal.id?await get(tab,id):{};if(tfPhotoPending?.target===tab)f.photoData=tfPhotoPending.dataUrl;await put(tab,{...old,...f,id,updatedAt:new Date().toISOString()});tfPhotoPending=null;await event(`${modal.id?'Updated':'Created'} ${tab.slice(0,-1)}: ${f.name||f.title}`);if(tab==='quotes'&&f.status==='Sent'&&old.status!=='Sent'){const tasks=await all('tasks');if(!tasks.some(t=>t.quoteId===id)){await put('tasks',{id:uid(),title:`Follow up quote: ${f.title}`,customerId:f.customerId,due:new Date(Date.now()+3*86400000).toISOString().slice(0,10),status:'Open',quoteId:id});await event('Created quote follow-up task')}}modal=null;query='';notify('Record saved')}
 async function exportData(){const data={format:'tradeflow-lite',version:9,exportedAt:new Date().toISOString(),stores:Object.fromEntries(await Promise.all(STORES.map(async s=>[s,await all(s)])))};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-async function restore(file){let data;try{data=JSON.parse(await file.text());if(data.format!=='tradeflow-lite'||![1,2,3,4,5,6,7,8,9].includes(data.version)||!data.stores||!STORES.every(s=>Array.isArray(data.stores[s]||((data.version<4||s==='pins'||(s==='payments'&&data.version<5)||(['invoices','jobCosts'].includes(s)&&data.version<6)||(['marketingCampaigns','crew','routePlans'].includes(s)&&data.version<7)||(['suppliers','supplyOrders','commandLog'].includes(s)&&data.version<8)||(['calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'].includes(s)&&data.version<9))?[]:null))&&(data.stores[s]||[]).every(x=>x&&typeof x.id==='string')))throw Error('Invalid backup');if(!confirm('Replace ALL existing local records with this backup? This cannot be undone.'))return;const t=db.transaction(STORES,'readwrite');for(const s of STORES){const st=t.objectStore(s);st.clear();for(const item of (data.stores[s]||[]))st.put(item)}await new Promise((resolve,reject)=>{t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error)});notify('Backup restored')}catch(e){alert(`Restore failed: ${e.message}`)}}
+async function restore(file){
+ try{
+  if(!file||file.size>100*1024*1024)throw Error('Choose a TradeFlow backup smaller than 100 MB.');
+  const raw=JSON.parse(await file.text());
+  const validator=window.TradeFlowBackupSchema;
+  if(!validator)throw Error('Backup validation is unavailable; no records were changed.');
+  const validated=validator.validate(raw,STORES);
+  const counts=Object.entries(validated.stores).filter(([,rows])=>rows.length).map(([name,rows])=>name+': '+rows.length).join(', ');
+  const message='Restore backup ('+validated.recordCount+' records, version '+validated.version+')?\\n'+(counts||'Empty backup')+'\\n\\nTHIS REPLACES ALL LOCAL TRADEFLOW RECORDS ON THIS DEVICE. Export your current backup first.';
+  if(!confirm(message))return;
+  // A single IndexedDB transaction makes the replacement all-or-nothing.
+  const t=db.transaction(STORES,'readwrite');
+  for(const store of STORES){
+   const object=t.objectStore(store);
+   object.clear();
+   for(const row of validated.stores[store])object.put(row);
+  }
+  await new Promise((resolve,reject)=>{
+   t.oncomplete=resolve;
+   t.onerror=()=>reject(t.error||new Error('Database transaction failed'));
+   t.onabort=()=>reject(t.error||new Error('Database transaction was aborted'));
+  });
+  // Verify the committed backup is readable before telling the user it worked.
+  const readback=await Promise.all(STORES.map(async store=>(await all(store)).length));
+  const count=readback.reduce((a,b)=>a+b,0);
+  if(count!==validated.recordCount)throw Error('Restore verification failed: records do not match the backup count.');
+  await notify('Backup restored: '+count+' records verified.');
+ }catch(error){alert('Restore failed: '+String(error.message||error)+'. Check your original backup file.')}
+}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab],[data-action],[data-edit],[data-delete],[data-convert]');if(!el)return;
  if(el.dataset.action==='tfTradeChoose'){
   const chosen=String(el.dataset.trade||'');

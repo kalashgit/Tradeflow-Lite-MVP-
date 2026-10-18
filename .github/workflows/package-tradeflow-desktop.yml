@@ -1,0 +1,49 @@
+name: Package TradeFlow Core Desktop
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/customer-offline-delivery
+    paths:
+      - 'desktop/**'
+      - 'public/**'
+      - '.github/workflows/package-tradeflow-desktop.yml'
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+          - os: macos-latest
+            target: mac
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout standalone version
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify existing backup schema
+        run: node --test tests/backup-schema.test.cjs
+      - name: Check browser and Electron source syntax
+        run: |
+          node --check desktop/main.cjs
+          node --check public/app.js
+      - name: Install packaging dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Build unsigned desktop package
+        working-directory: desktop
+        run: npx electron-builder --${{ matrix.target }} --x64 --publish never
+      - name: Upload customer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: TradeFlow-Core-${{ matrix.target }}-unsigned
+          path: desktop/dist/TradeFlow-Core-*
+          if-no-files-found: error
+          retention-days: 14
