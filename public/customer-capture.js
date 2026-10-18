@@ -117,7 +117,7 @@ function createController(host){
   const form=document?.getElementById?.('tfCustomerReviewForm');
   if(!form||!document.createElement)return;
   const fresh=document.createElement('div');fresh.innerHTML=view();
-  const notices=form.querySelector('#tfCustomerReviewStatus'),nextNotices=fresh.querySelector('#tfCustomerReviewStatus');
+  const notices=document.getElementById('tfCustomerReviewStatus'),nextNotices=fresh.querySelector('#tfCustomerReviewStatus');
   if(notices&&nextNotices)notices.innerHTML=nextNotices.innerHTML;
   const oldMatches=form.querySelector('.tf-customer-duplicates'),nextMatches=fresh.querySelector('.tf-customer-duplicates');
   if(oldMatches&&nextMatches)oldMatches.replaceWith(nextMatches);
