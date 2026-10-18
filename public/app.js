@@ -1650,7 +1650,42 @@ function tfInitializePilot(){
    control.click();
    return {handled:true,close:true};
   }
-  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+  async function runLaunchWorkspaceCommand(request){
+   if(request?.area==='calendar'){
+    if(request.action==='filter'){
+     const plan=await runtime.prepare({commandId:'view.filter',params:{workspace:'calendar',filter:request.filter}});
+     if(plan.status!=='ready')throw Error(plan.error?.message||'Calendar filter unavailable');
+     const result=await runtime.execute(plan.id);
+     if(result.status!=='succeeded')throw Error(result.error?.message||'Calendar filter failed');
+     return {handled:true};
+    }
+    if(request.action==='date'){
+     const day=new Date();day.setDate(day.getDate()+(request.offset===1?1:0));
+     const date=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+     if(!window.TradeFlowCalendar?.focusDate)throw Error('Calendar date navigation unavailable');
+     window.TradeFlowCalendar.focusDate(date);
+     await tfNavigateWorkspace('calendar');
+     return {handled:true};
+    }
+    if(request.action==='open'){await tfNavigateWorkspace('calendar');return {handled:true}}
+   }
+   if(request?.area==='finance'){
+    if(request.action==='screen'&&['overview','income','expenses','reports'].includes(request.screen))tfFinanceScreen=request.screen;
+    else if(request.action==='period'&&['month','week','year','all'].includes(request.period))tfFinancePeriod=request.period;
+    else return {handled:false};
+    await tfNavigateWorkspace('expenses');
+    return {handled:true};
+   }
+   if(request?.area==='invoices'&&request.action==='filter'&&['unpaid','overdue','draft'].includes(request.filter)){
+    const plan=await runtime.prepare({commandId:'view.filter',params:{workspace:'invoices',filter:request.filter}});
+    if(plan.status!=='ready')throw Error(plan.error?.message||'Invoice filter unavailable');
+    const outcome=await runtime.execute(plan.id);
+    if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Invoice filter failed');
+    return {handled:true};
+   }
+   return {handled:false};
+  }
+  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
