@@ -112,7 +112,7 @@
   var start=/^(?:please\s+)?(?:add|create|save|register)\s+(?:an?\s+)?(?:new\s+)?(?:customer|client)\b\s*(?:(?:called|named|for)\s+)?/i.exec(source),reverse=/^(?:please\s+)?(?:add|create|save|register)\s+(.+?)\s+as\s+(?:an?\s+)?(?:new\s+)?(?:customer|client)\b/i.exec(source);
   if(!start&&!reverse)return unsupported();
   var fields=emptyFields(),issues=[],nameValues=[];
-  if(start){var remaining=source.slice(start[0].length),initial=fragment(remaining);if(initial&&!/^(?:his|her|their|the)\s+(?:name|number|phone|email|address)\b|^(?:name|number|phone|email|address|location|company)\b|^(?:he|she|they)\b|^with\b/i.test(initial)){
+  if(start){var remaining=source.slice(start[0].length),explicitNameLead=/^(?:(?:his|her|their|the\s+customer(?:'s)?)\s+)?name\s*(?:is\b|:|=)/i.test(remaining.trim()),initial=explicitNameLead?'':fragment(remaining);if(initial&&!/^(?:his|her|their|the)\s+(?:name|number|phone|email|address)\b|^(?:name|number|phone|email|address|location|company)\b|^(?:he|she|they)\b|^with\b/i.test(initial)){
    if(!/^["'“]/.test(remaining.trim())&&initial.includes(',')){initial=initial.split(',')[0].trim();issues.push(issue(null,'UNRECOGNIZED_DETAILS','Some wording was not recognized. Rephrase those details or enter them in Notes.',true))}
    nameValues.push(initial);
   }}
