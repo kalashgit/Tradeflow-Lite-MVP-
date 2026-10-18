@@ -16,7 +16,7 @@ assert.match(g.renderPage('growth',d,{}),/Linked opportunities/);
 assert.match(g.renderPage('growth',d,{}),/Connected workspaces/);
 assert.equal(g._test.profileStats(d,g._test.settings(d)).toValidate,0);
 assert.match(g.renderPage('missions',d,{}),/Suggested next actions/);
-assert.match(g.renderPage('capabilities',d,{}),/Invoice drafts/);
+assert.doesNotMatch(app,/\['capabilities','Explore Capabilities'\]/,'Explore Capabilities removed from navigation');
 assert.match(g.moreQuickLinks(d),/data-tab="growthAutomation"/);
 assert.ok(!/data-tab="(?:routes|customers|marketing|research|integrations|growth|missions|capabilities|profitability)"/.test(g.moreQuickLinks(d)),'No repeated existing More tool destinations');
 for(const tab of ['growthAutomation','growthOptimization','growthCommunication','growthIntelligence'])assert.match(g.renderPage(tab,d,{}),/Planned/);
@@ -24,7 +24,7 @@ for(const name of ['Automation','Optimization','Communication','Data Intelligenc
 assert.equal((g.moreQuickLinks(d).match(/<details class="tf-growth-category"/g)||[]).length,4);
 assert.doesNotMatch(g.homePanel(d),/data-tab="missions"/,'Retired Missions must not appear on the Growth home panel');
 assert.doesNotMatch(app,/\['missions','Business Missions'\]/,'Retired Missions must not appear in More navigation');
-assert.doesNotMatch(g.renderPage('capabilities',d,{}),/Business Missions/,'Retired Missions must not appear in the capabilities list');
+assert.doesNotMatch(src,/if\(tab==='capabilities'\)return capabilityView\(\)/,'Explore Capabilities route removed');
 assert.match(g.contactPanel({id:'x',project_name:'<img src=x>'},d),/No valid phone saved/);
 assert.ok(!g.contactPanel({id:'x',contact_email:'bad<script>'},d).includes('href="mailto:bad'),'unsafe email must not become link');
 assert.ok(g.contactPanel({id:'x',contact_phone:'+1 (512) 555-0100',contact_email:'owner@example.com'},d).includes('href="tel:+15125550100"'));
