@@ -64,6 +64,13 @@ function createController(host){
     await host.mapCommand(mapIntent);
     return;
    }
+   const workspaceIntent=globalThis.TradeFlowLaunchWorkspaceCommands?.parse(instruction);
+   if(workspaceIntent&&host.workspaceCommand){
+    close();
+    mapExecuted=true;
+    await host.workspaceCommand(workspaceIntent);
+    return;
+   }
    const parsed=intent(instruction);
    if(parsed.kind==='customer'){
     // A complete voice instruction is the user's explicit authorization to add one customer.
