@@ -142,7 +142,7 @@ function timedColumns(d,days,forceDay){
     return '<div class="tf-cal-event-position" style="top:'+top+'px;height:'+ht+'px;left:'+left+'%;width:'+w+'%">'+eventButton(x,false)+'</div>';
    }).join('')+'</div></div>';
  }).join('');
- return '<div class="tf-cal-timeline" aria-label="Time-based calendar"><div class="tf-cal-timeline-inner '+(forceDay?'tf-cal-single-day':'')+'">'+axes+'<div class="tf-cal-timeline-days" style="--visible-days:'+days.length+'">'+cols+'</div></div></div>';
+ return '<div class="tf-cal-timeline" aria-label="Time-based calendar"><div class="tf-cal-timeline-inner '+(forceDay?'tf-cal-single-day':days.length<=3?'tf-cal-compact-days':'')+'">'+axes+'<div class="tf-cal-timeline-days" style="--visible-days:'+days.length+'">'+cols+'</div></div></div>';
 }
 function renderDay(list){return timedColumns(lastData||{},[selected],true)}
 function renderMultiDay(count){return timedColumns(lastData||{},Array.from({length:count},function(_,i){return shift(selected,i)}),count===1)}
