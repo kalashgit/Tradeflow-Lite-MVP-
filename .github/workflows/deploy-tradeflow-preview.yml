@@ -114,16 +114,28 @@ jobs:
           const fs=require('node:fs'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
           const root='https://tradeflow-v05-preview.bartoszszarafinski.workers.dev';
           const digest=x=>createHash('sha256').update(x).digest('hex');
+          async function verifyWithRetry(check){
+            let failure;
+            for(let attempt=0;attempt<15;attempt++){
+              try{return await check()}catch(error){failure=error;if(attempt<14)await new Promise(resolve=>setTimeout(resolve,2000))}
+            }
+            throw failure;
+          }
           (async()=>{
-            const build=await (await fetch(root+'/preview-build.json?verify='+Date.now(),{cache:'no-store'})).json();
-            assert.equal(build.commit,process.env.GITHUB_SHA);assert.equal(build.worker,'tradeflow-v05-preview');
+            const build=await verifyWithRetry(async()=>{
+              const response=await fetch(root+'/preview-build.json?verify='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(12000)});
+              assert.equal(response.status,200);
+              const value=await response.json();assert.equal(value.commit,process.env.GITHUB_SHA);assert.equal(value.worker,'tradeflow-v05-preview');return value;
+            });
             console.log('Verified deployed source commit:',build.commit,'run:',build.runId);
             for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','speech-mutation-engine.js','command-intelligence.js','voice-intelligence-integration.js','sw.js']){
+              await verifyWithRetry(async()=>{
               const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
               assert.equal(response.status,200,file+' must be reachable');
               assert.equal(digest(Buffer.from(await response.arrayBuffer())),digest(fs.readFileSync('public/'+file)),file+' must match this checkout');
+              });
             }
-            console.log('PASS: all twelve live pilot foundation assets match the preview checkout');
+            console.log('PASS: all live pilot foundation assets match the preview checkout');
           })().catch(error=>{console.error(error);process.exitCode=1});
           NODE
 
