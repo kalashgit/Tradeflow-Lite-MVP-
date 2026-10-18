@@ -84,6 +84,7 @@ jobs:
             sleep 1
           done
           npm run test:voice:browser
+          npm run test:hq:browser
 
       - name: Upload voice execution evidence
         if: always()
