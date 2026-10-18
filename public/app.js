@@ -1589,6 +1589,7 @@ function tfPilotSnapshot(){
  });
 }
 function tfResetWorkspace(next){
+ tfLastOpenedPageKey=null; // Reopening even the current workspace starts at the top.
  tfCalendarLinkedReturn=false;tfAiPanelOpen=false;if(tab!==next)tfMotionNext=next==='map'?'':'tab';
  tab=next;query='';tfRecordListContext=null;modal=null;tfRecordDetailId=null;tfPhotoPending=null;tfCapture=null;tfPilotFilter=null;
 }
