@@ -1685,7 +1685,27 @@ function tfInitializePilot(){
    }
    return {handled:false};
   }
-  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+  async function runLaunchMoreCommand(request){
+   const params=request?.action==='open'?{workspace:request.workspace}:
+    request?.action==='filter'?{workspace:request.workspace,filter:request.filter}:
+    request?.action==='find'||request?.action==='openRecord'?{store:request.store,query:request.query}:
+    request?.action==='draft'?{kind:request.kind}:null;
+   const commandId=({'open':'workspace.open','filter':'view.filter','find':'record.find','openRecord':'record.open','draft':'draft.prepare'})[request?.action];
+   if(!commandId||!params)throw Error('Unsupported workspace voice request');
+   const plan=await runtime.prepare({commandId,params});
+   if(plan.status!=='ready')throw Error(plan.error?.message||(plan.status==='ambiguous'?'Multiple records match; use a more specific name.':'Command requires additional information.'));
+   const result=await runtime.execute(plan.id);
+   if(result.status!=='succeeded')throw Error(result.error?.message||'Command did not complete.');
+   if(request.action==='find'){
+    const matches=result.result?.matches||[];
+    const labels=matches.slice(0,5).map(x=>'• '+x.label);
+    return {handled:true,message:matches.length?
+     matches.length+' matching '+request.store+' record(s) in this device:\n'+labels.join('\n')+(matches.length>5?'\nShowing first five. Refine your search.':''):
+     'No matching '+request.store+' records in this device.'};
+   }
+   return {handled:true};
+  }
+  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
