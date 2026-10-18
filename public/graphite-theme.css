@@ -1,6 +1,6 @@
 /* TradeFlow Graphite A — Almost Black; reversible appearance-only layer. */
-:root{color-scheme:dark;--tf-bg:#1b1c1f;--tf-panel:#1c1d20;--tf-panel-raised:#292b2f;--tf-surface:#1c1d20;--tf-surface-raised:#292b2f;--tf-hairline:#373a3f;--tf-border:#373a3f;--tf-text:#f5f5f5;--tf-muted:#a9adb2;--tf-accent-contrast:#101316;background:#1b1c1f}
-html,body,.shell,.main{background:#1b1c1f!important;color:#f5f5f5}.sidebar{background:#191b1e!important;border-color:#373a3f!important}
+:root{color-scheme:dark;--tf-bg:#111214;--tf-panel:#1c1d20;--tf-panel-raised:#292b2f;--tf-surface:#1c1d20;--tf-surface-raised:#292b2f;--tf-hairline:#373a3f;--tf-border:#373a3f;--tf-text:#f5f5f5;--tf-muted:#a9adb2;--tf-accent-contrast:#101316;background:#111214}
+html,body,.shell,.main{background:#111214!important;color:#f5f5f5}.sidebar{background:#191b1e!important;border-color:#373a3f!important}
 .top,.tf-unified-header{background:#161719!important;border-color:#373a3f!important;color:#f5f5f5!important}
 .tf-unified-header .tf-home-alert{background:#24262a;border-color:#3b4045;color:#e1e4e7}.tf-unified-header .tf-home-alert i{border-color:#161719}.tf-unified-header .tf-unified-wordmark{color:#f5f5f5}
 .content,.tf-home-v2,.tf-cal-page,.tf-supplier-page,.tf-growth-page,.tf-settings-v2,.tf-marketing-page,.tf-research-page,.tf-finance-page,.tf-opportunities-page,.tf-operations-page,.tf-integrations-page{color:#f5f5f5}
@@ -20,3 +20,66 @@ html,body,.shell,.main{background:#1b1c1f!important;color:#f5f5f5}.sidebar{backg
 .tf-map-screen .tf-map-search input{color:#f5f5f5}.tf-map-screen .tf-map-suggestions{background:#24262a;border-color:#41464d}.tf-map-screen .tf-map-hq-shortcut{background:#25272b;border-color:#4c8891}
 .tf-supplier-page button:focus-visible,.tf-cal-page button:focus-visible{outline-color:var(--tf-accent,#5dd7e8)}
 /* Preserve map tiles and semantic danger/success colors. */
+
+/* TRADEFLOW GRAPHITE — LOCKED DESIGN TOKENS (2026-10-18)
+   Screenshot-derived direction: charcoal nested surfaces, spacious rounded panels,
+   subtle neutral borders, clear typography and restrained cyan action emphasis.
+   Map cartography, event/category status colors and financial semantics are not neutralized. */
+:root{
+ --tf-graphite-canvas:#111214;
+ --tf-graphite-panel:#1c1d20;
+ --tf-graphite-raised:#292b2f;
+ --tf-graphite-hover:#32353a;
+ --tf-graphite-border:#373a3f;
+ --tf-graphite-border-soft:#323438;
+ --tf-graphite-text:#f5f5f5;
+ --tf-graphite-subtext:#a9adb2;
+ --tf-graphite-icon:#bfc3c7;
+ --tf-graphite-cyan:#65d3e1;
+ --tf-radius-panel:22px;
+ --tf-radius-card:18px;
+ --tf-radius-control:12px;
+ --tf-space-panel:20px;
+ --tf-space-card:16px;
+ --tf-gap-card:12px;
+ --tf-ui-font:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ --tf-bg:var(--tf-graphite-canvas);
+ --tf-panel:var(--tf-graphite-panel);
+ --tf-panel-raised:var(--tf-graphite-raised);
+ --tf-surface:var(--tf-graphite-panel);
+ --tf-surface-raised:var(--tf-graphite-raised);
+ --tf-border:var(--tf-graphite-border);
+ --tf-hairline:var(--tf-graphite-border);
+ --tf-text:var(--tf-graphite-text);
+ --tf-muted:var(--tf-graphite-subtext);
+}
+body{font-family:var(--tf-ui-font)}
+/* Shared panel and card shape: retain established page-specific sizes where functional. */
+.content :is(.card,.panel,.tf-record-card,.tf-supplier-metrics>div,.tf-supplier-row,.tf-supplier-order-row,.tf-supplier-empty,.tf-cal-quick-card,.tf-cal-formpanel,.tf-settings-card,.tf-ai-chat-box){
+ border:1px solid var(--tf-graphite-border)!important;
+ border-radius:var(--tf-radius-card);
+}
+.content :is(.panel,.tf-cal-formpanel,.tf-settings-card,.tf-ai-chat-box){border-radius:var(--tf-radius-panel)}
+.content :is(.card,.panel,.tf-supplier-metrics>div,.tf-record-card,.tf-cal-formpanel){
+ box-shadow:none!important;
+}
+.content :is(input,textarea,select):not([type=checkbox]):not([type=radio]):not([type=color]){
+ border-color:var(--tf-graphite-border);
+ border-radius:var(--tf-radius-control);
+}
+.content :is(button,.btn):not(.tf-unified-brand):focus-visible{
+ outline:2px solid var(--tf-accent,#65d3e1);
+ outline-offset:2px;
+}
+.content :is(h1,h2,h3){letter-spacing:-.025em}
+.content :is(p,small,.muted){line-height:1.45}
+.content :is(.tf-supplier-search,.tf-record-search,.tf-import-picker){
+ border-radius:var(--tf-radius-control);
+}
+/* Maintain original five destinations and interaction geometry. */
+.mobilebar{border-radius:22px 22px 0 0!important}
+.mobilebar button{border-radius:14px}
+.mobilebar button.active{box-shadow:none!important}
+/* Map controls harmonize while map features/road styles remain untouched. */
+.tf-map-screen .tf-map-search{border-radius:15px}
+.tf-map-screen .tf-map-actions-float button{border-radius:12px}
