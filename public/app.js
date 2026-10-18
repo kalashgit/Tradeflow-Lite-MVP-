@@ -1688,6 +1688,17 @@ function tfInitializePilot(){
    return {handled:false};
   }
   async function runLaunchMoreCommand(request){
+   if(request?.action==='jobLocation'){
+    const data=await tfPilotSnapshot(),name=String(request.person||'').toLowerCase();
+    const customers=(data.customers||[]).filter(c=>String(c.name||'').toLowerCase().includes(name));
+    const customerIds=new Set(customers.map(c=>c.id));
+    const matched=(data.jobs||[]).filter(j=>customerIds.has(j.customerId)||String(j.title||'').toLowerCase().includes(name));
+    if(!matched.length)return {handled:true,message:'No job found for “'+request.person+'” in this device. Save or select a matching job first.'};
+    if(matched.length>1)return {handled:true,message:matched.length+' matching jobs found. Open a specific job to see its location.'};
+    const job=matched[0],customer=customers.find(c=>c.id===job.customerId);
+    const address=String(job.address||job.location||job.siteAddress||customer?.address||'').trim();
+    return {handled:true,message:address?'Saved job location for '+String(job.title||'job')+': '+address:'The matching job has no saved location. Open the job to add or review its address.'};
+   }
    if(request?.action==='activeJobs'){
     const data=await tfPilotSnapshot();
     const active=(data.jobs||[]).filter(j=>!['done','completed','cancelled','canceled','closed'].includes(String(j.status||'').toLowerCase()));
