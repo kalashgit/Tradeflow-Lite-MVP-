@@ -248,8 +248,8 @@ const connectors=[
 function csv(v){const s=String(v==null?'':v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
 function accountingCsv(d){
  const rows=[['record_type','source_id','date','description','amount_eur','customer_id','job_id','currency']];
- for(const p of d.payments||[])rows.push(['received_payment',p.id,p.date||'',p.source||p.title||'Income',Number(p.amount)||0,p.customerId||'',p.jobId||'','EUR']);
- for(const e of d.expenses||[])rows.push(['expense',e.id,e.date||'',e.vendor||e.title||e.category||'Expense',Number(e.amount)||0,'',e.relatedId||'','EUR']);
+ for(const p of d.payments||[])rows.push(['received_payment',p.id,p.date||'',p.source||p.title||'Income',Number(p.amount)||0,p.customerId||'',p.jobId||'','USD']);
+ for(const e of d.expenses||[])rows.push(['expense',e.id,e.date||'',e.vendor||e.title||e.category||'Expense',Number(e.amount)||0,'',e.relatedId||'','USD']);
  return rows.map(r=>r.map(csv).join(',')).join('\r\n');
 }
 function integrationPage(d){
