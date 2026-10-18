@@ -420,7 +420,7 @@ function tfAiOverlayView(){
  if(modal||tfCapture||tfImportDraft)return '';
  const onFull=tab==='ai',isOpen=tfAiPanelOpen&&!onFull,unlocked=!!tfAiKey();
  const emblem='<span class="tf-brand-mark" aria-hidden="true"><span class="tf-brand-top"></span><span class="tf-brand-stem"></span><span class="tf-brand-accent"></span></span>';
- const orb='<button type="button" class="tf-ai-orb" title="Tap for AI · hold for quick access" data-action="tfAiToggle" aria-label="'+(onFull?'Focus TradeFlow AI':isOpen?'Close TradeFlow AI':'Open TradeFlow AI')+'" aria-expanded="'+String(isOpen)+'" aria-controls="tfAiPanel"><span class="tf-ai-orb-icon">'+emblem+'</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
+ const orb='<button type="button" class="tf-ai-orb" title="Tap to talk to TradeFlow" data-action="tfAiToggle" aria-label="Talk to TradeFlow" aria-expanded="false" aria-controls="tfAiOverlayRoot"><span class="tf-ai-orb-icon">'+emblem+'</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
  if(!isOpen)return orb;
  const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p></div>').join('');
  const promptButtons=tfAiCurrentPrompts().map(([title,prompt])=>'<button type="button" data-action="tfAiPanelPrompt" data-prompt="'+esc(prompt)+'" '+(tfChatBusy?'disabled':'')+'>'+esc(title)+'</button>').join('');
@@ -463,7 +463,7 @@ document.addEventListener('pointerdown',event=>{
  tfAiCancelHold();
  tfAiHoldOrigin={node:orb,x:event.clientX,y:event.clientY,id:event.pointerId};
  orb.classList.add('tf-ai-liquid-pressed');
- if(tab==='ai'||tfAiPanelOpen)return;
+ return; // Voice activation uses a tap; do not open the legacy preview on hold.
  tfAiHoldTimer=setTimeout(()=>{
   tfAiHoldTimer=0;
   if(!tfAiHoldOrigin||tab==='ai'||tfAiPanelOpen)return;
@@ -695,7 +695,7 @@ const chart=buildHomeRevenueChart(d,period);
 const activity=[...d.events].filter(x=>x.date).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0,4);
 return `<section class="tf-home tf-home-v2">
 
-<div class="tf-home-intro"><h1>Good ${greeting}.</h1><p>Your business at a glance.</p><button type="button" class="tf-home-talk" data-action="tfVoiceOpen">🎙 Talk to TradeFlow</button></div>
+<div class="tf-home-intro"><h1>Good ${greeting}.</h1><p>Your business at a glance.</p></div>
 <div class="tf-home-stats">${stats.map(([label,value,target],i)=>`<button type="button" class="tf-home-stat" data-tab="${target}"><span class="tf-stat-icon">${icons[i]}</span><strong>${value}</strong><span>${label}</span></button>`).join('')}</div>
 <section class="tf-home-finance" aria-label="Revenue overview"><div class="tf-home-charthead"><span class="tf-home-kicker">Revenue</span><select id="tfHomePeriod" class="tf-home-period" aria-label="Chart time range">${[['1W','This week'],['1M','This month'],['3M','3 months'],['6M','6 months'],['1Y','This year'],['All','All time']].map(([value,label])=>`<option value="${value}" ${period===value?'selected':''}>${label}</option>`).join('')}</select></div><strong class="tf-home-revenue">${euro(chart.total)}</strong><div class="tf-home-growth">${chart.hasRevenue?'Recorded revenue':'No payments recorded yet'}</div>
 <div class="tf-home-chart">${chart.html}</div></section>
@@ -924,11 +924,11 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfAiToggle'){
-  if(tab==='ai'){document.getElementById('tfAiPrompt')?.focus();return}
   tfAiCancelHold();
-  tfAiPanelOpen=!tfAiPanelOpen;
+  tfAiPanelOpen=false;
   tfUiHaptic('selection');
-  tfAiRefreshOverlay();
+  if(window.TradeFlowVoice?.startListening)window.TradeFlowVoice.startListening();
+  else notify('Voice assistant is loading. Please refresh this preview.');
   return;
  }
  if(el.dataset.action==='tfAiClose'){tfUiHaptic('selection');tfAiClosePanel();return}
