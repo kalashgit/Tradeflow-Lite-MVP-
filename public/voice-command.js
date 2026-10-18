@@ -73,9 +73,9 @@ function createController(host){
    }
    const moreIntent=globalThis.TradeFlowLaunchMoreCommands?.parse(instruction);
    if(moreIntent&&host.moreCommand){
-    if(moreIntent.action==='find'){
+    if(['find','activeJobs','completeTask','jobLocation'].includes(moreIntent.action)){
      const outcome=await host.moreCommand(moreIntent);
-     message=outcome?.message||'No matching local records.';
+     message=outcome?.message||'Command completed without additional details.';
      return;
     }
     close();
@@ -122,7 +122,7 @@ function createController(host){
      if(plan.status!=='ready')message=plan.error?.message||'Could not prepare quotation draft.';
      else{const result=await host.commands.execute(plan.id);if(result.status==='succeeded'){close();return}message=result.error?.message||'Could not open quotation draft.'}
     }
-   }else message='Currently supported: create a customer, prepare a quotation for an existing customer, or check tomorrow’s jobs.';
+   }else message='I understood your words, but this action is not connected yet. Try a specific customer, job, task, invoice, calendar, finance, or map command.';
   }catch(error){message=String(error.message||error);if(mapExecuted)host.mapError?.(message)}finally{busy=false;if(!mapExecuted)await repaint()}
  }
  function finish(active){
