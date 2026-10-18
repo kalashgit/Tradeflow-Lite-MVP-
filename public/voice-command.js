@@ -17,6 +17,7 @@ function createController(host){
  const doc=host.document,repaint=()=>host.repaint();
  function close(){if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false;open=false;draft='';message='';void repaint()}
  function start(){open=true;draft='';message='';void repaint()}
+ function startListening(){if(!open){open=true;draft='';message=''};toggle();void repaint()}
  async function submit(text){
   if(busy)return;const instruction=String(text||'').trim();draft=instruction;
   if(!instruction){message='Speak or enter a command first.';await repaint();return}
@@ -67,7 +68,7 @@ function createController(host){
  doc.addEventListener('click',e=>{const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
  doc.addEventListener('submit',e=>{if(e.target.id!=='tfVoiceForm')return;e.preventDefault();void submit(e.target.querySelector('#tfVoiceText')?.value||'')});
  doc.addEventListener('input',e=>{if(e.target.id==='tfVoiceText')draft=e.target.value});
- return Object.freeze({start,close,view,submit});
+ return Object.freeze({start,startListening,close,view,submit});
 }
 return Object.freeze({createController,intent,tomorrowDate});
 });
