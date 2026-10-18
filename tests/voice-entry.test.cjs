@@ -25,7 +25,7 @@ test('voice input is opt-in and cannot save without confirmation',async()=>{
  class Recognition{
   constructor(){engine=this}
   start(){this.started=true}
-  stop(){}
+  stop(){this.stopped=true;this.onend?.()}
   abort(){}
  }
  globalThis.SpeechRecognition=Recognition;
@@ -37,6 +37,9 @@ test('voice input is opt-in and cannot save without confirmation',async()=>{
   await x.handlers.click[0](event);
   assert.equal(engine.started,true);
   engine.onresult({results:[[{transcript:'Add customer Alex Green, phone 512-555-0198'}]]});
+  // Speech stays in listening mode until the user stops or the browser ends recognition.
+  await x.handlers.click[0](event);
+  assert.equal(engine.stopped,true);
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(x.app.view(),/Review customer/);
   assert.match(x.app.view(),/Alex Green/);
