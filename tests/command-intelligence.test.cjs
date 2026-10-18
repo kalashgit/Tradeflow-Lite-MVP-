@@ -55,6 +55,7 @@ test('capabilities can be registered without adding execution functions',()=>{
  const tool={id:'supplier.prepare',description:'Prepare supplier details',effect:'draft',requiredParameters:['name'],match:l=>/^prepare supplier\b/.test(l.normalized)?90:0,extract(l,c,r){r.parameters.name=l.text.replace(/^prepare supplier\s*/i,'');return r}};
  const custom=intelligence.createEngine({tools:[...intelligence.builtinTools,tool]});const r=custom.interpretCommand('Prepare supplier Local Electrical Supply',context);assert.equal(r.intent,'supplier.prepare');assert.equal(r.effect,'draft');assert.equal(r.parameters.name,'Local Electrical Supply');
  assert.throws(()=>intelligence.createEngine({tools:[tool,tool]}),/unique/);assert.throws(()=>intelligence.createEngine({tools:[{...tool,execute(){}}]}),/interpretation-only/);
+ const tied=intelligence.createEngine({tools:[{...tool,id:'lookup.left',effect:'read_only'},{...tool,id:'lookup.right',effect:'read_only'}]}).interpretCommand('Prepare supplier Local Electrical Supply',context);assert.equal(tied.status,'ambiguous');assert.equal(tied.suggestedCommand,null);assert.equal(tied.candidates.length,2);
 });
 
 test('contractor regression fixture corpus has explicit outcomes and preserved parameters',()=>{

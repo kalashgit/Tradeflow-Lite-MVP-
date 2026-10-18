@@ -77,6 +77,7 @@ function createEngine({tools=builtinTools,records=recordInterpreter}={}){
   if(/^(?:how (?:do|can|would) i|what if|suppose|pretend)\b|\b(?:definition of|meaning of|did .+ say|does .+ mean)\b/i.test(l.text)){clarify(base,'META_OR_HYPOTHETICAL_REQUEST','Are you requesting an action or asking about a phrase?');return base}
   const selected=candidates[0];const r={...base,intent:selected.intent,effect:selected.tool.effect,parameters:{},requiresAuthorization:selected.tool.effect==='proposes_modification',explanation:['Matched '+selected.tool.id+' using action, domain and context constraints.']};
   const modifying=candidates.filter(x=>['draft','proposes_modification'].includes(x.tool.effect));
+  if(candidates[1]?.score===selected.score)clarify(r,'MULTIPLE_INTENTS','Multiple registered capabilities match equally. Which one did you intend?');
   const clauseIntents=new Set();for(const clause of l.text.split(/\s+(?:and(?:\s+then)?|then|but)\s+|[;.!?]\s+/i)){const part=freeze(lexical(clause));for(const tool of registered){try{if(tool.match(part,c)>=75)clauseIntents.add(tool.id)}catch{}}}
   if(clauseIntents.size>1)clarify(r,'MULTIPLE_INTENTS','This contains multiple requests. Which one should I handle first?');
   if(modifying.length>1||/\b(?:and then|then also)\b/i.test(l.text)||(/\band\b/i.test(l.text)&&candidates.some(x=>x.intent==='schedule.query')&&modifying.length))clarify(r,'MULTIPLE_INTENTS','This contains multiple possible requests. Which one should I handle first?');

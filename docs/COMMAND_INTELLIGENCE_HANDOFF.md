@@ -39,7 +39,7 @@ All changes are **new files**. No integration-owned file was modified.
 - Engine milestone: **111 passed, 0 failed** across all available test files.
 - Expanded speech corpus milestone: **115 passed, 0 failed**.
 - Final implementation: **130 passed, 0 failed**, including all existing customer creation, voice entry, voice command, registry, Core, Calendar and other regressions.
-- Engine-specific tests: 19. Lab-specific tests: 14. The engine tests include all 44 named fixtures and 2,560 generated schedule variants; these are phrase checks inside test cases, not 2,560 separately reported test cases.
+- Engine-specific tests: 19. Lab-specific tests: 14. Equal-strength registered capability matches require clarification, including read-only tools. The engine tests include all 44 named fixtures and 2,560 generated schedule variants; these are phrase checks inside test cases, not 2,560 separately reported test cases.
 - Syntax checks for all three new JavaScript modules and `git diff --check` pass.
 - Rendered Chromium at **320, 390 and 1440 CSS pixels**: inspect structured intent/fields; edit expected outcomes; save a failing fixture; correct customer phone; persist/reload; export JSON; import 44 bundled examples; run **46/46** combined fixtures; clear only the lab key; no horizontal page overflow or page errors.
 - Actual offline browser reload, interpretation and 46-case regression passed after installing the lab-scoped worker.
