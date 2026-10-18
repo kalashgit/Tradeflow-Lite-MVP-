@@ -1671,7 +1671,8 @@ function tfInitializePilot(){
     if(request.action==='open'){await tfNavigateWorkspace('calendar');return {handled:true}}
    }
    if(request?.area==='finance'){
-    if(request.action==='screen'&&['overview','income','expenses','reports'].includes(request.screen))tfFinanceScreen=request.screen;
+    if(request.action==='incomeMonth'){tfFinanceScreen='income';tfFinancePeriod='month'}
+    else if(request.action==='screen'&&['overview','income','expenses','reports'].includes(request.screen))tfFinanceScreen=request.screen;
     else if(request.action==='period'&&['month','week','year','all'].includes(request.period))tfFinancePeriod=request.period;
     else return {handled:false};
     await tfNavigateWorkspace('expenses');
@@ -1687,9 +1688,37 @@ function tfInitializePilot(){
    return {handled:false};
   }
   async function runLaunchMoreCommand(request){
+   if(request?.action==='activeJobs'){
+    const data=await tfPilotSnapshot();
+    const active=(data.jobs||[]).filter(j=>!['done','completed','cancelled','canceled','closed'].includes(String(j.status||'').toLowerCase()));
+    return {handled:true,message:active.length?active.length+' active job(s) on this device:\n'+active.slice(0,6).map(j=>'• '+String(j.title||j.name||'Untitled job')).join('\n')+(active.length>6?'\nShowing first six.':''):'No active jobs recorded on this device.'};
+   }
+   if(request?.action==='completeTask'){
+    const ref=tfPilotContext().record;
+    if(ref?.store!=='tasks')return {handled:true,message:'Open a specific task first, then say “Mark this task done.”'};
+    const task=await get('tasks',ref.id);
+    if(!task)return {handled:true,message:'The selected task is no longer available.'};
+    if(['done','completed'].includes(String(task.status||'').toLowerCase()))return {handled:true,message:'This task is already complete.'};
+    if(!window.confirm('Mark task “'+String(task.title||'Untitled task').slice(0,120)+'” done?'))return {handled:true,message:'No changes saved.'};
+    await put('tasks',{...task,status:'Done',updatedAt:new Date().toISOString()});
+    await render();
+    return {handled:true,message:'Task marked done and saved.'};
+   }
+   if(request?.action==='taskDraft'){
+    const fields={title:request.title};
+    if(request.when){
+     const d=new Date();if(request.when==='tomorrow')d.setDate(d.getDate()+1);
+     fields.due=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+    const plan=await runtime.prepare({commandId:'draft.prepare',params:{kind:'task',fields}});
+    if(plan.status!=='ready')throw Error(plan.error?.message||'Could not prepare task draft');
+    const result=await runtime.execute(plan.id);
+    if(result.status!=='succeeded')throw Error(result.error?.message||'Could not open task draft');
+    return {handled:true};
+   }
    const params=request?.action==='open'?{workspace:request.workspace}:
     request?.action==='filter'?{workspace:request.workspace,filter:request.filter}:
-    request?.action==='find'||request?.action==='openRecord'?{store:request.store,query:request.query}:
+    request?.action==='find'||request?.action==='openRecord'?{...(request.store?{store:request.store}:{}),query:request.query}:
     request?.action==='draft'?{kind:request.kind}:null;
    const commandId=({'open':'workspace.open','filter':'view.filter','find':'record.find','openRecord':'record.open','draft':'draft.prepare'})[request?.action];
    if(!commandId||!params)throw Error('Unsupported workspace voice request');
@@ -1699,10 +1728,10 @@ function tfInitializePilot(){
    if(result.status!=='succeeded')throw Error(result.error?.message||'Command did not complete.');
    if(request.action==='find'){
     const matches=result.result?.matches||[];
-    const labels=matches.slice(0,5).map(x=>'• '+x.label);
+    const labels=matches.slice(0,5).map(x=>'• '+x.label+' ('+x.ref.store+')');
     return {handled:true,message:matches.length?
-     matches.length+' matching '+request.store+' record(s) in this device:\n'+labels.join('\n')+(matches.length>5?'\nShowing first five. Refine your search.':''):
-     'No matching '+request.store+' records in this device.'};
+     matches.length+' matching '+(request.store||'business')+' record(s) in this device:\n'+labels.join('\n')+(matches.length>5?'\nShowing first five. Refine your search.':''):
+     'No matching '+(request.store||'business')+' records in this device.'};
    }
    return {handled:true};
   }
