@@ -8,8 +8,8 @@
 })(typeof globalThis==='object'?globalThis:null,function(){
  'use strict';
  const trim=(x,n=200)=>String(x==null?'':x).trim().slice(0,n);
- const money=(amount,currency='EUR')=>{
-  try{return new Intl.NumberFormat('en',{style:'currency',currency:currency||'EUR'}).format(Number(amount)||0)}
+ const money=(amount,currency='USD')=>{
+  try{return new Intl.NumberFormat('en',{style:'currency',currency:currency||'USD'}).format(Number(amount)||0)}
   catch{return (Number(amount)||0).toFixed(2)+' '+currency}
  };
  function totals(order){
@@ -22,7 +22,7 @@
  }
  function documentText(order,supplier,business,refs={}){
   if(!order?.poNumber||!supplier?.name)throw Error('Purchase order and supplier are required');
-  const currency=order.currency||'EUR',t=totals(order);
+  const currency=order.currency||'USD',t=totals(order);
   const buyer=trim(business?.company||business?.companyName||business?.name||'',150);
   if(!buyer)throw Error('Complete your business name in Settings before issuing a purchase order');
   if(!Array.isArray(order.lineItems)||!order.lineItems.length)throw Error('Add at least one purchase order item');
