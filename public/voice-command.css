@@ -13,3 +13,5 @@
 .tf-voice-result{white-space:pre-wrap;margin-top:14px;padding:14px;border-radius:14px;background:#292b2f;border:1px solid #3a3e44;line-height:1.5;font-size:13px}
 .tf-voice-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.tf-voice-suggestions button{min-height:37px;border-radius:12px;padding:8px 12px;background:#292b2f;border:1px solid #41454c;color:#d9dfe3;font-size:12px}
 @media(min-width:640px){.tf-voice-overlay{align-items:center;padding:24px}.tf-voice-sheet{border-radius:22px;max-height:calc(100dvh - 48px)}}
+
+.tf-voice-calendar-link{display:block;width:100%;min-height:45px;margin:12px 0;border-radius:12px;border:1px solid #4a626a;background:#283b43;color:#d4f3f8;font-size:14px;font-weight:700}
