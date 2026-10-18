@@ -168,3 +168,27 @@
 .tf-supplier-viewall{width:100%;background:#0b2939;border:1px solid #2b5c70;border-radius:9px;color:#2addf0;margin:9px 0 0;padding:11px;font-size:12px;font-weight:650;cursor:pointer}
 .tf-supplier-viewall:hover{background:#11364a}
 #tfSupplierLiveEmpty[hidden]{display:none!important}
+
+/* Supply Network: denser hierarchy without hiding supplier or order features. */
+.tf-supplier-heading p{max-width:54ch}
+.tf-supplier-metrics>div{min-height:82px;padding:10px 12px}
+.tf-supplier-section-title{margin-top:15px}
+.tf-supplier-primary-tools{gap:8px}
+.tf-supplier-toolbar{margin-top:2px}
+.tf-supplier-empty{padding:16px 17px;line-height:1.45}
+.tf-supplier-empty p{margin:7px 0 0}
+.tf-supplier-disclaimer{font-size:10px;line-height:1.4;opacity:.85}
+@media(max-width:460px){
+ .tf-supplier-page{padding-top:4px}
+ .tf-supplier-heading h1{margin-top:4px}
+ .tf-supplier-heading p{margin-bottom:9px}
+ .tf-supplier-metrics{margin:9px 0 12px;gap:7px}
+ .tf-supplier-metrics>div{min-height:76px;padding:9px}
+ .tf-supplier-metrics strong{font-size:22px}
+ .tf-supplier-primary-tools button{min-height:42px}
+ .tf-supplier-toolbar{grid-template-columns:minmax(0,1fr) 40px auto;gap:6px}
+ .tf-supplier-toolbar button[data-supply-action="viewNetwork"]{width:40px;font-size:0;padding:0}
+ .tf-supplier-toolbar button[data-supply-action="viewNetwork"]::first-letter{font-size:18px}
+ .tf-supplier-search{height:42px}
+ .tf-supplier-section-title{margin-top:15px}
+}
