@@ -463,16 +463,8 @@ document.addEventListener('pointerdown',event=>{
  tfAiCancelHold();
  tfAiHoldOrigin={node:orb,x:event.clientX,y:event.clientY,id:event.pointerId};
  orb.classList.add('tf-ai-liquid-pressed');
- return; // Voice activation uses a tap; do not open the legacy preview on hold.
- tfAiHoldTimer=setTimeout(()=>{
-  tfAiHoldTimer=0;
-  if(!tfAiHoldOrigin||tab==='ai'||tfAiPanelOpen)return;
-  tfAiSkipClickUntil=Date.now()+650;
-  tfAiPanelOpen=true;
-  tfUiHaptic('selection');
-  tfAiHoldOrigin=null;
-  tfAiRefreshOverlay();
- },430);
+ // The same T icon opens the command listener; long-press no longer opens a second panel.
+ return;
 },true);
 document.addEventListener('pointermove',event=>{
  if(tfAiHoldOrigin&&event.pointerId===tfAiHoldOrigin.id&&Math.hypot(event.clientX-tfAiHoldOrigin.x,event.clientY-tfAiHoldOrigin.y)>12)tfAiCancelHold();
