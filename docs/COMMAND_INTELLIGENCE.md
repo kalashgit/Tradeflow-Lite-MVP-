@@ -44,3 +44,17 @@ Run `node --test tests/command-intelligence.test.cjs`, followed by the repositor
 Reordered date and customer prefixes are supported. Negation, excluded constraints, conflicting independent actions, tutorial/reported speech, unavailable identities and unsupported periods cannot silently yield an execution suggestion. Trade filters such as HVAC are retained in the interpreted schedule parameters; an integrating host must apply those constraints or clarify, not silently show all work. Results never contain financial answers or fetched schedule records.
 
 Adapters receive frozen lexical data and a frozen copy of context. Required parameter paths are checked after extraction. Register trusted, synchronous and pure match/extract callbacks; this module does not provide a security sandbox or execute callbacks named `execute`.
+
+## Voice Command Lab
+
+Open `/voice-command-lab.html` from a local static server serving `public/`. For example, `python -m http.server 4174 --directory public`, then visit `http://localhost:4174/voice-command-lab.html`. This branch does not deploy the page or add it to the app's navigation.
+
+The lab displays the structured result, lets the developer change expected intent/status/effect/parameter subsets, and explicitly save a transcript fixture. Customer draft field correction is also supported and saved as a reproducible correction step. Incorrect expected outcomes stay visible as failing regressions; neither kind of correction changes language rules, model weights or Apple's recognizer.
+
+`TradeFlowVoiceCommandLab` exports `validateFixture`, `createFixtureStore`, `runRegression` and `mount`. The store uses **only** `localStorage['tradeflow:voice-command-lab:v1']`. No app IndexedDB is opened. Saving/importing is explicit. Export, load, edit, delete and clear operate only on lab fixtures. Exported fixture JSON and the named contractor test corpus are importable; conflicting IDs and invalid collections are rejected atomically. Corrupt/unknown versions are not silently replaced. Memory-only fallback is labeled; quota/access errors are displayed.
+
+The lab limits collections to 300 fixtures, transcripts to 8,000 characters and imported files to 2 MiB, with a conservative collection-storage budget. Context permits date, business, customer interpretation fields and selected references; it excludes photos, secrets and unrelated business datasets. Test transcripts and extracted contact information can still be sensitive. The developer controls explicit retention and exported copies.
+
+A dedicated `voice-command-lab-sw.js` registration is scoped to **`./voice-command-lab.html`**. It caches only lab dependencies in `tradeflow-command-lab-*`, never the main application's cache namespace. On a secure origin/localhost, offline reload is available after first installation. On file origins or unsupported browsers, local assets and fixture functionality remain usable where the browser permits; service-worker installation is not claimed. The main `sw.js` is unchanged.
+
+No microphone is used, no audio is collected and no network/model call is needed for interpretation or fixture regression. The dedicated worker fetches static assets for installation/update only.

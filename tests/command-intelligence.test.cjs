@@ -74,3 +74,7 @@ test('custom tool required parameters and frozen context guard the interpretatio
  const custom={id:'test.inspect',effect:'read_only',requiredParameters:['query'],match:()=>90,extract(l,c,r){assert.ok(Object.isFrozen(c));assert.ok(Object.isFrozen(l));return r}};
  const engine=intelligence.createEngine({tools:[custom]});const r=engine.interpretCommand('Inspect local records',context);assert.equal(r.status,'needs_clarification');assert.ok(r.missingInformation.some(x=>x.field==='query'));
 });
+test('malformed host context and tool parameter declarations are rejected explicitly',()=>{
+ for(const context of [null,[],true,'customer']){const r=intelligence.interpretCommand('Check my jobs tomorrow',context);assert.equal(r.status,'unsupported');assert.ok(r.clarification.reasonCodes.includes('INVALID_CONTEXT'))}
+ const tool={id:'bad.schema',effect:'read_only',match:()=>90,extract(){},requiredParameters:'query'};assert.throws(()=>intelligence.createEngine({tools:[tool]}),/interpretation-only/);
+});

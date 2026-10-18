@@ -1,0 +1,25 @@
+/* Standalone developer lab; uses the completed shared graphite tokens. */
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 var(--tf-ui-font); }
+.lab-shell { max-width: 1180px; margin: auto; padding: 24px; }
+.lab-kicker { font-size: 12px; letter-spacing: .1em; color: var(--tf-muted); }
+h1 { margin: 8px 0; font-size: clamp(27px,5vw,38px); } h2 { font-size: 20px; margin-top: 0; } h3 { font-size: 16px; }
+.lab-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.lab-panel { min-width: 0; padding: 20px; margin-bottom: 20px; border: 1px solid var(--tf-hairline); border-radius: var(--tf-radius-panel); background: var(--tf-panel); }
+.lab-notice { padding: 16px; border: 1px solid var(--tf-border); border-radius: var(--tf-radius-control); }
+.lab-panel p, .lab-muted, .lab-shell header p { color: var(--tf-muted); font-size: 14px; }
+label { display: block; margin: 12px 0 5px; }
+input:not([type=checkbox]):not([type=file]), select, textarea { display: block; min-width: 0; width: 100%; padding: 11px; border: 1px solid var(--tf-border); border-radius: var(--tf-radius-control); color: var(--tf-text); background: var(--tf-surface-raised); font: inherit; }
+textarea { resize: vertical; }
+button, .lab-import { display: inline-block; cursor: pointer; margin: 10px 8px 0 0; padding: 11px 16px; color: var(--tf-text); background: var(--tf-surface-raised); border: 1px solid var(--tf-border); border-radius: var(--tf-radius-control); font: inherit; }
+.lab-primary { border-color: var(--tf-selected-border); background: var(--tf-selected-fill); }
+button:hover { background: var(--tf-graphite-hover); }
+:focus-visible { outline: 2px solid var(--tf-focus); outline-offset: 3px; }
+.lab-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lab-row label { min-width: 0; }.lab-checkbox { display: flex; gap: 9px; align-items: center; }.lab-checkbox input { width: 20px; height: 20px; }
+pre { overflow: auto; max-height: 460px; padding: 16px; background: var(--tf-bg); border: 1px solid var(--tf-border); border-radius: var(--tf-radius-control); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+details { margin: 16px 0; }summary { cursor: pointer; }
+#lab-status { min-height: 26px; overflow-wrap: anywhere; } #lab-status[data-error=true] { font-weight: 650; }
+#lab-fixtures { padding: 0; list-style: none; } #lab-fixtures li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; } #lab-fixtures span { flex: 1 1 180px; overflow-wrap: anywhere; }
+.lab-import input { display: block; max-width: 100%; font-size: 12px; }
+@media(max-width:700px) { .lab-shell { padding: 14px; }.lab-columns,.lab-row { grid-template-columns: 1fr; }.lab-panel { padding: 16px; }.lab-actions button { width: 100%; }.lab-import { width: 100%; } }

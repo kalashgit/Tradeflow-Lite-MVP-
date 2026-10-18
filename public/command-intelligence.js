@@ -65,11 +65,11 @@ const builtinTools=[
  {id:'business.query',description:'Ask for a read-only local business summary',effect:'read_only',requiredParameters:['topics'],match:l=>l.question&&l.has(['revenue','expenses','overdue invoices','open quotations','unpaid invoices','overdue tasks','business summary'])?80:0,extract(l,c,r){const topics=['revenue','expenses','overdue invoices','open quotations','unpaid invoices','overdue tasks','business summary'].filter(x=>l.has([x]));r.parameters.topics=topics;if(l.has(['today','tomorrow','yesterday','next day'])||/\b\d{4}-\d{2}-\d{2}\b/.test(l.text))r.parameters.date=dateParameter(l,c,r,false);return r}}
 ];
 function createEngine({tools=builtinTools,records=recordInterpreter}={}){
- if(!Array.isArray(tools)||tools.some(t=>!t||typeof t.id!=='string'||!t.id||typeof t.match!=='function'||typeof t.extract!=='function'||!['read_only','navigation','draft','proposes_modification'].includes(t.effect)||t.execute)||new Set(tools.map(t=>t.id)).size!==tools.length)throw Error('Tools need unique IDs, interpretation-only match/extract functions and a supported effect.');
+ if(!Array.isArray(tools)||tools.some(t=>!t||typeof t.id!=='string'||!t.id||typeof t.match!=='function'||typeof t.extract!=='function'||!['read_only','navigation','draft','proposes_modification'].includes(t.effect)||t.execute||t.requiredParameters!==undefined&&(!Array.isArray(t.requiredParameters)||t.requiredParameters.some(p=>typeof p!=='string'||!p)))||new Set(tools.map(t=>t.id)).size!==tools.length)throw Error('Tools need unique IDs, interpretation-only match/extract functions and a supported effect.');
  const registered=tools.map(t=>({...t,requiredParameters:[...(t.requiredParameters||[])]}));
  function interpretCommand(transcript,context={}){
   const base=result();if(typeof transcript!=='string'||!transcript.trim()||transcript.length>8000||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(transcript)){clarify(base,'INVALID_INPUT','Enter a transcript of 1–8000 characters.');return base}
-  let c;try{c=freeze(copy(context))}catch{clarify(base,'INVALID_CONTEXT','Provide serializable local record context.');return base}
+  let c;try{if(!context||typeof context!=='object'||Array.isArray(context))throw Error('Invalid context');c=freeze(copy(context))}catch{clarify(base,'INVALID_CONTEXT','Provide serializable local record context.');return base}
   const l=freeze(lexical(transcript)),candidates=[];
   for(const tool of registered){try{const score=tool.match(l,c);if(Number.isFinite(score)&&score>0)candidates.push({intent:tool.id,score:Math.min(100,score),tool})}catch{warn(base,'TOOL_MATCH_UNAVAILABLE','A registered matcher could not evaluate this transcript.')}}
   candidates.sort((a,b)=>b.score-a.score||a.intent.localeCompare(b.intent));base.candidates=candidates.map(({intent,score})=>({intent,score}));base.normalizations=l.normalizations;
@@ -93,7 +93,7 @@ function createEngine({tools=builtinTools,records=recordInterpreter}={}){
  }
  function correctInterpretation(previous,changes,context={}){
   if(previous?.intent!=='customer.create'||!records?.correct||!changes||Object.keys(changes).some(k=>!['fields'].includes(k))){const r=result();clarify(r,'UNSUPPORTED_CORRECTION','Choose a customer field to correct, or re-enter the intended request.');return r}
-  let c;try{c=freeze(copy(context))}catch{const r=result();clarify(r,'INVALID_CONTEXT','Provide serializable context.');return r}
+  let c;try{if(!context||typeof context!=='object'||Array.isArray(context))throw Error('Invalid context');c=freeze(copy(context))}catch{const r=result();clarify(r,'INVALID_CONTEXT','Provide serializable context.');return r}
   const seed=previous.recordReview||{intent:'customer.create',draft:{kind:'customer',fields:previous.parameters?.fields||{}},issues:[],relatedDrafts:[]};
   const r=result('customer.create','proposes_modification');r.explanation=['Customer fields were explicitly corrected; no record was changed.'];
   const review=records.correct(seed,changes.fields,{customers:customers(c),context:c});customerReview(r,review);
