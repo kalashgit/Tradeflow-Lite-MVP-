@@ -385,7 +385,7 @@ body > .tf-location-sheet, body > .tf-experience-sheet {
   .tf-record-actions .tf-record-cancel, .tf-record-modalhead .tf-record-close,
   .tf-supplier-tools button:not(.primary), .tf-supplier-primary-tools button:not(.primary),
   .tf-supplier-toolbar button, .tf-supplier-search, .tf-supplier-sort select,
-  .tf-supplier-actions button:not(.primary), .tf-supplier-edit button:not(.primary):not(.tf-po-remove),
+  .tf-supplier-actions button:not(.primary), .tf-supplier-edit button:where(:not(.primary):not(.tf-po-remove)),
   .tf-supplier-dossier-actions button:not(.primary), .tf-supplier-viewall,
   .tf-po-detail-actions button:not(.primary), .tf-po-status-edit select,
   .tf-revenue-secondary, .tf-revenue-top button, .tf-revenue-line > div > button,

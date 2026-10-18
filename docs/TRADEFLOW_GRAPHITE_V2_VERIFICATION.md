@@ -7,7 +7,7 @@
 - `public/graphite-theme.css`: shared neutral tokens, surface recipes, geometry, typography, focus and selected states across Home, Calendar, Map chrome, Finance, Suppliers, record forms, invoices, job costing and other existing workspaces. Dialogs mounted outside the main content receive the same tokens. Retired Business Missions sidebar entry stays hidden.
 - `public/appearance-theme.js`: keep the saved original accent and derive readable accent/button colors against graphite. Neutral border/text roles belong to CSS, not the accent engine.
 - `public/app.js`: replace only the map search arrow glyph with an equivalent outlined SVG; no handlers, business logic, database definition or records changed.
-- `public/index.html`, `public/sw.js`: version changed assets, precache the graphite stylesheet and use network-first updates with an offline fallback. Cache v92 is separate from the unchanged IndexedDB schema v9.
+- `public/index.html`, `public/sw.js`: version changed assets, precache the graphite stylesheet and use network-first updates with an offline fallback. Cache v93 is separate from the unchanged IndexedDB schema v9.
 - `public/manifest.webmanifest`: align the installed PWA launch canvas with graphite.
 - `tests/appearance-theme.test.cjs`: verify 12 user accents against all four graphite surfaces and ensure applying an accent does not overwrite neutral roles.
 - Design baseline updated to the user's latest V2 tokens.
