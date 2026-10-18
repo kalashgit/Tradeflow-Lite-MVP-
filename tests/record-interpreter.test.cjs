@@ -140,3 +140,16 @@ test('new record kinds can be added as explicit adapters without changing custom
  const bad=interpreter.createInterpreter({adapters:[{id:'bad',interpret:()=>({intent:'supplier.create'})}]});assert.equal(bad.interpret('Add supplier X').status,'unsupported');assert.ok(has(bad.interpret('Add supplier X'),'INVALID_ADAPTER_RESULT'));
  const throws=interpreter.createInterpreter({adapters:[{id:'bad',interpret(){throw Error('bad')}}]});assert.ok(has(throws.interpret('Add supplier X'),'ADAPTER_ERROR'));
 });
+test('conversational name labels are extracted once, not treated as competing names',()=>{
+ const result=interpreter.interpret('Create a customer his name is John Smith and his number is 512-555-0198');
+ assert.equal(result.draft.fields.name,'John Smith');
+ assert.equal(result.draft.fields.phone,'+15125550198');
+ assert.ok(!has(result,'AMBIGUOUS_NAME'));
+});
+test('incomplete spoken phone is preserved but never invented or allowed to auto-save',()=>{
+ const result=interpreter.interpret('Create a customer his name is John Smith and his number is 512678');
+ assert.equal(result.draft.fields.name,'John Smith');
+ assert.equal(result.draft.fields.phone,'512678');
+ assert.ok(has(result,'INVALID_PHONE'));
+ assert.equal(result.status,'needs_clarification');
+});
