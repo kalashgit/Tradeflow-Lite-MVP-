@@ -957,12 +957,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordClose'){
-  if(tfCalendarLinkedReturn){tfCalendarLinkedReturn=false;tfRecordListContext=null;tfMotionNext='back';tfRecordDetailId=null;tab='calendar';query='';await render();window.TradeFlowCalendar?.restoreViewport?.();return}
+  if(tfCalendarLinkedReturn){tfCalendarLinkedReturn=false;tfRecordListContext=null;tfMotionNext='back';tfRecordDetailId=null;tab='calendar';query='';await render();return}
   const previous=tfRecordListContext;
   tfMotionNext='back';tfRecordDetailId=null;query=previous?.query||'';
   await render();
   tfRecordListContext=null;
-  requestAnimationFrame(()=>tfReturnToRecordList(previous));
+  // On return to the list, keep the newly opened page at its top.
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
@@ -974,7 +974,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
    const previous=tfRecordListContext;tfRecordListContext=null;
    tfRecordDetailId=null;query=previous?.query||query;
    await notify(tab==='jobs'?'Job completed':'Task completed');
-   requestAnimationFrame(()=>tfReturnToRecordList(previous));
+   // On return to the list, keep the newly opened page at its top.
    return;
  }
  if(el.dataset.action==='tfRecordRelated'){
@@ -1589,6 +1589,7 @@ function tfPilotSnapshot(){
  });
 }
 function tfResetWorkspace(next){
+ tfLastOpenedPageKey=null; // Reopening even the current workspace starts at the top.
  tfCalendarLinkedReturn=false;tfAiPanelOpen=false;if(tab!==next)tfMotionNext=next==='map'?'':'tab';
  tab=next;query='';tfRecordListContext=null;modal=null;tfRecordDetailId=null;tfPhotoPending=null;tfCapture=null;tfPilotFilter=null;
 }
@@ -2176,7 +2177,35 @@ document.addEventListener('click',async function(e){
  }
 });
 
-async function render(){if(tab!=='map')window.TradeFlowMapExperience?.close();const tfActiveMotion=tfMotionNext;tfMotionNext='';const savedSettings=await get('settings','business')||{};prefs={...prefs,...savedSettings};if(!savedSettings.accentCustomized&&String(prefs.accent||'').toLowerCase()==='#087f91')prefs.accent='#10cfe1';applyTradeFlowAccent(prefs.accent);const data=Object.fromEntries(await Promise.all(STORES.map(async store=>[store,await all(store)])));if(tfOnboardingNeeded(savedSettings)){$('#app').innerHTML=tfOnboardingView(data);return}await window.TradeFlowNotifications?.bootstrap(data);const nav=Object.keys(names).map(key=>`<button class="nav ${tab===key?'active':''}" data-tab="${key}">${icons[key]} &nbsp; ${names[key]}</button>`).join(''),mobile=[['dashboard','Home',tfNavIcons.dashboard],['map','Map',tfNavIcons.map],['calendar','Calendar',tfRecordIcon('calendar',23)],['expenses','Finance',tfNavIcons.expenses],['settings','More',tfNavIcons.settings]].map(([key,label,icon])=>`<button data-tab="${key}" class="${tab===key?'active':''}"><span class="navicon" aria-hidden="true">${icon}</span><span>${label}</span></button>`).join('');$('#app').innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${esc(prefs.company)} <small style="font-size:10px;color:#a4bdc8">LITE</small></div>${nav}</aside><div class="main">${tfUnifiedHeader(data)}<main class="content">${toast?`<div class="notice" role="status">${esc(toast)}</div>`:''}${view(data)}</main><nav class="mobilebar">${mobile}</nav></div></div>${modal?formModal(data):''}${tfImportDraft?tfUniversalImportView(data):''}${tfCapture?tfCaptureView():''}${window.TradeFlowCustomerEntry?.view?.()||''}${window.TradeFlowVoice?.view?.()||''}<div id="tfAiOverlayRoot">${tfAiOverlayView()}</div>`;if(tab==='map')setTimeout(()=>initializeMap(data),0)}
+// A newly opened workspace or record view always begins at the top.
+// Data-refresh renders within the same view retain their current scroll position.
+let tfLastOpenedPageKey=null;
+function tfOpenedPageKey(){
+ return [tab,
+  ['customers','quotes','jobs','tasks'].includes(tab)?tfRecordDetailId||'list':'',
+  tab==='opportunities'?String(opportunityDetailId||'list')+':'+String(opportunityDetailScreen||''):'',
+  tab==='expenses'?tfFinanceScreen:'',
+  tab==='calendar'?window.TradeFlowCalendar?.currentContext?.()?.date||'':''
+ ].join('|');
+}
+function tfScrollOpenedPageToTop(){
+ const move=()=>{
+  window.scrollTo(0,0);
+  if(document.scrollingElement)document.scrollingElement.scrollTop=0;
+  for(const selector of ['.main','.content']){
+   const element=document.querySelector(selector);
+   if(element)element.scrollTop=0;
+  }
+ };
+ move();
+ requestAnimationFrame(move);
+}
+async function render(){if(tab!=='map')window.TradeFlowMapExperience?.close();const tfActiveMotion=tfMotionNext;tfMotionNext='';const savedSettings=await get('settings','business')||{};prefs={...prefs,...savedSettings};if(!savedSettings.accentCustomized&&String(prefs.accent||'').toLowerCase()==='#087f91')prefs.accent='#10cfe1';applyTradeFlowAccent(prefs.accent);const data=Object.fromEntries(await Promise.all(STORES.map(async store=>[store,await all(store)])));if(tfOnboardingNeeded(savedSettings)){$('#app').innerHTML=tfOnboardingView(data);return}await window.TradeFlowNotifications?.bootstrap(data);const nav=Object.keys(names).map(key=>`<button class="nav ${tab===key?'active':''}" data-tab="${key}">${icons[key]} &nbsp; ${names[key]}</button>`).join(''),mobile=[['dashboard','Home',tfNavIcons.dashboard],['map','Map',tfNavIcons.map],['calendar','Calendar',tfRecordIcon('calendar',23)],['expenses','Finance',tfNavIcons.expenses],['settings','More',tfNavIcons.settings]].map(([key,label,icon])=>`<button data-tab="${key}" class="${tab===key?'active':''}"><span class="navicon" aria-hidden="true">${icon}</span><span>${label}</span></button>`).join('');$('#app').innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${esc(prefs.company)} <small style="font-size:10px;color:#a4bdc8">LITE</small></div>${nav}</aside><div class="main">${tfUnifiedHeader(data)}<main class="content">${toast?`<div class="notice" role="status">${esc(toast)}</div>`:''}${view(data)}</main><nav class="mobilebar">${mobile}</nav></div></div>${modal?formModal(data):''}${tfImportDraft?tfUniversalImportView(data):''}${tfCapture?tfCaptureView():''}${window.TradeFlowCustomerEntry?.view?.()||''}${window.TradeFlowVoice?.view?.()||''}<div id="tfAiOverlayRoot">${tfAiOverlayView()}</div>`;const nextPageKey=tfOpenedPageKey();
+ if(nextPageKey!==tfLastOpenedPageKey){
+  tfLastOpenedPageKey=nextPageKey;
+  tfScrollOpenedPageToTop();
+ }
+ if(tab==='map')setTimeout(()=>initializeMap(data),0)}
 // Touch acknowledgement uses transform/opacity only. Never delays an action or a data write.
 const tfPressTarget='button:not(:disabled),a[href],label[for]';
 let tfPressedControl=null;
