@@ -20,6 +20,22 @@ function parse(value){
  if(m&&m[2].trim().length>=2&&m[2].length<=160)return {action:'find',store:stores[m[1]],query:m[2].trim()};
  m=s.match(/^(?:open|show)\s+(?:the\s+)?(opportunities|opportunity|customers|customer|quotations|quotation|quotes|quote|jobs|job|tasks|task|invoices|invoice)\s+(.+)$/);
  if(m&&m[2].trim().length>=2&&m[2].length<=160)return {action:'openRecord',store:stores[m[1]],query:m[2].trim()};
+ let loc=s.match(/^(?:find|show|locate|where is)\s+(?:the\s+)?(.+?)(?:'s|s')?\s+job\s+(?:location|address)$/);
+ if(loc&&loc[1].length>=2&&loc[1].length<=100)return {action:'jobLocation',person:loc[1].replace(/(?:'s|s')$/,'').trim()};
+ // Full named customer lookup and contextual generic record search.
+ let named=s.match(/^(?:show|open|view)\s+(?:me\s+)?(.+?)\s+(?:customer\s+)?details$/);
+ if(named&&named[1].length>=2&&named[1].length<=160)return {action:'openRecord',store:'customers',query:named[1]};
+ named=s.match(/^(?:find|look up|search for)\s+(.+)$/);
+ if(named&&named[1].length>=2&&named[1].length<=160&& !/^(?:my|the)\s+(?:location|map)/.test(named[1]))return {action:'find',query:named[1]};
+ if(/^(?:show|list|view|find)\s+(?:my\s+|all\s+|the\s+)?(?:active|ongoing|current)\s+jobs$/.test(s))return {action:'activeJobs'};
+ if(/^(?:mark|complete|finish)\s+(?:this|the|current|selected)\s+task\s+(?:as\s+)?(?:done|complete|completed)$/.test(s))return {action:'completeTask'};
+ let newTask=s.match(/^(?:create|add|make|prepare|draft)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?task\s+(?:to\s+)?(.+)$/);
+ if(newTask){
+  let title=newTask[1].trim();
+  let when='';const relative=title.match(/\s+(tomorrow|today)$/);
+  if(relative){when=relative[1];title=title.slice(0,-relative[0].length).trim()}
+  if(title.length>=2&&title.length<=150)return {action:'taskDraft',title,when};
+ }
  if(/^(?:draft|prepare|start)\s+(?:a\s+|new\s+|a\s+new\s+)?(?:task|to do)$/.test(s))return {action:'draft',kind:'task'};
  if(/^(?:draft|prepare|start)\s+(?:a\s+|new\s+|a\s+new\s+)?(?:quote|quotation)$/.test(s))return {action:'draft',kind:'quote'};
  return null;
