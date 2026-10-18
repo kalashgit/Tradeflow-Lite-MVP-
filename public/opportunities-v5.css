@@ -1,0 +1,63 @@
+/* TradeFlow Opportunities R05 — reference-aligned page and compact draggable sheets */
+.tf-op-v3.tf-op5{max-width:730px;padding-top:10px}
+.tf-op5 .tf-op5-topbar{display:flex;align-items:center;justify-content:flex-start;gap:10px;margin-bottom:14px}
+.tf-op5 .tf-op5-top-actions{display:flex;align-items:center;gap:7px}
+.tf-op5-action{min-height:40px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;border:1px solid #36758b;background:#0e293a;color:#e6f7fc;font-size:12px;font-weight:730;white-space:nowrap}
+.tf-op5-action.primary{border-color:var(--tf-accent);background:var(--tf-accent);color:#05232e}
+.tf-op5-action svg{width:17px;height:17px}
+.tf-op5 .tf-op3-stats{margin-bottom:14px;gap:9px}
+.tf-op5 .tf-op3-stats>div{min-height:76px;padding:12px 11px;background:linear-gradient(155deg,#102d3d,#092332);border-color:#31566b;border-radius:13px;gap:6px}
+.tf-op5 .tf-op3-stats strong{font-size:24px;font-weight:720}
+.tf-op5 .tf-op3-stats small{font-size:10px;letter-spacing:.01em}
+.tf-op5 .tf-op3-mapcard{border:1px solid #367286;border-radius:17px;background:linear-gradient(145deg,#0c2939,#0a2332);padding:13px;margin-bottom:14px}
+.tf-op5 .tf-op3-mapheading{gap:10px;margin-bottom:12px}
+.tf-op5 .tf-op3-mapheading strong{font-size:17px;letter-spacing:-.02em}
+.tf-op5 .tf-op3-mapheading small{font-size:11px;margin-top:4px}
+.tf-op5 .tf-op3-mapicon{width:39px;height:39px;font-size:22px;border-radius:11px}
+.tf-op5-map-count{margin-left:auto;display:flex;align-items:flex-end;flex-direction:column;gap:3px;font-size:10px;color:#94c0cc;white-space:nowrap}
+.tf-op5-map-count strong{font-size:12px;color:#d9faff}
+.tf-op5-map-preview{position:relative;display:grid;place-items:center;height:112px;border-radius:12px;border:1px solid #29576b;overflow:hidden;background:radial-gradient(ellipse at 50% 60%,#124057,#091f2e);margin-bottom:11px;color:var(--tf-accent)}
+.tf-op5-map-preview svg{width:100%;height:100%;opacity:.85}
+.tf-op5-map-caption{position:absolute;bottom:6px;left:10px;font-size:8px;letter-spacing:.13em;font-weight:740;color:#a8cad4;background:#071f2ba8;border-radius:4px;padding:3px 5px}
+.tf-op5-map-empty{gap:5px;display:flex;flex-direction:column;justify-content:center;color:#81bdcd}
+.tf-op5-map-empty span{font-size:27px}
+.tf-op5-map-empty small{font-size:11px;color:#9ab9c6}
+.tf-op5 .tf-op3-mapactions{grid-template-columns:1fr;gap:0}
+.tf-op5 .tf-op3-mapactions button{font-size:13px;font-weight:750;min-height:44px;border-radius:10px}
+.tf-op5 .tf-op3-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:12px;padding-bottom:2px}
+.tf-op5 .tf-op3-chips::-webkit-scrollbar{display:none}
+.tf-op5 .tf-op3-chips button{flex:none;padding:9px 12px;font-size:11px}
+.tf-op5 .tf-op3-search{height:46px;margin-bottom:12px}
+.tf-op5 .tf-op3-row{min-height:70px}
+.tf-op5-map-progress{font-size:10px;line-height:1.5;padding-top:7px;color:#93c0cc}
+.tf-op5-map-progress[hidden]{display:none!important}
+.tf-op5-sheet-shade{position:fixed;inset:0;background:#020a13cf;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:10020}
+.tf-op5-sheet{position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:10021;width:min(540px,100%);max-height:min(82dvh,710px);display:flex;flex-direction:column;border:1px solid #3c6176;border-bottom:0;border-radius:23px 23px 0 0;background:linear-gradient(160deg,#182c3d,#0a1a29 78%);box-shadow:0 -18px 55px #0009;color:#f1fcff;overflow:hidden;padding:0 15px max(15px,env(safe-area-inset-bottom));touch-action:pan-y}
+.tf-op5-sheet.tf-op5-expanded{max-height:93dvh}
+.tf-op5-handle{display:flex;align-items:center;justify-content:center;height:30px;flex:none;cursor:grab;touch-action:none}
+.tf-op5-handle>span{width:46px;height:5px;border-radius:9px;background:#5d7989}
+.tf-op5-sheet-title{display:flex;align-items:center;justify-content:space-between;margin:3px 0 15px;gap:15px}
+.tf-op5-sheet-title h2{font-size:19px;letter-spacing:-.025em;font-weight:750;margin:0;color:#f3faff}
+.tf-op5-sheet-title>button{border:0;border-radius:9px;background:#1a3544;color:#d4eaf2;min-width:32px;min-height:32px;display:grid;place-items:center}
+.tf-op5-sheet-body{overflow-y:auto;overscroll-behavior:contain;display:grid;gap:9px;padding:0 0 7px}
+.tf-op5-sheet-option{display:flex;align-items:center;gap:12px;width:100%;min-height:66px;text-align:left;border:1px solid #3e5e70;border-radius:12px;background:linear-gradient(145deg,#172c3b,#0f2231);color:#f0fbff;padding:10px 13px}
+.tf-op5-sheet-icon{display:grid;place-items:center;color:#c9ecf5;width:33px;flex:none}
+.tf-op5-option-copy{display:flex;flex:1;flex-direction:column;gap:4px;min-width:0}
+.tf-op5-option-copy strong{font-size:13px;font-weight:720}
+.tf-op5-option-copy small{font-size:10.5px;color:#9cbac8;line-height:1.4}
+.tf-op5-option-arrow{font-size:22px;color:#a0c9d6}
+.tf-op5-sheet-cancel{margin-top:4px;width:100%;min-height:42px;background:#203345;color:#e1edf2;border:1px solid #4a6275;border-radius:11px;font-size:12px;font-weight:670}
+.tf-op5-sheet button:focus-visible,.tf-op5 .tf-op5-action:focus-visible{outline:2px solid #92eff8;outline-offset:2px}
+.tf-op5-photo-preview{display:grid;place-items:center;height:145px;background:#0a2534;border:1px solid #36576b;border-radius:11px;overflow:hidden}
+.tf-op5-photo-preview img{height:100%;width:100%;object-fit:contain}
+.tf-op5-explain{font-size:11px;line-height:1.5;color:#abc8d5;margin:0 1px 5px}
+.tf-op5-photo-form{display:flex;flex-direction:column;gap:10px}
+.tf-op5-photo-form label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#d1e5ed;font-weight:650}
+.tf-op5-photo-form input{width:100%;border:1px solid #497183;border-radius:9px;background:#0c2534;color:#f3fcff;min-height:39px;padding:8px 11px;font-size:13px}
+.tf-op5-photo-form input:focus{outline:2px solid #159eb2}
+.tf-op5-photo-submit{background:var(--tf-accent);border:0;border-radius:10px;padding:12px;color:#062734;font-size:13px;font-weight:770}
+@media(min-width:650px){.tf-op5-sheet{bottom:20px;border-radius:23px;border-bottom:1px solid #3c6176}.tf-op5-sheet-shade{background:#020a13c7}}
+@media(max-width:380px){.tf-op5 .tf-op5-topbar h2{font-size:21px}.tf-op5-action{padding:8px 9px;font-size:11px;gap:4px}.tf-op5 .tf-op3-stats>div{padding:10px 8px}.tf-op5 .tf-op3-stats strong{font-size:20px}}
+@media(prefers-reduced-motion:reduce){.tf-op5-sheet,.tf-op5-sheet-shade{animation:none;transition:none}}
+
+.top.tf-opportunity-topless{display:none!important}

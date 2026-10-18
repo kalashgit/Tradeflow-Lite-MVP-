@@ -1,0 +1,80 @@
+/* TRADEFLOW ADAPTIVE APPEARANCE v1
+   Navy surfaces retain legibility with arbitrary user accent.
+   Fill, foreground, outline, muted content, and semantic alerts have independent roles. */
+:root{
+ --tf-surface:#091e2d;
+ --tf-surface-raised:#10293a;
+ --tf-hairline:#284457;
+ --tf-accent-text:var(--tf-accent,#10cfe1);
+ --tf-accent-contrast:#041b29;
+ --tf-income-neon:#00ed64;
+ --tf-expense-neon:#ff334d;
+}
+.main,.content{color:var(--tf-text,#f1f9fc)}
+.content .muted,.content .sub,.tf-cash-description,.tf-cash-history small:not(.positive):not(.negative){color:var(--tf-muted,#acc3d0)}
+.content p,.content small,.content label{line-height:1.45}
+.content button,.mobilebar button{ -webkit-tap-highlight-color:transparent }
+.content button:focus-visible,.mobilebar button:focus-visible,.tf-unified-header button:focus-visible,
+.content input:focus-visible,.content textarea:focus-visible,.content select:focus-visible{
+ outline:2px solid var(--tf-accent,#10cfe1)!important;
+ outline-offset:3px;
+}
+.content :is(input,textarea,select):not([type=color]):not([type=checkbox]):not([type=radio]){
+ color:#f0f9fd;caret-color:var(--tf-accent-text);accent-color:var(--tf-accent);
+}
+.content :is(input,textarea)::placeholder{color:#91afbd!important;opacity:1}
+.content :is(input,textarea,select):disabled{opacity:.7}
+.content :is(.tf-cash-input,.input,.tf-settings-form input,.tf-settings-form textarea,.tf-settings-form select):not([type=color]){
+ border-color:var(--tf-hairline,#284457)!important;
+ background-color:#0b2535;
+}
+.content :is(.tf-cash-input,.input,.tf-settings-form input,.tf-settings-form textarea,.tf-settings-form select):focus-visible{
+ border-color:var(--tf-accent)!important;
+ box-shadow:0 0 0 2px color-mix(in srgb,var(--tf-accent) 22%,transparent);
+}
+.content :is(.tf-cash-primary,.tf-settings-save,.tf-setup-submit,.tf-op5-action.primary,.tf-record-save,.tf-import-save,.btn:not(.secondary):not(.danger)){
+ color:var(--tf-accent-contrast,#041b29)!important;
+}
+.content :is(.tf-cash-primary,.tf-settings-save,.tf-setup-submit,.tf-op5-action.primary,.tf-record-save,.tf-import-save):not(:disabled){
+ background:var(--tf-accent)!important;
+ border-color:var(--tf-accent)!important;
+}
+/* Finance income creation uses fixed green, not user accent. */
+.content .tf-cash .tf-cash-actions button[data-kind="income"]{
+ background:var(--tf-income-neon)!important;border-color:var(--tf-income-neon)!important;color:#031d12!important
+}
+.content .tf-cash .tf-cash-actions button[data-kind="expense"]{
+ color:var(--tf-expense-neon)!important;border-color:var(--tf-expense-neon)!important;background:#250e19!important
+}
+.tf-cash .positive,.tf-cash .tf-cash-right.positive{color:var(--tf-income-neon)!important}
+.tf-cash .negative,.tf-cash .tf-cash-right.negative{color:var(--tf-expense-neon)!important}
+.content :is(.tf-cash-tabs button.active,.tf-cash-filtertabs button.active){
+ background:var(--tf-accent)!important;
+ color:var(--tf-accent-contrast)!important;
+ border-color:var(--tf-accent)!important;
+}
+.content :is(.tf-cash-period select,.tf-settings-row,.tf-cash-category-btn){border-color:var(--tf-hairline)!important}
+.content :is(.tf-op5 .tf-op3-mapcard,.tf-cash-summary,.tf-cash-chart,.tf-cash-history,.tf-cash-form,.tf-settings-panel,.tf-import-panel){
+ border-color:var(--tf-hairline,#284457);
+}
+.content .tf-op5 .tf-op3-mapcard{box-shadow:inset 0 1px 0 #ffffff08,0 8px 24px #0003}
+.content :is(.tf-op5 .tf-op5-top-actions button:not(.primary),.tf-finance-tool-row button:not(.primary),.tf-cash-outline:not([data-kind="expense"])){
+ color:var(--tf-accent-text)!important;
+ border-color:var(--tf-border)!important;
+ background:#0d2938!important;
+}
+.mobilebar button:not(.active){color:#c4d8e3!important}
+.mobilebar button.active{color:var(--tf-accent-text)!important}
+.mobilebar button.active .navicon{color:var(--tf-accent-text)!important}
+.tf-unified-header .tf-unified-wordmark{color:#f6fdff}
+.tf-unified-header .tf-home-logo{color:var(--tf-accent)}
+/* Restrict glow: surfaces and body text stay stable while interactive targets glow. */
+.content :is(.tf-settings-save,.tf-op5-action.primary,.tf-cash-primary):not(:disabled){
+ box-shadow:0 0 12px color-mix(in srgb,var(--tf-accent) 14%,transparent)
+}
+.content :is(.tf-cash-actions button[data-kind="income"]):not(:disabled){
+ box-shadow:0 0 14px #00ed6429!important
+}
+@media(prefers-reduced-motion:reduce){
+ .content button,.mobilebar button{transition:none!important}
+}

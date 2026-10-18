@@ -1,0 +1,17 @@
+/* TradeFlow command surface – matches the existing graphite system. */
+.tf-home-talk{display:inline-flex;gap:8px;align-items:center;justify-content:center;margin-top:14px;padding:12px 16px;min-height:45px;border-radius:14px;background:color-mix(in srgb,var(--tf-accent,#65d3e1) 12%,#292b2f);border:1px solid color-mix(in srgb,var(--tf-accent,#65d3e1) 28%,#34373d);color:#f5f5f5;font-weight:650;font-size:14px}
+.tf-voice-overlay{position:fixed;inset:0;z-index:1850;display:flex;align-items:flex-end;justify-content:center;padding:0;background:rgba(0,0,0,.75)}
+.tf-voice-sheet{box-sizing:border-box;width:min(100%,570px);max-height:calc(100dvh - 18px);overflow-y:auto;padding:20px 18px max(24px,env(safe-area-inset-bottom));border-radius:24px 24px 0 0;background:#1c1d20;color:#f5f5f5;border:1px solid #35373d;box-shadow:0 20px 65px #0009}
+.tf-voice-top{display:flex;justify-content:space-between;align-items:center;gap:14px}.tf-voice-top small{font-size:10px;color:var(--tf-accent,#65d3e1);letter-spacing:.1em}.tf-voice-top h2{font-size:22px;margin:4px 0 0}
+.tf-voice-top button{width:44px;height:44px;font-size:26px;border-radius:12px;border:1px solid #40434a;background:#292b2f;color:#f5f5f5}
+.tf-voice-sheet p{font-size:13px;line-height:1.55;color:#a9adb2}
+.tf-voice-mic{width:100%;min-height:50px;margin:10px 0 17px;border-radius:14px;background:color-mix(in srgb,var(--tf-accent,#65d3e1) 12%,#292b2f);border:1px solid color-mix(in srgb,var(--tf-accent,#65d3e1) 38%,#34373d);color:#f5f5f5;font-weight:700}
+.tf-voice-mic[aria-pressed=true]{border-color:var(--tf-accent,#65d3e1)}
+#tfVoiceForm{display:flex;flex-direction:column;gap:10px}#tfVoiceForm label{font-size:13px;color:#cdd1d6}
+#tfVoiceText{width:100%;box-sizing:border-box;min-height:84px;padding:12px;background:#292b2f;border:1px solid #42464d;border-radius:13px;color:#f5f5f5;resize:vertical;font:inherit}
+#tfVoiceForm button{min-height:45px;border-radius:12px;background:var(--tf-accent,#65d3e1);color:var(--tf-accent-contrast,#091418);border:0;font-weight:750}
+.tf-voice-result{white-space:pre-wrap;margin-top:14px;padding:14px;border-radius:14px;background:#292b2f;border:1px solid #3a3e44;line-height:1.5;font-size:13px}
+.tf-voice-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.tf-voice-suggestions button{min-height:37px;border-radius:12px;padding:8px 12px;background:#292b2f;border:1px solid #41454c;color:#d9dfe3;font-size:12px}
+@media(min-width:640px){.tf-voice-overlay{align-items:center;padding:24px}.tf-voice-sheet{border-radius:22px;max-height:calc(100dvh - 48px)}}
+
+.tf-voice-calendar-link{display:block;width:100%;min-height:45px;margin:12px 0;border-radius:12px;border:1px solid #4a626a;background:#283b43;color:#d4f3f8;font-size:14px;font-weight:700}

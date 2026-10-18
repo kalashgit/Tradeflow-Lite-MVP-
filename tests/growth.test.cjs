@@ -1,0 +1,71 @@
+'use strict';
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync('public/growth.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8'),app=fs.readFileSync('public/app.js','utf8'),sw=fs.readFileSync('public/sw.js','utf8');
+const handlers={};
+const fakeWindow={};
+const document={addEventListener(name,cb){(handlers[name]||(handlers[name]=[])).push(cb)},querySelectorAll(){return []}};
+class MockFormData{constructor(form){this.values=form.fields||{}}get(k){return this.values[k]||''}}
+vm.runInNewContext(src,{window:fakeWindow,document,FormData:MockFormData,alert(){throw Error('unexpected alert')},confirm(){return true},console,Date,Set},{timeout:5000});
+const g=fakeWindow.TradeFlowGrowth;
+assert.ok(g&&typeof g.renderPage==='function','Growth module must expose screens');
+const d={settings:[],tasks:[],quotes:[],jobs:[],opportunities:[],customers:[]};
+assert.match(g.renderPage('growth',d,{primaryTrade:'Electrical',serviceArea:'Austin, TX'}),/Create your first ICP/);
+assert.match(g.renderPage('growth',d,{}),/Target Customers/);
+assert.match(g.renderPage('growth',d,{}),/Linked opportunities/);
+assert.match(g.renderPage('growth',d,{}),/Connected workspaces/);
+assert.equal(g._test.profileStats(d,g._test.settings(d)).toValidate,0);
+assert.match(g.renderPage('missions',d,{}),/Suggested next actions/);
+assert.doesNotMatch(app,/\['capabilities','Explore Capabilities'\]/,'Explore Capabilities removed from navigation');
+assert.match(g.moreQuickLinks(d),/data-tab="growthAutomation"/);
+assert.ok(!/data-tab="(?:routes|customers|marketing|research|integrations|growth|missions|capabilities|profitability)"/.test(g.moreQuickLinks(d)),'No repeated existing More tool destinations');
+for(const tab of ['growthAutomation','growthOptimization','growthCommunication','growthIntelligence'])assert.match(g.renderPage(tab,d,{}),/Planned/);
+for(const name of ['Automation','Optimization','Communication','Data Intelligence'])assert.ok(g.moreQuickLinks(d).includes(name));
+assert.equal((g.moreQuickLinks(d).match(/<details class="tf-growth-category"/g)||[]).length,4);
+assert.doesNotMatch(g.homePanel(d),/data-tab="missions"/,'Retired Missions must not appear on the Growth home panel');
+assert.doesNotMatch(app,/\['missions','Business Missions'\]/,'Retired Missions must not appear in More navigation');
+assert.doesNotMatch(src,/if\(tab==='capabilities'\)return capabilityView\(\)/,'Explore Capabilities route removed');
+assert.match(g.contactPanel({id:'x',project_name:'<img src=x>'},d),/No valid phone saved/);
+assert.ok(!g.contactPanel({id:'x',contact_email:'bad<script>'},d).includes('href="mailto:bad'),'unsafe email must not become link');
+assert.ok(g.contactPanel({id:'x',contact_phone:'+1 (512) 555-0100',contact_email:'owner@example.com'},d).includes('href="tel:+15125550100"'));
+assert.ok(html.indexOf('growth.js')<html.indexOf('app.js'),'Growth module loads before app code');
+assert.ok(sw.includes('growth.js')&&sw.includes('growth.css'));
+assert.ok(app.includes('window.TradeFlowGrowth?.configure')&&app.includes('window.TradeFlowGrowth?.contactPanel'));
+assert.ok(app.includes('icp_profile_id')&&app.includes('contact_email'));
+const records={settings:{},tasks:{},opportunities:{}},uid=()=>String(++counter);let counter=0,renders=0;
+const stores={
+ settings:()=>Object.values(records.settings),tasks:()=>Object.values(records.tasks),opportunities:()=>Object.values(records.opportunities),
+ quotes:()=>[],jobs:()=>[]
+};
+g.configure({get:async(s,id)=>records[s][id],put:async(s,row)=>{records[s][row.id]=row;return row},all:async(s)=>stores[s](),render:async()=>{renders++},notify(){},uid,navigate(){},openAI(){}});
+async function run(){
+ const submit=handlers.submit[0],click=handlers.click[0];
+ assert.ok(submit&&click);
+ await submit({preventDefault(){},target:{id:'tfGrowthIcpForm',fields:{name:'Commercial maintenance',trade:'Electrical',area:'Austin, TX',radius:'25',segment:'B2B',orgTypes:'Property managers'}}});
+ const saved=records.settings['growth-profiles-v1'];
+ assert.equal(saved.icps.length,1);assert.equal(saved.activeIcpId,saved.icps[0].id);
+ assert.match(g.renderPage('growth',{...d,settings:[saved]},{}),/Commercial maintenance/);
+ assert.match(g.renderPage('growth',{...d,settings:[saved]},{}),/Use in research/);
+ assert.equal(g._test.profileStats({...d,settings:[saved]},g._test.settings({...d,settings:[saved]})).toValidate,1);
+ await click({preventDefault(){},target:{dataset:{growthAction:'section',section:'personas'},closest(){return this}}});
+ await submit({preventDefault(){},target:{id:'tfGrowthPersonaForm',fields:{name:'Facilities lead',role:'Facilities director',icpId:saved.icps[0].id,objections:'Vendor vetting'}}});
+ assert.equal(records.settings['growth-profiles-v1'].personas.length,1);
+ assert.equal(records.settings['growth-profiles-v1'].personas[0].icpId,saved.icps[0].id);
+ assert.equal(g._test.profileStats({...d,settings:[records.settings['growth-profiles-v1']]},g._test.settings({...d,settings:[records.settings['growth-profiles-v1']]})).toValidate,2);
+ await click({preventDefault(){},target:{dataset:{growthAction:'add-mission',key:'review-target'},closest(){return this}}});
+ assert.equal(Object.values(records.tasks).length,1);
+ const mission=Object.values(records.tasks)[0];
+ assert.equal(mission.missionOrigin,'growth');assert.equal(mission.status,'Open');
+ await click({preventDefault(){},target:{dataset:{growthAction:'add-mission',key:'review-target'},closest(){return this}}});
+ assert.equal(Object.values(records.tasks).length,1,'no duplicate open missions');
+ await click({preventDefault(){},target:{dataset:{growthAction:'mission-check',id:mission.id},checked:true,closest(){return this}}});
+ assert.equal(records.tasks[mission.id].status,'Done');
+ records.opportunities.o1={id:'o1',project_name:'Transformer upgrade',status:'New'};
+ await submit({preventDefault(){},target:{id:'tfGrowthOpportunityForm',dataset:{id:'o1'},fields:{contact_person:'Admin desk',contact_phone:'+1 512 555 0100',contact_email:'contact@example.com',contact_source_url:'https://example.com/contact',icp_profile_id:saved.icps[0].id}}});
+ assert.equal(records.opportunities.o1.icp_profile_id,saved.icps[0].id);
+ assert.equal(g._test.profileStats({...d,opportunities:Object.values(records.opportunities),settings:[records.settings['growth-profiles-v1']]},g._test.settings({...d,settings:[records.settings['growth-profiles-v1']]})).linked,1);
+ assert.equal(records.opportunities.o1.contact_email,'contact@example.com');
+ assert.ok(renders>0);
+ console.log('PASS: Release 01 Growth Intelligence ICP, persona, missions, contacts, navigation and data persistence');
+}
+run().catch(err=>{console.error(err);process.exitCode=1});

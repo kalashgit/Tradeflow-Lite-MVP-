@@ -1,0 +1,175 @@
+
+/* TradeFlow AI V0.6 chat preview. Isolated from finished map and CRM surfaces. */
+.tf-ai-chat-box{background:linear-gradient(145deg,#112c40,#071723 88%);border:1px solid #255367;border-radius:20px;overflow:hidden;box-shadow:0 16px 45px #0005;color:#edfaff;margin-bottom:20px}
+.tf-ai-chat-top{display:flex;align-items:center;gap:12px;padding:20px 18px 16px;border-bottom:1px solid #244253}
+.tf-ai-chat-symbol{height:43px;width:43px;display:grid;place-items:center;border-radius:13px;background:#0b4355;color:var(--tf-accent,#10cfe1);font-size:24px;box-shadow:0 0 25px #0bc6e422}
+.tf-ai-chat-top h2{font-size:19px;letter-spacing:.01em;margin:0;color:#f5feff}
+.tf-ai-chat-top h2 span{font-size:9px;letter-spacing:.12em;color:#84e5ee;background:#173d4b;border:1px solid #276478;border-radius:6px;padding:4px 6px;vertical-align:middle;margin-left:5px}
+.tf-ai-chat-top p{font-size:12px;margin:5px 0 0;color:#9fc4d2}
+.tf-ai-clear{margin-left:auto;background:transparent;color:#afcdd9;border:0;font-size:12px;padding:9px}
+.tf-ai-preview-gate{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#082332;border-bottom:1px solid #25485a;padding:12px 18px;font-size:12px;color:#add4e1}
+.tf-ai-preview-gate label{font-weight:700}
+.tf-ai-preview-gate>div{display:flex;flex:1;min-width:180px;gap:6px}
+.tf-ai-preview-gate input{min-width:0;flex:1;border-radius:8px;border:1px solid #336175;background:#051722;color:#f2feff;padding:9px;font-size:13px}
+.tf-ai-preview-gate button{border-radius:8px;border:1px solid #4c7889;background:#174255;color:#effeff;padding:9px 12px;cursor:pointer}
+.tf-ai-preview-gate small{color:#87b5c6;flex-basis:100%}
+.tf-ai-chat-thread{height:clamp(230px,41vh,430px);overflow-y:auto;overscroll-behavior:contain;padding:22px 16px 14px;display:flex;flex-direction:column;gap:14px;scrollbar-color:#305b6f transparent}
+.tf-ai-welcome{margin:auto;text-align:center;max-width:290px}
+.tf-ai-sparkle{display:grid;place-items:center;margin:0 auto 14px;width:52px;height:52px;border-radius:50%;border:1px solid #2d6376;color:var(--tf-accent,#10cfe1);font-size:27px;box-shadow:0 0 35px #0faed11f}
+.tf-ai-welcome h3{font-size:19px;color:#f5ffff;margin:0 0 7px}
+.tf-ai-welcome p{font-size:13px;color:#9abccc;line-height:1.5;margin:0}
+.tf-ai-bubble{max-width:93%;border:1px solid #2b5062;padding:12px 14px;border-radius:15px;background:#112f40;align-self:flex-start}
+.tf-ai-bubble.tf-ai-mine{background:#134d61;border-color:#247f93;align-self:flex-end}
+.tf-ai-bubble small{display:block;font-size:9px;color:#9fd9e9;letter-spacing:.1em;margin-bottom:5px}
+.tf-ai-bubble p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.55;margin:0;color:#edfaff}
+.tf-ai-typing{font-size:12px;color:#a0d6e2;padding:10px}
+.tf-ai-chat-error{padding:10px 15px;margin:0 16px;color:#ffceaf;background:#462719;border-radius:8px;font-size:12px}
+.tf-ai-chat-suggestions{display:flex;gap:7px;overflow-x:auto;padding:12px 16px 4px;scrollbar-width:none}
+.tf-ai-chat-suggestions button{white-space:nowrap;padding:8px 11px;border-radius:25px;border:1px solid #31576b;background:#112d3e;color:#c9e8f1;font-size:11px}
+.tf-ai-chat-suggestions button:disabled{opacity:.48}
+.tf-ai-chat-composer{margin:8px 16px 0;background:#0b2535;border:1px solid #396074;border-radius:15px;padding:10px}
+.tf-ai-prompt-label{display:block;color:#a7ccdb;font-size:10px;font-weight:700;margin:0 0 6px}
+.tf-ai-compose-row{display:flex;align-items:end;gap:10px}
+.tf-ai-compose-row textarea{display:block;resize:vertical;flex:1;min-width:0;min-height:48px;border:0;outline:0;background:transparent;color:#efffff;font-size:14px;line-height:1.4;font-family:inherit}
+.tf-ai-compose-row textarea::placeholder{color:#749aad}
+.tf-ai-compose-row button{border:0;border-radius:11px;height:38px;width:38px;flex:0 0 38px;background:var(--tf-accent,#10cfe1);color:#06202c;font-size:20px;font-weight:bold}
+.tf-ai-compose-row button:disabled{opacity:.35}
+.tf-ai-context{font-size:11px;color:#aacbd5;display:flex;align-items:center;gap:8px;margin:7px 0 0}
+.tf-ai-context input{accent-color:var(--tf-accent,#10cfe1)}
+.tf-ai-privacy{margin:12px 17px 18px;font-size:11px;line-height:1.6;color:#91acbb}
+.tf-ai-chat-box button:focus-visible,.tf-ai-chat-box textarea:focus-visible,.tf-ai-chat-box input:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
+@media(max-width:550px){.tf-ai-chat-top{padding:16px 13px}.tf-ai-chat-top h2{font-size:17px}.tf-ai-chat-top h2 span{font-size:8px;margin-left:2px}.tf-ai-preview-gate{padding:11px 12px}.tf-ai-chat-thread{height:38dvh;min-height:235px}.tf-ai-bubble{max-width:96%}.tf-ai-chat-box{border-radius:16px}}
+
+/* Connection and access diagnostics remain visible next to the access gate. */
+.tf-ai-preview-gate [data-action="tfAiTestConnection"]{background:#0a3548;border:1px solid #388aa1;color:#d7f7ff;padding:9px 12px;border-radius:8px;font-weight:650}
+.tf-ai-preview-gate [role="status"]{flex-basis:100%;font-size:12px;line-height:1.5;color:#b8dfe9}
+
+
+/* TradeFlow Intelligence Node V0.7 — additive, isolated from the map styles. */
+#tfAiOverlayRoot{position:relative;z-index:30}
+.tf-ai-orb{position:fixed;right:20px;bottom:26px;z-index:31;width:55px;height:55px;display:grid;place-items:center;padding:0;border:1px solid #3a8096;border-radius:18px;background:linear-gradient(145deg,#173a4b,#061923);color:#e8fcff;box-shadow:0 9px 29px #020a16ac,inset 0 1px 0 #90ecff31;isolation:isolate;transition:transform .16s ease,box-shadow .16s ease}
+.tf-ai-orb:hover{transform:translateY(-2px);box-shadow:0 13px 31px #020a16c8,0 0 19px rgb(var(--tf-accent-rgb,16 207 225) / .16)}
+.tf-ai-orb:focus-visible,.tf-ai-mini-panel button:focus-visible,.tf-ai-mini-panel textarea:focus-visible,.tf-ai-mini-panel input:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:3px}
+.tf-ai-orb::before{content:"";position:absolute;inset:-5px;border:1px solid rgb(var(--tf-accent-rgb,16 207 225) / .3);border-radius:22px;pointer-events:none;animation:tf-ai-orbit 4.5s ease-in-out infinite}
+.tf-ai-orb-icon{display:grid;place-items:center;transform:scale(.86)}
+.tf-ai-orb-icon .tf-brand-mark{margin:0}
+.tf-ai-orb-signal{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--tf-accent,#10cfe1);box-shadow:0 0 12px var(--tf-accent,#10cfe1)}
+@keyframes tf-ai-orbit{0%,100%{opacity:.3;transform:scale(.96)}55%{opacity:.8;transform:scale(1.04)}}
+.tf-ai-mini-panel{position:fixed;right:20px;bottom:98px;z-index:32;width:min(390px,calc(100vw - 24px));max-height:min(76dvh,670px);display:flex;flex-direction:column;overflow:hidden;color:#eafaff;background:linear-gradient(155deg,#153346,#071b2a 70%,#06121c);border:1px solid #315c71;border-radius:20px;box-shadow:0 25px 70px #000b,0 0 0 1px #8bedf610}
+.tf-ai-mini-head{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;border-bottom:1px solid #295065}
+.tf-ai-mini-mark{height:38px;width:38px;border-radius:12px;background:#124456;display:grid;place-items:center;flex-shrink:0}
+.tf-ai-mini-mark .tf-brand-mark{transform:scale(.65);margin:0}
+.tf-ai-mini-head>div:nth-child(2){flex:1;min-width:0}
+.tf-ai-mini-head h2{font-size:15px;line-height:1.2;letter-spacing:.01em;margin:3px 0 0;color:#f4fbff}
+.tf-ai-mini-head small{font-size:9px;letter-spacing:.1em;color:#83cedd}
+.tf-ai-mini-close{width:32px;height:32px;border:1px solid #385d6c;border-radius:10px;background:#102e3d;color:#c9eaf3;font-size:22px;line-height:1;display:grid;place-items:center}
+.tf-ai-mini-context{display:flex;align-items:center;gap:7px;padding:9px 15px;color:#bde6ef;font-size:11px;border-bottom:1px solid #203d4e}
+.tf-ai-mini-context>span:last-child{margin-left:auto;color:#79a9b9}
+.tf-ai-mini-live{width:6px;height:6px;border-radius:50%;background:#42c3d4;box-shadow:0 0 10px #42c3d481}
+.tf-ai-mini-thread{min-height:65px;max-height:230px;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:9px;padding:12px 13px;scrollbar-color:#315c6b transparent}
+.tf-ai-mini-empty{font-size:13px;text-align:center;color:#abd3e0;line-height:1.5;padding:14px 5px}
+.tf-ai-mini-message{max-width:93%;border:1px solid #335669;border-radius:12px;padding:9px 11px;background:#102e3f;align-self:flex-start}
+.tf-ai-mini-message.mine{align-self:flex-end;background:#135063;border-color:#2d8195}
+.tf-ai-mini-message small{color:#92d2e1;display:block;font-size:9px;letter-spacing:.07em;margin-bottom:4px}
+.tf-ai-mini-message p{white-space:pre-wrap;overflow-wrap:anywhere;color:#eefcff;font-size:12px;line-height:1.45;margin:0}
+.tf-ai-mini-thinking{font-size:11px;color:#99dbe8}
+.tf-ai-mini-error{font-size:11px;line-height:1.4;color:#ffd0b6;background:#4b2c25;border-radius:8px;margin:0 12px;padding:9px}
+.tf-ai-mini-gate{display:grid;gap:7px;padding:11px 13px;background:#092634;border-top:1px solid #275268}
+.tf-ai-mini-gate label{font-size:11px;color:#ceeaf3;font-weight:700}
+.tf-ai-mini-gate>div{display:flex;gap:6px}
+.tf-ai-mini-gate input{flex:1;min-width:0;background:#071b27;border:1px solid #477488;border-radius:9px;color:white;padding:8px;font-size:12px}
+.tf-ai-mini-gate button{border:0;border-radius:8px;background:var(--tf-accent,#10cfe1);color:#05202b;padding:8px 12px;font-size:11px;font-weight:750}
+.tf-ai-mini-gate small{color:#9cbfc9;font-size:10px}
+.tf-ai-mini-suggestions{display:flex;flex-wrap:wrap;gap:7px;padding:10px 13px}
+.tf-ai-mini-suggestions button{border:1px solid #376073;border-radius:999px;background:#14354a;color:#d5eff6;padding:7px 11px;font-size:11px}
+.tf-ai-mini-suggestions button:disabled{opacity:.5}
+.tf-ai-mini-compose{padding:9px 12px 5px;border-top:1px solid #25495b}
+.tf-ai-mini-compose>label:first-child{display:block;color:#9dd3e0;font-size:10px;font-weight:700;margin-bottom:5px}
+.tf-ai-mini-compose>div{display:flex;align-items:flex-end;gap:8px;border:1px solid #417084;background:#061f2d;border-radius:12px;padding:8px}
+.tf-ai-mini-compose textarea{background:none;border:0;outline:0;color:white;font:inherit;font-size:13px;line-height:1.35;resize:none;min-height:43px;max-height:100px;flex:1;min-width:0}
+.tf-ai-mini-compose textarea::placeholder{color:#7eabb9}
+.tf-ai-mini-compose button{width:34px;height:34px;flex-shrink:0;border:0;border-radius:9px;background:var(--tf-accent,#10cfe1);color:#07232e;font-size:18px;font-weight:800}
+.tf-ai-mini-compose button:disabled{opacity:.4}
+.tf-ai-mini-optin{display:flex;align-items:center;gap:7px;margin-top:7px;color:#a6c8d2;font-size:10px}
+.tf-ai-mini-optin input{accent-color:var(--tf-accent,#10cfe1)}
+.tf-ai-mini-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:8px 12px 11px}
+.tf-ai-mini-foot span{font-size:9px;line-height:1.4;color:#83aeba}
+.tf-ai-mini-foot button{background:#153e4e;border:1px solid #3a768b;border-radius:9px;color:#d4f6fc;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+@media(max-width:850px){
+ .tf-ai-orb{bottom:calc(100px + env(safe-area-inset-bottom));right:13px;width:51px;height:51px;border-radius:16px}
+ .tf-ai-orb::before{border-radius:20px}
+ .tf-ai-mini-panel{right:12px;bottom:calc(165px + env(safe-area-inset-bottom));max-height:calc(100dvh - 183px - env(safe-area-inset-bottom));width:min(390px,calc(100vw - 24px))}
+}
+@media(prefers-reduced-motion:reduce){.tf-ai-orb,.tf-ai-orb::before{animation:none!important;transition:none!important}}
+
+
+/* TradeFlow V0.7.1 / Liquid Touch: interactive glass belongs to the controls layer,
+   not the opportunity-map content. Optical cues are simulated using standard CSS. */
+.tf-ai-orb{
+ background:
+  radial-gradient(ellipse at 26% 11%,rgba(230,252,255,.22),transparent 45%),
+  linear-gradient(155deg,rgba(31,100,117,.77),rgba(8,31,47,.88) 60%,rgba(5,17,29,.94));
+ -webkit-backdrop-filter:blur(13px) saturate(140%);
+ backdrop-filter:blur(13px) saturate(140%);
+ box-shadow:inset 0 1px 0 rgba(244,255,255,.4),inset 1px 0 0 rgba(101,214,240,.13),0 12px 27px #020917b3,0 0 19px rgba(16,207,225,.13);
+ -webkit-touch-callout:none;touch-action:manipulation;user-select:none;
+ transition:transform 180ms cubic-bezier(.24,.8,.24,1),border-radius 180ms cubic-bezier(.24,.8,.24,1),box-shadow 180ms ease,filter 160ms ease;
+}
+.tf-ai-orb::after{
+ content:"";position:absolute;pointer-events:none;inset:1px;
+ border-radius:inherit;
+ background:linear-gradient(118deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,.02) 35%,transparent 58%,rgba(66,209,242,.10) 100%);
+ box-shadow:inset -1px -1px 0 rgba(119,212,239,.12);
+ z-index:-1;
+}
+.tf-ai-orb:active,.tf-ai-orb.tf-ai-liquid-pressed{
+ transform:translateY(2px) scale(.925);
+ filter:brightness(1.17);
+ border-radius:21px;
+ box-shadow:inset 0 2px 9px rgba(3,13,23,.52),0 4px 15px #02091788,0 0 23px rgba(16,207,225,.18);
+}
+.tf-ai-orb:active::before,.tf-ai-orb.tf-ai-liquid-pressed::before{animation:none;transform:scale(.98);opacity:.8}
+.tf-ai-mini-panel{
+ background:
+  radial-gradient(ellipse at 18% -8%,rgba(93,196,230,.17),transparent 56%),
+  linear-gradient(160deg,rgba(17,53,73,.91),rgba(7,26,42,.95) 72%,rgba(5,18,30,.97));
+ -webkit-backdrop-filter:blur(19px) saturate(145%);
+ backdrop-filter:blur(19px) saturate(145%);
+ box-shadow:inset 0 1px 0 rgba(209,251,255,.22),0 25px 70px #000b,0 0 0 1px #8bedf613;
+ transform-origin:calc(100% - 28px) 100%;
+ animation:tf-ai-liquid-open 290ms cubic-bezier(.2,.86,.23,1) both;
+}
+.tf-ai-mini-panel::before{
+ content:"";position:absolute;pointer-events:none;inset:1px 1px auto;
+ height:22%;border-radius:inherit;opacity:.58;
+ background:linear-gradient(180deg,rgba(204,248,255,.095),transparent);
+}
+@keyframes tf-ai-liquid-open{
+ 0%{opacity:.25;transform:translate3d(0,10px,0) scale(.95);filter:blur(3px)}
+ 65%{opacity:1;filter:blur(0)}
+ 100%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}
+}
+.tf-ai-mini-head{position:relative;touch-action:none;-webkit-user-select:none;user-select:none}
+.tf-ai-mini-grip{position:absolute;top:4px;left:calc(50% - 16px);width:32px;height:3px;background:rgba(158,222,236,.31);border-radius:10px;pointer-events:none}
+.tf-ai-mini-suggestions button,.tf-ai-mini-close,.tf-ai-mini-foot button,.tf-ai-mini-compose button{
+ transition:transform 145ms cubic-bezier(.2,.86,.2,1),filter 145ms ease,box-shadow 145ms ease;
+}
+.tf-ai-mini-suggestions button:active,.tf-ai-mini-close:active,.tf-ai-mini-foot button:active,.tf-ai-mini-compose button:active:not(:disabled){
+ transform:scale(.955);filter:brightness(1.15);
+}
+.tf-ai-haptic-setting{
+ display:flex;align-items:center;gap:8px;margin:0 12px 10px;
+ color:#b6dbe4;font-size:11px;line-height:1.25;
+ -webkit-user-select:none;user-select:none;
+}
+.tf-ai-haptic-setting input{accent-color:var(--tf-accent,#10cfe1)}
+.tf-ai-haptic-setting small{font-size:10px;color:#81abb9}
+@media(prefers-reduced-motion:reduce){
+ .tf-ai-mini-panel{animation:none!important}
+ .tf-ai-orb,.tf-ai-orb:active,.tf-ai-orb.tf-ai-liquid-pressed,
+ .tf-ai-mini-suggestions button,.tf-ai-mini-close,.tf-ai-mini-foot button,.tf-ai-mini-compose button{transition:none!important}
+}
+@media(prefers-reduced-transparency:reduce){
+ .tf-ai-orb{background:#133c4b;-webkit-backdrop-filter:none;backdrop-filter:none}
+ .tf-ai-mini-panel{background:#0b2839;-webkit-backdrop-filter:none;backdrop-filter:none}
+}

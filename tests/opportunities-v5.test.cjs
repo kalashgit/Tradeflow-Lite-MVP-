@@ -1,0 +1,43 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const app=fs.readFileSync('public/app.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),
+ css=fs.readFileSync('public/opportunities-v5.css','utf8'),script=fs.readFileSync('public/opportunities-v5.js','utf8'),
+ sw=fs.readFileSync('public/sw.js','utf8');
+const win={},handlers={};
+vm.runInNewContext(script,{window:win,document:{addEventListener:(n,fn)=>{handlers[n]=fn}},
+ Date,Math,Set,URL,Blob,console,Number,alert(){throw Error('unexpected alert')}},{timeout:3000});
+const mod=win.TradeFlowOpportunityUX;
+assert.ok(mod&&mod.configure&&mod.mapPreview&&mod.close,'Opportunity UI exports lifecycle and preview');
+assert.ok(mod.mapPreview([]).includes('Locations appear here once mapped'),'No fake map pins');
+const mapHTML=mod.mapPreview([{latitude:30.1,longitude:-97.5,map_enabled:true},{latitude:30.3,longitude:-97.8,map_enabled:true}]);
+assert.equal((mapHTML.match(/<circle /g)||[]).length,2,'Visual map preview derives real coordinates only');
+assert.ok(mapHTML.includes('Relative positions'),'Must not misrepresent preview as street map');
+assert.ok(!mod._test.esc('<img src=x>').includes('<img'),'Escaped user input');
+assert.ok(html.includes('./opportunities-v5.js')&&html.includes('./opportunities-v5.css'),'Reference UI assets installed');
+assert.ok(sw.includes('./opportunities-v5.js')&&sw.includes('./opportunities-v5.css'),'Offline worker precaches UI');
+assert.ok(css.includes('.tf-op5-sheet')&&css.includes('.tf-op5-handle')&&css.includes('.tf-op5-map-preview'));
+assert.ok(css.includes('.top.tf-opportunity-topless'),'Old redundant header removed only on Opportunities');
+assert.ok(script.includes("button('camera'")&&script.includes("button('image'")&&script.includes("'library'"),'Native image inputs present');
+assert.ok(script.includes("button('download'")&&script.includes("button('crm'"),'CSV and CRM exports present');
+assert.ok(script.includes('onImported'),'Photo import can initiate limited map lookup');
+assert.ok(script.includes('No')||script.includes('pending source verification'));
+assert.ok(app.includes('tf-op5-topbar')&&app.includes('data-op-ux="import"')&&app.includes('data-op-ux="export"'));
+assert.ok(!app.includes('<h2>Opportunities</h2>'),'Do not duplicate the TradeFlow brand header with an Opportunities title');
+assert.ok(css.includes('justify-content:flex-start'),'Import and Export align without a blank title area');
+assert.ok(!app.includes('TradeFlowOpportunityUX?.mapPreview(data)'),'Mini-map preview must not appear on Opportunities page');
+const viewStart=app.indexOf('function opportunityView(d)'),viewEnd=app.indexOf('window.TradeFlowJobForms?.configure',viewStart);
+const view=app.slice(viewStart,viewEnd);
+assert.ok(!view.includes('data-action="opportunityMapRemaining"'),'No ugly Map remaining button');
+assert.ok(!view.includes('data-action="opportunityMapFilters"'),'No extra map side icon');
+assert.ok(view.includes('data-action="opportunityMapAll"'),'One map CTA');
+assert.ok(app.includes('opportunityReviewModal()'),'Import evidence review preserved');
+assert.ok(app.includes("map_enabled:opportunityHasLocation(r)"),'Provided coordinates map automatically');
+assert.ok(app.includes('locateOpportunityBatch(selected,{automatic:true})'),'Confirmed imports start mapping without manual button');
+assert.ok(app.includes("locateOpportunityBatch(await all('opportunities'),{automatic:true,all:true})"),'View Map starts all eligible unmapped addresses');
+assert.ok(app.includes("const max=allRequested?queue.length"),'View Map has no arbitrary six-record limit');
+assert.ok(app.includes("map_location_status='needs_review'"),'Geocoded addresses require review');
+assert.ok(app.includes("map_location_status='unresolved'"),'Failed matches remain unresolved');
+assert.ok(app.includes('async function exportOpportunityCRM()'),'CRM export implemented');
+assert.ok(app.includes("parseCSV(await file.text(),/\\.tsv$/i.test(file.name)?'\\t':',')"),'True TSV parser path');
+assert.ok(!script.includes('fetch('),'No fictional AI photo extraction or hidden network calls');
+console.log('PASS: Opportunities v5 reference layout, native-feeling sheets, import review, auto-map limits, CSV/CRM export and photo verification');

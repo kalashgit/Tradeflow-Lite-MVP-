@@ -1,0 +1,79 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const core=require('../public/core-integration.js');
+const data={
+ suppliers:[],supplyOrders:[],customers:[{id:'c1',name:'ABC Electric',address:'401 Main St, Austin, TX',coordinates:'{"lat":30.26,"lng":-97.74}'}],
+ jobs:[{id:'j1',title:'Site work',customerId:'c1',address:'15 Oak St, Austin',coordinates:'{"lat":30.31,"lng":-97.71}'}],
+ quotes:[{id:'q1',title:'Electrical panel',customerId:'c1',status:'Accepted',category:'Electrical'}],
+ tasks:[],invoices:[],settings:[{id:'business',businessAddress:'99 Trinity St, Austin'}]
+};
+let sequence=0;const uid=()=> 'id-'+(++sequence),now=()=>new Date('2026-10-17T00:00:00.000Z').toISOString();
+const supplier=core.prepare('supplier.save',{name:'Local Distribution',address:'123 Warehouse Way, Austin',latitude:'30.30',longitude:'-97.70'},data,uid,now);
+assert.equal(supplier.writes[0].store,'suppliers');
+assert.equal(supplier.writes[0].record.latitude,30.30);
+assert.throws(()=>core.prepare('supplier.save',{name:'Invalid image',photoUrl:'javascript:alert(1)'},data,uid,now),/Business photo must/);
+assert.throws(()=>core.prepare('supplier.save',{name:'Unmapped',latitude:'30.2'},data,uid,now),/both valid/);
+assert.throws(()=>core.prepare('supplier.save',{name:''},data,uid,now),/Supplier name/);
+data.suppliers=[supplier.writes[0].record];
+const editedAddress=core.prepare('supplier.save',{...data.suppliers[0],address:'999 New Site Road'},data,uid,now).writes[0].record;
+assert.equal(editedAddress.latitude,null,'Address change must invalidate unchanged coordinates');
+assert.equal(editedAddress.mapLocationStatus,'unmapped');
+const nameOnly=core.prepare('supplier.save',{...data.suppliers[0],name:'Updated name'},data,uid,now).writes[0].record;
+assert.equal(nameOnly.latitude,30.30,'Non-location edit retains known coordinates');
+const userMoved=core.prepare('supplier.save',{...data.suppliers[0],address:'999 New Site Road',latitude:30.25,longitude:-97.75},data,uid,now).writes[0].record;
+assert.equal(userMoved.latitude,30.25,'Explicitly updated coordinates retained');
+const order=core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Breaker panels',status:'Ordered',destinationKind:'customer',destinationId:'c1',plannedDate:'2026-10-22'},data,uid,now);
+assert.equal(order.writes[0].record.destinationAddress,'401 Main St, Austin, TX');
+assert.throws(()=>core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Panels',destinationKind:'customer',destinationId:'c1',opportunityId:'missing'},data,uid,now),/Linked opportunity/);
+assert.throws(()=>core.prepare('supplyOrder.save',{supplierId:'missing',description:'Panels',destinationKind:'business'},data,uid,now),/existing supplier/);
+assert.throws(()=>core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Panels',status:'Delivered',destinationKind:'custom'},data,uid,now),/delivery address/);
+data.supplyOrders=[order.writes[0].record];
+const custom=core.prepare('supplyOrder.save',{supplierId:data.suppliers[0].id,description:'Parts',status:'Ordered',destinationKind:'custom',destinationAddress:'One St',latitude:30.25,longitude:-97.70},data,uid,now).writes[0].record;
+const updatedCustom=core.prepare('supplyOrder.save',{...custom,destinationAddress:'Different St'}, {...data,supplyOrders:[custom]},uid,now).writes[0].record;
+assert.equal(updatedCustom.latitude,null,'Changed delivery address must clear obsolete coordinates');
+let links=core.supplierLinks(data,{homeLat:30.27,homeLon:-97.73});
+assert.equal(links.mappedOrderCount,1);
+assert.ok(links.geojson.features.filter(f=>f.properties.orderId).every(f=>f.properties.type==='supplier_connection_not_road_route'));
+assert.equal(links.connectedSupplierCount,1,'Supplier and headquarters connected');
+const networkOnly=core.supplierLinks({...data,supplyOrders:[]},{homeLat:30.27,homeLon:-97.73});
+assert.equal(networkOnly.mappedOrderCount,0,'No phantom supply order');
+assert.equal(networkOnly.connectedSupplierCount,1,'Supplier and HQ connect before any order exists');
+assert.ok(networkOnly.geojson.features.some(f=>f.properties.type==='supplier_network_connection'));
+assert.equal(core.supplierLinks({...data,supplyOrders:[]},{homeLat:null,homeLon:null}).connectedSupplierCount,0,'No invented HQ at zero coordinates');
+assert.ok(links.geojson.features[0].geometry.coordinates.length>2,'Geodesic path is interpolated');
+assert.equal(core.position({latitude:0,longitude:0}).lat,0);
+assert.equal(core.position({latitude:'',longitude:0}),null);
+assert.equal(core.position({latitude:99,longitude:0}),null);
+const missing=core.supplierLinks({...data,suppliers:[{...data.suppliers[0],latitude:null,longitude:null}]},{});
+assert.deepEqual(missing.unmappedOrderIds,[order.resultId]);
+assert.equal(missing.mappedOrderCount,0);
+const international=core.greatCircle({lat:12,lon:175},{lat:14,lon:-175});
+assert.ok(international.length>=2,'International date line crossing is split');
+assert.ok(international.every(line=>line.every((p,i)=>i===0||Math.abs(p[0]-line[i-1][0])<=180)),'No world-spanning wrap jumps');
+const planned=core.prepare('quotation.convert',{quoteId:'q1'},data,uid,now);
+assert.equal(planned.writes[0].store,'jobs');
+data.jobs.push(planned.writes[0].record);
+assert.ok(core.prepare('quotation.convert',{quoteId:'q1'},data,uid,now).reused);
+assert.throws(()=>core.prepare('quotation.convert',{quoteId:'missing'},data,uid,now),/Quotation not found/);
+assert.throws(()=>core.prepare('task.schedule',{title:'Follow up',due:'2026-02-30'},data,uid,now),/valid due date/);
+assert.deepEqual(core.relationshipAudit(data),[]);
+assert.equal(core.relationshipAudit({...data,suppliers:[]})[0].missing,'supplier');
+const app=fs.readFileSync('public/app.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),sw=fs.readFileSync('public/sw.js','utf8');
+for(const s of ['suppliers','supplyOrders','commandLog'])assert.ok(app.includes("'"+s+"'"),'IDB store configured '+s);
+assert.ok(app.includes("indexedDB.open(DB,9)"),'Versioned DB migration');
+assert.ok(app.includes("version:9"),'Exports carry new schema');
+assert.ok(html.includes('core-integration.js')&&html.includes('suppliers.js')&&html.includes('suppliers.css'));
+assert.ok(sw.includes('core-integration.js')&&sw.includes('suppliers.js'),'Offline app shell includes supply modules');
+assert.ok(app.includes("supplierLinks("),'Supplier map connections');
+assert.ok(app.includes("tf-supplier-lines"),'Supplier map overlay');
+assert.ok(app.includes("if(hq)locations.unshift("),'HQ map marker exists without suppliers');
+assert.ok(app.includes("tfHeadquartersMapMarker()"),'HQ has a distinct map icon');
+assert.ok(app.includes("label.textContent=letters"),'HQ business initials are rendered safely with textContent');
+assert.ok(fs.readFileSync('public/suppliers.css','utf8').includes('.tf-map-hq-initials'),'Business monogram has a consistent map style');
+assert.ok(!app.includes("if(hq&&(d.suppliers||[]).length)"),'HQ marker no longer depends on supplier count');
+assert.ok(app.includes('data-action="businessLocate"'),'Profile can locate HQ pin in one tap');
+assert.ok(app.includes("TradeFlowSupply?.render"),'Supply UI integration');
+console.log('PASS Core Integration Sprint 01: supplier validation, quote handoff, saved links, world-geodesic mapping and offline wiring.');
+
+// Formal purchase orders run with the existing required Core Integration gate.
+require('./purchase-orders.test.cjs');

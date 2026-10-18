@@ -1,0 +1,41 @@
+'use strict';
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync('public/job-forms.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+const app=fs.readFileSync('public/app.js','utf8');
+const sw=fs.readFileSync('public/sw.js','utf8');
+const handlers={},window={print(){window.printed=(window.printed||0)+1}};
+const document={addEventListener(type,callback){(handlers[type]||(handlers[type]=[])).push(callback)}};
+class FormData{constructor(form){this.values=form.fields||{}}get(k){return this.values[k]||''}}
+vm.runInNewContext(src,{window,document,FormData,alert(){throw Error('Unexpected alert')},confirm(){return true},Date,console},{timeout:3000});
+const forms=window.TradeFlowJobForms;assert.ok(forms&&typeof forms.panel==='function');
+const emptyJob={id:'j1',title:'Electrical Service <script>x</script>',status:'Planned'};
+assert.ok(forms.panel(emptyJob).includes('Assessment checklist'));
+assert.ok(!forms.panel(emptyJob).includes('<script>'));
+assert.ok(forms.panel(emptyJob).includes('tfJobAssessmentForm'));
+assert.ok(forms.panel(emptyJob).includes('Print / Save as PDF'));
+assert.equal(forms._test.items(emptyJob).length,0);
+assert.ok(forms._test.template.length>=5);
+assert.ok(html.includes('job-forms.js')&&html.includes('job-forms.css'));
+assert.ok(sw.includes('job-forms.js')&&sw.includes('job-forms.css'));
+assert.ok(app.includes("window.TradeFlowJobForms?.panel(record)"));
+const store={jobs:{j1:{...emptyJob}}},uid=()=>String(++index);let index=0,renders=0;
+forms.configure({get:async(s,id)=>store[s][id],put:async(s,r)=>{store[s][r.id]=r},uid,render:async()=>{renders++}});
+async function run(){
+ const click=handlers.click[0],submit=handlers.submit[0];
+ const el=(action,extra={})=>({preventDefault(){},target:{dataset:{jobFormAction:action,job:'j1',...extra},closest(){return this}}});
+ await click(el('template'));assert.equal(store.jobs.j1.fieldChecklist.length,forms._test.template.length);
+ const id=store.jobs.j1.fieldChecklist[0].id;
+ await click({preventDefault(){},target:{dataset:{jobFormAction:'toggle',job:'j1',id},checked:true,closest(){return this}}});
+ assert.equal(store.jobs.j1.fieldChecklist[0].done,true);
+ await submit({preventDefault(){},target:{id:'tfJobChecklistAdd',dataset:{job:'j1'},fields:{item:'Verify work order number'}}});
+ assert.ok(store.jobs.j1.fieldChecklist.some(x=>x.text==='Verify work order number'));
+ await submit({preventDefault(){},target:{id:'tfJobAssessmentForm',dataset:{job:'j1'},fields:{notes:'Return for a follow-up inspection'}}});
+ assert.equal(store.jobs.j1.assessmentNotes,'Return for a follow-up inspection');
+ assert.ok(forms.panel(store.jobs.j1).includes('Return for a follow-up inspection'));
+ await click(el('print'));assert.equal(window.printed,1);
+ await click(el('remove',{id}));assert.ok(!store.jobs.j1.fieldChecklist.some(x=>x.id===id));
+ assert.ok(renders>=5);
+ console.log('PASS: TradeFlow R02 Job Forms persisted checklists, notes, print and safe rendering');
+}
+run().catch(err=>{console.error(err);process.exitCode=1});
