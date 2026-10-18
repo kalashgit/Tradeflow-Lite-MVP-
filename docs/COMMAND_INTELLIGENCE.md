@@ -88,3 +88,13 @@ Intent tokens now recover coats/coat and estimit only in draft/prepare grammar w
 Digit words (zero/oh through nine) normalize only after explicit phone labels and only when 10 digits or a leading 1 plus 10 digits are supplied. Validation still rejects invalid US numbers. Short sequences, ambiguous number words and repeated digits are not completed or repaired. The earlier `phone-words` fixture now expects the explicitly requested supported normalization.
 
 Explicit name correction grammar (`Mark—sorry, Michael`, comma/`I mean` variants) keeps the corrected name in the draft with `CORRECTION_REVIEW`. A review/correction is needed before a command suggestion. No correction is inferred for comma-separated contradictory full names. Marked background interference and visibly truncated instructions block suggestions. Unmarked background speech cannot be reliably detected from text alone.
+
+## Business dates, ambiguous contacts and proposed plans
+
+Hosts can supply `businessTimeZone` (IANA), `now` (explicit timestamp with offset), and `nextWeekdayPolicy` (`upcoming` or `following_week`, with Monday-based weeks). The engine derives the business-local date from the supplied timestamp; it never consults the device clock. A contradictory supplied `today`, invalid timezone/timestamp, or missing required date context blocks resolution. Next-weekday interpretations expose `dateCandidates`; differing dates require a policy or explicit date clarification. No ambiguous policy is silently chosen. If both interpretations coincide, that date can be returned.
+
+`customer.contact` resolves a customer reference for review only. Three matching Johns produce candidates and a question. Even one match never initiates a call or emits an executable command.
+
+Compound requests add `proposedPlan: {status, executable:false, steps, reason}`. Each step includes interpreted parameters, missing fields and clarification. Scheduling an unsaved job includes an unresolved `jobRef` binding to the prior step, never an invented record ID. All compound requests remain ambiguous/review-required and have no command suggestion. Plans do not authorize or execute anything. Unsupported steps (including sending) remain unsupported. Up to eight proposed operations are described; larger requests need splitting.
+
+Marked transcript interference and truncation also block unknown commands. Field corrections cannot dismiss those safety conditions. Host integration must display contextual-recovery warnings, name-correction review and proposed-plan status before considering execution. No automatic multi-step executor is implemented.

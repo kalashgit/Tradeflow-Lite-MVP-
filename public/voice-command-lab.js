@@ -19,8 +19,11 @@ function validateFixture(input){
  if(Object.keys(input).some(k=>!['id','name','transcript','context','expected','correction','provenance','createdAt','updatedAt'].includes(k)))throw Error('Unknown fixture fields');
  const id=string(input.id,'Fixture ID',100);if(!/^[A-Za-z0-9._:-]+$/.test(id))throw Error('Invalid fixture ID');
  const name=string(input.name,'Fixture name',200),transcript=string(input.transcript,'Transcript',8000),context=input.context===undefined?{}:input.context,expected=input.expected;
- if(!context||Array.isArray(context)||typeof context!=='object'||Object.keys(context).some(k=>!['today','businessId','customers','record','selectedRecord'].includes(k)))throw Error('Use supported local interpretation context fields');
+ if(!context||Array.isArray(context)||typeof context!=='object'||Object.keys(context).some(k=>!['today','businessId','customers','record','selectedRecord','businessTimeZone','now','nextWeekdayPolicy'].includes(k)))throw Error('Use supported local interpretation context fields');
  if(context.today!==undefined&&(!/^\d{4}-\d{2}-\d{2}$/.test(context.today)||!Number.isFinite(Date.parse(context.today+'T12:00:00Z'))||new Date(context.today+'T12:00:00Z').toISOString().slice(0,10)!==context.today))throw Error('Context date must be a valid YYYY-MM-DD date');
+ if(context.businessTimeZone!==undefined){string(context.businessTimeZone,'Business timezone',100);try{new Intl.DateTimeFormat('en-US',{timeZone:context.businessTimeZone}).format(0)}catch{throw Error('Use a valid IANA business timezone')}}
+ if(context.now!==undefined)string(context.now,'Reference timestamp',100);
+ if(context.nextWeekdayPolicy!==undefined&&!['upcoming','following_week'].includes(context.nextWeekdayPolicy))throw Error('Use an explicit supported next-weekday policy');
  if(context.businessId!==undefined)string(context.businessId,'Business ID',160);
  if(context.customers!==undefined&&(!Array.isArray(context.customers)||context.customers.length>100))throw Error('Use at most 100 context customers');
  for(const c of context.customers||[]){if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(k=>!['id','name','phone','email','address','company','notes','businessId'].includes(k)))throw Error('Only customer interpretation fields belong in fixtures');string(c.id,'Customer ID',160);if(c.name!==undefined)string(c.name,'Customer name',200,true)}

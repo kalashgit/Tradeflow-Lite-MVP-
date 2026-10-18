@@ -32,3 +32,33 @@ test('explicit name correction produces the corrected draft and requires review'
 test('negation, truncated phrases and noise never become executable suggestions',()=>{
  for(const t of ["Don't send that invoice",'Add Michael, his phone…','Create a job [unrelated speech] for John','Add customer Avery Jones. Phone 5125550177. [background speech]']){const r=run(t);assert.equal(r.suggestedCommand,null,t);assert.notEqual(r.status,'recognized',t)}
 });
+
+test('business timezone resolves relative dates without consulting the device clock',()=>{
+ const c={customers:[],now:'2026-10-19T01:30:00Z',businessTimeZone:'America/Chicago'};
+ assert.equal(run('What jobs do I have tomorrow?',c).parameters.date,'2026-10-19');
+ assert.equal(run('What jobs do I have tomorrow?',{...c,businessTimeZone:'Asia/Tokyo'}).parameters.date,'2026-10-20');
+ const conflicting=run('What jobs do I have tomorrow?',{...c,today:'2026-10-19'});assert.equal(conflicting.parameters.date,null);assert.equal(conflicting.status,'needs_clarification');
+ for(const extra of [{businessTimeZone:'Unknown/Zone'},{now:'2026-02-30T01:30:00Z'},{now:'2026-10-19T01:30:00'}]){const r=run('What jobs do I have tomorrow?',{...c,...extra});assert.equal(r.parameters.date,null);assert.equal(r.status,'needs_clarification')}
+});
+test('next weekday exposes alternate meanings until an explicit business policy resolves them',()=>{
+ const c={today:'2026-10-21',businessTimeZone:'America/Chicago',customers:[]};
+ const ambiguous=run('What jobs do I have next Friday?',c);assert.equal(ambiguous.intent,'schedule.query');assert.equal(ambiguous.status,'needs_clarification');assert.deepEqual(ambiguous.parameters.dateCandidates,['2026-10-23','2026-10-30']);assert.equal(ambiguous.parameters.date,null);
+ assert.equal(run('What jobs do I have next Friday?',{...c,nextWeekdayPolicy:'upcoming'}).parameters.date,'2026-10-23');
+ assert.equal(run('What jobs do I have next Friday?',{...c,nextWeekdayPolicy:'following_week'}).parameters.date,'2026-10-30');
+ for(const c2 of [{...c,businessTimeZone:undefined},{...c,nextWeekdayPolicy:'guess'}])assert.equal(run('What jobs do I have next Friday?',c2).status,'needs_clarification');
+ assert.equal(run('What jobs do I have tomorrow or next Friday?',c).parameters.date,null);
+});
+test('weekday resolution handles DST, year boundaries, all weekdays and both policies',()=>{
+ for(const today of ['2026-03-06','2026-10-30','2026-12-31'])for(const day of ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])for(const policy of ['upcoming','following_week']){
+  const r=run(`Check my work schedule next ${day}`,{today,businessTimeZone:'America/New_York',nextWeekdayPolicy:policy,customers:[]});assert.equal(r.status,'recognized',JSON.stringify(r));assert.ok(r.parameters.date>today);assert.equal(new Date(r.parameters.date+'T12:00:00Z').getUTCDay(),['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(day));
+ }
+});
+test('multiple operations produce unexecuted draft plans with unresolved dependencies',()=>{
+ const r=run('Create the job and schedule it');assert.equal(r.status,'ambiguous');assert.equal(r.suggestedCommand,null);assert.equal(r.proposedPlan.executable,false);assert.equal(r.proposedPlan.steps.length,2);assert.equal(r.proposedPlan.steps[0].intent,'job.prepare');assert.equal(r.proposedPlan.steps[1].intent,'calendar.prepare');assert.deepEqual(r.proposedPlan.steps[1].dependsOn,['step-1']);assert.equal(r.proposedPlan.steps[1].bindings.jobRef.state,'unresolved');assert.equal(r.proposedPlan.steps[1].parameters.date,null);
+ const other=run('Prepare a quote for John and send it');assert.equal(other.status,'ambiguous');assert.equal(other.proposedPlan.executable,false);assert.equal(other.proposedPlan.steps[1].intent,null);assert.equal(other.suggestedCommand,null);
+ const contextual=run('Create a task to follow up on the estimate tomorrow');assert.equal(contextual.proposedPlan,undefined);assert.equal(contextual.intent,'task.prepare');
+});
+test('ambiguous contact identity is resolved only from supplied records and never places a call',()=>{
+ const r=run('Call John',{customers:[{id:'one',name:'John Smith'},{id:'two',name:'John Adams'},{id:'three',name:'John Jones'}]});assert.equal(r.intent,'customer.contact');assert.equal(r.status,'needs_clarification');assert.equal(r.parameters.customerRef,undefined);assert.equal(r.parameters.customerCandidates.length,3);assert.equal(r.suggestedCommand,null);
+ const unique=run('Call John');assert.equal(unique.parameters.customerRef.id,'john');assert.equal(unique.status,'needs_clarification');assert.equal(unique.suggestedCommand,null);
+});
