@@ -58,7 +58,8 @@ function createController(host){
    if(parsed.kind==='customer'){
     // A complete voice instruction is the user's explicit authorization to add one customer.
     // Ambiguous names, incomplete phones, duplicates and other unrecognized details always require review.
-    const instruction=parsed.text.replace(/^(?:please\s+)?(?:make|set up|add|create|register|save)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:customer|client)\b/i,'Add customer');
+    const raw=parsed.text,firstAction=raw.search(/\b(?:make|set up|add|create|register|save)\b/i);
+    const instruction=(firstAction>=0?raw.slice(firstAction):raw).replace(/^(?:please\s+)?(?:make|set up|add|create|register|save)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:customer|client)\b/i,'Add customer');
     const review=await host.customer.interpret(instruction,{source:'transcript'});
     const fields=review.draft?.fields||{};
     const clean=review.intent==='customer.create'&&review.status==='needs_review'&&
