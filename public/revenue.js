@@ -6,7 +6,7 @@ let api=null,mode='list',invoiceId='',jobId='';
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const trim=(v,n=200)=>String(v==null?'':v).trim().slice(0,n);
 const cents=n=>Math.round(Number(n)*100);
-const money=n=>new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(Number(n)||0);
+const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n)||0);
 const today=()=>{let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 function totals(inv){
  const lines=Array.isArray(inv?.lines)?inv.lines:[];
@@ -87,14 +87,14 @@ function invoicesPage(d){
    '<span class="tf-inv-row-amount">'+money(totals(inv).total)+'</span><span class="tf-inv-chevron">›</span></button>';
  }).join('')+'</div>':'<div class="tf-inv-empty"><strong>'+(existing.length?'No '+invoiceFilter.toLowerCase()+' invoices':'No invoices yet')+'</strong><p>'+(existing.length?'Choose another filter to see your records.':'Create a draft linked to a customer or job. Nothing is sent or charged automatically.')+'</p></div>';
  result+='</section><button class="tf-inv-create" type="button" data-revenue-action="new"><span>＋</span> Create new invoice</button>'+
- '<p class="tf-inv-disclaimer">Local financial records only. Issuing here is not a certified tax invoice, proof of sending, or payment confirmation. Values are recorded in EUR.</p></section>';
+ '<p class="tf-inv-disclaimer">Local financial records only. Issuing here is not a certified tax invoice, proof of sending, or payment confirmation. Values are recorded in USD.</p></section>';
  return result;
 }
 function defaultLine(inv){return Array.isArray(inv?.lines)&&inv.lines.length?inv.lines:[{description:'',qty:1,unitPrice:0}]}
 function lineMarkup(line){
  return '<div class="tf-revenue-line"><label>Item / description<input name="lineDescription" required maxlength="160" placeholder="Electrical service" value="'+esc(line.description||'')+'"></label>'+
  '<div><label>Qty<input name="lineQty" type="number" required min=".01" max="100000" step=".01" value="'+esc(line.qty||1)+'"></label>'+
- '<label>Unit (€)<input name="linePrice" type="number" required min="0" max="100000000" step=".01" value="'+esc(line.unitPrice??0)+'"></label>'+
+ '<label>Unit ($)<input name="linePrice" type="number" required min="0" max="100000000" step=".01" value="'+esc(line.unitPrice??0)+'"></label>'+
  '<button type="button" data-revenue-action="remove-line" title="Remove line" aria-label="Remove line">×</button></div></div>';
 }
 function editor(d){
@@ -116,7 +116,7 @@ function editor(d){
  '<div id="tfRevenueLines">'+defaultLine(old).map(lineMarkup).join('')+'</div>'+
  '<label>Tax rate (%)<input type="number" name="taxRate" min="0" max="100" step=".01" value="'+esc(old.taxRate??0)+'"></label>'+
  '<label>Notes<textarea name="notes" maxlength="1200" rows="3" placeholder="Payment terms or work summary">'+esc(old.notes||'')+'</textarea></label>'+
- '<p class="tf-revenue-warning">EUR draft only. Tax rules, mandatory invoice fields, registration, jurisdiction and compliant numbering must be verified before using this for actual customers.</p>'+
+ '<p class="tf-revenue-warning">USD draft only. Tax rules, mandatory invoice fields, registration, jurisdiction and compliant numbering must be verified before using this for actual customers.</p>'+
  '<div class="tf-revenue-actions"><button class="tf-revenue-primary" type="submit">Save draft</button><button class="tf-revenue-secondary" type="button" data-revenue-action="list">Cancel</button></div></form></div>';
 }
 function dossier(d,inv){
@@ -155,7 +155,7 @@ function paymentForm(d,inv){
  sectionHeading('Record payment','Enter a payment you have actually received and verified outside TradeFlow.')+
  '<form id="tfRevenuePaymentForm" data-id="'+esc(inv.id)+'" class="tf-revenue-card tf-revenue-form">'+
  '<p>Outstanding: <strong>'+money(remaining)+'</strong></p>'+
- '<label>Amount (€)<input name="amount" type="number" required min=".01" max="'+esc(remaining)+'" step=".01" value="'+esc(remaining)+'"></label>'+
+ '<label>Amount ($)<input name="amount" type="number" required min=".01" max="'+esc(remaining)+'" step=".01" value="'+esc(remaining)+'"></label>'+
  '<label>Date received<input name="date" type="date" required value="'+today()+'"></label>'+
  '<label>Method<select name="method"><option>Bank transfer</option><option>Cash</option><option>Card paid externally</option><option>Other verified method</option></select></label>'+
  '<p class="tf-revenue-warning">Only record money genuinely received. This form does not initiate or verify transfers.</p>'+
@@ -251,7 +251,7 @@ function jobCostDetail(d,selected){
  '<section class="tf-jc-panel"><div class="tf-jc-panel-head"><h2>Cost entries</h2><button data-revenue-action="cost-toggle" type="button">'+(costFormOpen?'Close form':'+ Add cost')+'</button></div>'+
  (costFormOpen?'<form id="tfRevenueCostForm" data-id="'+esc(selected.id)+'" class="tf-revenue-form tf-jc-form">'+
  '<label>Cost description<input name="title" maxlength="150" required placeholder="4 hours field labor, cable, permit"></label>'+
- '<div class="tf-revenue-two"><label>Amount (€)<input name="amount" type="number" min=".01" max="100000000" step=".01" required></label>'+
+ '<div class="tf-revenue-two"><label>Amount ($)<input name="amount" type="number" min=".01" max="100000000" step=".01" required></label>'+
  '<label>Record type<select name="type"><option value="actual">Actual cost</option><option value="estimate">Planned budget</option></select></label></div>'+
  '<label>Cost category<select name="category">'+costKinds.map(k=>'<option>'+k+'</option>').join('')+'</select></label>'+
  '<p class="tf-jc-footnote">Do not duplicate Finance expenses or supplier bills already recorded for this job.</p>'+
@@ -309,7 +309,7 @@ async function onSubmit(event){
    if(existing.some(x=>x.id!==prior?.id&&x.reference?.toLowerCase()===reference.toLowerCase()))throw Error('Invoice reference must be unique.');
    const lines=parseLines(form);
    const inv={...prior,id:prior?.id||api.uid(),reference,customerId,jobId,quoteId,issuedDate,dueDate,taxRate,
-      lines,notes:trim(fd.get('notes'),1200),status:'Draft',currency:'EUR',updatedAt:new Date().toISOString(),createdAt:prior?.createdAt||new Date().toISOString()};
+      lines,notes:trim(fd.get('notes'),1200),status:'Draft',currency:'USD',updatedAt:new Date().toISOString(),createdAt:prior?.createdAt||new Date().toISOString()};
    if(totals(inv).total<=0||totals(inv).total>1e9)throw Error('Invoice total must be positive and within the supported range.');
    await api.put('invoices',inv);invoiceId=inv.id;mode='detail';api.notify('Invoice draft saved');
   }else if(form.id==='tfRevenuePaymentForm'){
@@ -321,7 +321,7 @@ async function onSubmit(event){
    const customer=await api.get('customers',inv.customerId);
    await api.put('payments',{id:api.uid(),amount:Math.round(amount*100)/100,date,method:trim(fd.get('method'),80),
       source:customer?.name||'Invoice payment',customerId:inv.customerId,invoiceId:inv.id,jobId:inv.jobId||'',
-      title:'Invoice payment',trade:'',currency:'EUR',updatedAt:new Date().toISOString(),manual:true});
+      title:'Invoice payment',trade:'',currency:'USD',updatedAt:new Date().toISOString(),manual:true});
    invoiceId=inv.id;mode='detail';api.notify('Manual payment recorded');
   }else if(form.id==='tfRevenueCostForm'){
    const job=await api.get('jobs',form.dataset.id);if(!job)throw Error('Job not found.');
@@ -370,7 +370,7 @@ async function onClick(event){
  if(a==='cost-filter'){jobCostFilter=b.dataset.filter||'Active';api.render();return}
  if(a==='cost-toggle'){costFormOpen=!costFormOpen;api.render();return}
  if(a==='cost-quick'){jobCostFilter='All';api.render();return}
- if(a==='cost-csv'){const job=await api.get('jobs',id);if(!job)return;const costs=(await api.all('jobCosts')).filter(x=>x.jobId===id);const expenses=(await api.all('expenses')).filter(x=>x.jobId===id||x.relatedId===id);const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Source','Title','Type','Category','Amount EUR'],...costs.map(x=>['Job Cost',x.title,x.type,x.category,x.amount]),...expenses.map(x=>['Finance',x.title||x.vendor||'Expense','actual',x.category,x.amount])];const blob=new Blob([rows.map(x=>x.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const link=URL.createObjectURL(blob),el=document.createElement('a');el.href=link;el.download='tradeflow-job-costs-'+id+'.csv';document.body.appendChild(el);el.click();el.remove();setTimeout(()=>URL.revokeObjectURL(link),1000);return}
+ if(a==='cost-csv'){const job=await api.get('jobs',id);if(!job)return;const costs=(await api.all('jobCosts')).filter(x=>x.jobId===id);const expenses=(await api.all('expenses')).filter(x=>x.jobId===id||x.relatedId===id);const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Source','Title','Type','Category','Amount USD'],...costs.map(x=>['Job Cost',x.title,x.type,x.category,x.amount]),...expenses.map(x=>['Finance',x.title||x.vendor||'Expense','actual',x.category,x.amount])];const blob=new Blob([rows.map(x=>x.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const link=URL.createObjectURL(blob),el=document.createElement('a');el.href=link;el.download='tradeflow-job-costs-'+id+'.csv';document.body.appendChild(el);el.click();el.remove();setTimeout(()=>URL.revokeObjectURL(link),1000);return}
  if(a==='job'){jobId=id;api.render();return}
  if(a==='job-back'){jobId='';costFormOpen=false;api.render();return}
  if(a==='remove-cost'){
