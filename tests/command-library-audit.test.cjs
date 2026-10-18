@@ -7,7 +7,7 @@ test('supplied library preserves 361 unique advisory entries and its exact sourc
 });
 test('every library row receives a coverage audit without any execution claim',()=>{
  const r=evaluate();assert.equal(r.total,361);assert.equal(r.cases.length,361);assert.equal(Object.values(r.counts).reduce((a,b)=>a+b,0),361);assert.equal(r.operations.navigate,229);assert.equal(r.operations.read,81);assert.equal(r.operations.draft,48);assert.equal(r.operations.create,2);assert.equal(r.operations.modify,1);assert.ok(r.cases.every(c=>c.executionVerified===false));assert.equal(r.transcription.status,'not_measured');assert.equal(r.execution.status,'not_measured');
- assert.ok(r.counts.navigation_needs_clarification_or_mapping>0);assert.ok(r.counts.no_registered_interpretation>0);
+ assert.equal(r.counts.navigation_needs_clarification_or_mapping||0,0);assert.ok(r.counts.no_registered_interpretation>0);
 });
 test('library labels never authorize missing capabilities, bulk creation or quotation conversion',()=>{
  for(const text of ['Add two customers: Michael Anderson and Sarah Jones','Convert accepted quote 102 into a job']){const r=intelligence.interpretCommand(text,{customers:[]});assert.equal(r.suggestedCommand,null);assert.notEqual(r.status,'recognized')}

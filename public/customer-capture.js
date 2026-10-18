@@ -30,7 +30,7 @@ function createController(host){
  }
  function discard(){if(recognition){const current=recognition;recognition=null;try{current.abort()}catch{}}sources.clear();state=null}
  async function start(){discard();state={step:'input',input:'',source:'typed',review:null,retainOriginal:false,duplicateAcknowledged:false,busy:false,error:'',savedId:null};await host.show();focus('textarea[name="instruction"]')}
- async function openReview(text,options={}){await start();state.input=text;state.source=options.source||'typed';await extract(text,options);return state?.review}
+ async function openReview(text,options={}){await start();state.input=text;state.source=options.source||'typed';if(options.review?.intent==='customer.create'){state.review=await correct(options.review,{});state.step='review';await repaint();return state.review}await extract(text,options);return state?.review}
  function focus(selector){const document=host.document;if(document?.querySelector)document.querySelector(selector)?.focus()}
  function listen(){
   if(!state||state.busy||state.step!=='input')return;

@@ -1579,7 +1579,7 @@ function tfPilotContext(){
  const record=tfRecordDetailId&&['customers','quotes','jobs','tasks'].includes(tab)?{store:tab,id:tfRecordDetailId}:
   tab==='opportunities'&&opportunityDetailId?{store:'opportunities',id:opportunityDetailId}:
   tab==='invoices'?window.TradeFlowRevenue?.currentRecord?.():tab==='suppliers'?window.TradeFlowSupply?.currentRecord?.():calendar?.record||null;
- return {actor:'local-owner',businessId:'local-business',sourcePage:tab,record:record||null,today:window.TradeFlowCommands.dateText(new Date()),primaryTrade:prefs.primaryTrade||'',calendarDate:calendar?.date||null,filter:tfPilotFilter};
+ return {businessTimeZone:prefs.businessTimeZone||Intl.DateTimeFormat().resolvedOptions().timeZone,now:new Date().toISOString(),actor:'local-owner',businessId:'local-business',sourcePage:tab,record:record||null,today:window.TradeFlowCommands.dateText(new Date()),primaryTrade:prefs.primaryTrade||'',calendarDate:calendar?.date||null,filter:tfPilotFilter};
 }
 function tfPilotSnapshot(){
  return new Promise((resolve,reject)=>{
@@ -1612,7 +1612,8 @@ async function tfPilotApplyFilter(workspace,filter){
  await render();return {workspace,filter};
 }
 async function tfPilotPrepareDraft(prepared){
- tfResetWorkspace(prepared.kind==='task'?'tasks':'quotes');
+ if(prepared.kind==='calendar'){tfResetWorkspace('calendar');window.TradeFlowCalendar.openDraft(prepared.fields);await render();return {kind:'calendar',fields:prepared.fields,requiresReview:true,persisted:false}}
+ tfResetWorkspace({task:'tasks',quote:'quotes',job:'jobs'}[prepared.kind]);
  modal={draftDefaults:prepared.fields,commandDraft:prepared};
  await render();return {kind:prepared.kind,fields:prepared.fields,sourceRef:prepared.sourceRef,requiresReview:true,persisted:false};
 }
@@ -1629,7 +1630,7 @@ function tfInitializePilot(){
  const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','calendarEntries','calendars','calendarPreferences'];
  const evaluateSnapshot=(data,options={})=>intelligence.evaluate(Object.fromEntries(intelligenceStores.map(store=>[store,(data[store]||[]).map(({photoData,...record})=>record)])),{...tfPilotContext(),...options});
  if(window.TradeFlowCustomerCapture){window.TradeFlowCustomerEntry=window.TradeFlowCustomerCapture.createController({document,snapshot:tfPilotSnapshot,context:tfPilotContext,interpreter:window.TradeFlowRecordInterpreter,commands:runtime,hashSource:window.TradeFlowCore.hashSource,repaint:render,show:render,close:render,notify,confirm:message=>window.confirm(message),openRecord:tfPilotOpenRecord,prepareLinked:async(draft,id)=>{if(draft.kind==='task'||draft.kind==='job'){tfResetWorkspace(draft.kind==='task'?'tasks':'jobs');modal={draftDefaults:{...draft.fields,customerId:id}};await render();return}tfResetWorkspace('calendar');await render();notify('Calendar draft needs a date, time and duration. Review the customer information before creating an event.');}});}
-  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,context:tfPilotContext,snapshot:tfPilotSnapshot,intelligence:window.TradeFlowVoiceIntegration,commands:runtime,customer:window.TradeFlowCustomerEntry,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
