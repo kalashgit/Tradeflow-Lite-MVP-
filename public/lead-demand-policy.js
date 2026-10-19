@@ -54,7 +54,7 @@ function analyze(candidate,sources,trades,vocabulary,now=new Date().toISOString(
  if(kind==='none')reasons.push('no_buyer_side_service_need');
  if(closed)reasons.push('request_closed_or_withdrawn');if(temporal.expired)reasons.push('expired_deadline');if(temporal.conflicting)reasons.push('conflicting_deadlines_require_clarification');if(recruiting)reasons.push('employment_not_customer_work');
  if(/\b(?:join our team|full[- ]time employment|hourly wage)\b/i.test(evidence[0]?.quote||''))reasons.push('employment_not_customer_work');
- const title=candidate.title||'';if(/\b(?:portfolio|case stud(?:y|ies)|our completed projects|our work)\b/i.test(title))reasons.push('completed_portfolio_not_customer_work');if(/\b(?:how to|guides?|templates?|fundamentals|tutorial|training|webinar|explained|permit requirements|permit costs|permitting concepts)\b/i.test(title))reasons.push('educational_content_not_customer_work');
+ const title=(candidate.title||'')+' '+(text.match(/^#\s+([^\n]+)/m)?.[1]||'');if(/^(?:what|when|how|do you|which)\b.*\b(?:permits?|requirements?|codes?)\b/i.test(title))reasons.push('educational_content_not_customer_work');if(/\b(?:portfolio|case stud(?:y|ies)|our completed projects|our work)\b/i.test(title))reasons.push('completed_portfolio_not_customer_work');if(/\b(?:how to|guides?|templates?|fundamentals|tutorial|training|webinar|explained|permit requirements|permit costs|permitting concepts)\b/i.test(title))reasons.push('educational_content_not_customer_work');
  let status=kind==='explicit_request'?(temporal.deadline&&!temporal.sameDay?'published_deadline_ahead':'availability_unverified'):kind==='project_signal'?'possible_need':kind==='buyer_relationship'?'relationship_only':'not_a_lead';
  if(closed||temporal.expired)status='closed_or_expired';if(temporal.conflicting)status='date_clarification_required';
  if(kind==='explicit_request'&&!temporal.deadline)limitations.push('No unambiguous closing date was found. Confirm that this request is still accepting responses.');
@@ -67,11 +67,11 @@ function analyze(candidate,sources,trades,vocabulary,now=new Date().toISOString(
  const radiusLocationText=Array.from(text.matchAll(/\b(?:project location|project address|place of performance|work location|service location|service address)\s*[:|]\s*[^\n]{5,300}/gi),m=>m[0]).join('\n');
  const recordHeader=/\.pdf(?:$|\?)/i.test(candidate.url||'')?text.slice(0,2500):'';
  const locationText=[title,recordHeader,...evidence.map(e=>e.quote),...Array.from(text.matchAll(/\b(?:project location|place of performance|work location|service location)\s*[:|]\s*[^\n]{5,250}/gi),m=>m[0])].join('\n');
- return {version:1,kind,category,status,why,requester,deadline:temporal.deadline,deadlineEvidence:temporal.dates,evidence,locationText,radiusLocationText,reasons,limitations,baseScore:kind==='explicit_request'?(temporal.deadline?75:60):kind==='project_signal'?45:kind==='buyer_relationship'?35:0};
+ return {version:2,kind,category,status,why,requester,deadline:temporal.deadline,deadlineEvidence:temporal.dates,evidence,locationText,radiusLocationText,reasons,limitations,baseScore:kind==='explicit_request'?(temporal.deadline?75:60):kind==='project_signal'?45:kind==='buyer_relationship'?35:0};
 }
 function describe(demand,now=new Date().toISOString()){
  if(demand.deadline&&demand.deadline<now.slice(0,10))return 'Response deadline passed — not a current open request';
  return ({published_deadline_ahead:'Published deadline ahead — verify that responses are still accepted',availability_unverified:'Service request found — current availability unverified',possible_need:'Project signal — possible work, no request confirmed',relationship_only:'Potential buyer relationship — no current job confirmed',closed_or_expired:'Closed or expired — do not treat as an active lead',date_clarification_required:'Conflicting deadlines — clarification required',not_a_lead:'No supported customer need found'})[demand.status]||'Current availability unverified';
 }
-return Object.freeze({date,timing,analyze,describe});
+return Object.freeze({version:2,date,timing,analyze,describe});
 });

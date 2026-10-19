@@ -31,7 +31,7 @@
   const photo=secure(r.photo_url||r.place_photo_url||r.official_photo_url||r.project_photo_url);
   const src=secure(r.source_url),name=esc(r.project_name||r.organization_name||'Opportunity');
   const image=photo?'<img src="'+esc(photo)+'" alt="Photo supplied for '+name+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="tf-od-photo-fallback" hidden aria-label="No image available">⌖</span>':'<span class="tf-od-photo-fallback" aria-label="No verified project image available">⌖</span>';
-  const summary=r.opportunity_type==='verified_request'?'Review the original sourcing evidence and request terms before making an offer.':
+  const summary=r.demand_evidence?.kind==='explicit_request'?'Published service request. Verify current response availability and terms in the original source.':r.demand_evidence?.kind==='buyer_relationship'?'Potential buyer relationship. No current job or purchasing intent is confirmed.':r.opportunity_type==='verified_request'?'Review the original sourcing evidence and request terms before making an offer.':
    r.opportunity_type==='project_signal'||r.opportunity_type==='potential_opportunity'?'Documented project activity. Not an open subcontract or verified purchasing request.':'Business prospect only. No verified current purchasing request.';
   const timing=r.project_timing||r.timing||r.estimated_timing||'Not specified',kind=r.project_type||r.trade||'Not specified';
   const details='<section class="tf-od-card"><h2>Key details</h2>'+
