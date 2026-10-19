@@ -72,6 +72,9 @@ jobs:
       - name: Verify complete regression suite
         run: npm test
 
+      - name: Verify durable research alarms, SQLite persistence and isolation
+        run: npm run test:discovery:durable
+
       - name: Install Chromium for isolated discovery verification
         run: npx playwright install --with-deps chromium
 

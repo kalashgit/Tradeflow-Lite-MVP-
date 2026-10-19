@@ -9,7 +9,7 @@ const env={
 const makeVerify=(token)=>new Request('https://example.com/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:token})});
 const makeChat=(token)=>new Request('https://example.com/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:token,screen:'map',messages:[{role:'user',content:'What should I do?'}]})});
 (async()=>{
- const worker=(await import('../src/index.js')).default;
+ const worker=(await import('../src/app-handler.mjs')).default;
  const health=await worker.fetch(new Request('https://example.com/api/ai/health'),env);
  assert.equal(health.status,200);
  assert.equal((await health.json()).secretConfigured,true);

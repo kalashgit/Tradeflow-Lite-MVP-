@@ -1,15 +1,28 @@
 import core from '../public/lead-discovery-core.js';
+import researchConfig from '../public/lead-intelligence-config.js';
 import portable from '../public/tradeflow-engine.js';
 const PROVIDER='https://api.tavily.com';
 class DiscoveryError extends Error{constructor(code,message,status=400,retryable=false){super(message);this.code=code;this.status=status;this.retryable=retryable}}
 const response=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 async function boundedText(res,limit,overflowStatus=502){const reader=res.body?.getReader();if(!reader)return '';let size=0,text='',decoder=new TextDecoder();try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>limit){await reader.cancel();throw new DiscoveryError('RESPONSE_TOO_LARGE','The request or response exceeded the safe size limit.',overflowStatus)}text+=decoder.decode(value,{stream:true})}return text+decoder.decode()}finally{reader.releaseLock()}}
-async function authorized(code,secrets){if(typeof code!=='string'||code.length===0||code.length>512)return false;const bytes=new TextEncoder();for(const secret of secrets.filter(Boolean)){const [a,b]=await Promise.all([crypto.subtle.digest('SHA-256',bytes.encode(code)),crypto.subtle.digest('SHA-256',bytes.encode(secret))]);let diff=0;const aa=new Uint8Array(a),bb=new Uint8Array(b);for(let i=0;i<aa.length;i++)diff|=aa[i]^bb[i];if(diff===0)return true}return false}
+export async function authorized(code,secrets){if(typeof code!=='string'||code.length===0||code.length>512)return false;const bytes=new TextEncoder();for(const secret of secrets.filter(Boolean)){const [a,b]=await Promise.all([crypto.subtle.digest('SHA-256',bytes.encode(code)),crypto.subtle.digest('SHA-256',bytes.encode(secret))]);let diff=0;const aa=new Uint8Array(a),bb=new Uint8Array(b);for(let i=0;i<aa.length;i++)diff|=aa[i]^bb[i];if(diff===0)return true}return false}
 export function createTavilyProvider({apiKey,fetcher=fetch,delay=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  async function call(path,body){if(!apiKey)throw new DiscoveryError('PROVIDER_NOT_CONFIGURED','A research provider has not been connected.',503);let error;for(let attempt=0;attempt<2;attempt++){
   try{const res=await fetcher(PROVIDER+path,{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});if(!res.ok){await res.body?.cancel();throw new DiscoveryError(res.status===401||res.status===403?'PROVIDER_AUTH_FAILED':'PROVIDER_UNAVAILABLE',res.status===401||res.status===403?'The research provider credential was rejected.':'The research provider is unavailable. Retry this job later.',502,res.status===429||res.status>=500)}const text=await boundedText(res,2_000_000);try{return JSON.parse(text)}catch{throw new DiscoveryError('PROVIDER_INVALID_RESPONSE','The research provider returned an invalid response.',502)}}catch(e){error=e instanceof DiscoveryError?e:new DiscoveryError('PROVIDER_NETWORK_ERROR','The research provider request failed or timed out.',502,true);if(!error.retryable||attempt===1)throw error;await delay(300*(attempt+1))}
  }throw error}
- return Object.freeze({name:'tavily',search:(query,{demand=false}={})=>call('/search',{query,topic:'general',country:'united states',max_results:20,search_depth:demand?'advanced':'basic',...(demand?{time_range:'year'}:{}),include_raw_content:false,include_answer:false}),extract:urls=>call('/extract',{urls,extract_depth:'basic',format:'markdown',include_images:false})});
+ return Object.freeze({name:'tavily',check:async()=>{try{const res=await fetcher(PROVIDER+'/usage',{headers:{Authorization:'Bearer '+apiKey},signal:AbortSignal.timeout(20000)});if(!res.ok){await res.body?.cancel();throw new DiscoveryError(res.status===401||res.status===403?'PROVIDER_AUTH_FAILED':'PROVIDER_UNAVAILABLE','Research provider connection check failed.',502,res.status===429||res.status>=500)}await boundedText(res,200000);return {connected:true}}catch(error){throw error instanceof DiscoveryError?error:new DiscoveryError('PROVIDER_NETWORK_ERROR','Research provider connection timed out or failed.',502,true)}},search:(query,{demand=false}={})=>call('/search',{query,topic:'general',country:'united states',max_results:20,search_depth:demand?'advanced':'basic',...(demand?{time_range:'year'}:{}),include_raw_content:false,include_answer:false,include_usage:true}),extract:urls=>call('/extract',{urls,extract_depth:'basic',format:'markdown',include_images:false,include_usage:true})});
+}
+export function createConfiguredProvider(env,fetcher=fetch,adapters={}){
+ const name=env.DISCOVERY_PROVIDER||'tavily',factories={tavily:()=>createTavilyProvider({apiKey:env.TAVILY_API_KEY,fetcher}),...adapters},factory=factories[name];
+ if(!factory)throw new DiscoveryError('PROVIDER_NOT_CONFIGURED','The selected research provider adapter is not installed.',503);
+ const provider=factory(env,fetcher);for(const method of ['check','search','extract'])if(typeof provider[method]!=='function')throw new DiscoveryError('PROVIDER_INVALID','The provider adapter is incomplete.',503);return provider;
+}
+export async function discoveryPrincipal(code,env){
+ if(await authorized(code,[env.TF_AI_PREVIEW_TOKEN]))return 'owner';
+ if(await authorized(code,[env.TF_DISCOVERY_ACCESS_TOKEN]))return 'preview-test';
+ let tenants={};try{tenants=JSON.parse(env.DISCOVERY_TENANTS||'{}')}catch{return null}
+ for(const [id,tenant]of Object.entries(tenants))if(/^[a-zA-Z0-9_-]{1,80}$/.test(id)&&await authorized(code,[tenant.accessCode]))return 'tenant:'+id;
+ return null;
 }
 async function sourceProof(candidate,secret){const fields=['url','title','content','publishedDate','provider','query'],payload=JSON.stringify(fields.map(k=>candidate[k]||'')),key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(payload)))).map(b=>b.toString(16).padStart(2,'0')).join('')}
 const directoryHosts=new Set(['yelp.com','angi.com','homeadvisor.com','thumbtack.com','facebook.com','linkedin.com','yellowpages.com','bbb.org','buildzoom.com','houzz.com','network.procore.com']);
@@ -20,20 +33,27 @@ export async function censusPoint(address,fetcher=fetch){const parsed=portable.n
  const matched=portable.normalizeAddress(m.matchedAddress||''),assessment=portable.candidateScore(parsed,{streetNumber:matched.streetNumber,streetName:matched.streetName,city:matched.city,region:matched.region,postalCode:matched.postalCode,precision:'address'});if(assessment.confidence!=='high')return null;const point={lat:Number(m.coordinates?.y),lon:Number(m.coordinates?.x),provider:'us_census',precision:'address',sourceUrl:url.href,matchedAddress:m.matchedAddress};return core.trustedPoint(point)?point:null}catch{return null}}
 export async function handleDiscoveryRequest(request,env,{fetcher=fetch,now=()=>new Date().toISOString()}={}){
  const url=new URL(request.url);
- if(url.pathname==='/api/discovery/status'){if(request.method!=='GET')return response({error:'GET required'},405);return response({provider:'tavily',configured:!!env.TAVILY_API_KEY,authorizationConfigured:!!env.TF_AI_PREVIEW_TOKEN||!!env.TF_DISCOVERY_ACCESS_TOKEN,requiresAccessCode:true,maxBatchSize:20,modes:['opportunities','prospects']})}
- if(!['/api/discovery/search','/api/discovery/enrich'].includes(url.pathname))return response({error:'Not found'},404);
+ if(url.pathname==='/api/discovery/status'){if(request.method!=='GET')return response({error:'GET required'},405);return response({provider:env.DISCOVERY_PROVIDER||'tavily',configured:!!env.TAVILY_API_KEY,authorizationConfigured:!!env.TF_AI_PREVIEW_TOKEN||!!env.TF_DISCOVERY_ACCESS_TOKEN,requiresAccessCode:true,maxBatchSize:100,durable:!!env.DISCOVERY_WORKSPACES,modes:['opportunities','prospects']})}
+ if(!['/api/discovery/search','/api/discovery/enrich','/api/discovery/check'].includes(url.pathname)&&!/^\/api\/discovery\/runs\/(?:create|list|get|cancel|retry|review)$/.test(url.pathname))return response({error:'Not found'},404);
  if(request.method!=='POST')return response({error:'POST required'},405);
  const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)return response({error:'Cross-origin research is not allowed.'},403);
  try{
   if(!/^application\/json\b/i.test(request.headers.get('Content-Type')||''))throw new DiscoveryError('JSON_REQUIRED','Use a JSON request.',415);
-  const input=JSON.parse(await boundedText(request,32000,413));
-  if(!await authorized(input.code,[env.TF_AI_PREVIEW_TOKEN,env.TF_DISCOVERY_ACCESS_TOKEN]))throw new DiscoveryError('ACCESS_REQUIRED','Enter your workspace access code to run online research.',401);
+  const input=JSON.parse(await boundedText(request,url.pathname.includes('/runs/')?262144:32000,413));
+  const principal=await discoveryPrincipal(input.code,env);if(!principal)throw new DiscoveryError('ACCESS_REQUIRED','Enter your workspace access code to run online research.',401);
+  if(url.pathname.includes('/runs/')){
+   if(!env.DISCOVERY_WORKSPACES)throw new DiscoveryError('DURABLE_NOT_CONFIGURED','Background research storage is not connected.',503);
+   const businessId=input.businessId||'business';if(!/^[a-zA-Z0-9:_-]{1,80}$/.test(businessId))throw new DiscoveryError('INVALID_BUSINESS','Choose a valid business workspace.');
+   let allowed=['business'];try{allowed=principal.startsWith('tenant:')?(JSON.parse(env.DISCOVERY_TENANTS||'{}')[principal.slice(7)]?.businessIds||['business']):JSON.parse(env.DISCOVERY_BUSINESSES||'["business"]')}catch{throw new DiscoveryError('WORKSPACE_NOT_CONFIGURED','Workspace authorization is not configured.',503)}if(!Array.isArray(allowed)||!allowed.includes(businessId))throw new DiscoveryError('WORKSPACE_FORBIDDEN','This credential is not authorized for that business.',403);
+   const stub=env.DISCOVERY_WORKSPACES.getByName(principal+'|'+businessId);return response(await stub.dispatch(url.pathname.split('/').pop(),input));
+  }
   if(!env.TAVILY_API_KEY)throw new DiscoveryError('PROVIDER_NOT_CONFIGURED','A research provider has not been connected. Ask your workspace administrator to connect it.',503);
-  const criteria=core.validateCriteria(input.criteria),provider=createTavilyProvider({apiKey:env.TAVILY_API_KEY,fetcher});
+  const provider=createConfiguredProvider(env,fetcher);if(url.pathname.endsWith('/check'))return response(await provider.check());
+  const criteria=core.validateCriteria(input.criteria);if(criteria.provider!==provider.name)throw new DiscoveryError('PROVIDER_NOT_CONFIGURED','Choose the configured research provider.');
   if(url.pathname.endsWith('/search')){
-   const queries=core.buildQueries(criteria);const query=core.clean(input.query,400);if(!queries.includes(query))throw new DiscoveryError('INVALID_QUERY','The query does not match the approved research criteria.');
+   const queries=researchConfig.plan(criteria).queries;const query=core.clean(input.query,400);if(!queries.includes(query))throw new DiscoveryError('INVALID_QUERY','The query does not match the approved research criteria.');
    const result=await provider.search(query,{demand:criteria.mode==='opportunities'}),seen=new Set(),rows=[];for(const row of result.results||[]){const candidate=searchCandidate(row,query,provider.name);if(!candidate||core.isCollection(candidate)||criteria.mode==='prospects'&&directoryHosts.has(core.domain(candidate.url)))continue;const id=core.identity(candidate,criteria.mode);if(seen.has(id))continue;seen.add(id);candidate.proof=await sourceProof(candidate,env.TAVILY_API_KEY);rows.push(candidate)}
-   return response({provider:provider.name,results:core.rankSearchCandidates(rows,criteria,now()).slice(0,criteria.batchSize),queriedAt:now(),limitations:['Search coverage depends on the provider index and is not exhaustive.']});
+   return response({provider:provider.name,results:core.rankSearchCandidates(rows,criteria,now()).slice(0,criteria.batchSize),usage:result.usage,queriedAt:now(),limitations:['Search coverage depends on the provider index and is not exhaustive.']});
   }
   const candidate=input.candidate;if(!candidate||!core.canonicalUrl(candidate.url)||typeof candidate.title!=='string')throw new DiscoveryError('INVALID_SOURCE','Choose a valid discovered public source.');
   if(!candidate.proof||!await authorized(candidate.proof,[await sourceProof(candidate,env.TAVILY_API_KEY)]))throw new DiscoveryError('SOURCE_NOT_DISCOVERED','This source needs a fresh provider search before enrichment.');
@@ -45,6 +65,6 @@ export async function handleDiscoveryRequest(request,env,{fetcher=fetch,now=()=>
   const record=core.assess(candidate,criteria,sources,geo,timestamp);
   record.id='discovery:'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(criteria.mode+'|'+core.canonicalUrl(candidate.url))))).map(b=>b.toString(16).padStart(2,'0')).join('');
   if(contactError){record.qualification.limitations.push('The contact page could not be checked.');if(record.whatsapp.status==='not_publicly_found')record.whatsapp.status='not_checked'}
-  return response({provider:provider.name,candidate:record});
- }catch(error){const known=error instanceof DiscoveryError;return response({error:{code:known?error.code:error instanceof SyntaxError?'INVALID_JSON':'INVALID_CRITERIA',message:known?error.message:error instanceof SyntaxError?'The request is not valid JSON.':core.clean(error.message||'Research could not complete.',250),retryable:known&&error.retryable}},known?error.status:400)}
+  return response({provider:provider.name,candidate:record,usage:first.usage});
+ }catch(error){const known=error instanceof DiscoveryError;return response({error:{code:known?error.code:error instanceof SyntaxError?'INVALID_JSON':'INVALID_CRITERIA',message:known?error.message:error instanceof SyntaxError?'The request is not valid JSON.':core.clean(error.message||'Research could not complete.',250),retryable:known&&error.retryable}},known?error.status:Number.isInteger(error.status)?error.status:400)}
 }
