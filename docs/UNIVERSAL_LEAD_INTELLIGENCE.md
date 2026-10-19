@@ -41,3 +41,6 @@ Public WhatsApp links require published evidence. No number enumeration or outre
 
 
 Live-source regression policy: contractor ranking tables, directory search pages, careers pages and municipal inspection/code-enforcement information cannot become individual contractor prospects. The same guard runs before enrichment, during source assessment and at import (including old pending candidates). Page headings may be marketing copy; the prospect label defaults to the observed source title and the reviewer must supply the source-verified business name. Durable searches request a bounded set of 20 candidate URLs before local deduplication/quota selection, so cached sources do not consume the entire enrichment batch.
+
+
+A third-party article or profile may document a real contractor, but its publisher's phone, website and office address must not become the contractor's contact information. The current conservative policy attributes contact/address/website fields only to identified first-party business routes; other records retain the source and unknown fields for review. This can withhold valid third-party contact data until a company-owned source is found. It does not invent the missing company website.

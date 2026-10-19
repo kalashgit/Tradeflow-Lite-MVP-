@@ -61,7 +61,7 @@ export async function handleDiscoveryRequest(request,env,{fetcher=fetch,now=()=>
   const contact=contactPage(sources);let contactError=false;
   if(contact){try{sources.push(...extractedSources(await provider.extract([contact]),[contact],timestamp))}catch{contactError=true}}
   if(!sources.length)throw new DiscoveryError('SOURCE_UNAVAILABLE','The source could not be read. Retry or reject this candidate.',502,true);
-  let geo={};if(criteria.radiusMiles!==null){const address=core.extractAddress(criteria.mode==='opportunities'?core.analyzeDemand(candidate,criteria,sources,timestamp).radiusLocationText:sources.map(s=>s.content).join('\n'));const [center,location]=await Promise.all([censusPoint(criteria.headquarters,fetcher),address?censusPoint(address.normalized,fetcher):null]);geo={center,location}}
+  let geo={};if(criteria.radiusMiles!==null){const address=core.extractAddress(criteria.mode==='opportunities'?core.analyzeDemand(candidate,criteria,sources,timestamp).radiusLocationText:core.assess(candidate,criteria,sources,{},timestamp).location.address);const [center,location]=await Promise.all([censusPoint(criteria.headquarters,fetcher),address?censusPoint(address.normalized,fetcher):null]);geo={center,location}}
   const record=core.assess(candidate,criteria,sources,geo,timestamp);
   record.id='discovery:'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(criteria.mode+'|'+core.canonicalUrl(candidate.url))))).map(b=>b.toString(16).padStart(2,'0')).join('');
   if(contactError){record.qualification.limitations.push('The contact page could not be checked.');if(record.whatsapp.status==='not_publicly_found')record.whatsapp.status='not_checked'}
