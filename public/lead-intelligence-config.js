@@ -12,7 +12,7 @@ function interpretResearchRequest(input,context={}){
  const base=core.defaults(context.profile||{}),terms={...core.vocabulary};for(const t of context.trades||[])terms[core.key(t)]=[t];
  const trades=Object.entries(terms).filter(([trade,aliases])=>[trade,...aliases].some(t=>new RegExp('(?:^| )'+core.key(t)+'s?(?: |$)').test(text))).map(([trade])=>trade);
  if(!trades.length)missing.push('trade');
- const states=Object.entries(core.states).filter(([code,name])=>new RegExp('(?:^| )'+core.key(name)+'(?: |$)').test(text)||new RegExp('\\b'+code+'\\b').test(raw)).map(([code])=>code);
+ const states=Object.entries(core.states).filter(([code,name])=>new RegExp('(?:^| )'+core.key(name)+'(?: |$)').test(text)||new RegExp('\\b'+code+'\\b').test(raw)).map(([code])=>code).filter(code=>!(code==='WA'&&/washington[, ]+DC\b|district of columbia/i.test(raw)&&!/washington state|,\s*WA\b/i.test(raw)));
  const opportunity=/\b(?:opportunities|opportunity|projects|permits|bids|seeking subcontractors|maintenance contracts)\b/.test(text),mode=opportunity?'opportunities':'prospects';
  const count=raw.match(/\b(?:find|research|discover|search(?: for)?)\s+(\d{1,3})\b/i),employees=raw.match(/\b(\d{1,5})\s*(?:[-–]|to)\s*(\d{1,5})\s+employees\b/i),radius=raw.match(/\b(?:within|radius(?: of)?)\s+(\d+(?:\.\d+)?)\s+miles?\b/i);
  let level=states.length>1?'multi_state':states.length?'state':'national',name='',headquarters=base.headquarters;

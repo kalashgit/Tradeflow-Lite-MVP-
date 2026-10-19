@@ -30,7 +30,7 @@ function createRepository(database){
 }
 function createHttpProvider({fetcher=fetch,accessCode=()=>'',origin=''}={}){
  async function request(path,body){const response=await fetcher(origin+'/api/discovery/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},...(body?{body:JSON.stringify({...body,code:accessCode()})}:{}),signal:AbortSignal.timeout(path==='enrich'?95000:50000)});let data;try{data=await response.json()}catch{throw Object.assign(Error('Research returned an unreadable response.'),{retryable:true})}if(!response.ok)throw Object.assign(Error(data.error?.message||'Research could not complete.'),{code:data.error?.code||'RESEARCH_FAILED',retryable:!!data.error?.retryable});return data}
- return Object.freeze({status:()=>request('status'),search:(criteria,query)=>request('search',{criteria,query}),enrich:(criteria,candidate)=>request('enrich',{criteria,candidate})});
+ return Object.freeze({status:()=>request('status'),check:()=>request('check',{}),run:(action,input={})=>request('runs/'+action,input),search:(criteria,query)=>request('search',{criteria,query}),enrich:(criteria,candidate)=>request('enrich',{criteria,candidate})});
 }
 function createRunner({repository,provider,snapshot,uid=()=>crypto.randomUUID(),now=()=>new Date().toISOString(),onChange=()=>{}}){
  const owner=uid(),active=new Map();
