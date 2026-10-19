@@ -46,7 +46,7 @@ export class ResearchCoordinator{
    if(stage==='enrich'){
     const known=[...run.known,...this.store.known(run.id,run.criteria.mode)];
     if(core.duplicates(unit.source,known,run.criteria.mode).length){unit.status='duplicate';run.progress.duplicateSkipped++;run.usage.enrichmentRequests--;result={}}
-    else{result=await this.provider.enrich(run.criteria,unit.source);if(!result.candidate?.id||!result.candidate?.evidence?.length)throw Object.assign(new Error('Source returned no usable evidence.'),{retryable:true});unit.candidate=result.candidate;unit.status='completed';unit.error=null;run.progress.enriched=run.jobs.filter(j=>j.status==='completed').length}
+    else{result=await this.provider.enrich(run.criteria,unit.source);if(!result.candidate?.id||!result.candidate?.evidence?.length)throw Object.assign(new Error('Source returned no usable evidence.'),{retryable:true});result.candidate.discoveredAt=unit.candidate?.discoveredAt||result.candidate.discoveredAt;unit.candidate=result.candidate;unit.status='completed';unit.error=null;run.progress.enriched=run.jobs.filter(j=>j.status==='completed').length}
    }
    if(Number.isFinite(result?.usage?.credits)){run.usage.reportedCredits+=result.usage.credits;run.usage.creditsReported=true}
   }catch(error){

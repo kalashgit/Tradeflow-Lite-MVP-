@@ -7,7 +7,7 @@ export class DiscoveryWorkspace extends DurableObject{
  async dispatch(action,input){
   const offset=Number(input.offset||0),limit=Number(input.limit||20);if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>100)throw new JobError('Invalid pagination.');
   let run;
-  if(action==='create'){if(!this.env.TAVILY_API_KEY)throw new JobError('Research provider is not configured.',503);run=this.coordinator.create(input)}
+  if(action==='create'){if((this.env.DISCOVERY_PROVIDER||'tavily')==='tavily'&&!this.env.TAVILY_API_KEY)throw new JobError('Research provider is not configured.',503);run=this.coordinator.create({...input,criteria:{...input.criteria,provider:input.criteria?.provider||this.env.DISCOVERY_PROVIDER||'tavily'}})}
   else if(action==='list')return {runs:this.store.list(offset,limit),offset,limit};
   else if(action==='get')run=this.coordinator.mustGet(input.id);
   else if(action==='cancel')run=this.coordinator.cancel(input.id);

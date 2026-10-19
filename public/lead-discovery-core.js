@@ -42,6 +42,7 @@ function validateCriteria(input={}){
 function geographyLabel(g){return g.level==='national'?'United States':g.level==='zip'?g.postalCode+' United States':['state','multi_state'].includes(g.level)?g.states.map(x=>states[x]).join(', '):[g.name,...g.states.map(x=>states[x])].filter(Boolean).join(', ')}
 function buildQueries(criteria){const c=validateCriteria(criteria),terms=c.mode==='prospects'?'contractors official business website contact':c.leadFocus==='projects'?'("building permit" OR "renovation project" OR "planned construction")':c.leadFocus==='buyers'?'property management facilities maintenance vendor registration':'("request for bids" OR "request for proposals" OR "seeking subcontractors" OR "need a" OR "maintenance contract")';return c.trades.map(trade=>{
  const location=c.geography.level==='multi_state'?(c.geography.states.length<=4?'('+c.geography.states.map(s=>'"'+states[s]+'"').join(' OR ')+') United States':'United States'):['city','metro','county'].includes(c.geography.level)&&c.geography.states.length>3?c.geography.name+' United States':geographyLabel(c.geography);
+ if(c.mode==='prospects'){const actor=/contracting$/i.test(trade)?trade.replace(/contracting$/i,'contractors'):/contractors?$/i.test(trade)?trade.replace(/contractor$/i,'contractors'):trade+' contractors';return clean([actor,'in',location,...c.services.slice(0,2),...c.projectTypes.slice(0,2)].join(' '),390)}
  return clean([c.mode==='prospects'?trade.replaceAll('"',''):'"'+trade.replaceAll('"','')+'"',location,terms,...c.services.slice(0,2),...c.projectTypes.slice(0,2)].join(' '),390);
  })}
 function isCollection(candidate={},text=''){
@@ -51,6 +52,7 @@ function isCollection(candidate={},text=''){
 
 function businessSourceIssue(candidate,text=''){
  const url=canonicalUrl(candidate.url||candidate.sourceUrl),title=key(candidate.title||candidate.name),header=String(text).slice(0,1500);
+ if(/\bassociation\b/.test(title))return 'trade_organization_not_contractor_business';
  if(/\b(?:law firm|legal services|attorneys|market research report|industry research report)\b/i.test(title+' '+header))return 'non_contractor_source';
  if(isCollection(candidate,text))return 'directory_or_article_not_single_business';
  if(/\/(?:careers?|jobs?|employment)(?:[/?]|$)/i.test(url)||/\b(?:careers|join our team|job openings|employment opportunities)\b/.test(title))return 'employment_page_not_business_profile';
