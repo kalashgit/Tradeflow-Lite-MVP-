@@ -1,3 +1,5 @@
+> Historical implementation notes. For the current dual-mode, durable engine, see [Universal Lead Intelligence](UNIVERSAL_LEAD_INTELLIGENCE.md).
+
 # Customer and work discovery
 
 This supersedes the earlier UI direction that searched for contractors as prospective TradeFlow users. The main discovery form now finds **customers/work for the user's contracting business**. Old contractor-company research and saved records remain intact and are labelled as legacy; they are not evidence of service demand.

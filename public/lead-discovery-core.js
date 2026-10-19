@@ -47,15 +47,16 @@ function buildQueries(criteria){const c=validateCriteria(criteria),terms=c.mode=
  })}
 function isCollection(candidate={},text=''){
  const label=key(candidate.title),url=canonicalUrl(candidate.url||candidate.sourceUrl),path=(()=>{try{return decodeURIComponent(new URL(url).pathname)}catch{return ''}})();
- return /\b(?:top|best)\b.*\b(?:contractors|companies|installers)\b/.test(label)||/\b\d+ companies found\b/.test(key(text))||/\/(?:search(?:\.html)?|search-results)(?:[/?]|$)/i.test(url)||/\b(?:local union|trade association|labor union)\b/.test(label+' '+key(path))||/\b(?:plumbers|pipefitters|electricians|workers)\b.*\blocal \d+\b/.test(label)||/\bbids\b.*\brfps\b.*\bgovernment contracts\b/.test(label)||/\b(?:sample search result|search the comprehensive .* database|bid list compiled)\b/i.test(text)||/\b(?:directory|directories|list of|contractor list|plumber list|by company name|ranked|top rated)\b/.test(label+' '+key(path))||/^(?:best|top \d+)\b.*\b(?:contractors|companies|services)\b/.test(label)||/^contractors\b/.test(label)&&/\/(?:contractors|directory)\/?$/i.test(path)||/^\s*#{1,3}\s+\d{2,}\s+Results\b/mi.test(text);
+ return /\b(?:top|best)\b.*\b(?:contractors|companies|installers)\b/.test(label+' '+key(path))||/\b\d+ companies found\b/.test(key(text))||/\/(?:search(?:\.html)?|search-results)(?:[/?]|$)/i.test(url)||/\b(?:local union|trade association|labor union)\b/.test(label+' '+key(path))||/\b(?:plumbers|pipefitters|electricians|workers)\b.*\blocal \d+\b/.test(label)||/\bbids\b.*\brfps\b.*\bgovernment contracts\b/.test(label)||/\b(?:sample search result|search the comprehensive .* database|bid list compiled)\b/i.test(text)||/\b(?:directory|directories|list of|contractor list|plumber list|by company name|ranked|top rated)\b/.test(label+' '+key(path))||/^(?:best|top \d+)\b.*\b(?:contractors|companies|services)\b/.test(label)||/^contractors\b/.test(label)&&/\/(?:contractors|directory)\/?$/i.test(path)||/^\s*#{1,3}\s+\d{2,}\s+Results\b/mi.test(text);
 }
 
 function businessSourceIssue(candidate,text=''){
  const url=canonicalUrl(candidate.url||candidate.sourceUrl),title=key(candidate.title||candidate.name),header=String(text).slice(0,1500);
- if(/\bassociation\b/.test(title))return 'trade_organization_not_contractor_business';
- if(/\b(?:law firm|legal services|attorneys|market research report|industry research report)\b/i.test(title+' '+header))return 'non_contractor_source';
  if(isCollection(candidate,text))return 'directory_or_article_not_single_business';
- if(/\/(?:careers?|jobs?|employment)(?:[/?]|$)/i.test(url)||/\b(?:careers|join our team|job openings|employment opportunities)\b/.test(title))return 'employment_page_not_business_profile';
+ if(/\b(?:association|chapter)\b/.test(title))return 'trade_organization_not_contractor_business';
+ if(/\/(?:blog|blogs|articles|guides|courses|training)(?:[/?]|$)/i.test(url)||/\b(?:license requirements|insurance requirements|licensing requirements|continuing education)\b/.test(title))return 'informational_page_not_business_profile';
+ if(/\b(?:law firm|legal services|attorneys|market research report|industry research report)\b/i.test(title+' '+header))return 'non_contractor_source';
+ if(/\/(?:careers?|jobs?|employment)(?:[/?]|$)/i.test(url)||/\b(?:careers|join our team|job openings|employment opportunities|now hiring|job listings|jobs)\b/.test(title))return 'employment_page_not_business_profile';
  if(/\.(?:gov|mil|edu)$/.test(domain(url))||/\/(?:departments|inspection_code_enforcement)\//i.test(url)&&/\b(?:inspection|code enforcement|electrical information|permit|city of|county)\b/i.test(title+' '+header))return 'institutional_information_not_contractor_business';
  return '';
 }

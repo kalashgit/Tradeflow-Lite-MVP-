@@ -1,3 +1,5 @@
+> Historical implementation notes. For the current dual-mode, durable engine, see [Universal Lead Intelligence](UNIVERSAL_LEAD_INTELLIGENCE.md).
+
 # Lead discovery and enrichment V1
 
 ## Boundaries and setup
