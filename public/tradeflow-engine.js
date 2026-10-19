@@ -114,5 +114,5 @@
    async queue(task){assertPort(jobs,'enqueue');return jobs.enqueue(task)}
   });
  }
- return Object.freeze({version:'1.0.0',normalizeAddress,canonicalKey,candidateScore,makeEngine,stateCode});
+ return Object.freeze({stateCodes:Object.freeze({...stateCodes}),version:'1.0.0',normalizeAddress,canonicalKey,candidateScore,makeEngine,stateCode});
 });

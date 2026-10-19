@@ -11,5 +11,21 @@
   "main": "./src/index.js",
   "ai": {
     "binding": "AI"
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DISCOVERY_WORKSPACES",
+        "class_name": "DiscoveryWorkspace"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "discovery-v1",
+      "new_sqlite_classes": [
+        "DiscoveryWorkspace"
+      ]
+    }
+  ]
 }
