@@ -22,6 +22,32 @@ function timing(text,now){
  const unique=[...new Set(found.map(x=>x.date))];const deadline=unique.length===1?unique[0]:'';
  return {deadline,dates:found,conflicting:unique.length>1,expired:!!deadline&&deadline<now.slice(0,10),sameDay:deadline===now.slice(0,10)};
 }
+// Extract explicit prerequisites only. These flags never establish contractor eligibility.
+function requirements(text,sourceUrl,now=new Date().toISOString()){
+ const rules=[
+  ['mandatory_visit','Mandatory site visit / pre-bid meeting',/\b(?:mandatory|attendance (?:is )?required)\b/i,/\b(?:site (?:visit|walk)|pre[- ]bid (?:meeting|conference)|walk[- ]through)\b/i],
+  ['license','License requirement',/\b(?:must|required|shall)\b/i,/\b(?:licen[sc]e[ds]?|licensing)\b/i],
+  ['insurance','Insurance requirement',/\b(?:must|required|shall)\b/i,/\b(?:insurance|certificate of insurance)\b/i],
+  ['bond','Bond requirement',/\b(?:must|required|shall)\b/i,/\b(?:bid bond|performance bond|payment bond|bonding)\b/i],
+  ['registration','Vendor registration requirement',/\b(?:must|required|shall)\b/i,/\b(?:register|registered|registration)\b/i],
+  ['submission_channel','Required response channel',/\b(?:must|shall|only|exclusively)\b/i,/\b(?:submit|submitted|submission|responses?|proposals?|correspondences?)\b/i]
+ ];
+ const result=[];
+ // Join wrapped PDF lines within paragraphs, but not adjacent unrelated sentences.
+ const chunks=String(text||'').split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z#])/).flatMap(x=>x.length>900?x.split('\n'):[x]);
+ for(const raw of chunks){const quote=clean(raw);if(!quote||quote.length>900)continue;
+  // Negative/optional wording is retained as uncertainty rather than asserted as a prerequisite.
+  if(/\b(?:not required|not mandatory|non[- ]mandatory|optional|may be required|if required|no .*required)\b/i.test(quote))continue;
+  for(const [type,label,obligation,subject]of rules){if(!obligation.test(quote)||!subject.test(quote))continue;
+   if(type==='insurance'&&!/\b(?:provide|maintain|carry|furnish|submit|obtain|purchase|proof|certificate|coverage|insured)\b/i.test(quote))continue;
+   if(type==='submission_channel'&&!/\b(?:bids?|proposals?|responses?|correspondences?)\b/i.test(quote))continue;
+   if(type==='submission_channel'&&!/\b(?:portal|online|electronic|workday|sourcing|email|e-mail|mail|delivered|sealed|through|via)\b/i.test(quote))continue;
+   if(result.some(r=>r.type===type&&r.quote===quote))continue;
+   result.push({type,label,status:'review_required',sourceUrl,quote,retrievedAt:now});
+  }
+ }
+ return result.slice(0,30);
+}
 const patterns={
  subcontractor_request:/\b(?:seeking|inviting|requesting|looking for|in need of)\s+(?:qualified\s+|licensed\s+)?subcontractors?\b|\bsubcontractor (?:bids|proposals)\b/gi,
  service_request:/\b(?:I need|we need|we are seeking|seeking|looking for|in need of|requesting|(?:facility|building|property|house|home|school|district|authority|department|city|university) (?:needs|requires))\s+(?:(?:a|an|licensed|qualified|experienced|emergency|local)\s+){0,3}(?:[\w-]+\s+){0,4}(?:plumber|electrician|roofer|contractor|repairs?|replacement|maintenance|services?)\b/gi,
@@ -67,11 +93,12 @@ function analyze(candidate,sources,trades,vocabulary,now=new Date().toISOString(
  const radiusLocationText=Array.from(text.matchAll(/\b(?:project location|project address|place of performance|work location|service location|service address)\s*[:|]\s*[^\n]{5,300}/gi),m=>m[0]).join('\n');
  const recordHeader=/\.pdf(?:$|\?)/i.test(candidate.url||'')?text.slice(0,2500):'';
  const locationText=[title,recordHeader,...evidence.map(e=>e.quote),...Array.from(text.matchAll(/\b(?:project location|place of performance|work location|service location)\s*[:|]\s*[^\n]{5,250}/gi),m=>m[0])].join('\n');
- return {version:2,kind,category,status,why,requester,deadline:temporal.deadline,deadlineEvidence:temporal.dates,evidence,locationText,radiusLocationText,reasons,limitations,baseScore:kind==='explicit_request'?(temporal.deadline?75:60):kind==='project_signal'?45:kind==='buyer_relationship'?35:0};
+ return {version:2,requirementsVersion:1,requirements:requirements(text,primary?.url||candidate.url,primary?.retrievedAt||now),kind,category,status,why,requester,deadline:temporal.deadline,deadlineEvidence:temporal.dates,evidence,locationText,radiusLocationText,reasons,limitations,baseScore:kind==='explicit_request'?(temporal.deadline?75:60):kind==='project_signal'?45:kind==='buyer_relationship'?35:0};
 }
 function describe(demand,now=new Date().toISOString()){
  if(demand.deadline&&demand.deadline<now.slice(0,10))return 'Response deadline passed — not a current open request';
+ if(demand.deadline===now.slice(0,10))return 'Response deadline today — confirm local closing time and timezone';
  return ({published_deadline_ahead:'Published deadline ahead — verify that responses are still accepted',availability_unverified:'Service request found — current availability unverified',possible_need:'Project signal — possible work, no request confirmed',relationship_only:'Potential buyer relationship — no current job confirmed',closed_or_expired:'Closed or expired — do not treat as an active lead',date_clarification_required:'Conflicting deadlines — clarification required',not_a_lead:'No supported customer need found'})[demand.status]||'Current availability unverified';
 }
-return Object.freeze({version:2,date,timing,analyze,describe});
+return Object.freeze({version:2,date,timing,requirements,analyze,describe});
 });

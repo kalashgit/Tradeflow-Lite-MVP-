@@ -10,7 +10,7 @@
  const normalizedPlace=r=>{
   const p=root.TradeFlowEngine?.normalizeAddress(r);
   if(p?.parsed)return [p.street,p.city,[p.region,p.postalCode].filter(Boolean).join(' '),p.country].filter(Boolean).join(', ');
-  return String(r.address||r.site_address||r.project_address||r.city||'Location not supplied').trim();
+  return String(r.address||r.site_address||r.project_address||[r.city,r.region].filter(Boolean).join(', ')||'Location not supplied').trim();
  };
  const classification=r=>({verified_request:'Verified request',potential_opportunity:'Potential opportunity',project_signal:'Project signal',business_prospect:'Business prospect'})[r.opportunity_type]||'Project signal';
  const evidence=r=>({verified:'Verified',source_supported:'Source supported',unresolved:'Needs review'})[r.evidence_status]||'Needs review';
@@ -37,7 +37,7 @@
   const details='<section class="tf-od-card"><h2>Key details</h2>'+
    [['calendar-days','Timing',timing],['building-2','Project type',kind],['file-text','Record ID',r.source_record_id||r.record_id||r.id],['calendar','Source date',r.source_date||'Not supplied']].map(([icon,label,value])=>'<div class="tf-od-data-row"><span class="tf-od-detail-icon" aria-hidden="true">'+({ 'calendar-days':'▦','building-2':'▤','file-text':'▧','calendar':'▦'})[icon]+'</span><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('')+'</section>';
   const demand=Array.isArray(r.demand_evidence?.evidence)?r.demand_evidence:null;
-  const leadInfo=demand?'<section class="tf-od-card"><h2>Service need &amp; deadline</h2><p>'+esc(demand.why)+'</p><p>'+esc(root.TradeFlowLeadDemandPolicy?.describe(demand)||demand.status)+'</p><p>Response deadline: '+esc(demand.deadline||'Not supplied — check original source')+'</p>'+demand.evidence.map(e=>'<blockquote>'+esc(e.quote)+'</blockquote>').join('')+'</section>':'';
+  const leadInfo=demand?'<section class="tf-od-card"><h2>Service need &amp; deadline</h2><p>'+esc(demand.why)+'</p><p>'+esc(root.TradeFlowLeadDemandPolicy?.describe(demand)||demand.status)+'</p><p>Response deadline: '+esc(demand.deadline||'Not supplied — check original source')+'</p>'+'<h3>Bid requirements &amp; response route</h3><p>Confirm all terms in the original source. Eligibility and attendance have not been verified.</p>'+((demand.requirements||[]).map(q=>'<p><strong>'+esc(q.label)+'</strong></p><blockquote>'+esc(q.quote)+'</blockquote>').join('')||'<p>No explicit prerequisites extracted. This does not mean there are none.</p>')+demand.evidence.map(e=>'<blockquote>'+esc(e.quote)+'</blockquote>').join('')+'</section>':'';
   const original='<section class="tf-od-card tf-od-evidence"><h2>Evidence &amp; source</h2><p>'+esc(r.evidence_notes||r.project_description||summary)+'</p><p class="tf-od-muted">'+esc(summary)+'</p>'+
     (src?'<a class="tf-od-outline" href="'+esc(src)+'" target="_blank" rel="noopener noreferrer">Open original source ↗</a>':'<p class="tf-od-muted">No verified source link is saved.</p>')+'</section>';
   return frame('Opportunity dossier','<div class="tf-od-stack"><section class="tf-od-card tf-od-hero"><h2>'+name+'</h2><div class="tf-od-hero-layout"><p class="tf-od-address"><span aria-hidden="true">⌖</span>'+esc(normalizedPlace(r))+'</p><div class="tf-od-photo">'+image+'</div></div><div class="tf-od-tags"><span>'+esc(classification(r))+'</span><span class="tf-od-proof">'+esc(evidence(r))+'</span></div><p class="tf-od-notice">ⓘ '+esc(summary)+'</p></section>'+details+leadInfo+original+

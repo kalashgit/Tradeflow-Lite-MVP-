@@ -33,7 +33,7 @@ export async function handleDiscoveryRequest(request,env,{fetcher=fetch,now=()=>
   if(url.pathname.endsWith('/search')){
    const queries=core.buildQueries(criteria);const query=core.clean(input.query,400);if(!queries.includes(query))throw new DiscoveryError('INVALID_QUERY','The query does not match the approved research criteria.');
    const result=await provider.search(query,{demand:criteria.mode==='opportunities'}),seen=new Set(),rows=[];for(const row of result.results||[]){const candidate=searchCandidate(row,query,provider.name);if(!candidate||core.isCollection(candidate)||criteria.mode==='prospects'&&directoryHosts.has(core.domain(candidate.url)))continue;const id=core.identity(candidate,criteria.mode);if(seen.has(id))continue;seen.add(id);candidate.proof=await sourceProof(candidate,env.TAVILY_API_KEY);rows.push(candidate)}
-   return response({provider:provider.name,results:rows.slice(0,criteria.batchSize),queriedAt:now(),limitations:['Search coverage depends on the provider index and is not exhaustive.']});
+   return response({provider:provider.name,results:core.rankSearchCandidates(rows,criteria,now()).slice(0,criteria.batchSize),queriedAt:now(),limitations:['Search coverage depends on the provider index and is not exhaustive.']});
   }
   const candidate=input.candidate;if(!candidate||!core.canonicalUrl(candidate.url)||typeof candidate.title!=='string')throw new DiscoveryError('INVALID_SOURCE','Choose a valid discovered public source.');
   if(!candidate.proof||!await authorized(candidate.proof,[await sourceProof(candidate,env.TAVILY_API_KEY)]))throw new DiscoveryError('SOURCE_NOT_DISCOVERED','This source needs a fresh provider search before enrichment.');
