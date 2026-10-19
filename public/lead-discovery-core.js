@@ -3,7 +3,7 @@
 'use strict';
 const VERSION=1,RUN_PREFIX='tf-discovery-run:',states=portable.stateCodes;
 const clean=(v,n=500)=>String(v??'').normalize('NFKC').replace(/\s+/g,' ').trim().slice(0,n);
-const key=v=>clean(v,20000).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const key=v=>clean(v,20000).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const clone=v=>JSON.parse(JSON.stringify(v));
 const uniq=a=>[...new Set(a)];
 const list=v=>uniq((Array.isArray(v)?v:String(v||'').split(/[,;\n]/)).map(x=>clean(x,120)).filter(Boolean));
@@ -15,8 +15,9 @@ function identity(row,mode){const source=canonicalUrl(row.source_url||row.url);r
 function stableId(value){let h=2166136261;for(const c of value){h^=c.codePointAt(0);h=Math.imul(h,16777619)}return (h>>>0).toString(16).padStart(8,'0')}
 function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v||'')&&!isNaN(Date.parse(v+'T12:00:00Z'))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v}
 function defaults(profile={},growth={}){
- const area=clean(profile.serviceArea||profile.businessAddress,300),parts=area.split(',').map(x=>x.trim()),region=parts.map(x=>portable.stateCode(x.replace(/\b\d{5}(?:-\d{4})?\b/g,''))).find(Boolean)||'';
- return {mode:'opportunities',trades:list([profile.primaryTrade,...list(profile.secondaryTrades||profile.categories)]),geography:{level:region&&parts[0]?'city':'national',states:region?[region]:[],name:region?parts[0]:'',postalCode:''},headquarters:clean(profile.businessAddress,300),services:list(profile.servicesPerformed||profile.services),projectTypes:list(profile.preferredProjectTypes||growth.segments),companySize:clean(profile.companySize,80),batchSize:5,whatsapp:false,radiusMiles:null};
+ const parsed=portable.normalizeAddress(profile.businessAddress||''),area=clean(profile.serviceArea||'',300),parts=area.split(',').map(x=>x.trim()),region=parts.map(x=>portable.stateCode(x.replace(/\b\d{5}(?:-\d{4})?\b/g,''))).find(Boolean)||parsed.region||'';
+ const city=area&&parts.length>1?parts[0]:parsed.city||'';
+ return {mode:'opportunities',trades:list([profile.primaryTrade,...list(profile.secondaryTrades||profile.categories)]),geography:{level:region&&city?'city':region?'state':'national',states:region?[region]:[],name:region?city:'',postalCode:''},headquarters:clean(profile.businessAddress,300),services:list(profile.servicesPerformed||profile.services),projectTypes:list(profile.preferredProjectTypes||growth.segments),companySize:clean(profile.companySize,80),batchSize:Math.max(5,list([profile.primaryTrade,...list(profile.secondaryTrades||profile.categories)]).length),whatsapp:false,radiusMiles:null};
 }
 function validateCriteria(input={}){
  if(!input||typeof input!=='object'||Array.isArray(input))fail('Research criteria must be an object.');
@@ -27,15 +28,15 @@ function validateCriteria(input={}){
  if(level==='state'&&regions.length!==1)fail('Choose one state.');if(level==='multi_state'&&regions.length<2)fail('Choose at least two states.');
  if(['city','county','metro'].includes(level)&&(!clean(raw.name)||!regions.length))fail('Enter the area name and its state(s).');
  const postalCode=clean(raw.postalCode,10);if(level==='zip'&&!/^\d{5}$/.test(postalCode))fail('Enter a five-digit US ZIP code.');
- const batchSize=Number(input.batchSize??5);if(!Number.isInteger(batchSize)||batchSize<1||batchSize>20)fail('Batch size must be 1–20.');
+ const batchSize=Number(input.batchSize??5);if(!Number.isInteger(batchSize)||batchSize<1||batchSize>20)fail('Batch size must be 1–20.');if(batchSize<trades.length)fail('Batch size must allow at least one result per selected trade.');
  const radiusMiles=input.radiusMiles==null||input.radiusMiles===''?null:Number(input.radiusMiles);if(radiusMiles!==null&&(!Number.isFinite(radiusMiles)||radiusMiles<=0||radiusMiles>500))fail('Radius must be greater than 0 and at most 500 miles.');
  const headquarters=clean(input.headquarters,300);if(radiusMiles!==null&&!portable.normalizeAddress(headquarters).parsed)fail('Radius filtering needs a complete US center address (street, city, state and ZIP).');
  const maxEmployees=input.maxEmployees==null||input.maxEmployees===''?null:Number(input.maxEmployees);if(maxEmployees!==null&&(!Number.isInteger(maxEmployees)||maxEmployees<1||maxEmployees>100000))fail('Employee limit must be a positive whole number.');
  return {version:VERSION,mode,trades,geography:{level,states:uniq(regions),name:clean(raw.name,150),postalCode},batchSize,radiusMiles,headquarters,services:list(input.services),projectTypes:list(input.projectTypes),companySize:clean(input.companySize,80),maxEmployees,whatsapp:mode==='prospects'&&input.whatsapp===true};
 }
-function geographyLabel(g){return g.level==='national'?'United States':g.level==='zip'?g.postalCode+' United States':[g.name,...g.states.map(x=>states[x])].filter(Boolean).join(', ')}
+function geographyLabel(g){return g.level==='national'?'United States':g.level==='zip'?g.postalCode+' United States':['state','multi_state'].includes(g.level)?g.states.map(x=>states[x]).join(', '):[g.name,...g.states.map(x=>states[x])].filter(Boolean).join(', ')}
 function buildQueries(criteria){const c=validateCriteria(criteria),terms=c.mode==='prospects'?'contractor business company services contact':'construction bid RFP permit project subcontractor maintenance contract';return c.trades.flatMap(trade=>{
- const locations=c.geography.level==='multi_state'?(c.geography.states.length<=4?c.geography.states.map(s=>states[s]):['United States']):[geographyLabel(c.geography)];
+ const locations=c.geography.level==='multi_state'?[c.geography.states.length<=4?'('+c.geography.states.map(s=>'"'+states[s]+'"').join(' OR ')+') United States':'United States']:['city','metro','county'].includes(c.geography.level)&&c.geography.states.length>3?[c.geography.name+' United States']:[geographyLabel(c.geography)];
  return locations.map(location=>clean([trade,terms,location,...c.services.slice(0,2),...c.projectTypes.slice(0,2)].join(' '),390));
  })}
 function tradeEvidence(text,trades){const body=' '+key(text)+' ';return trades.flatMap(trade=>{const terms=vocabulary[key(trade)]||[trade];const found=terms.find(t=>body.includes(' '+key(t)+' '));return found?[{trade,term:found}]:[]})}
@@ -46,6 +47,7 @@ function excerpt(text,term,n=450){const i=String(text).toLowerCase().indexOf(Str
 function extractAddress(text){const expression=/\b(\d{1,6}\s+[A-Za-z0-9 .'-]{2,85}\b(?:Street|St|Road|Rd|Avenue|Ave|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Parkway|Pkwy|Place|Pl))[,.\s]+([A-Za-z .'-]{2,45})[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/g;let match;while((match=expression.exec(text))){const a=portable.normalizeAddress(`${match[1]}, ${match[2]}, ${match[3]} ${match[4]}`);if(a.parsed)return a}return null}
 function publicContacts(sources){const emails=[],phones=[];for(const s of sources){for(const line of String(s.content||'').split('\n')){
  for(const match of line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)){const value=match[0].toLowerCase();if(!/@(?:example\.(?:com|org)|test\.com)$/.test(value)&&!/^noreply@/.test(value))emails.push({value,sourceUrl:s.url,quote:clean(line,250)})}
+ for(const match of line.matchAll(/tel:(\+?1?[2-9]\d{2}[2-9]\d{6})(?!\d)/gi)){const digits=match[1].replace(/\D/g,'');phones.push({value:'+1'+(digits.length===11?digits.slice(1):digits),sourceUrl:s.url,quote:clean(line,250)})}
  if(/(?:phone|tel:|call|contact|office|mobile)/i.test(line)&&!/^\s*fax\b/i.test(line))for(const match of line.matchAll(/(?:\+?1[ .-]?)?\(?([2-9]\d{2})\)?[ .-]+([2-9]\d{2})[ .-]+(\d{4})\b/g))phones.push({value:'+1'+match.slice(1).join(''),sourceUrl:s.url,quote:clean(line,250)})
  }}return {emails:[...new Map(emails.map(x=>[x.value,x])).values()].slice(0,8),phones:[...new Map(phones.map(x=>[x.value,x])).values()].slice(0,8)}}
 function whatsappStatus(sources,checked){if(!checked)return {status:'not_checked',evidence:[]};const evidence=[];for(const s of sources){for(const match of String(s.content||'').matchAll(/https:\/\/(?:wa\.me\/[0-9]+|(?:api\.|web\.)?whatsapp\.com\/(?:send\?[^\s)>"\]]*|channel\/[^\s)>"\]]+))/gi)){const quote=excerpt(s.content,match[0],300);if(/\b(?:whatsapp|chat|message us|contact us)\b/i.test(quote)&&!/\b(?:example link|for example|generate|tutorial|sample link)\b/i.test(quote))evidence.push({url:match[0],sourceUrl:s.url,quote})}}return {status:evidence.length?'public_contact_confirmed':sources.length?'not_publicly_found':'not_checked',evidence};}
@@ -53,7 +55,7 @@ function assess(candidate,criteria,sources=[],geo={},now=new Date().toISOString(
  const c=validateCriteria(criteria),source=canonicalUrl(candidate.url),validSources=sources.filter(s=>canonicalUrl(s.url)&&typeof s.content==='string'&&s.content.trim()).map(s=>({url:canonicalUrl(s.url),content:s.content.slice(0,50000),retrievedAt:s.retrievedAt||now})),text=validSources.map(s=>s.content).join('\n'),observed=text||String(candidate.content||''),tradeMatches=tradeEvidence(text,c.trades),regions=stateEvidence(text),g=c.geography;
  const reasons=[],limitations=[];
  if(!source||!validSources.length)reasons.push('source_not_enriched');if(!tradeMatches.length)reasons.push('trade_not_supported_by_source');
- const scoped=g.level==='national'?regions.length>0:g.states.length?regions.some(s=>g.states.includes(s)):true;
+ const scoped=g.level==='national'?regions.length>0:g.states.length?regions.some(s=>g.states.includes(s)):regions.length>0;
  if(!scoped)reasons.push('US_location_not_supported_by_source');
  if(['city','county','metro'].includes(g.level)&&!(' '+key(text)+' ').includes(' '+key(g.name)+' '))reasons.push('area_not_supported_by_source');
  if(g.level==='zip'&&!new RegExp('\\b'+g.postalCode+'\\b').test(text))reasons.push('ZIP_not_supported_by_source');
@@ -61,13 +63,13 @@ function assess(candidate,criteria,sources=[],geo={},now=new Date().toISOString(
  const projectSignal=Object.entries(signals).find(([,pattern])=>pattern.test(text))?.[0]||'';
  const contractor=/\b(?:contractor|contracting|licensed|residential|commercial|our services|service area|plumbing services|roofing services|HVAC services|electrical services)\b/i.test(text);
  let category=c.mode==='prospects'?'contractor_business':projectSignal||'unclassified';
- if(c.mode==='prospects'&&!contractor)reasons.push('contractor_business_not_established');if(c.mode==='opportunities'&&!projectSignal)reasons.push('no_opportunity_signal');
+ if(c.mode==='prospects'&&(!contractor||/\.(?:gov|mil|edu)$/.test(domain(source))))reasons.push('contractor_business_not_established');if(c.mode==='opportunities'&&!projectSignal)reasons.push('no_opportunity_signal');
  if(c.mode==='opportunities'&&/\b(?:bid|tender|solicitation|project)\s+(?:is\s+)?(?:closed|awarded|cancelled|canceled)\b/i.test(text))reasons.push('closed_or_awarded');
  const deadline=text.match(/\b(?:deadline|closing date|bids due|bid due)[:\s]+(\d{4}-\d{2}-\d{2})/i)?.[1]||'';if(deadline&&validDate(deadline)&&deadline<now.slice(0,10))reasons.push('expired_deadline');
  const employees=text.match(/\b(\d{1,6})(?:\s*[-–]\s*(\d{1,6}))?\s+employees\b/i),size=employees?{min:Number(employees[1]),max:Number(employees[2]||employees[1]),evidence:employees[0]}:null;
  if(c.maxEmployees!==null&&(!size||size.max>c.maxEmployees))reasons.push(size?'company_size_outside_limit':'company_size_unknown');
  const miles=c.radiusMiles===null?null:distanceMiles(geo.center,geo.location);if(c.radiusMiles!==null){if(miles===null)reasons.push('distance_unverified');else if(miles>c.radiusMiles)reasons.push('outside_service_radius')}
- const contacts=publicContacts(validSources),address=extractAddress(text),heading=text.match(/^#\s+([^\n#]{3,140})$/m)?.[1],name=clean(heading||candidate.title||'',180);
+ const contacts=publicContacts(validSources),address=extractAddress(text),heading=text.match(/^#\s+([^\n#]{3,140})$/m)?.[1],name=clean(heading&&!/^(?:home|contact|contact us|about|about us|services)$/i.test(heading.trim())?heading:candidate.title||heading||'',180);
  if(!name)reasons.push('name_missing');
  if(!candidate.publishedDate)limitations.push('Original publication date was not supplied.');
  if(!size)limitations.push('Company size is unknown.');if(['county','metro'].includes(g.level))limitations.push('Area relevance is based on published area wording, not an authoritative boundary polygon.');
