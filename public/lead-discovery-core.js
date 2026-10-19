@@ -78,7 +78,7 @@ function assess(candidate,criteria,sources=[],geo={},now=new Date().toISOString(
  const employees=text.match(/\b(\d{1,6})(?:\s*[-–]\s*(\d{1,6}))?\s+employees\b/i),size=employees?{min:Number(employees[1]),max:Number(employees[2]||employees[1]),evidence:employees[0]}:null;
  if(c.maxEmployees!==null&&(!size||size.max>c.maxEmployees))reasons.push(size?'company_size_outside_limit':'company_size_unknown');
  const miles=c.radiusMiles===null?null:distanceMiles(geo.center,geo.location);if(c.radiusMiles!==null){if(miles===null)reasons.push('distance_unverified');else if(miles>c.radiusMiles)reasons.push('outside_service_radius')}
- const contacts=demand?.requester==='public_requester'?{emails:[],phones:[]}:publicContacts(validSources),address=extractAddress(scopeText),heading=text.match(/^#\s+([^\n#]{3,140})$/m)?.[1],name=clean(heading&&!/^(?:home|contact|contact us|about|about us|services)$/i.test(heading.trim())?heading:candidate.title||heading||'',180);
+ const contacts=demand?.requester==='public_requester'?{emails:[],phones:[]}:publicContacts(validSources),address=extractAddress(demand?demand.radiusLocationText:scopeText),heading=text.match(/^#\s+([^\n#]{3,140})$/m)?.[1],name=clean(heading&&!/^(?:home|contact|contact us|about|about us|services)$/i.test(heading.trim())?heading:candidate.title||heading||'',180);
  if(!name)reasons.push('name_missing');
  if(!candidate.publishedDate)limitations.push('Original publication date was not supplied.');
  if(!size)limitations.push('Company size is unknown.');if(['county','metro'].includes(g.level))limitations.push('Area relevance is based on published area wording, not an authoritative boundary polygon.');
