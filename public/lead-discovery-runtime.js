@@ -60,8 +60,8 @@ function createRunner({repository,provider,snapshot,uid=()=>crypto.randomUUID(),
     try{const response=await provider.enrich(run.criteria,run.jobs[index].source);if(!response.candidate?.id||!Array.isArray(response.candidate.evidence))throw Error('The provider returned an invalid candidate.');run=await update(id,r=>{r.jobs[index].candidate=response.candidate;r.jobs[index].status='completed';r.jobs[index].error=null;r.progress.enriched=r.jobs.filter(j=>j.status==='completed').length;return r})}
     catch(error){run=await update(id,r=>{r.jobs[index].status='failed';r.jobs[index].error={message:String(error.message||error),retryable:!!error.retryable};r.errors.push({stage:'enrich',index,message:String(error.message||error),at:now()});return r});if(error.code==='ACCESS_REQUIRED'||error.code==='PROVIDER_AUTH_FAILED')throw error}
    }
-   run=await update(id,r=>{r.progress.failed=r.jobs.filter(j=>j.status==='failed').length+r.queries.filter(q=>q.status==='failed').length;r.status=r.progress.failed?r.progress.enriched?'partial':'failed':'completed';r.completedAt=now();return r});
-  }catch(error){run=await update(id,r=>{r.status='failed';r.error=String(error.message||error);return r})}
+   run=await update(id,r=>{r.progress.failed=r.jobs.filter(j=>j.status==='failed').length+r.queries.filter(q=>q.status==='failed').length;r.status=r.progress.failed?r.progress.enriched?'partial':'failed':'completed';r.completedAt=now();delete r.error;return r});
+  }catch(error){run=await update(id,r=>{r.status='failed';r.error=String(error.message||error);r.progress.failed=r.jobs.filter(j=>j.status==='failed').length+r.queries.filter(q=>q.status==='failed').length;return r})}
   finally{run=await repository.update(id,r=>{if(r.lock?.owner===owner)delete r.lock;return r});await emit(run)}return run;
  }
  return Object.freeze({start,resume:process,active:id=>active.has(id),review:(id,candidateId,decision)=>repository.review(id,candidateId,{...decision,at:now()})});
