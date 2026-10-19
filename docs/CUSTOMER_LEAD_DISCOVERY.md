@@ -15,3 +15,5 @@ Date handling supports ISO, US month/day/year and month-name dates with explicit
 Accepted records use existing Opportunities and schema version 9, retaining source quotes, demand class/status, deadline and reviewer corrections. Source review does not automatically promote a signal to the existing `verified_request` category. No outreach, fake customer data, revenue claims, appointments or private-source access is added.
 
 Validation: pure demand policy tests plus all existing tests and the actual app/browser fixture suite. Live-source acceptance is recorded separately from fixture tests; search may return no qualified current leads. Do not claim private homeowner coverage or guaranteed current jobs from a search index.
+
+The first preview deployment passed unit/browser checks but its immediate HTML hash probe saw the previous version during propagation. Exact-asset verification now retries for a bounded period and still requires the deployed bytes to match the triggering commit; stale content is never accepted as success.

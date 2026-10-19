@@ -100,9 +100,14 @@ jobs:
           const digest=x=>createHash('sha256').update(x).digest('hex');
           (async()=>{
             for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','lead-demand-policy.js','lead-discovery-core.js','lead-discovery-runtime.js','lead-discovery-ui.js','lead-discovery.css','sw.js']){
-              const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
-              assert.equal(response.status,200,file+' must be reachable');
-              assert.equal(digest(Buffer.from(await response.arrayBuffer())),digest(fs.readFileSync('public/'+file)),file+' must match this checkout');
+              const expected=digest(fs.readFileSync('public/'+file));let matched=false;
+              for(let attempt=0;attempt<12;attempt++){
+                const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now()+'-'+attempt,{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
+                if(response.status===200&&digest(Buffer.from(await response.arrayBuffer()))===expected){matched=true;break}
+                console.log('Waiting for exact deployed asset:',file,'attempt',attempt+1);
+                await new Promise(resolve=>setTimeout(resolve,2000));
+              }
+              assert.ok(matched,file+' must be reachable and match this checkout');
             }
             console.log('PASS: all checked live application and discovery assets match the preview checkout');
           })().catch(error=>{console.error(error);process.exitCode=1});
