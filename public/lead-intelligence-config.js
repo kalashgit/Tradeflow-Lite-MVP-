@@ -27,7 +27,7 @@ function interpretResearchRequest(input,context={}){
 }
 function plan(criteria){const c=core.validateCriteria(criteria),scopes=c.geography.level==='multi_state'?c.geography.states.map(state=>({...c,geography:{level:'state',states:[state]}})):[c],queries=[];for(const scope of scopes)for(const query of core.buildQueries(scope))queries.push(query);
  const variants=['licensed residential commercial','local business contact','specialty contractor services','company about contact'];
- const desired=Math.max(queries.length,Math.ceil(c.batchSize/10));const originals=queries.slice();let i=0;while(queries.length<desired){queries.push(core.clean(originals[i%originals.length]+' '+variants[Math.floor(i/originals.length)%variants.length],400));i++}
+ const desired=Math.max(queries.length,Math.ceil(c.batchSize/10),c.mode==='prospects'?Math.min(c.batchSize,2)*c.trades.length:1);const originals=queries.slice();let i=0;while(queries.length<desired){queries.push(core.clean(originals[i%originals.length]+' '+variants[Math.floor(i/originals.length)%variants.length],400));i++}
  return {queries:[...new Set(queries)].slice(0,100),maxProviderRequests:Math.min(100,queries.length)+c.batchSize*2,limitations:queries.length>100?['Search plan limited to 100 queries; configured territory is not exhaustive.']:[]};
 }
 return Object.freeze({interpretResearchRequest,plan});

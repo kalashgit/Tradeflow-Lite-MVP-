@@ -10,7 +10,7 @@ try{execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','depl
  assert.equal((await send('create',{criteria,requestKey:'durable-real-alarm-1'})).run.id,id);
  // No tab exists; alarms must drive check → discovery → enrichment → completion.
  let result;for(let i=0;i<40;i++){await new Promise(r=>setTimeout(r,500));result=await send('get',{id});if(['completed','partial','failed'].includes(result.run.status))break}
- assert.equal(result.run.status,'completed',JSON.stringify(result.run.errors));assert.equal(result.run.jobs.length,1);assert.equal(result.run.jobs[0].candidate.qualification.eligible,true);assert.equal(result.run.usage.reportedCredits,2);assert.equal(metrics.extract,1);
+ assert.equal(result.run.status,'completed',JSON.stringify(result.run.errors));assert.equal(result.run.jobs.length,1);assert.equal(result.run.jobs[0].candidate.qualification.eligible,true);assert.equal(result.run.usage.reportedCredits,3);assert.equal(metrics.extract,1);
  await mf.dispose();mf=new Miniflare({...convertV4MiniflareOptions(options),resourcePersistencePath:dir+'/storage'});assert.equal((await send('get',{id})).run.jobs.length,1);assert.equal((await send('list',{businessId:'other'})).status,403);
  const other=await send('create',{criteria,requestKey:'durable-cancel-2'});assert.equal((await send('cancel',{id:other.run.id})).run.status,'cancelled');
  console.log(JSON.stringify({passed:true,provider:'synthetic boundary; real Cloudflare workerd, SQLite, RPC and alarms',checks:['Authorization rejection','Durable idempotent creation','Background execution without browser','Evidence and provider usage retained','Persistence after runtime restart','Business workspace isolation','Cancellation'],metrics}));
