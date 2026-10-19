@@ -54,3 +54,5 @@ For live acceptance: configure the preview secret; start Plumbing/Ohio and Roofi
 ### Verification notes
 
 An added browser assertion initially tried to use the list's Discover leads button while an Opportunity dossier was still open. It timed out because that button belongs to the list. The test now uses the existing dossier Back button before using the list entry; record opening itself succeeded. The first preview workflow run was cancelled before deployment while this test was corrected.
+
+The first completed CI attempt passed all unit/regression tests but exposed a browser-test wait race: an absent submit button during a render was treated as enabled. The wait now requires a present, enabled button and the expected persisted run-history count. Deployment was skipped by the guard. Live Census probes independently resolved matching public street addresses in Columbus, Ohio and Denver, Colorado; this does not substitute for live Tavily discovery acceptance.
