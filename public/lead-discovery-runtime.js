@@ -23,7 +23,7 @@ function createRepository(database){
    const candidate=entry.candidate,record=core.toOpportunity(candidate,decision,id),duplicates=core.duplicates(record,opportunities,run.criteria.mode);
    if(duplicates.length){entry.review={status:'duplicate',existingIds:duplicates,at:decision.at};run.updatedAt=decision.at;return {run,answer:{status:'duplicate',ids:duplicates}}}
    if(opportunities.some(x=>x.id===record.id))throw Error('Identifier collision: existing records have been preserved.');
-   entry.review={status:'accepted',notes:core.clean(decision.notes,800),at:decision.at};entry.acceptedRecordId=record.id;run.updatedAt=decision.at;
+   entry.review={status:'accepted',notes:core.clean(decision.notes,800),name:record.project_name,at:decision.at};entry.acceptedRecordId=record.id;run.updatedAt=decision.at;
    return {run,inserts:[record],answer:{status:'accepted',id:record.id}};
   },true)}
  });
