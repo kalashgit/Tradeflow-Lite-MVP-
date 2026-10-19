@@ -15,6 +15,7 @@ function createDB(initial={}){
   const tx={error:null,abort(){setImmediate(()=>finish(tx.error||Error('Aborted')))},start(){started=true;working=Object.fromEntries(names.map(s=>[s,new Map([...state[s]].map(([k,v])=>[k,copy(v)]))]));pump()},objectStore(s){if(!names.includes(s))throw Error('Store outside transaction');const request=(action)=>{const r={};operations.push(()=>{try{r.result=copy(action());r.onsuccess?.()}catch(e){tx.error=e;r.onerror?.();finish(e)}});return r};return {
    get:id=>request(()=>working[s].get(id)),getAll:()=>request(()=>[...working[s].values()].sort((a,b)=>a.id.localeCompare(b.id))),
    put:r=>request(()=>{if(mode!=='readwrite')throw Error('Read only');if(db.failPutOnce){db.failPutOnce=false;throw Error('Simulated audit/storage failure')}working[s].set(r.id,copy(r));return r.id}),
+   add:r=>request(()=>{if(mode!=='readwrite')throw Error('Read only');if(working[s].has(r.id))throw Error('ConstraintError');if(db.failPutOnce){db.failPutOnce=false;throw Error('Simulated audit/storage failure')}working[s].set(r.id,copy(r));return r.id}),
    clear:()=>request(()=>working[s].clear()),delete:id=>request(()=>working[s].delete(id))
   }}};
   function pump(){setImmediate(()=>{if(ended)return;if(tx.error){finish(tx.error);return}const op=operations.shift();if(op){op();if(!ended)pump()}else finish()})}
