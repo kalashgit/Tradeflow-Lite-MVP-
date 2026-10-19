@@ -40,9 +40,9 @@ function validateCriteria(input={}){
  return {version:VERSION,demandPolicyVersion:5,mode,leadFocus,trades,geography:{level,states:uniq(regions),name:clean(raw.name,150),postalCode},batchSize,radiusMiles,headquarters,services:list(input.services),projectTypes:list(input.projectTypes),companySize:clean(input.companySize,80),minEmployees,maxEmployees,scoring,provider:clean(input.provider||'tavily',40),whatsapp:mode==='prospects'&&input.whatsapp===true};
 }
 function geographyLabel(g){return g.level==='national'?'United States':g.level==='zip'?g.postalCode+' United States':['state','multi_state'].includes(g.level)?g.states.map(x=>states[x]).join(', '):[g.name,...g.states.map(x=>states[x])].filter(Boolean).join(', ')}
-function buildQueries(criteria){const c=validateCriteria(criteria),terms=c.mode==='prospects'?'(contractor OR company) "our services" contact -careers -jobs -hiring -directory -ranked -"contractor list"':c.leadFocus==='projects'?'("building permit" OR "renovation project" OR "planned construction")':c.leadFocus==='buyers'?'property management facilities maintenance vendor registration':'("request for bids" OR "request for proposals" OR "seeking subcontractors" OR "need a" OR "maintenance contract")';return c.trades.map(trade=>{
+function buildQueries(criteria){const c=validateCriteria(criteria),terms=c.mode==='prospects'?'contractors official business website contact':c.leadFocus==='projects'?'("building permit" OR "renovation project" OR "planned construction")':c.leadFocus==='buyers'?'property management facilities maintenance vendor registration':'("request for bids" OR "request for proposals" OR "seeking subcontractors" OR "need a" OR "maintenance contract")';return c.trades.map(trade=>{
  const location=c.geography.level==='multi_state'?(c.geography.states.length<=4?'('+c.geography.states.map(s=>'"'+states[s]+'"').join(' OR ')+') United States':'United States'):['city','metro','county'].includes(c.geography.level)&&c.geography.states.length>3?c.geography.name+' United States':geographyLabel(c.geography);
- return clean(['"'+trade.replaceAll('"','')+'"',location,terms,...c.services.slice(0,2),...c.projectTypes.slice(0,2)].join(' '),390);
+ return clean([c.mode==='prospects'?trade.replaceAll('"',''):'"'+trade.replaceAll('"','')+'"',location,terms,...c.services.slice(0,2),...c.projectTypes.slice(0,2)].join(' '),390);
  })}
 function isCollection(candidate={},text=''){
  const label=key(candidate.title),url=canonicalUrl(candidate.url||candidate.sourceUrl),path=(()=>{try{return decodeURIComponent(new URL(url).pathname)}catch{return ''}})();
@@ -103,8 +103,11 @@ function assess(candidate,criteria,sources=[],geo={},now=new Date().toISOString(
  if(c.mode==='opportunities'&&demand.kind==='none')reasons.push('no_opportunity_signal');if(c.mode==='opportunities'&&/\b(?:fundamentals|how to|guide to|what is|templates?|tutorial|course|training|webinar|definition)\b/.test(key(candidate.title)))reasons.push('explanatory_content_not_opportunity');
  if(c.mode==='opportunities'&&/\b(?:bid|tender|solicitation|project)\s+(?:is\s+)?(?:closed|awarded|cancelled|canceled)\b/i.test(text))reasons.push('closed_or_awarded');
  const deadline=text.match(/\b(?:deadline|closing date|bids due|bid due)[:\s]+(\d{4}-\d{2}-\d{2})/i)?.[1]||'';if(deadline&&validDate(deadline)&&deadline<now.slice(0,10))reasons.push('expired_deadline');
- const employees=text.match(/\b(\d{1,6})(?:\s*[-–]\s*(\d{1,6}))?\s+employees\b/i),size=employees?{min:Number(employees[1]),max:Number(employees[2]||employees[1]),evidence:employees[0]}:null;
- if((c.maxEmployees!==null||c.minEmployees!==null)&&(!size||c.maxEmployees!==null&&size.max>c.maxEmployees||c.minEmployees!==null&&size.min<c.minEmployees))reasons.push(size?'company_size_outside_limit':'company_size_unknown');
+ const employees=text.match(/\b(?:(over|more than|at least|about|approximately|nearly|up to|fewer than)\s+)?(\d{1,3}(?:,\d{3})+|\d{1,6})(?:\s*[-–]\s*(\d{1,3}(?:,\d{3})+|\d{1,6}))?\s+employees\b/i),employeeNumber=v=>Number(String(v).replaceAll(',',''));
+ const size=employees?{min:employees[1]&&/up to|fewer than|about|approximately|nearly/i.test(employees[1])?null:employeeNumber(employees[2]),max:employees[1]&&!/up to|fewer than/i.test(employees[1])?null:employeeNumber(employees[3]||employees[2]),qualifier:employees[1]||'explicit_count_or_range',evidence:employees[0]}:null;
+ const sizeUnknown=!size||c.maxEmployees!==null&&size.max===null||c.minEmployees!==null&&size.min===null;
+ if((c.maxEmployees!==null||c.minEmployees!==null)&&(sizeUnknown||c.maxEmployees!==null&&size.max>c.maxEmployees||c.minEmployees!==null&&size.min<c.minEmployees))reasons.push(sizeUnknown?'company_size_unknown':'company_size_outside_limit');
+
  const miles=c.radiusMiles===null||c.mode==='prospects'&&!firstParty?null:distanceMiles(geo.center,geo.location);if(c.radiusMiles!==null){if(miles===null)reasons.push('distance_unverified');else if(miles>c.radiusMiles)reasons.push('outside_service_radius')}
 
  const contactSources=c.mode==='prospects'&&!firstParty?[]:validSources;
@@ -118,7 +121,7 @@ function assess(candidate,criteria,sources=[],geo={},now=new Date().toISOString(
  limitations.push('A source-supported signal is not proof of an available job, current buying intent or consent to outreach.');
  if(demand?.requester==='public_requester')limitations.push('Use the original public request to respond; personal contact details are not extracted.');
  const evidence=[...(demand?.evidence||[]),...validSources.map(s=>({sourceUrl:s.url,retrievedAt:s.retrievedAt,quote:excerpt(s.content,tradeMatches[0]?.term||name,1000)}))];
- const scoringSignals={trade:tradeMatches.length>0,geography:scoped,contact:contacts.emails.length>0||contacts.phones.length>0,activity:/\b(?:since \d{4}|licensed|current projects|request for bids|request for proposals)\b/i.test(text),size:!!size,evidence:validSources.length>0,freshness:!!candidate.publishedDate&&Date.parse(now)-Date.parse(candidate.publishedDate+'T12:00:00Z')<=90*86400000};
+ const scoringSignals={trade:tradeMatches.length>0,geography:scoped,contact:contacts.emails.length>0||contacts.phones.length>0,activity:/\b(?:since \d{4}|licensed|current projects|request for bids|request for proposals)\b/i.test(text),size:!!size&&size.min!==null&&size.max!==null,evidence:validSources.length>0,freshness:!!candidate.publishedDate&&Date.parse(now)-Date.parse(candidate.publishedDate+'T12:00:00Z')<=90*86400000};
  const scoreBreakdown=Object.entries(c.scoring).map(([factor,weight])=>({factor,weight,points:scoringSignals[factor]?weight:0,explanation:scoringSignals[factor]?'Supported by source checks':'Not established from available evidence'}));
  const reasonsUnique=uniq(reasons);
  const website=firstParty?source:'';
