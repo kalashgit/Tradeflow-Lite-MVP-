@@ -1,0 +1,209 @@
+/* TradeFlow Notifications v1 — compact, local and actionable.
+   No push service: notices are derived solely from saved records when the app renders.
+   The red dot reflects genuinely unread entries, not a hardcoded indicator. */
+(function(global){
+'use strict';
+const KEY='tf-notifications-v1';
+const MAX_SEEN=650;
+const DAY=86400000;
+const routes=new Set(['dashboard','growth','missions','tasks','calendar','opportunities','quotes','jobs','customers','expenses','invoices','research','marketing','settings']);
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safe=v=>String(v==null?'':v).trim().slice(0,160);
+const dateToday=now=>{const d=new Date(now);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00'));
+const parseTime=v=>{let n=new Date(v).getTime();return Number.isFinite(n)?n:0};
+const fingerprint=s=>{let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)}return (x>>>0).toString(36)};
+let api=null,open=false,working=false,lastData=null;
+function loadState(d){return (d.settings||[]).find(x=>x.id===KEY)||null}
+function recent(d,now,days=21){const t=parseTime(d);return t&&t<=now+60000&&t>now-days*DAY}
+function sourceEvents(d,now){
+ const out=[];
+ for(const item of d.events||[]){
+  if(!item||!recent(item.date,now))continue;
+  const title=safe(item.text);
+  if(!title)continue;
+  const id='activity:event:'+(item.id||fingerprint(title+'|'+item.date));
+  const route=/quot|estimat/i.test(title)?'quotes':/customer|client/i.test(title)?'customers':
+   /job|dispatch|crew/i.test(title)?'jobs':/opportunit|lead|prospect/i.test(title)?'opportunities':
+   /invoice|payment|expense|income|revenue/i.test(title)?'expenses':/calendar|appointment|scheduled/i.test(title)?'calendar':
+   /task|mission/i.test(title)?'tasks':'dashboard';
+  out.push({id,group:'activity',title,detail:'Saved activity',route,at:parseTime(item.date),date:item.date});
+ }
+ // Opportunity batches have real import timestamps but might not produce general app events.
+ const batches=new Map();
+ for(const item of d.opportunities||[]){
+  const at=parseTime(item.imported_at);
+  if(!recent(item.imported_at,now))continue;
+  const minute=String(item.imported_at).slice(0,16);
+  if(!minute)continue;
+  const prev=batches.get(minute)||{count:0,at:0};
+  prev.count++;prev.at=Math.max(prev.at,at);
+  batches.set(minute,prev);
+ }
+ for(const [minute,batch] of batches){
+  out.push({id:'activity:import:'+minute,group:'activity',title:batch.count+' opportunit'+(batch.count===1?'y':'ies')+' imported',
+   detail:'Review source evidence',route:'opportunities',at:batch.at,date:new Date(batch.at).toISOString()});
+ }
+ return out.sort((a,b)=>b.at-a.at).slice(0,9);
+}
+function generate(d,now=Date.now()){
+ const day=dateToday(now),items=[],tasks=d.tasks||[],quotes=d.quotes||[],opportunities=d.opportunities||[];
+ // Priority: due work must be real and unfinished. The ID changes only for a new deadline.
+ for(const task of tasks){
+  if(!task||task.status==='Done'||task.status==='Cancelled'||task.missionOrigin==='growth'||!validDate(task.due)||task.due>day)continue;
+  items.push({id:'priority:task:'+safe(task.id||fingerprint(task.title))+'|'+task.due,
+   group:'priority',title:safe(task.title)||'Task due',detail:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0});
+ }
+ for(const item of opportunities){
+  if(!item||['Won','Lost'].includes(item.status)||!validDate(item.followup_date)||item.followup_date>day)continue;
+  items.push({id:'priority:op:'+safe(item.id||item.record_id)+'|'+item.followup_date,
+   group:'priority',title:'Opportunity follow-up',detail:safe(item.project_name||item.organization_name)||'Review contact and next step',
+   route:'opportunities',sort:item.followup_date,at:0});
+ }
+ for(const quote of quotes){
+  if(!quote||!['Sent','Pending','Awaiting'].includes(quote.status))continue;
+  const due=quote.followup_date||quote.followupDate;
+  if(!validDate(due)||due>day)continue;
+  items.push({id:'priority:quote:'+safe(quote.id)+'|'+due,group:'priority',title:'Quote follow-up',
+   detail:safe(quote.title||quote.reference||'Sent quotation'),route:'quotes',sort:due,at:0});
+ }
+ const s=(d.settings||[]).find(x=>x.id==='growth-profiles-v1')||{},icps=Array.isArray(s.icps)?s.icps:[],personas=Array.isArray(s.personas)?s.personas:[];
+ const active=icps.find(x=>x.id===s.activeIcpId)||icps[0];
+ for(const task of tasks){
+  if(!task||task.missionOrigin!=='growth'||['Done','Cancelled'].includes(task.status))continue;
+  items.push({id:'growth:mission:'+safe(task.id),group:'growth',title:safe(task.title)||'Growth mission',
+   detail:'Mission · Open in Missions',route:'missions',sort:task.createdAt||task.due||'',at:parseTime(task.createdAt)});
+ }
+ if(!icps.length){
+  items.push({id:'growth:setup-icp:v1',group:'growth',title:'Set target customers',detail:'Define your ideal customer profile',route:'growth',sort:'',at:0});
+ }else if(!personas.some(x=>!x.icpId||x.icpId===active?.id)){
+  items.push({id:'growth:setup-persona:'+safe(active?.id||'default'),group:'growth',title:'Define a buyer persona',
+   detail:'Identify who makes purchasing decisions',route:'growth',sort:'',at:0});
+ }
+ // Cap each section, but do not hide the newest notifications just because an older one exists.
+ const priority=items.filter(x=>x.group==='priority').sort((a,b)=>String(a.sort).localeCompare(String(b.sort))).slice(0,8);
+ const growth=items.filter(x=>x.group==='growth').sort((a,b)=>String(b.sort).localeCompare(String(a.sort))).slice(0,7);
+ return [...priority,...growth,...sourceEvents(d,now)];
+}
+function itemsWithRead(d,now=Date.now()){
+ const state=loadState(d),ids=new Set(Array.isArray(state?.seen)?state.seen:[]),started=parseTime(state?.startedAt);
+ const values=generate(d,now);
+ return values.map(x=>({...x,unread:!ids.has(x.id)&&!(x.group==='activity'&&(!started||!x.at||x.at<=started))}));
+}
+function formatTime(n,now){
+ if(!n)return '';
+ const m=Math.max(0,Math.round((now-n)/60000));
+ if(m<2)return 'Just now';
+ if(m<60)return m+'m';
+ const h=Math.floor(m/60);if(h<24)return h+'h';
+ const d=Math.floor(h/24);return d+'d';
+}
+const groupNames={priority:'PRIORITY',growth:'GROWTH INTELLIGENCE',activity:'ACTIVITY'};
+function groupIcon(name){
+ if(name==='priority')return '<path d="M12 3v9m0 5v.5"/><path d="M5.5 4h13l3 17h-19z"/>';
+ if(name==='growth')return '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>';
+ return '<path d="M4 4v16M4 12h5l3-5 3 10 3-5h3"/>';
+}
+function icon(type){
+ return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+groupIcon(type)+'</svg>';
+}
+function panel(d,items,now){
+ const unread=items.filter(x=>x.unread).length;
+ const sections=['priority','growth','activity'].map(section=>{
+  const group=items.filter(x=>x.group===section);
+  if(!group.length)return '';
+  return '<section class="tf-notif-group" aria-label="'+groupNames[section]+'"><h3>'+icon(section)+groupNames[section]+
+   '<span>'+group.length+'</span></h3>'+
+   group.map(x=>'<button type="button" class="tf-notif-item'+(x.unread?' unread':'')+'" data-notif-action="go" data-notif-id="'+esc(x.id)+
+    '" aria-label="'+esc(x.title+' — '+x.detail)+'"><span class="tf-notif-status" aria-hidden="true"></span><span class="tf-notif-copy"><strong>'+esc(x.title)+
+    '</strong><small>'+esc(x.detail)+'</small></span><span class="tf-notif-side">'+(x.at&&x.group==='activity'?'<time>'+formatTime(x.at,now)+'</time>':'')+
+    '<span class="tf-notif-arrow" aria-hidden="true">›</span></span></button>').join('')+'</section>';
+ }).filter(Boolean).join('');
+ return '<section id="tfNotificationsPanel" class="tf-notif-panel" role="dialog" aria-modal="false" aria-label="Notifications" tabindex="-1">'+
+  '<header class="tf-notif-panel-head"><div><span>TRADEFLOW / INTELLIGENCE</span><h2>Notifications'+(unread?' <em>'+unread+' new</em>':'')+'</h2></div>'+
+  '<button type="button" class="tf-notif-dismiss" data-notif-action="close" aria-label="Close notifications">×</button></header>'+
+  '<div class="tf-notif-panel-body">'+(sections||'<div class="tf-notif-empty"><strong>All clear</strong><p>No notifications need your attention.</p></div>')+'</div>'+
+  '<footer class="tf-notif-panel-footer">'+(unread?'<button type="button" data-notif-action="read-all">Mark all read</button>':'<span>Up to date</span>')+
+  '<small>On-device activity · No push alerts</small></footer></section>';
+}
+function home(d,bellIcon){
+ lastData=d;
+ const items=itemsWithRead(d),unread=items.filter(x=>x.unread).length;
+ return '<div class="tf-notif-anchor"><button class="tf-home-alert" type="button" data-notif-action="toggle" aria-label="Notifications'+(unread?', '+unread+' unread':'')+
+  '" aria-controls="tfNotificationsPanel" aria-expanded="'+(open?'true':'false')+'">'+bellIcon+
+  (unread?'<i aria-hidden="true"></i>':'')+'</button>'+
+  (open?panel(d,items,Date.now()):'')+'</div>';
+}
+async function bootstrap(d){
+ if(!api)return;
+ if(loadState(d))return;
+ const state={id:KEY,seen:[],startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+ await api.put('settings',state);
+ (d.settings||(d.settings=[])).push(state);
+}
+function nextState(old,seen){
+ return {id:KEY,startedAt:old?.startedAt||new Date().toISOString(),
+  seen:[...new Set(seen)].slice(-MAX_SEEN),updatedAt:new Date().toISOString()};
+}
+async function mark(ids){
+ if(!api||!ids.length)return;
+ const current=await api.get('settings',KEY);
+ const values=itemsWithRead(lastData||{settings:[]});
+ const eligible=new Set(values.map(x=>x.id));
+ const updates=ids.filter(id=>eligible.has(id));
+ if(!updates.length)return;
+ await api.put('settings',nextState(current,[...(current?.seen||[]),...updates]));
+}
+function close(){
+ if(!open)return;
+ open=false;
+}
+async function handleClick(event){
+ const button=event.target.closest?.('[data-notif-action]');
+ if(!button){
+  if(open&&!event.target.closest?.('.tf-notif-anchor')){close();}
+  return;
+ }
+ event.preventDefault();
+ event.stopImmediatePropagation();
+ if(!api||working)return;
+ const action=button.dataset.notifAction;
+ try{
+  if(action==='toggle'){
+   open=!open;await api.render();
+   if(open)document.querySelector('#tfNotificationsPanel')?.focus({preventScroll:true});
+   return;
+  }
+  if(action==='close'){
+   close();await api.render();document.querySelector('.tf-home-alert')?.focus({preventScroll:true});return;
+  }
+  if(action==='read-all'){
+   working=true;
+   await mark(itemsWithRead(lastData||{settings:[]}).filter(x=>x.unread).map(x=>x.id));
+   await api.render();return;
+  }
+  if(action==='go'){
+   const id=button.dataset.notifId;
+   const item=itemsWithRead(lastData||{settings:[]}).find(x=>x.id===id);
+   if(!item)return;
+   working=true;
+   await mark([item.id]);close();
+   await api.navigate(routes.has(item.route)?item.route:'dashboard');
+   return;
+  }
+ }catch(err){alert('Notifications could not be updated: '+String(err?.message||err))}
+ finally{working=false}
+}
+function onKey(event){
+ if(event.key!=='Escape'||!open)return;
+ event.preventDefault();
+ close();
+ api?.render().then(()=>document.querySelector('.tf-home-alert')?.focus({preventScroll:true}));
+}
+function configure(bridge){
+ api=bridge;
+ document.addEventListener('click',handleClick,true);
+ document.addEventListener('keydown',onKey);
+}
+global.TradeFlowNotifications={configure,bootstrap,home,close,_test:{generate,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
+})(typeof window!=='undefined'?window:globalThis);

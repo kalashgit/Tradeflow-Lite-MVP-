@@ -1,0 +1,42 @@
+/* TradeFlow Field Forms R02: simple, readable, offline checklists inside Job dossier. */
+.tf-job-form{margin-top:18px!important;color:#e9f7fd;border:1px solid #31596b!important;background:#0d2938!important;border-radius:14px}
+.tf-job-form *{box-sizing:border-box}
+.tf-job-form-top{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.tf-job-form-top>div{display:flex;flex-direction:column;gap:6px}
+.tf-job-form-top span:not(.tf-job-form-count){color:var(--tf-accent,#10cfe1);font:720 9px ui-monospace,monospace;letter-spacing:.12em}
+.tf-job-form-top h3{color:#f1fcff;font-size:18px;margin:1px 0 0;letter-spacing:-.02em}
+.tf-job-form-top p{margin:0;color:#98b8c7;font-size:12px;line-height:1.5}
+.tf-job-form-count{flex:none;border:1px solid #427084;background:#123b4d;border-radius:9px;padding:9px 11px;font-size:12px;font-weight:750;color:#caeffa}
+.tf-job-form-progress{border-radius:999px;background:#244557;height:5px;overflow:hidden;margin:14px 0 13px}
+.tf-job-form-progress>span{display:block;height:100%;border-radius:999px;background:var(--tf-accent,#10cfe1)}
+.tf-job-checklist{display:flex;flex-direction:column;border:1px solid #2d4d5c;border-radius:11px;overflow:hidden;margin:0 0 12px}
+.tf-job-checkline{display:flex;align-items:center;gap:10px;background:#0e3041;border-bottom:1px solid #25495c;padding:11px 12px}
+.tf-job-checkline:last-child{border-bottom:0}
+.tf-job-checkline label{display:flex;gap:10px;align-items:center;flex:1;color:#d1eaf4;font-size:12px;line-height:1.45;cursor:pointer}
+.tf-job-checkline input{appearance:auto;width:19px;height:19px;flex:none;accent-color:var(--tf-accent,#10cfe1)}
+.tf-job-checkline span.checked{color:#86adbb;text-decoration:line-through}
+.tf-job-checkline button{border:1px solid #385c6f;border-radius:8px;background:#193f51;color:#a7d5df;font-size:18px;width:28px;height:29px;flex:none}
+.tf-job-form-empty{margin:0 0 12px;color:#9cbbc6;font-size:12px;line-height:1.55}
+.tf-job-form-actions{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:16px}
+.tf-job-form-actions button{border:1px solid #47798a;background:#153b4e;color:#d8f5fc;font-size:11px;font-weight:710;padding:10px 12px;min-height:37px;border-radius:8px}
+#tfJobChecklistAdd,#tfJobAssessmentForm{display:flex;flex-direction:column;gap:9px;margin-top:13px}
+#tfJobChecklistAdd label,#tfJobAssessmentForm label{font-size:12px;font-weight:710;color:#d2eaf2}
+#tfJobChecklistAdd>div{display:flex;align-items:center;gap:8px}
+#tfJobChecklistAdd input,#tfJobAssessmentForm textarea{width:100%;min-width:0;background:#061d2b;border:1px solid #426c81;color:#e3f8ff;font:inherit;font-size:12px;border-radius:9px;padding:11px;outline:none}
+#tfJobAssessmentForm textarea{resize:vertical;line-height:1.55}
+#tfJobChecklistAdd button,#tfJobAssessmentForm button{align-self:flex-start;padding:11px 14px;min-height:39px;color:#04212e;background:var(--tf-accent,#10cfe1);border:0;border-radius:9px;font-weight:780;font-size:12px}
+.tf-job-form-privacy{margin:14px 0 0!important;color:#86a9b9;font-size:10px!important;line-height:1.65}
+#tfJobChecklistAdd input:focus,#tfJobAssessmentForm textarea:focus,.tf-job-form button:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
+@media(max-width:500px){.tf-job-form{padding:14px!important}.tf-job-form-actions{gap:7px}}
+@media print{
+ body *{visibility:hidden!important}
+ .tf-job-form,.tf-job-form *{visibility:visible!important}
+ .tf-job-form{position:absolute!important;left:0!important;top:0!important;width:100%!important;max-width:none!important;border:0!important;color:#000!important;background:#fff!important;box-shadow:none!important;padding:20px!important;margin:0!important;font-family:Arial,sans-serif!important}
+ .tf-job-form *{color:#000!important;background:transparent!important;text-shadow:none!important;box-shadow:none!important}
+ .tf-job-form-top h3{font-size:22px!important}
+ .tf-job-form-top>div>span{color:#444!important}
+ .tf-job-form-actions,#tfJobChecklistAdd,#tfJobAssessmentForm button,.tf-job-checkline button,.tf-job-form-privacy,.tf-job-form-progress{display:none!important}
+ .tf-job-checklist{border:0!important;margin-top:15px!important}
+ .tf-job-checkline{border-bottom:1px solid #ccc!important;break-inside:avoid;padding:11px 0!important}
+ #tfJobAssessmentForm textarea{border:1px solid #999!important;min-height:100px!important;white-space:pre-wrap}
+}

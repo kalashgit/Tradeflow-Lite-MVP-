@@ -1,0 +1,25 @@
+'use strict';
+const assert=require('node:assert/strict');
+const engine=require('../public/tradeflow-engine.js');
+const sample='6801 River Place Blvd, Austin, TX 78726, Texas';
+const out=engine.normalizeAddress(sample);
+assert.deepEqual([out.streetNumber,out.streetName,out.city,out.region,out.postalCode,out.parsed],['6801','River Place Blvd','Austin','TX','78726',true]);
+assert.equal(engine.normalizeAddress({city:sample}).normalized,out.normalized,'Full address stored in the city field must be recognized');
+assert.equal(engine.normalizeAddress({address:sample,city:'Austin',state:'TX',zip:'78726'}).normalized,out.normalized,'Separate address fields supported');
+assert.equal(engine.canonicalKey('6801 River Place Boulevard, Austin, TX 78726'),engine.canonicalKey(sample),'Canonical key deduplicates road suffixes');
+assert.equal(engine.normalizeAddress('6801 River Place Blvd Austin TX 78726').parsed,true,'Standard address without commas');
+assert.equal(engine.normalizeAddress({address:sample,country:'GR'}).reason,'unsupported-country','Do not force US parsing on other countries');
+assert.equal(engine.normalizeAddress('Austin, TX').parsed,false);
+assert.equal(engine.candidateScore(out,{streetNumber:'6802',streetName:'River Place Blvd',city:'Austin',region:'TX',postalCode:'78726'}).confidence,'rejected');
+const adapter=engine.makeEngine({geo:{geocode:async ({street,city,region,postalCode})=>({candidates:[{latitude:30.4,longitude:-97.7,streetNumber:'6801',streetName:street.slice(5),city,region,postalCode,precision:'address'}]})},ai:{generate:async req=>({text:req.messages[0].content})},store:{get:async key=>key,set:async (key,value)=>({key,value})},jobs:{enqueue:async task=>({accepted:true,id:task.id})}});
+(async()=>{
+ const mapped=await adapter.geocode(sample);
+ assert.equal(mapped.status,'mapped');assert.equal(mapped.match.confidence,'high');
+ assert.equal((await adapter.generate({messages:[{content:'hello'}]})).text,'hello');
+ assert.equal(await adapter.read('key'),'key');
+ assert.equal((await adapter.queue({id:'abc',type:'geocode'})).accepted,true);
+ const missing=engine.makeEngine({});
+ await assert.rejects(missing.generate({messages:[]}),/Missing provider adapter/);
+ await assert.rejects(missing.geocode(sample),/Missing provider adapter/);
+ console.log('PASS: provider-neutral core, normalized U.S. addresses, canonical address cache keys, geocoding validation, AI/storage/queue interfaces');
+})().catch(e=>{console.error(e);process.exitCode=1});

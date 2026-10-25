@@ -1,0 +1,35 @@
+/* TradeFlow pilot customer capture — graphite surfaces and mobile-safe review. */
+.tf-customer-dialog{position:fixed;inset:0;z-index:1800;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.76);padding:10px 0 0}
+.tf-customer-modal{box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;width:min(100%,560px);max-height:calc(100dvh - 16px);padding:22px 18px max(22px,env(safe-area-inset-bottom));background:var(--tf-panel,#1c1d20);border:1px solid var(--tf-border,#34373d);border-radius:24px 24px 0 0;color:var(--tf-text,#f5f5f5);box-shadow:0 24px 75px #0009}
+.tf-customer-modal .modalhead{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+.tf-customer-modal .modalhead h2{margin:0;font-size:21px;letter-spacing:-.02em}
+.tf-customer-modal .tf-record-close{font-size:26px;min-width:42px;min-height:42px;border:1px solid #383b42;border-radius:12px;background:#292b2f;color:#f5f5f5}
+.tf-customer-hint,.tf-customer-modal small{color:#a9adb2;line-height:1.5}
+.tf-customer-hint{font-size:13px;margin:10px 0 16px}
+.tf-customer-modal .field{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;font-size:13px;color:#cbd0d3}
+.tf-customer-modal input:not([type=checkbox]),.tf-customer-modal textarea{display:block;box-sizing:border-box;width:100%;min-height:46px;background:#2a2c31!important;border:1px solid #43464d!important;border-radius:12px!important;padding:11px 12px!important;color:#f5f5f5!important;font:inherit;outline:none}
+.tf-customer-modal textarea{min-height:92px;resize:vertical}
+.tf-customer-modal input:focus,.tf-customer-modal textarea:focus{border-color:var(--tf-accent,#65d3e1)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--tf-accent,#65d3e1) 16%,transparent)}
+.tf-customer-fields{display:grid;grid-template-columns:1fr;gap:1px}
+.tf-customer-notices,.tf-customer-duplicates,.tf-customer-success{padding:12px 14px;margin:12px 0;background:#292b2f;border:1px solid #34373d;border-radius:16px;color:#dfe3e6;font-size:13px}
+.tf-customer-notices ul{margin:0;padding-left:18px}.tf-customer-notices li+li{margin-top:5px}
+.tf-customer-duplicates h3,.tf-customer-linked h3{font-size:15px;margin:0 0 8px}
+.tf-customer-duplicates button{display:block;width:100%;text-align:left;background:#34363b;border:1px solid #474b52;color:#f5f5f5;padding:11px 12px;border-radius:12px;margin:8px 0}
+.tf-customer-duplicates button small{display:block}
+.tf-customer-check{display:flex;align-items:flex-start;gap:10px;margin:14px 0;font-size:13px;line-height:1.5;color:#dfe3e6}
+.tf-customer-check input{width:18px;height:18px;flex-shrink:0;accent-color:var(--tf-accent,#65d3e1)}
+.tf-customer-error{color:#ffb4ad;background:#472b30;border-radius:12px;padding:11px;font-size:13px}
+.tf-customer-modal .tf-record-actions{display:flex;gap:9px;margin-top:18px}
+.tf-customer-modal .tf-record-actions button{min-height:46px;flex:1;border-radius:12px;font-weight:650;padding:10px 12px}
+.tf-customer-modal .tf-record-save{color:var(--tf-accent-contrast,#091418);background:var(--tf-accent,#65d3e1);border:1px solid transparent;border-radius:12px;padding:12px}
+.tf-customer-modal .tf-record-save:disabled{opacity:.5;cursor:not-allowed}
+.tf-customer-modal .tf-record-cancel,.tf-customer-modal .btn.secondary{color:#e5e7eb;background:#292b2f;border:1px solid #41454b;border-radius:12px;padding:12px}
+.tf-customer-wide{display:block;width:100%;margin:14px 0}
+.tf-customer-linked{margin-top:18px}.tf-customer-linked button{display:block;width:100%;margin-top:9px}
+.tf-customer-smart-launch{background:color-mix(in srgb,var(--tf-accent,#65d3e1) 12%,#2a2c31)!important;color:#f5f5f5!important;border:1px solid color-mix(in srgb,var(--tf-accent,#65d3e1) 24%,#34373d)!important}
+@media(min-width:640px){.tf-customer-dialog{align-items:center;padding:24px}.tf-customer-modal{border-radius:22px;max-height:calc(100dvh - 48px)}.tf-customer-fields{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}.tf-customer-fields .field:has(textarea){grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){.tf-customer-modal *{scroll-behavior:auto!important}}
+
+/* Optional browser speech entry — accent follows the user's selected TradeFlow theme. */
+.tf-customer-speak{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:47px;margin:0 0 16px;padding:11px 15px;border-radius:13px;background:color-mix(in srgb,var(--tf-accent,#65d3e1) 10%,#292b2f);border:1px solid color-mix(in srgb,var(--tf-accent,#65d3e1) 34%,#34373d);color:#f5f5f5;font-size:14px;font-weight:650;cursor:pointer}
+.tf-customer-speak[aria-pressed=true]{border-color:var(--tf-accent,#65d3e1);box-shadow:0 0 0 2px color-mix(in srgb,var(--tf-accent,#65d3e1) 15%,transparent)}

@@ -1,0 +1,7 @@
+worker_id,scope,target,notes
+DISCOVER-01,Austin official electrical permits,100,Public project signals only
+DISCOVER-02,Austin commercial development projects,50,Do not overlap permit IDs
+DISCOVER-03,Austin public procurement,50,Official solicitation portals only
+ENRICH-01,Assigned discovered organizations,50,Verify legal business identity
+ENRICH-02,Assigned approved organizations,50,Public business contact channels only
+VERIFY-01,All proposed approvals,100,Independent evidence audit

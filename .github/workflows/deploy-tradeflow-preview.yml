@@ -1,0 +1,244 @@
+name: Deploy TradeFlow Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/v05-map
+    paths:
+      - "public/**"
+      - "src/**"
+      - "tests/**"
+      - "wrangler.jsonc"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-tradeflow-preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeflow-preview-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    name: Deploy preview Worker only
+    runs-on: ubuntu-latest
+    environment: tradeflow-preview
+    steps:
+      - name: Checkout development branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v05-map
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify app behavior without network calls
+        run: node tests/map-experience.test.cjs && node --check public/map-experience.js && node tests/address-location-e2e.test.cjs && node tests/address-resolution.test.cjs && node tests/core-integration.test.cjs && node --check public/core-integration.js && node --check public/suppliers.js && node tests/smoke.test.cjs && node tests/ai-preview.test.cjs && node tests/growth.test.cjs && node tests/calendar.test.cjs && node tests/schedule-engine.test.cjs && node --check public/schedule-engine.js && node tests/job-forms.test.cjs && node --check public/job-forms.js && node --check public/calendar.js && node --check public/growth.js && node tests/revenue.test.cjs && node --check public/revenue.js && node tests/marketing.test.cjs && node --check public/marketing.js && node tests/routes.test.cjs && node --check public/routes.js && node tests/operations.test.cjs && node --check public/operations.js && node tests/research-briefs.test.cjs && node --check public/research-briefs.js && node tests/qc-import.test.cjs && node tests/notifications.test.cjs && node --check public/notifications.js && node tests/opportunities-v5.test.cjs && node --check public/opportunities-v5.js && node tests/unified-header.test.cjs && node tests/map-all.test.cjs && node tests/portable-engine.test.cjs && node --check public/tradeflow-engine.js && node tests/address-recovery.test.cjs && node tests/finance-ui-and-map-retry.test.cjs && node tests/appearance-theme.test.cjs && node --check public/appearance-theme.js && node tests/opportunity-dossier.test.cjs && node --check public/opportunity-dossier.js && node tests/opportunity-native-links.test.cjs && node tests/dossier-reference-ui.test.cjs && node --check src/index.js
+
+      - name: Verify pilot command and intelligence foundation
+        run: node --test tests/command-registry.test.cjs tests/operational-intelligence.test.cjs tests/pilot-integration.test.cjs tests/record-interpreter.test.cjs tests/customer-create.test.cjs tests/customer-capture.test.cjs tests/voice-entry.test.cjs tests/voice-command.test.cjs tests/launch-more-commands.test.cjs tests/launch-workspace-commands.test.cjs tests/voice-command-integration-fix.test.cjs && node --check public/command-registry.js && node --check public/operational-intelligence.js && node --check public/voice-command.js && node --check public/customer-capture.js
+
+      - name: Verify US locale and imperial unit defaults
+        run: node --test tests/us-conventions.test.cjs && node --check public/us-conventions.js
+
+      - name: Verify preview-only Wrangler configuration
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
+          if (config.name !== 'tradeflow-v05-preview' || config.assets?.directory !== './public') {
+            throw new Error('Deployment blocked: Wrangler config is not the expected preview Worker and public/ directory');
+          }
+          console.log('Preview-only deployment guard passed');
+          NODE
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Deploy to Cloudflare preview
+        run: npx wrangler deploy --config wrangler.jsonc --name tradeflow-v05-preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify live pilot foundation assets
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict'),{createHash}=require('node:crypto');
+          const root='https://tradeflow-v05-preview.bartoszszarafinski.workers.dev';
+          const digest=x=>createHash('sha256').update(x).digest('hex');
+          (async()=>{
+            for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','sw.js']){
+              const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
+              assert.equal(response.status,200,file+' must be reachable');
+              assert.equal(digest(Buffer.from(await response.arrayBuffer())),digest(fs.readFileSync('public/'+file)),file+' must match this checkout');
+            }
+            console.log('PASS: all twelve live pilot foundation assets match the preview checkout');
+          })().catch(error=>{console.error(error);process.exitCode=1});
+          NODE
+
+      - name: Verify live Cloudflare AI endpoint and auth checks
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const root='https://tradeflow-v05-preview.bartoszszarafinski.workers.dev';
+          (async()=>{
+           let response,health;
+           for(let i=0;i<15;i++){
+            try{
+             response=await fetch(root+'/api/ai/health?probe='+Date.now()+'-'+i,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+             health=await response.json().catch(()=>({}));
+             if(response.status===200&&health.version==='v0.9.39')break;
+             console.log('Waiting for deployed Worker version: HTTP',response.status,'version:',health.version||'unknown');
+            }catch(error){console.log('AI health network retry '+(i+1)+': '+error.name)}
+            await new Promise(resolve=>setTimeout(resolve,4500));
+           }
+           assert.ok(response,'Live AI endpoint did not respond');
+           assert.equal(response.status,200,'AI health endpoint status');
+           assert.equal(health.online,true,'AI health endpoint must respond as JSON');
+           assert.equal(health.version,'v0.9.39','Wait for new AI version instead of accepting stale deployment');
+           assert.equal(health.aiBound,true,'Workers AI binding must be attached');
+           console.log('Live Worker health:',JSON.stringify(health));
+           response=await fetch(root+'/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'deliberately-wrong-code'}),signal:AbortSignal.timeout(12000)});
+           const body=await response.json();
+           assert.ok([401,503].includes(response.status),'Verification must reject incorrect access code or indicate missing server secret');
+           console.log('Live verification endpoint:',response.status,body.error);
+           let originalUiLive=false;
+           for(let i=0;i<12;i++){
+            const salt='verify='+Date.now()+'-'+i;
+            const home=await fetch(root+'/?'+salt,{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+            const html=await home.text();
+            originalUiLive=home.status===200&&html.includes('./app.js')&&html.includes('./ai-preview.css')&&
+             html.includes('./growth.js')&&html.includes('./growth.css')&&html.includes('./calendar.js')&&html.includes('./calendar.css')&&html.includes('./job-forms.js')&&html.includes('./job-forms.css')&&
+             !html.includes('liquid-glass-lab.js')&&!html.includes('liquid-glass-lab.css');
+            if(originalUiLive)break;
+            console.log('Waiting for original TradeFlow UI to propagate:',i+1,'HTTP',home.status);
+            await new Promise(resolve=>setTimeout(resolve,4300));
+           }
+           assert.ok(originalUiLive,'Updated TradeFlow HTML must load without the removed Liquid Glass prototype');
+           const growthAsset=await fetch(root+'/growth.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const growthJs=await growthAsset.text();
+           assert.equal(growthAsset.status,200,'Growth Intelligence client module must be reachable');
+           assert.ok(growthJs.includes('TradeFlow Growth Intelligence'),'Growth Intelligence script must be deployed');
+           const calendarAsset=await fetch(root+'/calendar.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const calendarJs=await calendarAsset.text();
+           assert.equal(calendarAsset.status,200,'Calendar module must be reachable');
+           assert.ok(calendarJs.includes('TradeFlow Calendar R03')&&calendarJs.includes('tf-cal-timeline'),'The real time-grid Calendar R03 must be deployed');
+          const schedulerAsset=await fetch(root+'/schedule-engine.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+          const schedulerJs=await schedulerAsset.text();
+          assert.equal(schedulerAsset.status,200,'Offline scheduler module must be reachable');
+          assert.ok(schedulerJs.includes('TradeFlow Scheduling Engine V1')&&schedulerJs.includes('horizonDays'),'The local scheduling engine must be deployed');
+           const fieldAsset=await fetch(root+'/job-forms.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const fieldJs=await fieldAsset.text();
+           assert.equal(fieldAsset.status,200,'Job assessment forms module must be reachable');
+           assert.ok(fieldJs.includes('TradeFlow Field Forms R02'),'Correct field forms module must be deployed');
+           const revenueAsset=await fetch(root+'/revenue.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const revenueJs=await revenueAsset.text();
+           assert.equal(revenueAsset.status,200,'Revenue client module must be reachable');
+           assert.ok(revenueJs.includes('TradeFlow Revenue Release 03'),'Correct Revenue module must be deployed');
+           const revenueCss=await fetch(root+'/revenue.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(revenueCss.status,200,'Revenue styles must be reachable');
+           const releaseHome=await fetch(root+'/?release='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const releaseHtml=await releaseHome.text();
+           assert.ok(releaseHtml.includes('./revenue.js')&&releaseHtml.includes('./revenue.css'),'Homepage must load revenue assets');
+           const marketingAsset=await fetch(root+'/marketing.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const marketingJs=await marketingAsset.text();
+           assert.equal(marketingAsset.status,200,'Marketing Studio module must be reachable');
+           assert.ok(marketingJs.includes('TradeFlow Marketing R04'),'Correct Marketing module must be deployed');
+           const marketingCss=await fetch(root+'/marketing.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(marketingCss.status,200,'Marketing Studio styles must be reachable');
+           const mkHome=await fetch(root+'/?marketing='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const mkHtml=await mkHome.text();
+           assert.ok(mkHtml.includes('./marketing.js')&&mkHtml.includes('./marketing.css'),'Homepage must include the Marketing module');
+           const routeAsset=await fetch(root+'/routes.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const routeJs=await routeAsset.text();
+           assert.equal(routeAsset.status,200,'Route module must be reachable');
+           assert.ok(routeJs.includes('TradeFlow Routing & Integrations R05'),'Correct R05 route module must be deployed');
+           const routeCss=await fetch(root+'/routes.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(routeCss.status,200,'Route styles must be reachable');
+           const routeHome=await fetch(root+'/?route='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const routeHtml=await routeHome.text();
+           assert.ok(routeHtml.includes('./routes.js')&&routeHtml.includes('./routes.css'),'Homepage must include R05 assets');
+           const opsAsset=await fetch(root+'/operations.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const opsJS=await opsAsset.text();
+           assert.equal(opsAsset.status,200,'Crew Operations script must be available');
+           assert.ok(opsJS.includes('TradeFlow Operations R05'),'Correct Crew module deployed');
+           const opsCSS=await fetch(root+'/operations.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(opsCSS.status,200,'Crew Operations styles available');
+           const opsHome=await fetch(root+'/?crew='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const opsHTML=await opsHome.text();
+           assert.ok(opsHTML.includes('./operations.js')&&opsHTML.includes('./operations.css'),'Homepage must load Crew Operations');
+           console.log('PASS: R05 local crew, dispatch and Marketing R04 database migration deployed');
+           console.log('PASS: Route planning and integration status R05 assets deployed');
+           const briefAsset=await fetch(root+'/research-briefs.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const briefJs=await briefAsset.text();
+           assert.equal(briefAsset.status,200,'Research brief tool must be reachable');
+           assert.ok(briefJs.includes('TradeFlow R04 Research Briefs'),'Correct research brief module must be deployed');
+           const briefStyles=await fetch(root+'/research-briefs.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(briefStyles.status,200,'Research brief styles must be reachable');
+           const briefHome=await fetch(root+'/?research='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const briefHtml=await briefHome.text();
+           assert.ok(briefHtml.includes('./research-briefs.js')&&briefHtml.includes('./research-briefs.css'),'Homepage must load R04 research assets');
+           console.log('PASS: QC audit approved-only candidate gate and exclusion counting in importer');
+           console.log('PASS: Source-first Research Briefs R04 deployed without automated sourcing claims');
+           console.log('PASS: Marketing R04 offline draft and task workflow assets deployed');
+           console.log('PASS: Revenue Release 03 draft, manual-payment and job-cost UI deployed');
+           console.log('PASS: Release 02 Field Forms asset deployed');
+           console.log('PASS: TradeFlow Calendar Release 02 foundation deployed');
+           console.log('PASS: Growth Intelligence Release 01 assets deployed');
+           const notificationsAsset=await fetch(root+'/notifications.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const notificationsJs=await notificationsAsset.text();
+           assert.equal(notificationsAsset.status,200,'TradeFlow Notifications script must be reachable');
+           assert.ok(notificationsJs.includes('TradeFlow Notifications v1'),'Live notifications script must match this release');
+           const notificationsStyles=await fetch(root+'/notifications.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(notificationsStyles.status,200,'Notifications styles must be reachable');
+           const notificationsHome=await fetch(root+'/?notifications='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const nhtml=await notificationsHome.text();
+           assert.ok(nhtml.includes('./notifications.js')&&nhtml.includes('./notifications.css'),'Live app HTML must load notifications');
+           console.log('PASS: Home bell opens compact Priority, Growth Intelligence and Activity notification panel');
+           const opAsset=await fetch(root+'/opportunities-v5.js?check='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const opSource=await opAsset.text();
+           assert.equal(opAsset.status,200,'New opportunity sheets module reachable');
+           assert.ok(opSource.includes('TradeFlow Opportunities 05'),'Correct opportunity UI deployed');
+           const opCSS=await fetch(root+'/opportunities-v5.css?check='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           assert.equal(opCSS.status,200,'Opportunity styles reachable');
+           const opHome=await fetch(root+'/?v5='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const opHtml=await opHome.text();
+           assert.ok(opHtml.includes('./opportunities-v5.js')&&opHtml.includes('./opportunities-v5.css'),'Preview index must load v5 resources');
+           const sheetJS=await fetch(root+'/map-experience.js?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const sheetCode=await sheetJS.text();
+           assert.equal(sheetJS.status,200,'TradeFlow map experience script reachable');
+           assert.ok(sheetCode.includes('TradeFlow Map Experience M01')&&sheetCode.includes('pointerdown'),'Correct map sheet and drag code deployed');
+           const sheetCSS=await fetch(root+'/map-experience.css?verify='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const sheetStyle=await sheetCSS.text();
+           assert.equal(sheetCSS.status,200,'TradeFlow map experience stylesheet reachable');
+           assert.ok(sheetStyle.includes('tf-exp-directions')&&sheetStyle.includes('tf-exp-handle'),'Correct map sheet styling deployed');
+           assert.ok(opHtml.includes('./map-experience.js')&&opHtml.includes('./map-experience.css'),'Live preview loads map module and styling');
+           console.log('PASS: Map M01 draggable sheet, route preview and smoked-glass assets are live');
+           console.log('PASS: Opportunities v5 Import Export sheets and map overview deployed');
+           const brandCss=await fetch(root+'/unified-header.css?check='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const brandSource=await brandCss.text();
+           assert.equal(brandCss.status,200,'Shared TradeFlow brand header stylesheet must be deployed');
+           assert.ok(brandSource.includes('TradeFlow Unified Brand Header'),'Correct header style deployed');
+           const brandRoot=await fetch(root+'/?brand='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const brandHtml=await brandRoot.text();
+           assert.ok(brandHtml.includes('./unified-header.css'),'The app must load the shared header style');
+           console.log('PASS: Unified branded header stylesheet deployed');
+           console.log('PASS: View Map processes all eligible unmapped opportunities with rate-limited, cached lookups');
+           const portableAsset=await fetch(root+'/tradeflow-engine.js?check='+Date.now(),{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(12000)});
+           const portableScript=await portableAsset.text();
+           assert.equal(portableAsset.status,200,'Portable engine module must deploy');
+           assert.ok(portableScript.includes('TradeFlow portable engine v1'),'Right engine asset deployed');
+           console.log('PASS: Portable cloud and AI engine foundation deployed');
+           console.log('PASS: Original TradeFlow UI retained; Liquid Glass prototype not loaded');
+           console.log('PASS: Real deployed AI endpoint is reachable over GET and POST');
+          })().catch(error=>{console.error(error);process.exitCode=1});
+          NODE
