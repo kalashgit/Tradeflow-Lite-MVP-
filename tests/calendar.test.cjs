@@ -44,7 +44,7 @@ async function run(){
   calendars:[],calendarPreferences:[]
  };
  assert.equal(cal.records(live).length,4,'records remain linked rather than duplicated');
- assert.equal(cal.conflicts(live).length,1,'overlaps are detected for one assigned resource');
+ assert.equal(cal.conflicts(live,{from:'2026-10-19',until:'2026-10-20'}).length,1,'overlaps are detected for one assigned resource');
  assert.ok(cal.render(live).includes('tf-cal-timeline'),'Week / Day views have a real timed grid');
  assert.ok(cal.render(live).includes('Unscheduled work'),'Tasks without times go to planning queue');
  await click({preventDefault(){},target:{dataset:{calendarAction:'event',key:'job:job-1'},closest(){return this}}});
