@@ -55,6 +55,12 @@ function createController(host){
   busy=true;message='';
   let mapExecuted=false;
   try{
+   const libraryIntent=globalThis.TradeFlowLibraryCommands?.parse(instruction);
+   if(libraryIntent&&host.libraryCommand){
+    const outcome=await host.libraryCommand(libraryIntent);
+    if(outcome?.status==='not_found'||outcome?.status==='ambiguous'||outcome?.status==='unsupported'){message=outcome.message||'That Library action is unavailable.';return}
+    close();mapExecuted=true;return;
+   }
    const mapIntent=globalThis.TradeFlowLaunchMapCommands?.parse(instruction);
    if(mapIntent&&host.mapCommand){
     // Close first so the map action runs after the voice overlay is dismissed.
