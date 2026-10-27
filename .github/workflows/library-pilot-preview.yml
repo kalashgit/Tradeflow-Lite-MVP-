@@ -1,0 +1,85 @@
+name: TradeFlow Library Pilot Preview
+on:
+  push:
+    branches:
+      - feature/library-universal-intake
+    paths:
+      - ".github/workflows/library-pilot-preview.yml"
+      - "public/**"
+      - "src/**"
+      - "tests/**"
+      - "wrangler.jsonc"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tradeflow-library-pilot-preview
+  cancel-in-progress: false
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    environment: tradeflow-preview
+    steps:
+      - name: Checkout the actual Library feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/library-universal-intake
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax and regression checks
+        run: |
+          node --check public/app.js
+          node --check public/library.js
+          node --check public/document-intake.js
+          node --check public/location-quality.js
+          node --check public/job-intake-links.js
+          node --check public/library-commands.js
+          node --check public/voice-command.js
+          node --check public/calendar.js
+          node --test tests/document-intake.test.cjs tests/job-intake-links.test.cjs tests/library-commands.test.cjs tests/location-quality.test.cjs
+          node tests/smoke.test.cjs
+          node tests/address-resolution.test.cjs
+          node tests/calendar.test.cjs
+      - name: Install Wrangler
+        run: npm install --no-audit --no-fund
+      - name: Verify isolation
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const config=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
+          if(config.name!=='tradeflow-v05-preview'||config.assets?.directory!=='./public')throw Error('Unexpected base configuration');
+          for(const item of ['library.js','library.css','document-intake.js','location-quality.js','job-intake-links.js','library-commands.js'])if(!fs.existsSync('public/'+item))throw Error('Missing '+item);
+          NODE
+      - name: Deploy separate Library pilot Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx wrangler deploy --config wrangler.jsonc --name tradeflow-library-pilot-preview
+      - name: Verify preview serves current Library assets
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const root='https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev';
+          (async()=>{
+            for(let i=0;i<10;i++){
+              try{
+                const res=await fetch(root+'/?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
+                const body=await res.text();
+                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')){
+                  for(const file of ['library.js','document-intake.js','location-quality.js','app.js']){
+                    const asset=await fetch(root+'/'+file+'?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
+                    assert.equal(asset.status,200,file);
+                  }
+                  console.log('Live pilot preview assets verified at '+root);return;
+                }
+              }catch(e){console.log('Verification attempt:',e.message)}
+              await new Promise(r=>setTimeout(r,4000));
+            }
+            throw Error('Library preview did not become available or assets did not match expected version');
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
