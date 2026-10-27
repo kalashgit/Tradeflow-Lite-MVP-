@@ -17,3 +17,18 @@
 @media(max-width:430px){.tf-lib{padding:22px 17px 100px}.tf-lib-intake{padding:16px}.tf-lib-folder{padding:18px 0}.tf-lib-intake h2{font-size:16px}.tf-lib-actions button{font-size:14px}}
 
 .tf-home-intro{position:relative}.tf-home-library-shortcut{display:inline-flex;align-items:center;gap:7px;margin-top:14px;border:1px solid #365865;border-radius:12px;background:#222d32;color:#77d9ed;padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer}.tf-home-library-shortcut svg{flex-shrink:0}.tf-home-library-shortcut:active{background:#30444d}
+
+/* Priority 5: printed-document review, consistent with graphite/cyan Library. */
+.tf-doc-review{margin:20px 0;border:1px solid #405159;background:#1d2226;border-radius:18px;padding:16px;color:#f3f7fa}
+.tf-doc-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.tf-doc-top h2{font-size:19px;margin:0}.tf-doc-top button{background:transparent;border:0;font-size:25px;color:#becbd2;padding:6px}
+.tf-doc-review>small,.tf-doc-footnote{color:#a2afb9;font-size:12px;line-height:1.5}
+.tf-doc-caution{font-size:13px;line-height:1.5;color:#c3d1d8;padding:11px;background:#28343b;border-radius:12px;margin:14px 0}
+.tf-doc-original,.tf-doc-target,.tf-doc-field{display:flex;flex-direction:column;gap:7px;font-size:13px;color:#c8d4dc}
+.tf-doc-target{margin:12px 0}.tf-doc-original{margin:14px 0}
+.tf-doc-review input,.tf-doc-review select,.tf-doc-review textarea{box-sizing:border-box;width:100%;padding:11px 12px;border-radius:10px;border:1px solid #56626b;background:#10181f;color:#f4fbff;font-size:16px;min-height:44px}
+.tf-doc-review textarea{line-height:1.5;resize:vertical}
+.tf-doc-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:14px 0}
+.tf-doc-warning{color:#ffbd9a;font-size:12px}.tf-doc-status{color:#8cdff0;font-size:12px;line-height:1.5}
+.tf-doc-continue{border:0;background:#1c8296;color:white;border-radius:12px;min-height:46px;padding:12px 16px;width:100%;font-size:15px;font-weight:650}
+.tf-lib-process{border-radius:8px!important;border:1px solid #375f6b!important;color:#7edff0!important;font-size:12px!important;padding:7px!important}
+@media(max-width:430px){.tf-doc-review{padding:13px}.tf-doc-fields{grid-template-columns:1fr}}
