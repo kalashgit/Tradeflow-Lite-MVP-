@@ -68,7 +68,7 @@ function entryFromCalendar(x){
 function records(d){
  var entries=[];
  (d.tasks||[]).forEach(function(t){entries.push(entryFromSource(t,'task'))});
- (d.jobs||[]).forEach(function(j){entries.push(entryFromSource(j,'job'))});
+ (d.jobs||[]).forEach(function(j){if(!j.intakeLinkageVersion||root.TradeFlowJobIntakeLinks?.calendarVisible(j))entries.push(entryFromSource(j,'job'))});
  (d.calendarEntries||[]).forEach(function(x){entries.push(entryFromCalendar(x))});
  var linked=new Set((d.calendarEntries||[]).filter(function(x){return x.sourceId&&['task','job'].includes(x.sourceKind)&&x.status!=='Cancelled'}).map(function(x){return x.sourceKind+':'+x.sourceId}));
  // Linked task sessions are authoritative for their own time slots; retain one
