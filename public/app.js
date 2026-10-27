@@ -1766,7 +1766,22 @@ function tfInitializePilot(){
    }
    return {handled:true};
   }
-  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+  async function runLibraryVoiceAction(request){
+  if(!window.TradeFlowLibrary)throw Error('Library unavailable');
+  if(request.action==='open'||request.action==='upload'||request.action==='scan'||request.action==='showFiles'){
+    await tfNavigateWorkspace('library');
+    if(request.action==='showFiles'&&request.target)window.TradeFlowLibrary.chooseFolder(({'jobs':'Jobs & Projects','customers':'Customers','quotes':'Quotations & Invoices'})[request.target]||'');
+    // Browser file pickers require a direct user gesture: show Import or Scan buttons instead.
+    if(request.action==='upload'||request.action==='scan')notify('Tap '+(request.action==='scan'?'Scan document':'Import files')+' to choose a file.');
+    return {status:'navigate'};
+  }
+  if(request.action==='reviewSavedFile'){
+    await tfNavigateWorkspace('library');
+    return await window.TradeFlowLibrary.runCommand(request);
+  }
+  return {status:'unsupported'};
+ }
+ if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
