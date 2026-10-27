@@ -50,7 +50,7 @@ const groups=[
  ['Quotations & Invoices','doc'],['Other Documents','folder']
 ];
 function itemRow(r){
- return '<div class="tf-lib-file"><span class="tf-lib-fileicon">'+svg('doc',21)+'</span><div class="tf-lib-filetext"><strong>'+escape(r.name)+'</strong><small>'+escape(r.folder)+' · '+Math.ceil(r.size/1024)+' KB · '+new Date(r.addedAt).toLocaleDateString()+'</small></div><button type="button" data-library="download" data-id="'+escape(r.id)+'" aria-label="Download '+escape(r.name)+'">'+svg('download',20)+'</button><button type="button" data-library="delete" data-id="'+escape(r.id)+'" aria-label="Delete '+escape(r.name)+'">'+svg('trash',19)+'</button></div>';
+ return '<div class="tf-lib-file"><span class="tf-lib-fileicon">'+svg('doc',21)+'</span><div class="tf-lib-filetext"><strong>'+escape(r.name)+'</strong><small>'+escape(r.folder)+' · '+Math.ceil(r.size/1024)+' KB · '+new Date(r.addedAt).toLocaleDateString()+'</small></div><button type="button" data-library="download" data-id="'+escape(r.id)+'" aria-label="Download '+escape(r.name)+'">'+svg('download',20)+'</button>'+( /\.(csv|tsv|txt)$/i.test(r.name)?'<button type="button" class="tf-lib-process" data-library="process" data-id="'+escape(r.id)+'" aria-label="Import records from '+escape(r.name)+'">Import records</button>':'')+'<button type="button" data-library="delete" data-id="'+escape(r.id)+'" aria-label="Delete '+escape(r.name)+'">'+svg('trash',19)+'</button></div>';
 }
 function render(){
  const filtered=records.filter(r=>!r.folderMarker&&(!selected||r.folder===selected)&&(!search||[r.name,r.folder].join(' ').toLowerCase().includes(search.toLowerCase())));
@@ -108,6 +108,14 @@ document.addEventListener('click',async event=>{
   if(action==='import'||action==='add'){choose('file');return}
   if(action==='scan'){choose('camera');return}
   if(action==='download'){await download(button.dataset.id);return}
+  if(action==='process'){
+   const record=await fileById(button.dataset.id);if(!record)return;
+   const defaultTarget={'Jobs & Projects':'jobs','Customers':'customers','Quotations & Invoices':'quotes'}[record.folder]||'';
+   const value=defaultTarget||prompt('Import into: jobs, customers, quotes, tasks, expenses or payments','jobs');
+   const target=String(value||'').trim().toLowerCase();
+   if(!['jobs','customers','quotes','tasks','expenses','payments'].includes(target)){if(value)alert('Choose a supported record type.');return}
+   root.dispatchEvent(new CustomEvent('tf-library-import',{detail:{file:new File([record.blob],record.name,{type:record.type}),target}}));return;
+  }
   if(action==='delete'){await remove(button.dataset.id);return}
   if(action==='newfolder'){
    const name=prompt('New folder name');
