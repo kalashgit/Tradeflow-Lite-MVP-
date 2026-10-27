@@ -15,3 +15,5 @@
 .tf-lib-file button{background:transparent;border:0;color:#b5c2c8;padding:7px}.tf-lib-file button:last-child{color:#b79d9d}.tf-lib-disclaimer{font-size:12px;color:#888f94;line-height:1.5;margin-top:27px}.tf-lib-empty{padding:22px 0;color:#a4acb2}
 .tf-lib-search input{display:block;width:100%;box-sizing:border-box;border-radius:13px;background:#27292b;color:white;border:1px solid #465057;padding:13px 15px;font-size:16px;margin:-10px 0 20px}
 @media(max-width:430px){.tf-lib{padding:22px 17px 100px}.tf-lib-intake{padding:16px}.tf-lib-folder{padding:18px 0}.tf-lib-intake h2{font-size:16px}.tf-lib-actions button{font-size:14px}}
+
+.tf-home-intro{position:relative}.tf-home-library-shortcut{display:inline-flex;align-items:center;gap:7px;margin-top:14px;border:1px solid #365865;border-radius:12px;background:#222d32;color:#77d9ed;padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer}.tf-home-library-shortcut svg{flex-shrink:0}.tf-home-library-shortcut:active{background:#30444d}
