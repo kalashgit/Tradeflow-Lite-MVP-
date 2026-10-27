@@ -1065,16 +1065,30 @@ if(el.dataset.action==='mapMyLocation'){
 }if(el.dataset.action==='mapHome'){setMapHome();return}if(el.dataset.action==='mapPinDelete'){if(confirm('Delete this saved map pin?')){await del('pins',el.dataset.id);render()}return}if(el.dataset.action==='mapPinView'){focusMapPin(el.dataset.id);return}if(el.dataset.action==='opportunityReviewClose'){opportunityImportDraft=null;render();return}if(el.dataset.action==='opportunityReviewTab'){opportunityImportTab=el.dataset.filter;render();return}if(el.dataset.action==='opportunityReviewSave'){await saveOpportunityImportDraft();return}if(el.dataset.action==='opportunityMapAll'){mapLastView=null;tab='map';await render();/* Map opens immediately using existing coordinates; address lookup requires a separate user action. */return}if(el.dataset.action==='opportunityMapRemaining'){await locateOpportunityBatch(await all('opportunities'));return}if(el.dataset.action==='opportunityLocate'){
  const r=await get('opportunities',el.dataset.id);if(!r)return;
  const locations=window.TradeFlowLocationQuality,variants=locations?.variants(r)||[];
+ const suppliedPin=[r.google_maps_url,r.googleMapsUrl,r.map_url,r.mapUrl].filter(Boolean).map(url=>window.TradeFlowAddress?.googlePinCoordinates(url)).find(Boolean);
+ if(suppliedPin){
+  if(!confirm('Use the explicitly selected Google Maps point for this opportunity? It still needs owner verification.'))return;
+  r.latitude=suppliedPin.lat;r.longitude=suppliedPin.lon;r.map_enabled=true;r.map_location_status='needs_review';
+  r.map_location_source='owner-provided-google-point';r.map_location_checked_at=new Date().toISOString();
+  await put('opportunities',r);mapLastView={center:[suppliedPin.lon,suppliedPin.lat],zoom:16};tab='map';await render();
+  notify('Google Maps point loaded — verify the property location.');return;
+ }
  if(!variants.length){alert('This record has no complete street address. Review its address before locating it.');return}
  if(!confirm('Look up this address? One user-triggered online request. Review the resulting pin before trusting it.'))return;
  if(navigator.onLine===false){alert('Address lookup requires an internet connection.');return}
  try{
   const key='tf-address:'+variants[0].toLowerCase().replace(/\s+/g,' ');
-  let matches=mapGeocodeCache.get(key);
-  if(!matches){
+  const persisted=(await get('settings',opportunityGeoCacheId))||{id:opportunityGeoCacheId,results:{}};
+  const stored=persisted.results&&typeof persisted.results==='object'?persisted.results:{};
+  let matches=mapGeocodeCache.get(key)||stored[key];
+  if(!Array.isArray(matches)){
    matches=await mapNominatim('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q='+encodeURIComponent(variants[0]));
-   mapGeocodeCache.set(key,matches);
+   matches=Array.isArray(matches)?matches.slice(0,5).map(hit=>({lat:hit.lat,lon:hit.lon,display_name:String(hit.display_name||'').slice(0,350),address:hit.address||{}})):[];
+   stored[key]=matches;
+   const keys=Object.keys(stored);for(const stale of keys.slice(0,Math.max(0,keys.length-400)))delete stored[stale];
+   await put('settings',{id:opportunityGeoCacheId,results:stored});
   }
+  mapGeocodeCache.set(key,matches);
   const picked=locations.choose(r,matches);
   if(picked.status!=='matched_needs_review'){
    r.map_location_status=picked.status==='approximate'?'approximate':'unresolved';
