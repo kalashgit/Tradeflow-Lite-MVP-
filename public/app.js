@@ -131,7 +131,7 @@ let tfImportDraft=null,tfImportSaving=false;
 const tfImportDefs={
  customers:{label:'Customers',fields:[['name','Customer name',true,['customer','customername','fullname','name','client','clientname','contact','contactname']],['firstName','First name',false,['firstname','givenname']],['lastName','Last name',false,['lastname','surname','familyname']],['phone','Phone',false,['phone','phonenumber','telephone','mobile','cell','contactnumber']],['email','Email',false,['email','emailaddress','contactemail']],['address','Address',false,['address','streetaddress','location','customeraddress','billingaddress']],['company','Company',false,['company','business','businessname','organization','organisation']],['notes','Notes',false,['notes','comments','description']]]},
  quotes:{label:'Quotations',fields:[['title','Description',true,['title','description','quote','quotation','quotetitle','quotedescription','project','scope']],['customerId','Customer name or ID',true,['customer','customername','client','clientname','customerid','clientid']],['category','Trade category',false,['trade','category','tradecategory','type']],['amount','Estimated value',false,['amount','value','estimatedvalue','quoteamount','quotevalue','total','price']],['status','Status',false,['status','stage']],['sentDate','Date sent',false,['datesent','sentdate','date','quotedate']]]},
- jobs:{label:'Jobs',fields:[['title','Job description',true,['job','jobtitle','jobdescription','title','description','project','projectname','scope']],['customerId','Customer name or ID',true,['customer','customername','client','clientname','customerid','clientid']],['category','Trade',false,['trade','category','tradecategory']],['status','Status',false,['status','stage','jobstatus']],['date','Scheduled date',false,['scheduleddate','date','startdate','jobdate','schedule']]]},
+ jobs:{label:'Jobs',fields:[['title','Job description',true,['job','jobtitle','jobdescription','title','description','project','projectname','scope']],['customerId','Customer name or ID',true,['customer','customername','client','clientname','customerid','clientid']],['category','Trade',false,['trade','category','tradecategory']],['status','Status',false,['status','stage','jobstatus']],['date','Scheduled date',false,['scheduleddate','date','startdate','jobdate','schedule']],['scheduleTime','Start time',false,['time','starttime','scheduledtime','appointmenttime']],['durationMinutes','Duration (minutes)',false,['durationminutes','minutes','duration']],['address','Site address',false,['address','siteaddress','jobaddress','location','workaddress']],['latitude','Latitude',false,['latitude','lat']],['longitude','Longitude',false,['longitude','lon','lng']],['googleMapsUrl','Google Maps pin link',false,['googlemapsurl','mapslink','googlemaplink']]]},
  tasks:{label:'Tasks',fields:[['title','Task title',true,['task','tasktitle','title','description','action','todo']],['customerId','Customer name or ID',false,['customer','customername','client','clientname','customerid','clientid']],['due','Due date',false,['due','duedate','deadline','date']],['status','Status',false,['status','stage']]]},
  expenses:{label:'Expenses',fields:[['amount','Amount paid',true,['amount','paid','value','cost','total','expenseamount','debit']],['date','Payment date',true,['date','paymentdate','paiddate','transactiondate','expensedate']],['title','Description',false,['description','title','expense','memo','details']],['category','Category',false,['category','type','expensecategory','trade']],['vendor','Supplier',false,['vendor','supplier','merchant','payee','paidto']],['method','Payment method',false,['paymentmethod','method','paymenttype']],['notes','Notes',false,['notes','comments']]]},
  payments:{label:'Income',fields:[['amount','Amount received',true,['amount','payment','paid','received','total','income','credit','revenue']],['date','Payment date',true,['date','paymentdate','receiveddate','transactiondate']],['source','Payer / source',false,['source','customer','client','payer','from','description']],['method','Payment method',false,['paymentmethod','method','paymenttype']],['notes','Notes',false,['notes','comments','memo']]]}
@@ -198,7 +198,7 @@ function tfImportDupKey(target,record){
  const val=x=>tfImportNorm(x);
  if(target==='customers')return record.email?'e:'+val(record.email):record.phone?'p:'+String(record.phone).replace(/\D/g,''):'n:'+val(record.name)+'|'+val(record.address);
  if(target==='quotes')return [record.customerId,record.title,record.amount,record.sentDate].map(val).join('|');
- if(target==='jobs')return [record.customerId,record.title,record.date].map(val).join('|');
+ if(target==='jobs')return [record.customerId,record.title,record.date,record.scheduleTime||''].map(val).join('|');
  if(target==='tasks')return [record.title,record.customerId,record.due].map(val).join('|');
  if(target==='expenses')return [record.amount,record.date,record.vendor||'',record.title||''].map(val).join('|');
  if(target==='payments')return [record.amount,record.date,record.source||'',record.method||''].map(val).join('|');
@@ -231,6 +231,11 @@ function tfImportToRecord(values,target,customers){
   }else{
    r.status=['Planned','In Progress','Completed'].find(x=>tfImportNorm(x)===tfImportNorm(v('status')))||'Planned';
    r.date=tfImportDate(v('date'));if(r.date===null)return {error:'Invalid scheduled date'};
+   const customerRecord=customers.find(c=>c.id===r.customerId);
+   const linkage=window.TradeFlowJobIntakeLinks?.augment(r,values,customerRecord);
+   if(!linkage)return {error:'Job linkage engine unavailable'};
+   if(linkage.error)return {error:linkage.error};
+   Object.assign(r,linkage.record);
   }
  }else if(target==='tasks'){
   r.title=v('title');if(!r.title)return {error:'Missing task title'};
