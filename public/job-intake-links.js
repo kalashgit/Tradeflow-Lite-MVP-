@@ -34,6 +34,7 @@
   }
   const url=str(googleMaps);
   if(!url)return null;
+  if(!/^https:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps\/|maps\.google\.[a-z.]+\/)/i.test(url))return {error:'Use a full Google Maps place link with a selected point'};
   // Only explicitly selected Google Maps coordinates, not viewport (@) location.
   const pair=url.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
   if(!pair)return {error:'Google Maps link has no explicit selected point; needs review'};
