@@ -92,10 +92,24 @@ async function remove(id){
  const rec=await fileById(id);if(!rec||!confirm('Remove '+rec.name+' from this device?'))return;
  await transaction('readwrite',s=>s.delete(id));await refresh();
 }
-function actionFromImport(){
- // Reuse the application's existing review/duplicate-detection and atomic CSV importer.
- // The library itself is not authorized to silently create jobs.
- return true;
+async function startImport(id,target){
+ const record=await fileById(id);if(!record||record.folderMarker)throw Error('Document not found');
+ if(!/\.(csv|tsv|txt)$/i.test(record.name))throw Error('This file cannot be imported as CSV');
+ if(!['jobs','customers','quotes','tasks','expenses','payments'].includes(target))throw Error('Unsupported import type');
+ root.dispatchEvent(new CustomEvent('tf-library-import',{detail:{file:new File([record.blob],record.name,{type:record.type}),target}}));
+ return {status:'review',message:'Review the import fields and confirm before saving.'};
+}
+async function runCommand(request){
+ if(!request||!request.action)return {status:'unsupported'};
+ if(request.action==='open')return {status:'navigate'};
+ if(request.action==='upload')return {status:'pick-file'};
+ if(request.action==='scan')return {status:'pick-camera'};
+ if(request.action==='showFiles')return {status:'navigate',folder:({'jobs':'Jobs & Projects','customers':'Customers','quotes':'Quotations & Invoices'})[request.target]||''};
+ if(request.action!=='reviewSavedFile')return {status:'unsupported'};
+ const matches=(await load()).filter(r=>!r.folderMarker&&r.name.toLowerCase()===String(request.filename||'').toLowerCase());
+ if(!matches.length)return {status:'not_found',message:'No saved file with that exact name. Open Library to select a file.'};
+ if(matches.length!==1)return {status:'ambiguous',message:'Multiple files have this name. Open Library and choose the right one.'};
+ return startImport(matches[0].id,request.target);
 }
 document.addEventListener('click',async event=>{
  const button=event.target.closest('[data-library]');
@@ -114,7 +128,7 @@ document.addEventListener('click',async event=>{
    const value=defaultTarget||prompt('Import into: jobs, customers, quotes, tasks, expenses or payments','jobs');
    const target=String(value||'').trim().toLowerCase();
    if(!['jobs','customers','quotes','tasks','expenses','payments'].includes(target)){if(value)alert('Choose a supported record type.');return}
-   root.dispatchEvent(new CustomEvent('tf-library-import',{detail:{file:new File([record.blob],record.name,{type:record.type}),target}}));return;
+   await startImport(record.id,target);return;
   }
   if(action==='delete'){await remove(button.dataset.id);return}
   if(action==='newfolder'){
@@ -144,5 +158,5 @@ document.addEventListener('input',event=>{
  }
 });
 load().then(()=>root.dispatchEvent(new CustomEvent('tf-library-changed'))).catch(error=>console.warn('Library storage unavailable:',error));
-root.TradeFlowLibrary=Object.freeze({render,refresh,load});
+root.TradeFlowLibrary=Object.freeze({render,refresh,load,runCommand,chooseFolder(name){selected=name||'';root.dispatchEvent(new CustomEvent('tf-library-changed'))},pickFile:()=>choose('file'),pickCamera:()=>choose('camera')});
 })(typeof window!=='undefined'?window:globalThis);
