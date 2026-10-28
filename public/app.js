@@ -853,6 +853,7 @@ function tfRecordDetailView(d,record,type){
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
  }
+ if(type==='jobs'&&record.status==='Completed'&&!(d.invoices||[]).some(i=>i.jobId===record.id&&i.status!=='Void'))sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobInvoiceDraft" data-id="'+esc(record.id)+'">Prepare invoice draft for completed job</button>';
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
  sections+=tfRecordPhotoSection(record,type);if(!tfSafeImage(record.photoData))sections+='<button type="button" class="tf-record-attach-btn" data-action="tfPhotoStart" data-target="'+type+'" data-id="'+esc(record.id)+'">'+tfRecordIcon('camera',19)+' Add photo from camera or gallery</button>';
  return '<section class="tf-record-dossier" aria-label="'+esc(type)+' details"><header class="tf-record-dossier-head"><button type="button" data-action="tfRecordClose" aria-label="Back to '+(tfCalendarLinkedReturn?'Calendar':esc(tfRecordTypes[type].label))+'">‹ <span>'+(tfCalendarLinkedReturn?'Calendar':esc(tfRecordTypes[type].label))+'</span></button></header><div class="tf-record-dossier-identity"><span class="tf-record-card-icon">'+tfRecordIcon(type,28)+'</span><div><h2>'+esc(title)+'</h2>'+((record.category&&type!=='customers')||status?'<div class="tf-record-dossier-badges">'+(record.category&&type!=='customers'?'<span>'+esc(record.category)+'</span>':'')+(status?'<span>'+esc(status)+'</span>':'')+'</div>':'')+'</div></div>'+sections+'<div class="tf-record-dossier-footer"><button type="button" class="tf-record-dossier-primary" data-action="tfRecordEdit" data-id="'+esc(record.id)+'">'+tfRecordIcon('edit',20)+' Edit '+esc(tfRecordTypes[type].singular)+'</button><button type="button" class="tf-record-dossier-delete" data-delete="'+esc(record.id)+'">Delete</button></div></section>';
@@ -1061,6 +1062,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
+ if(el.dataset.action==='tfJobInvoiceDraft'){
+   const job=await get('jobs',el.dataset.id);
+   if(!job||job.status!=='Completed')return;
+   if((await all('invoices')).some(inv=>inv.jobId===job.id&&inv.status!=='Void')){notify('An invoice is already linked. Review it in Invoices.');return}
+   tfResetWorkspace('invoices');window.TradeFlowRevenue?.newForJob?.(job.id);await render();return;
+ }
  if(el.dataset.action==='tfRecordComplete'){
    if(!['jobs','tasks'].includes(tab))return;
    const item=await get(tab,el.dataset.id);if(!item)return;
