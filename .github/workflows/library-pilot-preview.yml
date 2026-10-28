@@ -39,7 +39,9 @@ jobs:
           node --check public/library-commands.js
           node --check public/voice-command.js
           node --check public/calendar.js
-          node --test tests/document-intake.test.cjs tests/job-intake-links.test.cjs tests/library-commands.test.cjs tests/location-quality.test.cjs
+          node --check public/flow-wave-art.js
+          node --check public/sw.js
+          node --test tests/document-intake.test.cjs tests/job-intake-links.test.cjs tests/library-commands.test.cjs tests/location-quality.test.cjs tests/flow-wave-art.test.cjs
           node tests/smoke.test.cjs
           node tests/address-resolution.test.cjs
           node tests/calendar.test.cjs
