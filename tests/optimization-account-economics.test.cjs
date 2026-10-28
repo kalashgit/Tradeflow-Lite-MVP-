@@ -19,6 +19,16 @@ test('customer account economics sums local receipts and linked costs without co
  assert.ok(html.includes('$350.00'));
  assert.ok(!html.includes('9999'));assert.ok(html.includes('not verified bank receipts'));
 });
+test('excluded payments with wrong customer link or currency are not counted silently',()=>{
+ const r=render(),d={jobs:[{id:'j1',customerId:'c1'}],invoices:[{id:'i1',customerId:'c1'}],
+ payments:[{id:'p1',invoiceId:'i1',customerId:'c2',amount:500},{id:'p2',invoiceId:'i1',customerId:'c1',currency:'EUR',amount:100},{id:'p3',invoiceId:'i1',customerId:'c1',currency:'USD',amount:20}],
+ expenses:[{id:'e1',jobId:'j1',currency:'EUR',amount:50}],jobCosts:[]};
+ const html=r(d,'c1');
+ assert.ok(html.includes('$20.00'));
+ assert.ok(html.includes('3 linked non-USD, invalid, or mismatched record(s) excluded.'));
+ assert.ok(html.includes('Records may be incomplete'));
+ assert.ok(!html.includes('$620.00'));
+});
 test('customer with jobs and no entered costs is flagged as incomplete',()=>{
  const r=render(),d={jobs:[{id:'j1',customerId:'c1'}],invoices:[],payments:[],expenses:[],jobCosts:[]};
  assert.ok(r(d,'c1').includes('Records may be incomplete'));
