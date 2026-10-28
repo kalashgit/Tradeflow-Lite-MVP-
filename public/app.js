@@ -941,6 +941,15 @@ function formModal(d){
  }).join('');
  return '<div class="dialog tf-record-dialog"><form class="modal tf-record-modal" id="recordForm"><div class="modalhead tf-record-modalhead"><h2>'+(modal.id?'Edit':'New')+' '+titleNames[tab]+'</h2><button class="tf-record-close" type="button" data-action="close" aria-label="Close form"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18"/></svg></button></div><div class="formgrid tf-record-grid">'+fields+'</div>'+(tfSafeImage(tfPhotoPending?.target===tab?tfPhotoPending.dataUrl:obj.photoData)?'<div class="tf-photo-form-preview"><strong>Attached photo</strong><img src="'+tfSafeImage(tfPhotoPending?.target===tab?tfPhotoPending.dataUrl:obj.photoData)+'" alt="Photo ready to save with this record"><small>Saved with the record after you submit.</small></div>':'')+'<div class="actions tf-record-actions"><button type="button" class="tf-record-cancel" data-action="close">Cancel</button><button class="tf-record-save" type="submit">Save record</button></div></form></div>';
 }
+function tfReusableQuoteFields(source){
+ const value=Number(source?.amount);
+ return {
+  title:String(source?.title||'').slice(0,160),
+  category:String(source?.category||'').slice(0,90),
+  amount:source?.amount!==''&&Number.isFinite(value)&&value>=0?String(value):'',
+  customerId:'',status:'Draft',sentDate:'',followup_date:''
+ };
+}
 async function tfSyncQuoteFollowUp(id,quote,previous={}){
  const tasks=(await all('tasks')).filter(t=>t.quoteId===id);
  const automatic=tasks.find(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
@@ -1097,17 +1106,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfQuoteReuse'){
    const source=await get('quotes',el.dataset.id);
    if(!source)return;
-   const amount=Number(source.amount);
    tfResetWorkspace('quotes');
-   modal={draftDefaults:{
-    title:String(source.title||'').slice(0,160),
-    category:String(source.category||'').slice(0,90),
-    amount:Number.isFinite(amount)&&amount>=0?String(amount):'',
-    customerId:'',
-    status:'Draft',
-    sentDate:'',
-    followup_date:''
-   }};
+   modal={draftDefaults:tfReusableQuoteFields(source)};
    await render();
    notify('New draft prepared. Choose the customer and recheck scope and pricing before saving.');
    return;
