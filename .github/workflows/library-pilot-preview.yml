@@ -84,12 +84,12 @@ jobs:
               try{
                 const res=await fetch(root+'/?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                 const body=await res.text();
-                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('command-r01')&&body.includes('launch-more-commands.js?v=command-r01')){
+                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('reuse-r01')&&body.includes('launch-more-commands.js?v=command-r01')){
                   for(const file of ['library.js','document-intake.js','location-quality.js','app.js','notifications.js','revenue.js','operational-intelligence.js','launch-more-commands.js']){
                     const asset=await fetch(root+'/'+file+'?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                     assert.equal(asset.status,200,file);
                     const source=await asset.text();
-                    const required={'app.js':'tfSyncQuoteFollowUp','notifications.js':'opportunity.bid_readiness_review','revenue.js':'newForJob','operational-intelligence.js':'job.crew_credential_review','launch-more-commands.js':'overdue|unpaid|draft'};
+                    const required={'app.js':'tfReusableQuoteFields','notifications.js':'opportunity.bid_readiness_review','revenue.js':'newForJob','operational-intelligence.js':'job.crew_credential_review','launch-more-commands.js':'overdue|unpaid|draft'};
                     if(required[file])assert.ok(source.includes(required[file]),file+' is not the latest optimization build');
                   }
                   console.log('Live pilot preview assets verified at '+root);return;
