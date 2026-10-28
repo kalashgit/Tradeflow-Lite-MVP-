@@ -10,11 +10,11 @@ function profile(x,phase,amplitude){
  return C+edge*amplitude*wave;
 }
 function line(phase,amp,offset=0){
- let result='';for(let x=0;x<=W;x+=5){const y=profile(x,phase,amp)+offset*Math.sin(Math.PI*x/W);result+=(x?' L':'M')+f(x)+' '+f(y)}return result;
+ let result='';for(let x=0;x<=W;x+=8){const y=profile(x,phase,amp)+offset*Math.sin(Math.PI*x/W);result+=(x?' L':'M')+f(x)+' '+f(y)}return result;
 }
 function ribbon(phase,amp,thickness){
  const upper=[],lower=[];
- for(let x=0;x<=W;x+=5){const t=x/W;const width=thickness*Math.pow(Math.sin(Math.PI*t),.78)*(0.72+0.28*Math.sin(t*Math.PI*2+phase)**2);const y=profile(x,phase,amp);upper.push([x,y-width]);lower.push([x,y+width])}
+ for(let x=0;x<=W;x+=8){const t=x/W;const width=thickness*Math.pow(Math.sin(Math.PI*t),.78)*(0.72+0.28*Math.sin(t*Math.PI*2+phase)**2);const y=profile(x,phase,amp);upper.push([x,y-width]);lower.push([x,y+width])}
  return upper.map(([x,y],i)=>(i?'L':'M')+f(x)+' '+f(y)).join(' ')+lower.reverse().map(([x,y])=>' L'+f(x)+' '+f(y)).join('')+' Z';
 }
 function render(){
