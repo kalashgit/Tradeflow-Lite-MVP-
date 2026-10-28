@@ -136,6 +136,25 @@ const optimizationDetectors=[
     constraints:[],action:open(r),evidence:{scheduledDate:j.date,credentialExpires:member.credentialExpires,crewId:j.crewId}};
   });
  }},
+ {id:'supplier.quote_expiration_review',evaluate(d,c){
+  const suppliers=new Map(list(d,'suppliers').map(x=>[x.id,x]));
+  const horizonDate=new Date(c.today+'T12:00:00Z');horizonDate.setUTCDate(horizonDate.getUTCDate()+7);
+  const horizon=horizonDate.toISOString().slice(0,10),grouped=new Map();
+  for(const po of list(d,'supplyOrders')){
+   if(!po.supplierId||!suppliers.has(po.supplierId)||state(po.documentStatus)==='issued'||state(po.status)==='cancelled')continue;
+   if(!c.commands.isDate(po.supplierQuoteExpires)||po.supplierQuoteExpires>horizon||
+      String(po.supplierQuoteEvidence||'').trim().length<12)continue;
+   const arr=grouped.get(po.supplierId)||[];arr.push(po);grouped.set(po.supplierId,arr);
+  }
+  return [...grouped.entries()].map(([supplierId,orders])=>{
+   orders.sort((a,b)=>a.supplierQuoteExpires.localeCompare(b.supplierQuoteExpires));
+   const r=ref('suppliers',supplierId),soonest=orders[0].supplierQuoteExpires;
+   return {type:this.id,refs:[r],explanation:orders.length+' supplier price quote(s) on unissued purchase order drafts have expired or expire within seven days. Confirm pricing with the supplier before committing.',confidence:'limited',
+    limitations:['These dates and quote references are manually entered, not independently verified against supplier systems.','Issued purchase orders are excluded; this does not update actual supplier prices.'],
+    priority:{tier:soonest<=c.today?0:1,score:70},constraints:[],action:open(r),
+    evidence:{supplierId,soonestExpiry:soonest,orderIds:orders.slice(0,30).map(x=>x.id),count:orders.length}};
+  });
+ }},
  {id:'job.labor_hours_variance_review',evaluate(d,c){
   const costs=list(d,'jobCosts');
   return list(d,'jobs').flatMap(j=>{
