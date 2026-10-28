@@ -39,4 +39,7 @@ test('purchasing form and authorized command retain evidence-backed dates',()=>{
  const ui=fs.readFileSync('public/suppliers.js','utf8'),engine=fs.readFileSync('public/core-integration.js','utf8');
  for(const key of ['supplierQuoteExpires','supplierQuoteEvidence']){assert.ok(ui.includes('name="'+key+'"'));assert.ok(engine.includes(key))}
  assert.ok(engine.includes('Supplier price expiration needs a valid date and verifiable quote reference.'));
+ assert.ok(engine.includes('Supplier price quote has expired. Verify new pricing'));
+ assert.ok(ui.includes('Recorded supplier quote validity:'));
+ assert.ok(ui.includes('reconfirm before issuing'));
 });
