@@ -44,3 +44,23 @@ Do not duplicate Notifications, Customer, Job, Calendar, Revenue or Opportunity 
 - `job.unapproved_change_review` detector feeds existing Notifications; the warning clears after recorded approval.
 - `tests/change-orders.test.cjs` and `tests/change-order-intelligence.test.cjs` added to GitHub Actions requirements; key modules passed source syntax checks and a direct simulated create/approve test.
 - Cloudflare preview modification time was still 2026-10-28T16:49:43Z on last check; newest source changes are **not verified deployed**. No pain point officially retired.
+
+
+## Additional source delivery — finance, bid, voice and estimating optimization
+- **Account economics**: existing Customer dossier shows locally recorded USD receipts, actual job costs, linked expenses and cash contribution, explicitly **not final profit**. Invalid/mixed-currency values are not silently converted.
+- **Job budgeting**: \`job.budget_overrun_review\` identifies recorded cost overruns; \`job.labor_hours_variance_review\` compares entered estimated and actual Labor hours. The existing Job Costing form supports quarter-hour Labor entries; neither is verified time tracking.
+- **Payment integrity**: \`invoice.payment_integrity_review\` highlights over-recorded payments, inconsistent customers/currencies or invalid data rather than assuming external settlements.
+- **Opportunity qualification**: the existing Opportunity workflow records operator-checked actual invitation, scope and crew capacity. \`opportunity.bid_readiness_review\` flags incomplete checks on pursued bids. This is not win probability or independent verification.
+- **Master Intelligence**: additional bounded read-only voice/text requests cover budget overruns, labor, payment discrepancies, bid readiness, materials, closeout and credentials. They reuse the same local intelligence evaluation and never send outbound messages.
+- **Quotation reuse**: existing Quote dossier can create a *new unlinked unsent draft* using a previous quotation as a starting point; original customer, acceptance and delivery metadata are deliberately not copied. Quotation lines and specialty estimate catalogs remain unsupported.
+- Added regression files: \`tests/optimization-financial-integrity.test.cjs\`, \`tests/optimization-labor-hours.test.cjs\`, \`tests/optimization-account-economics.test.cjs\`, \`tests/optimization-bid-readiness.test.cjs\`, \`tests/optimization-voice-reviews.test.cjs\`, \`tests/optimization-quote-reuse.test.cjs\`.
+- New implementation is **source-committed, not customer-verified**. Full GitHub Actions, current Worker deployment, iPhone flows and any real ROI remain unverified; **0 of 62 pain points retired at 4/4**.
+
+### Unfinished commercial prerequisites
+1. Shared tenant identity, server-side access policy and an auditable write boundary.
+2. Durable cross-device records, migration of local IndexedDB data, offline conflict reconciliation and recovery.
+3. Real customer-authorized accounting, mail, calendar and procurement provider integrations, including OAuth, delivery reconciliation and explicit approvals.
+4. Reliable action execution and error recovery across GUI, typed commands and voice; Master Intelligence remains a constrained local assistant rather than a universal autonomous controller.
+5. Real contractor validation plus supported U.S. legal/tax/permit compliance where applicable.
+
+**Do not market the present preview as a finished production SaaS or count a code-level detector as a retired contractor pain point.**
