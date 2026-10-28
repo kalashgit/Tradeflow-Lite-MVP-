@@ -799,6 +799,28 @@ function tfCustomerContactForm(d,customerId){
  '<button type="submit" class="tf-record-dossier-primary">Save contact log</button>'+
  '</form><small>Manual record only. TradeFlow cannot verify that a call or email was delivered.</small></section>';
 }
+function tfCustomerRecordedEconomics(d,customerId){
+ const jobs=(d.jobs||[]).filter(x=>x.customerId===customerId);
+ const ids=new Set(jobs.map(x=>x.id));
+ const invoices=(d.invoices||[]).filter(x=>x.customerId===customerId&&x.status!=='Void');
+ const invoiceIds=new Set(invoices.map(x=>x.id));
+ const payments=(d.payments||[]).filter(p=>
+  (p.invoiceId?invoiceIds.has(p.invoiceId):p.customerId===customerId||ids.has(p.jobId||p.relatedId))&&
+  typeof p.amount==='number'&&Number.isFinite(p.amount)&&p.amount>=0);
+ const costs=(d.jobCosts||[]).filter(x=>ids.has(x.jobId)&&x.type==='actual');
+ const expenses=(d.expenses||[]).filter(x=>ids.has(x.jobId||x.relatedId));
+ const sum=rows=>rows.reduce((n,x)=>n+(typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0?x.amount:0),0);
+ const received=sum(payments),recordedCosts=sum(costs)+sum(expenses);
+ const amount=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
+ const hasPotentialGaps=jobs.length>0&&(!costs.length&&!expenses.length||payments.some(p=>p.currency&&p.currency!=='USD')||
+  [...costs,...expenses].some(x=>typeof x.amount!=='number'||!Number.isFinite(x.amount)||x.amount<0));
+ return '<section class="tf-record-dossier-box"><h3>Recorded customer economics</h3>'+
+  '<p>Received payments: <strong>'+esc(amount(received))+'</strong></p>'+
+  '<p>Linked recorded job costs and expenses: <strong>'+esc(amount(recordedCosts))+'</strong></p>'+
+  '<p>Recorded cash contribution before unrecorded expenses: <strong>'+esc(amount(received-recordedCosts))+'</strong></p>'+
+  '<small>'+(hasPotentialGaps?'Records may be incomplete or inconsistent. ':'')+
+  'These are locally recorded USD figures, not verified bank receipts, final profit, or customer lifetime value. Unlinked overhead and supplier commitments are excluded.</small></section>';
+}
 function tfCustomerRelationshipHistory(d,customerId){
  const rows=[];
  const append=(kind,items,dateField,label)=>{for(const x of items||[]){
@@ -845,6 +867,7 @@ function tfRecordDetailView(d,record,type){
   const related=[['jobs','Jobs',d.jobs.filter(x=>x.customerId===record.id).length],['quotes','Quotations',d.quotes.filter(x=>x.customerId===record.id).length],['tasks','Tasks',d.tasks.filter(x=>x.customerId===record.id).length],['payments','Payments',d.payments.filter(x=>x.customerId===record.id).length]];
   sections+='<section class="tf-record-dossier-box"><h3>Linked records</h3><div class="tf-record-related-grid">'+related.map(([key,name,count])=>'<button type="button" data-action="tfRecordRelated" data-type="'+key+'" data-id="'+esc(record.id)+'">'+tfRecordIcon(key==='payments'?'cash':key,19)+'<span>'+name+'<small>'+count+' records</small></span>'+tfRecordIcon('arrow',17)+'</button>').join('')+'</div></section>';
   sections+=tfCustomerRelationshipHistory(d,record.id);
+  sections+=tfCustomerRecordedEconomics(d,record.id);
   sections+=tfCustomerContactForm(d,record.id);
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
