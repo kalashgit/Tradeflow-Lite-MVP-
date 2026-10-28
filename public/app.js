@@ -1708,7 +1708,7 @@ async function tfPilotPrepareDraft(prepared){
 function tfInitializePilot(){
  if(!window.TradeFlowCommands||!window.TradeFlowIntelligence)return;
  const commands=window.TradeFlowCommands;
- const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials});
+ const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
   ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:customer.create'].includes(permission),
   ports:{navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
