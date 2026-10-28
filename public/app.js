@@ -787,6 +787,17 @@ function tfRecordInfoRow(icon,label,value,action=''){
  if(!value)return '';
  return '<div class="tf-record-info-row"><span class="tf-record-info-symbol">'+tfRecordIcon(icon,21)+'</span><div><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div>'+(action?'<span class="tf-record-info-tail">'+tfRecordIcon('arrow',17)+'</span>':'')+'</div>';
 }
+function tfCustomerContactForm(d,customerId){
+ const quotes=(d.quotes||[]).filter(q=>q.customerId===customerId);
+ return '<section class="tf-record-dossier-box"><h3>Log a customer interaction</h3>'+
+ '<form id="tfContactLogForm" data-customer-id="'+esc(customerId)+'">'+
+ '<label>Contact method<select name="method" required>'+['Phone','Email','Meeting','Site visit','Other'].map(x=>'<option value="'+x+'">'+x+'</option>').join('')+'</select></label>'+
+ '<label>Related quotation (optional)<select name="quoteId"><option value="">Customer-level contact</option>'+
+ quotes.map(q=>'<option value="'+esc(q.id)+'">'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ '<label>Outcome / notes<textarea name="notes" required maxlength="1000" rows="2" placeholder="What happened and what is the agreed next step?"></textarea></label>'+
+ '<button type="submit" class="tf-record-dossier-primary">Save contact log</button>'+
+ '</form><small>Manual record only. TradeFlow cannot verify that a call or email was delivered.</small></section>';
+}
 function tfCustomerRelationshipHistory(d,customerId){
  const rows=[];
  const append=(kind,items,dateField,label)=>{for(const x of items||[]){
@@ -799,6 +810,11 @@ function tfCustomerRelationshipHistory(d,customerId){
  append('Job',d.jobs,'date',x=>(x.title||'Job')+' · '+(x.status||'Planned'));
  append('Invoice',d.invoices,'issuedDate',x=>(x.reference||'Invoice')+' · '+(x.status||'Draft'));
  append('Task',d.tasks,'due',x=>(x.title||'Task')+' · '+(x.status||'Open'));
+ for(const e of d.events||[]){
+  if(e.kind!=='customer_contact'||e.customerId!==customerId)continue;
+  const when=String(e.date||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))rows.push({kind:'Contact · '+String(e.method||'Other').slice(0,30),date:when,label:String(e.notes||'Contact recorded').slice(0,140)});
+ }
  const invoiceIds=new Set((d.invoices||[]).filter(x=>x.customerId===customerId).map(x=>x.id));
  const jobIds=new Set((d.jobs||[]).filter(x=>x.customerId===customerId).map(x=>x.id));
  for(const payment of d.payments||[]){
@@ -828,6 +844,7 @@ function tfRecordDetailView(d,record,type){
   const related=[['jobs','Jobs',d.jobs.filter(x=>x.customerId===record.id).length],['quotes','Quotations',d.quotes.filter(x=>x.customerId===record.id).length],['tasks','Tasks',d.tasks.filter(x=>x.customerId===record.id).length],['payments','Payments',d.payments.filter(x=>x.customerId===record.id).length]];
   sections+='<section class="tf-record-dossier-box"><h3>Linked records</h3><div class="tf-record-related-grid">'+related.map(([key,name,count])=>'<button type="button" data-action="tfRecordRelated" data-type="'+key+'" data-id="'+esc(record.id)+'">'+tfRecordIcon(key==='payments'?'cash':key,19)+'<span>'+name+'<small>'+count+' records</small></span>'+tfRecordIcon('arrow',17)+'</button>').join('')+'</div></section>';
   sections+=tfCustomerRelationshipHistory(d,record.id);
+  sections+=tfCustomerContactForm(d,record.id);
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
@@ -916,6 +933,23 @@ async function tfSyncQuoteFollowUp(id,quote,previous={}){
  if(updated.due!==automatic.due||updated.title!==automatic.title||updated.customerId!==automatic.customerId)await put('tasks',updated);
 }
 async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntries(new FormData(form))};if(modal.commandDraft){try{window.TradeFlowCommands.validateDraft({...modal.commandDraft,fields:f},await tfPilotSnapshot(),tfPilotContext())}catch(error){alert('Draft needs review: '+error.message);return}}if(tab==='customers'){if(!modal.id&&!String(f.phone||'').trim()){alert('Customer phone number is required.');return}f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}const id=modal.id||uid(),old=modal.id?await get(tab,id):{};if(tfPhotoPending?.target===tab)f.photoData=tfPhotoPending.dataUrl;await put(tab,{...old,...f,id,updatedAt:new Date().toISOString()});tfPhotoPending=null;await event(`${modal.id?'Updated':'Created'} ${tab.slice(0,-1)}: ${f.name||f.title}`);if(tab==='quotes')await tfSyncQuoteFollowUp(id,f,old);modal=null;query='';notify('Record saved')}
+document.addEventListener('submit',async function(e){
+ if(e.target?.id!=='tfContactLogForm')return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const customerId=String(e.target.dataset.customerId||'');
+ const customer=await get('customers',customerId);
+ if(!customer){alert('Customer is no longer available. Refresh before saving.');return}
+ const values=new FormData(e.target),method=String(values.get('method')||''),
+  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim();
+ if(!['Phone','Email','Meeting','Site visit','Other'].includes(method)||notes.length<3||notes.length>1000){alert('Choose a contact method and enter the actual outcome.');return}
+ const quote=quoteId?await get('quotes',quoteId):null;
+ if(quoteId&&(!quote||quote.customerId!==customerId)){alert('Related quotation no longer matches this customer.');return}
+ const timestamp=new Date().toISOString();
+ await put('events',{id:uid(),kind:'customer_contact',text:'Customer contact recorded',customerId,
+  quoteId,method,notes,date:timestamp});
+ if(quote){await put('quotes',{...quote,lastContactAt:timestamp,updatedAt:timestamp})}
+ await notify('Contact logged against customer record');
+});
 async function exportData(){const data={format:'tradeflow-lite',version:9,exportedAt:new Date().toISOString(),stores:Object.fromEntries(await Promise.all(STORES.map(async s=>[s,await all(s)])))};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 async function restore(file){let data;try{data=JSON.parse(await file.text());if(data.format!=='tradeflow-lite'||![1,2,3,4,5,6,7,8,9].includes(data.version)||!data.stores||!STORES.every(s=>Array.isArray(data.stores[s]||((data.version<4||s==='pins'||(s==='payments'&&data.version<5)||(['invoices','jobCosts'].includes(s)&&data.version<6)||(['marketingCampaigns','crew','routePlans'].includes(s)&&data.version<7)||(['suppliers','supplyOrders','commandLog'].includes(s)&&data.version<8)||(['calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'].includes(s)&&data.version<9))?[]:null))&&(data.stores[s]||[]).every(x=>x&&typeof x.id==='string')))throw Error('Invalid backup');if(!confirm('Replace ALL existing local records with this backup? This cannot be undone.'))return;const t=db.transaction(STORES,'readwrite');for(const s of STORES){const st=t.objectStore(s);st.clear();for(const item of (data.stores[s]||[]))st.put(item)}await new Promise((resolve,reject)=>{t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error)});notify('Backup restored')}catch(e){alert(`Restore failed: ${e.message}`)}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab],[data-action],[data-edit],[data-delete],[data-convert]');if(!el)return;
