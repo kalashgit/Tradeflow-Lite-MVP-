@@ -6,7 +6,7 @@
 const KEY='tf-notifications-v1';
 const MAX_SEEN=650;
 const DAY=86400000;
-const routes=new Set(['dashboard','growth','missions','tasks','calendar','opportunities','quotes','jobs','customers','expenses','invoices','research','marketing','settings']);
+const routes=new Set(['dashboard','growth','missions','tasks','calendar','opportunities','quotes','jobs','customers','expenses','invoices','research','marketing','settings','dispatch']);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safe=v=>String(v==null?'':v).trim().slice(0,160);
 const dateToday=now=>{const d=new Date(now);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
