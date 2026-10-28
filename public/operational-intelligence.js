@@ -60,6 +60,34 @@ const builtins=[
   });
  }}
 ];
+// Optional contractor optimization detectors. Each finding is read-only and
+// refers exclusively to locally recorded evidence, never presumed outcomes.
+const optimizationDetectors=[
+ {id:'job.billing_review',evaluate(d,c){
+  const issued=list(d,'invoices').filter(i=>state(i.status)!=='void');
+  return list(d,'jobs').filter(j=>state(j.status)==='completed'&&j.billingReviewWaived!==true&&
+   !issued.some(i=>i.jobId===j.id)).map(j=>{
+    const r=ref('jobs',j.id);
+    return {type:this.id,refs:[r],explanation:'Completed job has no locally recorded invoice linked to it. Review whether billing is required.',confidence:'limited',
+     limitations:['An invoice may exist in an external accounting system or billing may not apply.','This is a billing review, not evidence that revenue was lost.'],
+     priority:{tier:1,score:25},constraints:[],action:open(r),evidence:{status:j.status,linkedInvoiceCount:0}};
+  });
+ }},
+ {id:'job.crew_assignment_review',evaluate(d,c){
+  const crew=list(d,'crew'),jobs=list(d,'jobs');
+  if(!crew.length)return [];
+  const ids=new Set(crew.map(x=>x.id));
+  const end=new Date(c.today+'T12:00:00Z');end.setUTCDate(end.getUTCDate()+7);
+  const last=end.toISOString().slice(0,10);
+  return jobs.filter(j=>!['completed','cancelled','canceled'].includes(state(j.status))&&
+   c.commands.isDate(j.date)&&j.date>=c.today&&j.date<=last&&(!j.crewId||!ids.has(j.crewId))).map(j=>{
+    const r=ref('jobs',j.id);
+    return {type:this.id,refs:[r],explanation:'Scheduled job has no valid crew assignment in the local Dispatch roster.',confidence:'record_based',
+      limitations:['Crew assignments in an external scheduling system are not visible.','An unassigned job may be intentionally unallocated.'],
+      priority:{tier:1,score:30},constraints:[],action:open(r),evidence:{scheduledDate:j.date,crewId:j.crewId||null}};
+  });
+ }}
+];
 function createEngine({commands,calendar,revenue,detectors=builtins}={}){
  if(!commands?.validateReferences||!commands?.staleQuote)throw Error('The shared command validation adapter is required');
  const modules=detectors.slice();if(new Set(modules.map(x=>x.id)).size!==modules.length||modules.some(x=>!x.id||typeof x.evaluate!=='function'))throw Error('Detectors need unique identifiers and an evaluate function');
@@ -97,5 +125,5 @@ function createEngine({commands,calendar,revenue,detectors=builtins}={}){
  }
  return Object.freeze({evaluate,detectorIds:Object.freeze(modules.map(x=>x.id))});
 }
-return Object.freeze({version:1,createEngine,builtinDetectors:Object.freeze(builtins.map(x=>Object.freeze(x)))});
+return Object.freeze({version:1,createEngine,builtinDetectors:Object.freeze(builtins.map(x=>Object.freeze(x))),optimizationDetectors:Object.freeze(optimizationDetectors.map(x=>Object.freeze(x)))});
 });
