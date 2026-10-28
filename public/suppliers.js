@@ -98,6 +98,9 @@
     '<button type="button" data-supply-action="printOrder" data-id="'+esc(order.id)+'">Print / Save PDF</button>'+
     '<button type="button" data-supply-action="copyOrder" data-id="'+esc(order.id)+'">Copy PO text</button></div>'+
     '<p class="tf-po-mail-notice">Opening Mail prepares a message. You review and press Send there. TradeFlow cannot verify delivery or mark email as sent.</p>'+
+    (order.supplierQuoteExpires?'<p class="tf-po-warning"><strong>Recorded supplier quote validity:</strong> '+esc(order.supplierQuoteExpires)+
+      (order.supplierQuoteExpires<new Date().toISOString().slice(0,10)?' · expired — reconfirm before issuing':' · reconfirm pricing before placing order')+
+      (order.supplierQuoteEvidence?' · Source: '+esc(order.supplierQuoteEvidence):' · no evidence recorded')+'</p>':'')+
     (error?'<p role="alert" class="tf-po-warning">'+esc(error)+'</p>':'')+
     '<div class="tf-po-status-edit"><label>Delivery progress <select data-supply-progress="'+esc(order.id)+'">'+opts(['Planned','Ordered','In transit','Delivered','Cancelled'].map(x=>[x,x]),status)+'</select></label></div>'+
     '<article class="tf-po-document" aria-label="Purchase order preview"><div class="tf-po-document-head"><span>TRADEFLOW / PROCUREMENT</span><strong>'+esc(issued?'PURCHASE ORDER':'DRAFT — NOT ISSUED')+'</strong></div>'+
