@@ -468,7 +468,9 @@ document.addEventListener('pointerdown',event=>{
  tfAiCancelHold();
  tfAiHoldOrigin={node:orb,x:event.clientX,y:event.clientY,id:event.pointerId};
  orb.classList.add('tf-ai-liquid-pressed');
- // The same T icon opens the command listener; long-press no longer opens a second panel.
+ // Start recognition from the actual pointer gesture; waiting for a hold timer can lose browser user activation.
+ // The following synthetic click is suppressed, so it cannot toggle recognition off again.
+ if(window.TradeFlowVoice?.startListening){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.startListening();}
  return;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -1825,7 +1827,7 @@ function tfInitializePilot(){
   }
   return {status:'unsupported'};
  }
- if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+ if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
