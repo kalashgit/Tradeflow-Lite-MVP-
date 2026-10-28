@@ -124,6 +124,21 @@ const optimizationDetectors=[
     constraints:[],action:open(r),evidence:{scheduledDate:j.date,credentialExpires:member.credentialExpires,crewId:j.crewId}};
   });
  }},
+ {id:'job.labor_hours_variance_review',evaluate(d,c){
+  const costs=list(d,'jobCosts');
+  return list(d,'jobs').flatMap(j=>{
+   const relevant=costs.filter(x=>x.jobId===j.id&&x.category==='Labor'&&['estimate','actual'].includes(x.type)&&x.laborHours!=null);
+   if(relevant.some(x=>!Number.isFinite(x.laborHours)||x.laborHours<=0))return [];
+   const estimated=relevant.filter(x=>x.type==='estimate').reduce((n,x)=>n+x.laborHours,0);
+   const actual=relevant.filter(x=>x.type==='actual').reduce((n,x)=>n+x.laborHours,0);
+   if(!estimated||actual<=estimated)return [];
+   const r=ref('jobs',j.id);
+   return [{type:this.id,refs:[r],explanation:'Manually recorded labor hours exceed the planned hours for this job. Review scope, assignments and time-entry completeness.',confidence:'limited',
+    limitations:['Hours are manual entries, not verified time clock data.','Overrun does not alone prove avoidable overtime or reduced profitability.'],
+    priority:{tier:2,score:Math.min(80,20+Math.round((actual-estimated)/estimated*40))},constraints:[],action:open(r),
+    evidence:{estimatedLaborHours:estimated,recordedLaborHours:actual}}];
+  });
+ }},
  {id:'job.budget_overrun_review',evaluate(d,c){
   const costs=list(d,'jobCosts'),expenses=list(d,'expenses');
   return list(d,'jobs').filter(j=>!['cancelled','canceled'].includes(state(j.status))).flatMap(j=>{
