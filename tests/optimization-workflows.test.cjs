@@ -66,5 +66,7 @@ test('nonredundant notification wiring preserves old UI surface and exposes new 
  assert.ok(notifications.includes('job.crew_assignment_review'));
  assert.ok(notifications.includes("route:'tasks'"));
  assert.ok(source.includes('tfSyncQuoteFollowUp(id,f,old)'));
+ const voice=require('../public/launch-more-commands.js');
+ assert.equal(voice.parse('open business notifications').action,'businessAlerts');
  assert.ok(source.includes('...window.TradeFlowIntelligence.optimizationDetectors'));
 });
