@@ -800,20 +800,25 @@ function tfCustomerContactForm(d,customerId){
  '</form><small>Manual record only. TradeFlow cannot verify that a call or email was delivered.</small></section>';
 }
 function tfCustomerRecordedEconomics(d,customerId){
+ const amountValue=value=>{
+  if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;
+  if(typeof value==='string'&&/^\d+(?:\.\d{1,2})?$/.test(value.trim()))return Number(value);
+  return null;
+ };
  const jobs=(d.jobs||[]).filter(x=>x.customerId===customerId);
  const ids=new Set(jobs.map(x=>x.id));
  const invoices=(d.invoices||[]).filter(x=>x.customerId===customerId&&x.status!=='Void');
  const invoiceIds=new Set(invoices.map(x=>x.id));
  const payments=(d.payments||[]).filter(p=>
   (p.invoiceId?invoiceIds.has(p.invoiceId):p.customerId===customerId||ids.has(p.jobId||p.relatedId))&&
-  (!p.currency||p.currency==='USD')&&typeof p.amount==='number'&&Number.isFinite(p.amount)&&p.amount>=0);
+  (!p.currency||p.currency==='USD')&&amountValue(p.amount)!==null);
  const costs=(d.jobCosts||[]).filter(x=>ids.has(x.jobId)&&x.type==='actual'&&(!x.currency||x.currency==='USD'));
  const expenses=(d.expenses||[]).filter(x=>ids.has(x.jobId||x.relatedId)&&(!x.currency||x.currency==='USD'));
- const sum=rows=>rows.reduce((n,x)=>n+(typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0?x.amount:0),0);
+ const sum=rows=>rows.reduce((n,x)=>n+(amountValue(x.amount)??0),0);
  const received=sum(payments),recordedCosts=sum(costs)+sum(expenses);
  const amount=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
  const hasPotentialGaps=jobs.length>0&&(!costs.length&&!expenses.length||payments.some(p=>p.currency&&p.currency!=='USD')||
-  [...costs,...expenses].some(x=>typeof x.amount!=='number'||!Number.isFinite(x.amount)||x.amount<0));
+  [...costs,...expenses].some(x=>amountValue(x.amount)===null));
  return '<section class="tf-record-dossier-box"><h3>Recorded customer economics</h3>'+
   '<p>Received payments: <strong>'+esc(amount(received))+'</strong></p>'+
   '<p>Linked recorded job costs and expenses: <strong>'+esc(amount(recordedCosts))+'</strong></p>'+
