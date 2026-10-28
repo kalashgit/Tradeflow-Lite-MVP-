@@ -7,6 +7,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x)}return x};
 const list=(d,key)=>Array.isArray(d[key])?d[key]:[];
 const state=x=>String(x||'').trim().toLowerCase();
+const recordedAmount=value=>{if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;if(typeof value==='string'&&/^\d+(?:\.\d{1,2})?$/.test(value.trim()))return Number(value);return null};
 const ref=(store,id)=>({store,id});
 const key=r=>r.store+':'+r.id;
 const id=(type,refs)=>type+':'+refs.map(key).sort().map(encodeURIComponent).join('|');
@@ -157,10 +158,10 @@ const optimizationDetectors=[
    const estimated=linked.filter(x=>x.type==='estimate');
    const recorded=linked.filter(x=>x.type==='actual');
    const related=expenses.filter(x=>x.jobId===j.id||x.relatedId===j.id);
-   const validAmount=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0;
+   const validAmount=x=>recordedAmount(x.amount)!==null;
    if(!estimated.length||[...estimated,...recorded,...related].some(x=>!validAmount(x)))return [];
-   const budget=estimated.reduce((n,x)=>n+x.amount,0);
-   const spent=[...recorded,...related].reduce((n,x)=>n+x.amount,0);
+   const budget=estimated.reduce((n,x)=>n+recordedAmount(x.amount),0);
+   const spent=[...recorded,...related].reduce((n,x)=>n+recordedAmount(x.amount),0);
    if(budget<=0||spent<=budget+0.005)return [];
    const r=ref('jobs',j.id);
    return [{type:this.id,refs:[r],explanation:'Recorded job costs exceed the locally entered budget. Review the cost breakdown and any duplicated expenses.',confidence:'limited',
@@ -174,15 +175,15 @@ const optimizationDetectors=[
   return list(d,'invoices').filter(i=>state(i.status)==='issued'&&Array.isArray(i.lines)&&i.lines.length).flatMap(i=>{
    const own=payments.filter(p=>p.invoiceId===i.id);
    if(!own.length)return [];
-   const validNumber=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
+   const validNumber=n=>recordedAmount(n)!==null;
    const invalidLines=i.lines.some(l=>!validNumber(l.qty)||!validNumber(l.unitPrice));
    const invalid=invalidLines||!validNumber(Number(i.taxRate||0))||
      own.some(p=>!validNumber(p.amount)||(p.customerId&&p.customerId!==i.customerId)||(p.currency&&p.currency!==(i.currency||'USD')));
    let total=null,recorded=null;
    if(!invalid){
-    const subtotal=i.lines.reduce((n,l)=>n+Math.round(l.qty*l.unitPrice*100),0);
+    const subtotal=i.lines.reduce((n,l)=>n+Math.round(recordedAmount(l.qty)*recordedAmount(l.unitPrice)*100),0);
     total=(subtotal+Math.round(subtotal*Number(i.taxRate||0)/100))/100;
-    recorded=own.reduce((n,p)=>n+p.amount,0);
+    recorded=own.reduce((n,p)=>n+recordedAmount(p.amount),0);
    }
    if(!invalid&&recorded<=total+0.005)return [];
    const r=ref('invoices',i.id);
