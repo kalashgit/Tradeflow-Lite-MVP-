@@ -802,7 +802,7 @@ function tfCustomerContactForm(d,customerId){
 function tfCustomerRecordedEconomics(d,customerId){
  const amountValue=value=>{
   if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;
-  if(typeof value==='string'&&/^\d+(?:\.\d{1,2})?$/.test(value.trim()))return Number(value);
+  if(typeof value==='string'&&value.length<=20&&/^\d+(?:\.\d{1,2})?$/.test(value.trim())){const n=Number(value);return Number.isFinite(n)&&n>=0?n:null}
   return null;
  };
  const jobs=(d.jobs||[]).filter(x=>x.customerId===customerId);
