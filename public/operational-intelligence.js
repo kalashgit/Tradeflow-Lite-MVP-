@@ -63,6 +63,22 @@ const builtins=[
 // Optional contractor optimization detectors. Each finding is read-only and
 // refers exclusively to locally recorded evidence, never presumed outcomes.
 const optimizationDetectors=[
+ {id:'opportunity.bid_deadline',evaluate(d,c){
+  const today=c.today,last=new Date(today+'T12:00:00Z');last.setUTCDate(last.getUTCDate()+7);
+  const horizon=last.toISOString().slice(0,10);
+  return list(d,'opportunities').filter(o=>
+   !['won','lost','declined','closed'].includes(state(o.status))&&
+   c.commands.isDate(o.bid_deadline)&&o.bid_deadline>=today&&o.bid_deadline<=horizon&&
+   typeof o.bid_deadline_evidence==='string'&&o.bid_deadline_evidence.trim().length>=12
+  ).map(o=>{
+    const r=ref('opportunities',o.id);
+    return {type:this.id,refs:[r],explanation:'A verified bid submission deadline is approaching. Review the original invitation before submitting.',confidence:'limited',
+      limitations:['The stored deadline is owner-verified, not independently checked against external tender systems.','In-app notifications are not background push alerts.'],
+      priority:{tier:o.bid_deadline===today?0:1,score:Math.max(0,100-days(o.bid_deadline,today))},constraints:[],action:open(r),
+      evidence:{bidDeadline:o.bid_deadline,deadlineSource:o.bid_deadline_evidence.trim().slice(0,600)}};
+  });
+ }},
+
  {id:'job.billing_review',evaluate(d,c){
   const issued=list(d,'invoices').filter(i=>state(i.status)!=='void');
   return list(d,'jobs').filter(j=>state(j.status)==='completed'&&j.billingReviewWaived!==true&&
