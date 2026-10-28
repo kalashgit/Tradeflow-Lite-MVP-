@@ -22,7 +22,7 @@ function intelligenceItems(report,data={}){
   !(f.detectorId==='quotation.stale_open'&&(data.tasks||[]).some(t=>t.quoteId===f.recordRefs[0].id&&
     !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())&&validDate(t.due)))).map(f=>{
   const [title,route]=labels[f.detectorId];
-  return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0};
+  return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0,recordRef:f.recordRefs.length===1?{...f.recordRefs[0]}:null};
  });
 }
 function loadState(d){return (d.settings||[]).find(x=>x.id===KEY)||null}
@@ -67,13 +67,13 @@ function generate(d,now=Date.now(),report=null){
   if(task.due>limit.toISOString().slice(0,10))continue;
   const kind=obligation?(obligationTypes[task.obligationType]||'Business deadline'):'';
   items.push({id:'priority:task:'+safe(task.id||fingerprint(task.title))+'|'+task.due,
-   group:'priority',title:obligation?kind:safe(task.title)||'Task due',detail:obligation?safe(task.title)+' · '+(task.due<day?'Overdue: ':'Due: ')+task.due:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0});
+   group:'priority',title:obligation?kind:safe(task.title)||'Task due',detail:obligation?safe(task.title)+' · '+(task.due<day?'Overdue: ':'Due: ')+task.due:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0,recordRef:task.id?{store:'tasks',id:task.id}:null});
  }
  for(const item of opportunities){
   if(!item||['Won','Lost'].includes(item.status)||!validDate(item.followup_date)||item.followup_date>day)continue;
   items.push({id:'priority:op:'+safe(item.id||item.record_id)+'|'+item.followup_date,
    group:'priority',title:'Opportunity follow-up',detail:safe(item.project_name||item.organization_name)||'Review contact and next step',
-   route:'opportunities',sort:item.followup_date,at:0});
+   route:'opportunities',sort:item.followup_date,at:0,recordRef:item.id?{store:'opportunities',id:item.id}:null});
  }
  for(const quote of quotes){
   if(!quote||!['Sent','Pending','Awaiting'].includes(quote.status))continue;
@@ -81,7 +81,7 @@ function generate(d,now=Date.now(),report=null){
   const due=quote.followup_date||quote.followupDate;
   if(!validDate(due)||due>day)continue;
   items.push({id:'priority:quote:'+safe(quote.id)+'|'+due,group:'priority',title:'Quote follow-up',
-   detail:safe(quote.title||quote.reference||'Sent quotation'),route:'quotes',sort:due,at:0});
+   detail:safe(quote.title||quote.reference||'Sent quotation'),route:'quotes',sort:due,at:0,recordRef:quote.id?{store:'quotes',id:quote.id}:null});
  }
  const s=(d.settings||[]).find(x=>x.id==='growth-profiles-v1')||{},icps=Array.isArray(s.icps)?s.icps:[],personas=Array.isArray(s.personas)?s.personas:[];
  const active=icps.find(x=>x.id===s.activeIcpId)||icps[0];
@@ -241,7 +241,8 @@ async function handleClick(event){
    if(!item)return;
    working=true;
    await mark([item.id]);close();
-   await api.navigate(routes.has(item.route)?item.route:'dashboard');
+   if(item.recordRef&&api.openRecord){await api.openRecord(item.recordRef)}
+   else await api.navigate(routes.has(item.route)?item.route:'dashboard');
    return;
   }
  }catch(err){alert('Notifications could not be updated: '+String(err?.message||err))}
