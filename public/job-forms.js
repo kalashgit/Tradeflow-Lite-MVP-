@@ -29,10 +29,11 @@ function panel(job){
  '<textarea id="tfJobAssessmentNotes" name="notes" rows="4" maxlength="5000" placeholder="Record findings, required follow-ups, customer notes and scope changes.">'+esc(job.assessmentNotes||'')+'</textarea>'+
  '<button type="submit">Save assessment</button></form>'+
  '<p class="tf-job-form-privacy">Saved locally with this job and included in JSON backups. Use approved trade-specific inspections, permits and safety processes where required. Customer signatures and certified forms are not active yet.</p>'+
- '</section>';
+ '</section>'+(global.TradeFlowChangeOrders?.panel(job)||'');
 }
 function configure(c){
  bridge=c;
+ global.TradeFlowChangeOrders?.configure(c);
  if(typeof document!=='undefined'){document.addEventListener('click',click);document.addEventListener('submit',submit)}
 }
 async function change(jobId,fn){
