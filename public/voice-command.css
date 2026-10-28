@@ -75,3 +75,8 @@
 .tf-voice-approval{font-size:10px!important;opacity:.75}
 @media(max-height:720px){.tf-voice-sheet{min-height:0!important}.tf-voice-intro{margin-top:15px!important}.tf-voice-wave{height:165px!important}.tf-voice-actions{margin-top:7px!important;min-height:0}}
 @media(prefers-reduced-motion:reduce){.tf-flow-ribbon-group{animation:none!important}}
+
+/* Keep the cards and input in normal scroll flow on short/keyboard-sized screens.
+   A flex-shrunk grid can become 0px tall while its fixed-height cards overflow it. */
+.tf-voice-sheet > .tf-voice-actions,
+.tf-voice-sheet > .tf-voice-composer{flex:0 0 auto}

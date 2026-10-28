@@ -50,7 +50,7 @@ test('Stop finalizes speech even when recognizer sends onend without final onres
    snapshot:async()=>({}),now:()=>new Date(),commands:{},
    customer:{interpret:async()=>({intent:'customer.create',status:'needs_clarification',draft:{fields:{name:'Maria Black',phone:'512678'}},issues:[{code:'INVALID_PHONE'}],duplicates:[],relatedDrafts:[]}),openReview:async text=>{received=text}}});
   controller.start();
-  const click=async action=>events.click[0]({target:{closest:()=>({dataset:{voice:action}})},preventDefault(){}});
+  const click=async action=>events.click[0]({target:{closest:selector=>selector==='[data-voice-workspace]'?null:({dataset:{voice:action}})},preventDefault(){}});
   await click('mic');
   recognizer.onresult({results:[[{transcript:'Hey TradeFlow, add customer Maria Black, phone 512-555-0198'}]]});
   await click('mic');
