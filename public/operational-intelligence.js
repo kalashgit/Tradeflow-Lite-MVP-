@@ -89,6 +89,41 @@ const optimizationDetectors=[
     evidence:{proposedCount:pending.length}};
   });
  }},
+ {id:'job.material_readiness_review',evaluate(d,c){
+  const due=new Date(c.today+'T12:00:00Z');due.setUTCDate(due.getUTCDate()+7);
+  const horizon=due.toISOString().slice(0,10);
+  return list(d,'jobs').filter(j=>!['completed','cancelled','canceled'].includes(state(j.status))&&
+    c.commands.isDate(j.date)&&j.date>=c.today&&j.date<=horizon&&state(j.materialsStatus)==='not ready').map(j=>{
+   const r=ref('jobs',j.id);
+   return {type:this.id,refs:[r],explanation:'Upcoming job is marked "Not Ready" for materials. Review missing supplies before dispatch.',confidence:'record_based',
+    limitations:['Material readiness is entered manually and does not verify supplier inventory.'],priority:{tier:j.date===c.today?0:1,score:45},
+    constraints:[],action:open(r),evidence:{scheduledDate:j.date,materialsStatus:j.materialsStatus,notes:String(j.materialsNotes||'').slice(0,180)}};
+  });
+ }},
+ {id:'job.closeout_evidence_review',evaluate(d,c){
+  return list(d,'jobs').filter(j=>state(j.status)==='completed'&&
+    !(state(j.closeoutStatus)==='complete'&&String(j.closeoutEvidence||'').trim().length>=12)&&
+    !(state(j.closeoutStatus)==='waived'&&String(j.closeoutEvidence||'').trim().length>=12)).map(j=>{
+   const r=ref('jobs',j.id);
+   return {type:this.id,refs:[r],explanation:'Completed job does not have documented closeout completion or a recorded waiver. Verify customer handoff and required evidence.',confidence:'limited',
+    limitations:['Actual closeout requirements vary by job and contract; external records are not synchronized.'],priority:{tier:2,score:28},
+    constraints:[],action:open(r),evidence:{jobStatus:j.status,closeoutStatus:j.closeoutStatus||'unknown'}};
+  });
+ }},
+ {id:'job.crew_credential_review',evaluate(d,c){
+  const crew=new Map(list(d,'crew').filter(x=>x.id).map(x=>[x.id,x]));
+  const due=new Date(c.today+'T12:00:00Z');due.setUTCDate(due.getUTCDate()+30);
+  const horizon=due.toISOString().slice(0,10);
+  return list(d,'jobs').filter(j=>j.crewId&&crew.has(j.crewId)&&!['completed','cancelled','canceled'].includes(state(j.status))&&
+    c.commands.isDate(j.date)&&j.date>=c.today&&j.date<=horizon&&
+    c.commands.isDate(crew.get(j.crewId).credentialExpires)&&
+    crew.get(j.crewId).credentialExpires<=j.date).map(j=>{
+   const member=crew.get(j.crewId),r=ref('jobs',j.id);
+   return {type:this.id,refs:[r],explanation:'A scheduled job is assigned to a crew member whose recorded credential expires on or before the job date. Verify license requirements and current status.',confidence:'limited',
+    limitations:['A stored expiration is not proof of license invalidity or worker eligibility. Verify with the issuing authority.'],priority:{tier:1,score:55},
+    constraints:[],action:open(r),evidence:{scheduledDate:j.date,credentialExpires:member.credentialExpires,crewId:j.crewId}};
+  });
+ }},
  {id:'job.billing_review',evaluate(d,c){
   const issued=list(d,'invoices').filter(i=>state(i.status)!=='void');
   return list(d,'jobs').filter(j=>state(j.status)==='completed'&&j.billingReviewWaived!==true&&
