@@ -83,7 +83,7 @@ jobs:
               try{
                 const res=await fetch(root+'/?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                 const body=await res.text();
-                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('field-r01')&&body.includes('launch-more-commands.js?v=optimization-r05')){
+                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('finance-r01')&&body.includes('launch-more-commands.js?v=optimization-r05')){
                   for(const file of ['library.js','document-intake.js','location-quality.js','app.js','notifications.js','revenue.js','operational-intelligence.js','launch-more-commands.js']){
                     const asset=await fetch(root+'/'+file+'?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                     assert.equal(asset.status,200,file);
