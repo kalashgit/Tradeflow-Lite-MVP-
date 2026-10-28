@@ -71,3 +71,15 @@ Do not duplicate Notifications, Customer, Job, Calendar, Revenue or Opportunity 
 - The `supplier.quote_expiration_review` detector groups unissued draft PO quote expirations by supplier, using only manually verified dates, and points existing Notifications to the Supplier record. No duplicate inbox or automatic supplier contact.
 - Added regression tests: `tests/optimization-account-economics.test.cjs` and `tests/optimization-supplier-expiration.test.cjs`. The feature branch syntax checks and direct isolated supplier-expiry fixture passed; complete CI, live deployment and real customer validation are still unverified.
 - Cloudflare Worker was most recently observed modified at **2026-10-28T16:49:43.295776Z**. Latest commits are **not verified deployed**; do not change pain-point ratings to 4/4 yet.
+
+
+## Continued optimization batch — 2026-10-28 (finance and customer economics)
+- Existing Customer dossier now includes recorded receipts, linked actual costs and a clearly qualified cash-contribution view, excluding mismatched/non-USD records where identified; **not true profitability or verified bank cash**.
+- Invoice detail now supports an owner-approved, deduplicated local payment follow-up Task only while the issued invoice has an outstanding locally recorded balance. No mail or request is sent. Payment records are manually entered.
+- Operational Intelligence adds job budget variance, invoice payment integrity and planned-versus-actual labor hour review, linked to existing Job/Invoice screens through Notifications. These findings are advisory and depend on complete, nonduplicated local records.
+- Focused tests added: `optimization-financial-integrity.test.cjs`, `optimization-labor-hours.test.cjs`, `optimization-account-economics.test.cjs`, `optimization-invoice-followup.test.cjs`.
+- Preview shell/offline asset versions updated to `finance-r02` for changed app, revenue, notifications and intelligence scripts; CI smoke check now verifies current asset markers.
+- **Verification:** changed JS parsed and sampled customer economics / invoice follow-up scenarios were exercised; full Node suite and live iPhone behavior are unverified.
+- **Deployment:** Cloudflare Worker was observed modified at `2026-10-28T16:49:43.295776Z`, which does not establish delivery of these commits; live production preview remains unverified.
+- **Retired pain points:** none newly certified 4/4. Improvements advance #7, #11, #12, #32, #61 and related workflows but do not prove contractor outcomes.
+- **Release blockers remain:** CI confirmation, deploy verification, secure multi-tenant persistence, real provider integrations, authorization, and real-user acceptance.
