@@ -46,7 +46,8 @@ function tomorrowWork(data,date,calendarRecords){
 function createController(host){
  let open=false,busy=false,listening=false,recognition=null,draft='',message='',showCalendarDate='';
  const doc=host.document,repaint=()=>host.repaint();
- function close(){showCalendarDate='';if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false;open=false;draft='';message='';void repaint()}
+ const waveAudio=globalThis.TradeFlowFlowWaveAudio?.createMeter({document:doc});
+ function close(){waveAudio?.stop();showCalendarDate='';if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false;open=false;draft='';message='';void repaint()}
  function start(){open=true;draft='';message='';showCalendarDate='';void repaint()}
  function startListening(){if(!open){open=true;draft='';message=''};if(!recognition&&!busy)toggle();else void repaint()}
  async function submit(text){
@@ -133,14 +134,14 @@ function createController(host){
  }
  function finish(active){
   if(!active||recognition!==active||active.finished)return;
-  active.finished=true;recognition=null;listening=false;
+  active.finished=true;recognition=null;listening=false;waveAudio?.stop();
   if(active.timeout)clearTimeout(active.timeout);
   const text=String(active.transcript||draft||'').trim();
   if(text){draft=text;void submit(text)}else{message=active.error||'No speech captured. Try again or type your command.';void repaint()}
  }
  function toggle(){
   if(!open||busy)return;
-  if(recognition){const active=recognition;active.stopping=true;listening=false;void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
+  if(recognition){const active=recognition;active.stopping=true;listening=false;waveAudio?.stop();void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
   const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
   if(!Engine){message='Speech recognition is unavailable in this browser. Try keyboard dictation.';void repaint();return}
   try{
@@ -149,8 +150,8 @@ function createController(host){
    active.onresult=e=>{if(recognition!==active)return;active.transcript=Array.from(e.results||[]).map(r=>r?.[0]?.transcript||'').join(' ').trim();draft=active.transcript;if(active.stopping)finish(active);else void repaint()};
    active.onend=()=>finish(active);
    active.onerror=e=>{if(recognition!==active)return;active.error=e.error==='not-allowed'?'Microphone permission denied.':e.error==='no-speech'?'No speech detected.':'Speech recognition failed.';finish(active)};
-   active.start();listening=true;void repaint();
-  }catch{recognition=null;listening=false;message='Could not start microphone.';void repaint()}
+   active.start();listening=true;waveAudio?.start();void repaint();
+  }catch{waveAudio?.stop();recognition=null;listening=false;message='Could not start microphone.';void repaint()}
  }
  function wave(){return '<div class="tf-voice-wave '+(listening?'is-listening':busy?'is-processing':'is-idle')+'" aria-hidden="true">'+(globalThis.TradeFlowFlowWave?.render?.()||'')+'</div>'}
  function view(){if(!open)return '';

@@ -65,6 +65,7 @@
 .tf-flow-sheet-counter{animation-delay:-4s}.tf-flow-sheet-lower{animation-delay:-8s}.tf-flow-sheet-cyan{animation-delay:-2s}
 .tf-voice-wave.is-listening .tf-flow-sheet{animation-name:tfSilkListening;animation-duration:6s}
 .tf-voice-wave.is-processing .tf-flow-sheet{animation-name:tfSilkProcessing;animation-duration:4s}
+.tf-voice-wave.is-audio-reactive .tf-flow-sheet{animation:none}
 @keyframes tfSilkIdle{0%,100%{transform:translateY(-.6px) scaleY(.997)}50%{transform:translateY(.6px) scaleY(1.003)}}
 @keyframes tfSilkListening{0%,100%{transform:translateY(-2px) scaleY(.985)}50%{transform:translateY(2px) scaleY(1.025)}}
 @keyframes tfSilkProcessing{0%,100%{transform:translateX(-2px) scaleY(.995)}50%{transform:translateX(2px) scaleY(1.01)}}

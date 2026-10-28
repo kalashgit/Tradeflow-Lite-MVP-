@@ -31,7 +31,7 @@ test('updated artwork and CSS are versioned consistently in HTML and offline cac
  const html=fs.readFileSync('public/index.html','utf8'),sw=fs.readFileSync('public/sw.js','utf8');
  assert.ok(html.indexOf('flow-wave-art.js')<html.indexOf('voice-command.js'));
  for(const file of ['flow-wave-art.js','voice-command.css']){
-  assert.ok(html.includes(file+'?v=flow-wave-v3'));assert.ok(sw.includes(file+'?v=flow-wave-v3'));
+  assert.ok(html.includes(file+'?v=flow-wave-v4'));assert.ok(sw.includes(file+'?v=flow-wave-v4'));
  }
- assert.match(sw,/const CACHE='tradeflow-lite-flow-wave-v3'/);
+ assert.match(sw,/const CACHE='tradeflow-lite-flow-wave-v4'/);
 });
