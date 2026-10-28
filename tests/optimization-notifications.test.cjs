@@ -66,7 +66,7 @@ test('business risk voice intent and cache versions are linked',()=>{
  assert.equal(commands.parse('what needs attention').action,'businessRisks');
  assert.equal(commands.parse('show business bottlenecks').action,'businessRisks');
  assert.equal(commands.parse('show overdue tasks').action,'filter');
- assert.ok(html.includes('notifications.js?v=optimization-r01'));
- assert.ok(html.includes('launch-more-commands.js?v=optimization-r01'));
- assert.ok(sw.includes('notifications.js?v=optimization-r01'));
+ assert.ok(html.includes('notifications.js?v=optimization-r02'));
+ assert.ok(html.includes('launch-more-commands.js?v=optimization-r02'));
+ assert.ok(sw.includes('notifications.js?v=optimization-r02'));
 });
