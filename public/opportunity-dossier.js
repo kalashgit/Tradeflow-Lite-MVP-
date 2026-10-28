@@ -81,6 +81,9 @@
    '<section class="tf-od-card tf-od-workflow"><h2>'+glyph('chart')+'Sales workflow</h2>'+
    '<label>Pipeline stage<select name="status">'+stages.map(x=>'<option value="'+esc(x)+'"'+(r.status===x?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
    '<label>Next follow-up<span class="tf-od-date-field">'+glyph('calendar')+'<input type="date" name="followup_date" value="'+esc(r.followup_date||'')+'"></span></label>'+
+   '<label>Verified bid submission deadline<span class="tf-od-date-field">'+glyph('calendar')+'<input type="date" name="bid_deadline" value="'+esc(r.bid_deadline||'')+'"></span></label>'+
+   '<label>Deadline source / verification<textarea name="bid_deadline_evidence" maxlength="600" rows="2" placeholder="Invitation reference or confirmed source for this deadline">'+esc(r.bid_deadline_evidence||'')+'</textarea></label>'+
+   '<p class="tf-od-muted">A bid cutoff must be confirmed from the original invitation. The follow-up date is not a submission deadline.</p>'+
    '<label>Bid / no-bid decision<select name="bid_decision">'+[['Unreviewed','Not reviewed'],['Pursue','Pursue bid'],['Hold','Hold / request information'],['Decline','Do not bid']].map(([value,label])=>'<option value="'+value+'"'+((r.bid_decision||'Unreviewed')===value?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
    '<label>Decision rationale<textarea name="bid_rationale" maxlength="1200" rows="2" placeholder="Invitation verified? Scope fit? Capacity? Profit potential? Why pursue or decline?">'+esc(r.bid_rationale||'')+'</textarea></label>'+
    '<p class="tf-od-muted">A human decision recorded with evidence. TradeFlow does not predict bid awards or invent project eligibility.</p>'+
