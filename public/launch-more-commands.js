@@ -12,6 +12,8 @@ function parse(value){
  if(/^(?:what (?:needs|requires) (?:my )?attention|what are (?:my )?(?:business )?(?:risks|priorities|bottlenecks)|(?:show|list|review|check) (?:my |the )?(?:business )?(?:risks|issues|bottlenecks|urgent issues)|business health check)$/.test(s))return {action:'businessRisks'};
  let m=s.match(/^(?:open|show|go to|view)\s+(?:the\s+)?(.+?)(?:\s+(?:page|workspace|screen))?$/);
  if(m&&workspaces[m[1]])return {action:'open',workspace:workspaces[m[1]]};
+ m=s.match(/^(?:show|view|filter|list)\s+(?:my\s+|the\s+)?(overdue|unpaid|draft)\s+invoices?$/);
+ if(m)return {action:'filter',workspace:'invoices',filter:m[1]};
  m=s.match(/^(?:show|view|filter)\s+(?:my\s+|the\s+)?(overdue|open|done|completed|unfinished|accepted|stale)\s+(tasks?|quotes?|quotations?)$/);
  if(m){
   const workspace=/^tasks?$/.test(m[2])?'tasks':'quotes';
