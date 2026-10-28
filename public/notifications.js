@@ -123,6 +123,16 @@ function groupIcon(name){
 function icon(type){
  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+groupIcon(type)+'</svg>';
 }
+function obligationForm(){
+ return '<form class="tf-notif-obligation" id="tfNotifObligationForm" aria-label="Add business deadline">'+
+ '<label>Deadline type<select name="kind" required>'+Object.entries(obligationTypes).map(([id,label])=>'<option value="'+id+'">'+esc(label)+'</option>').join('')+'</select></label>'+
+ '<label>What needs doing?<input name="title" maxlength="150" required placeholder="e.g. Renew insurance certificate"></label>'+
+ '<label>Verified due date<input name="due" type="date" required></label>'+
+ '<label>Responsible person (optional)<input name="owner" maxlength="90" placeholder="Office manager"></label>'+
+ '<label>Notes / evidence reference (optional)<input name="notes" maxlength="300" placeholder="Policy number, source or link"></label>'+
+ '<p>Enter a confirmed date. TradeFlow does not calculate legal deadlines or renew credentials automatically. Open obligations appear here within 14 days of their due date.</p>'+
+ '<div class="tf-notif-obligation-actions"><button type="button" data-notif-action="obligation-cancel">Cancel</button><button type="submit">Save deadline</button></div></form>';
+}
 function panel(d,items,now){
  const unread=items.filter(x=>x.unread).length;
  const sections=['priority','growth','activity'].map(section=>{
@@ -139,6 +149,7 @@ function panel(d,items,now){
   '<header class="tf-notif-panel-head"><div><span>TRADEFLOW / INTELLIGENCE</span><h2>Notifications'+(unread?' <em>'+unread+' new</em>':'')+'</h2></div>'+
   '<button type="button" class="tf-notif-dismiss" data-notif-action="close" aria-label="Close notifications">×</button></header>'+
   '<div class="tf-notif-panel-body">'+(sections||'<div class="tf-notif-empty"><strong>All clear</strong><p>No notifications need your attention.</p></div>')+'</div>'+
+  (obligationEditor?obligationForm():'<button type="button" class="tf-notif-add-obligation" data-notif-action="obligation-new">+ Track a deadline or renewal</button>')+
   '<footer class="tf-notif-panel-footer">'+(unread?'<button type="button" data-notif-action="read-all">Mark all read</button>':'<span>Up to date</span>')+
   '<small>On-device activity · No push alerts</small></footer></section>';
 }
@@ -172,7 +183,24 @@ async function mark(ids){
 }
 function close(){
  if(!open)return;
- open=false;
+ open=false;obligationEditor=false;
+}
+function show(){open=true;obligationEditor=false;return api?.render?.()}
+async function handleSubmit(event){
+ if(event.target?.id!=='tfNotifObligationForm')return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(working||!api?.uid||!api?.put)return;
+ working=true;
+ try{
+  const form=new FormData(event.target),kind=String(form.get('kind')||''),title=String(form.get('title')||'').trim(),due=String(form.get('due')||'');
+  const owner=String(form.get('owner')||'').trim(),notes=String(form.get('notes')||'').trim();
+  if(!Object.hasOwn(obligationTypes,kind)||!title||title.length>150||!validDate(due)||owner.length>90||notes.length>300)throw Error('Provide a valid deadline type, description and date.');
+  const row={id:api.uid(),title,due,status:'Open',taskType:'business_obligation',obligationType:kind,assignedTo:owner,notes,createdAt:new Date().toISOString()};
+  await api.put('tasks',row);
+  obligationEditor=false;
+  await api.render();
+ }catch(error){alert('Deadline not saved: '+String(error.message||error))}
+ finally{working=false}
 }
 async function handleClick(event){
  const button=event.target.closest?.('[data-notif-action]');
@@ -190,6 +218,8 @@ async function handleClick(event){
    if(open)document.querySelector('#tfNotificationsPanel')?.focus({preventScroll:true});
    return;
   }
+  if(action==='obligation-new'){obligationEditor=true;open=true;await api.render();return}
+  if(action==='obligation-cancel'){obligationEditor=false;await api.render();return}
   if(action==='close'){
    close();await api.render();document.querySelector('.tf-home-alert')?.focus({preventScroll:true});return;
   }
@@ -219,7 +249,8 @@ function onKey(event){
 function configure(bridge){
  api=bridge;
  document.addEventListener('click',handleClick,true);
+ document.addEventListener('submit',handleSubmit,true);
  document.addEventListener('keydown',onKey);
 }
-global.TradeFlowNotifications={configure,bootstrap,home,close,_test:{generate,intelligenceItems,obligationTypes,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
+global.TradeFlowNotifications={configure,bootstrap,home,close,show,_test:{generate,intelligenceItems,obligationTypes,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
 })(typeof window!=='undefined'?window:globalThis);
