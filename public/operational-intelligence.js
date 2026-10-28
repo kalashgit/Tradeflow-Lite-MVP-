@@ -73,6 +73,28 @@ const optimizationDetectors=[
      priority:{tier:1,score:25},constraints:[],action:open(r),evidence:{status:j.status,linkedInvoiceCount:0}};
   });
  }},
+ {id:'customer.reactivation_review',evaluate(d,c){
+  const customers=list(d,'customers'),jobs=list(d,'jobs'),quotes=list(d,'quotes'),contacts=list(d,'events');
+  const cutoff=new Date(c.today+'T12:00:00Z');cutoff.setUTCDate(cutoff.getUTCDate()-90);
+  const threshold=cutoff.toISOString().slice(0,10);
+  return customers.filter(customer=>{
+   if(!customer.id||(!customer.phone&&!customer.email))return false;
+   const own=jobs.filter(job=>job.customerId===customer.id);
+   if(!own.some(job=>state(job.status)==='completed'&&c.commands.isDate(job.date)))return false;
+   if(own.some(job=>!['completed','cancelled','canceled'].includes(state(job.status))))return false;
+   if(quotes.some(q=>q.customerId===customer.id&&['sent','accepted'].includes(state(q.status))))return false;
+   const dates=[
+    ...own.map(j=>j.date),...quotes.filter(q=>q.customerId===customer.id).map(q=>q.sentDate),
+    ...contacts.filter(e=>e.kind==='customer_contact'&&e.customerId===customer.id).map(e=>String(e.date||'').slice(0,10))
+   ].filter(c.commands.isDate).sort();
+   return dates.length>0&&dates.at(-1)<threshold;
+  }).map(customer=>{
+   const r=ref('customers',customer.id);
+   return {type:this.id,refs:[r],explanation:'Former customer has a completed job but no activity recorded in the local history during the last 90 days. Review whether a relationship check-in is appropriate.',confidence:'limited',
+     limitations:['Email, calls and work in external systems may not be recorded.','Contact permission and marketing preferences must be checked before outreach.'],
+     priority:{tier:2,score:12},constraints:[],action:open(r),evidence:{inactivityReviewDays:90}};
+  });
+ }},
  {id:'job.crew_assignment_review',evaluate(d,c){
   const crew=list(d,'crew'),jobs=list(d,'jobs');
   if(!crew.length)return [];
