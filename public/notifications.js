@@ -10,15 +10,17 @@ const routes=new Set(['dashboard','growth','missions','tasks','calendar','opport
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safe=v=>String(v==null?'':v).trim().slice(0,160);
 const dateToday=now=>{const d=new Date(now);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
-const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00'));
+const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T12:00:00Z'))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;
 const parseTime=v=>{let n=new Date(v).getTime();return Number.isFinite(n)?n:0};
 const fingerprint=s=>{let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)}return (x>>>0).toString(36)};
 let api=null,open=false,working=false,lastData=null,obligationEditor=false;
 const obligationTypes=Object.freeze({license:'License or certification',insurance:'Insurance certificate',bid:'Bid deadline',supplier_quote:'Supplier quote expiration',retainage:'Retainage follow-up',service_agreement:'Service agreement renewal',closeout:'Project closeout',other:'Other deadline'});
-function intelligenceItems(report){
+function intelligenceItems(report,data={}){
  if(!report||!Array.isArray(report.findings))return [];
  const labels={'calendar.conflict':['Scheduling conflict','calendar'],'invoice.overdue':['Overdue invoice','invoices'],'quotation.accepted_handoff':['Accepted quote needs job','quotes'],'quotation.stale_open':['Quotation follow-up review','quotes']};
- return report.findings.filter(f=>labels[f.detectorId]&&Array.isArray(f.recordRefs)&&f.recordRefs.length).map(f=>{
+ return report.findings.filter(f=>labels[f.detectorId]&&Array.isArray(f.recordRefs)&&f.recordRefs.length&&
+  !(f.detectorId==='quotation.stale_open'&&(data.tasks||[]).some(t=>t.quoteId===f.recordRefs[0].id&&
+    !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())&&validDate(t.due)))).map(f=>{
   const [title,route]=labels[f.detectorId];
   return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0};
  });
@@ -95,7 +97,7 @@ function generate(d,now=Date.now(),report=null){
    detail:'Identify who makes purchasing decisions',route:'growth',sort:'',at:0});
  }
  // Cap each section, but do not hide the newest notifications just because an older one exists.
- items.push(...intelligenceItems(report));
+ items.push(...intelligenceItems(report,d));
  const priority=items.filter(x=>x.group==='priority').sort((a,b)=>String(a.sort).localeCompare(String(b.sort))).slice(0,14);
  const growth=items.filter(x=>x.group==='growth').sort((a,b)=>String(b.sort).localeCompare(String(a.sort))).slice(0,7);
  return [...priority,...growth,...sourceEvents(d,now)];
