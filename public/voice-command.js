@@ -80,7 +80,7 @@ function createController(host){
    }
    const moreIntent=globalThis.TradeFlowLaunchMoreCommands?.parse(instruction);
    if(moreIntent&&host.moreCommand){
-    if(['find','activeJobs','completeTask','jobLocation'].includes(moreIntent.action)){
+    if(['find','activeJobs','completeTask','jobLocation','businessRisks'].includes(moreIntent.action)){
      const outcome=await host.moreCommand(moreIntent);
      message=outcome?.message||'Command completed without additional details.';
      return;
