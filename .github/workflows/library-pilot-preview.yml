@@ -91,7 +91,7 @@ jobs:
                     const asset=await fetch(root+'/'+file+'?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                     assert.equal(asset.status,200,file);
                     const source=await asset.text();
-                    const required={'app.js':'tfReusableQuoteFields','notifications.js':'opportunity.bid_readiness_review','revenue.js':'newForJob','operational-intelligence.js':'job.crew_credential_review','launch-more-commands.js':'overdue|unpaid|draft','suppliers.js':'supplierQuoteExpires','core-integration.js':'Supplier price quote has expired.'};
+                    const required={'app.js':'tfReusableQuoteFields','notifications.js':'opportunity.bid_readiness_review','revenue.js':'source:\'invoice_manual_followup\'','operational-intelligence.js':'job.crew_credential_review','launch-more-commands.js':'overdue|unpaid|draft','suppliers.js':'supplierQuoteExpires','core-integration.js':'Supplier price quote has expired.'};
                     if(required[file])assert.ok(source.includes(required[file]),file+' is not the latest optimization build');
                   }
                   console.log('Live pilot preview assets verified at '+root);return;
