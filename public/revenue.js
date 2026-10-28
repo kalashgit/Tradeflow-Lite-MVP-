@@ -2,7 +2,7 @@
    No tax-invoice compliance assertion, external send, bank connection or payment processing. */
 (function(global){
 'use strict';
-let api=null,mode='list',invoiceId='',jobId='';
+let api=null,mode='list',invoiceId='',jobId='',draftFromJobId='';
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const trim=(v,n=200)=>String(v==null?'':v).trim().slice(0,n);
 const cents=n=>Math.round(Number(n)*100);
@@ -98,7 +98,8 @@ function lineMarkup(line){
  '<button type="button" data-revenue-action="remove-line" title="Remove line" aria-label="Remove line">×</button></div></div>';
 }
 function editor(d){
- const old=d.invoices.find(x=>x.id===invoiceId)||{};
+ const linked=(d.jobs||[]).find(x=>x.id===draftFromJobId);
+ const old=d.invoices.find(x=>x.id===invoiceId)|| (linked?{customerId:linked.customerId||'',jobId:linked.id,quoteId:linked.quoteId||'',lines:[{description:String(linked.title||'Completed work').slice(0,160),qty:1,unitPrice:0}],notes:'Review completed work, approved variations and applicable taxes before issuing.'}:{});
  if(old.id&&(old.status!=='Draft'||collected(old,d.payments)>0)){mode='detail';return dossier(d,old)}
  const clients=(d.customers||[]).map(x=>'<option value="'+esc(x.id)+'" '+(old.customerId===x.id?'selected':'')+'>'+esc(x.name||'Customer')+'</option>').join('');
  const jobs=(d.jobs||[]).map(x=>'<option value="'+esc(x.id)+'" '+(old.jobId===x.id?'selected':'')+'>'+esc(x.title||'Job')+'</option>').join('');
@@ -274,7 +275,8 @@ function view(tab,d){
  return '';
 }
 function nav(t){if(api?.navigate)api.navigate(t)}
-function newInvoice(){mode='edit';invoiceId='';api?.render()}
+function newInvoice(){mode='edit';invoiceId='';draftFromJobId='';api?.render()}
+function newForJob(id){if(typeof id!=='string'||!id.trim())throw Error('A saved job is required');mode='edit';invoiceId='';draftFromJobId=id;api?.render()}
 function parseLines(form){
  const descriptions=[...form.querySelectorAll('[name=lineDescription]')],qtys=[...form.querySelectorAll('[name=lineQty]')],prices=[...form.querySelectorAll('[name=linePrice]')];
  if(!descriptions.length||descriptions.length>12||qtys.length!==descriptions.length||prices.length!==descriptions.length)throw Error('Use 1–12 invoice line items.');
@@ -311,7 +313,7 @@ async function onSubmit(event){
    const inv={...prior,id:prior?.id||api.uid(),reference,customerId,jobId,quoteId,issuedDate,dueDate,taxRate,
       lines,notes:trim(fd.get('notes'),1200),status:'Draft',currency:'USD',updatedAt:new Date().toISOString(),createdAt:prior?.createdAt||new Date().toISOString()};
    if(totals(inv).total<=0||totals(inv).total>1e9)throw Error('Invoice total must be positive and within the supported range.');
-   await api.put('invoices',inv);invoiceId=inv.id;mode='detail';api.notify('Invoice draft saved');
+   await api.put('invoices',inv);invoiceId=inv.id;draftFromJobId='';mode='detail';api.notify('Invoice draft saved');
   }else if(form.id==='tfRevenuePaymentForm'){
    const inv=await api.get('invoices',form.dataset.id);
    if(!inv||inv.status!=='Issued')throw Error('Only issued invoices can receive recorded payments.');
@@ -344,7 +346,7 @@ async function onClick(event){
  if(a==='filter'){invoiceFilter=b.dataset.filter||'All';api.render();return}
  if(a==='attention'){invoiceFilter='Overdue';mode='list';api.render();return}
  if(a==='new'){newInvoice();return}
- if(a==='list'){mode='list';invoiceId='';api.render();return}
+ if(a==='list'){mode='list';invoiceId='';draftFromJobId='';api.render();return}
  if(a==='open'){mode='detail';invoiceId=id;api.render();return}
  if(a==='edit'){mode='edit';invoiceId=id;api.render();return}
  if(a==='add-line'){
@@ -384,6 +386,6 @@ function init(bridge){
 }
 document.addEventListener('change',event=>{if(event.target?.id==='tfJobCostSearch'){jobCostQuery=trim(event.target.value,100);api?.render()}});
 global.TradeFlowRevenue={configure:init,render:view,financials:Object.freeze({totals,collected,state,displayState:invoiceDisplayState}),
- focusRecord:id=>{mode='detail';invoiceId=id},currentRecord:()=>invoiceId&&mode==='detail'?{store:'invoices',id:invoiceId}:null,
+ focusRecord:id=>{mode='detail';invoiceId=id;draftFromJobId=''},newForJob,currentRecord:()=>invoiceId&&mode==='detail'?{store:'invoices',id:invoiceId}:null,
  filterView:value=>{if(!['All','Overdue','Unpaid','Draft'].includes(value))throw Error('Unsupported invoice filter');invoiceFilter=value;mode='list';invoiceId=''},_test:{totals,collected,state,esc,parseLines,jobSummary}};
 })(typeof window!=='undefined'?window:globalThis);
