@@ -64,3 +64,10 @@ Do not duplicate Notifications, Customer, Job, Calendar, Revenue or Opportunity 
 5. Real contractor validation plus supported U.S. legal/tax/permit compliance where applicable.
 
 **Do not market the present preview as a finished production SaaS or count a code-level detector as a retired contractor pain point.**
+
+## Resumed implementation after interrupted request — account integrity and supplier quote expiration
+- Customer dossier economics now excludes visibly inconsistent payments or costs (wrong customer linkage, unsupported currency, invalid amounts) and warns about excluded records and possible missing job costs. This remains a provisional local cash contribution, not profit, and never implies bank reconciliation.
+- Existing Supplier/Purchase Order screen records `supplierQuoteExpires` and `supplierQuoteEvidence`, validated in `supplyOrder.save`. Issuance of a still-draft PO is blocked when a **recorded** quote-validity date has expired; this does not guarantee real supplier pricing.
+- The `supplier.quote_expiration_review` detector groups unissued draft PO quote expirations by supplier, using only manually verified dates, and points existing Notifications to the Supplier record. No duplicate inbox or automatic supplier contact.
+- Added regression tests: `tests/optimization-account-economics.test.cjs` and `tests/optimization-supplier-expiration.test.cjs`. The feature branch syntax checks and direct isolated supplier-expiry fixture passed; complete CI, live deployment and real customer validation are still unverified.
+- Cloudflare Worker was most recently observed modified at **2026-10-28T16:49:43.295776Z**. Latest commits are **not verified deployed**; do not change pain-point ratings to 4/4 yet.
