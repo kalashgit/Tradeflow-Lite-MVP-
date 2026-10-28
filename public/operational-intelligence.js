@@ -79,6 +79,16 @@ const optimizationDetectors=[
   });
  }},
 
+ {id:'job.unapproved_change_review',evaluate(d,c){
+  return list(d,'jobs').filter(j=>Array.isArray(j.changeOrders)&&j.changeOrders.some(x=>x&&x.status==='proposed')).map(j=>{
+   const r=ref('jobs',j.id);
+   const pending=j.changeOrders.filter(x=>x&&x.status==='proposed');
+   return {type:this.id,refs:[r],explanation:'This job has proposed extra work without recorded customer approval. Review the change before treating the work as authorized or billable.',confidence:'record_based',
+    limitations:['Approval may exist outside TradeFlow; this detector only checks saved change-order records.','Proposed amounts are not invoices or contract values.'],
+    priority:{tier:1,score:35+Math.min(20,pending.length*3)},constraints:[],action:open(r),
+    evidence:{proposedCount:pending.length}};
+  });
+ }},
  {id:'job.billing_review',evaluate(d,c){
   const issued=list(d,'invoices').filter(i=>state(i.status)!=='void');
   return list(d,'jobs').filter(j=>state(j.status)==='completed'&&j.billingReviewWaived!==true&&
