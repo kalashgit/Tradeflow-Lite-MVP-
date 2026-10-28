@@ -91,6 +91,8 @@ function crewEditor(members){
  '<label>Role / primary skill<input name="role" maxlength="90" value="'+esc(edit.role||'')+'" placeholder="Electrician, apprentice, project manager"></label>'+
  '<label>Skills / certifications (comma separated)<input name="skills" maxlength="240" value="'+esc((edit.skills||[]).join(', '))+'" placeholder="Panel upgrades, HVAC controls"></label>'+
  '<label>Service area<input name="serviceArea" maxlength="140" value="'+esc(edit.serviceArea||'')+'" placeholder="Austin metro"></label>'+
+ '<label>Credential expiration (verified date, optional)<input type="date" name="credentialExpires" value="'+esc(edit.credentialExpires||'')+'"></label>'+ 
+ '<label>Credential name / evidence source<input name="credentialReference" maxlength="160" value="'+esc(edit.credentialReference||'')+'" placeholder="License type and issuing registry"></label>'+
  '<fieldset class="tf-d-v2-week"><legend>Normal working days (optional)</legend>'+
  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day,index)=>'<label><input type="checkbox" name="workDay'+index+'" '+(days.includes(index)?'checked':'')+'><span>'+day+'</span></label>').join('')+'</fieldset>'+
  '<p class="tf-ops-note">If working days are not defined, availability displays Unknown rather than assuming the worker is free.</p>'+
@@ -349,16 +351,17 @@ async function onSubmit(ev){
   if(form.id==='tfOpsCrewForm'){
    const name=v('name',90),role=v('role',90),notes=v('notes',350);
    const rawSkills=v('skills',240),skills=rawSkills?rawSkills.split(',').map(x=>trim(x,50)).filter(Boolean).slice(0,15):[];
-   const serviceArea=v('serviceArea',140),rawDays=v('daysOff',420);
+   const serviceArea=v('serviceArea',140),rawDays=v('daysOff',420),credentialExpires=v('credentialExpires',10),credentialReference=v('credentialReference',160);
    const daysOff=rawDays?rawDays.split(',').map(x=>trim(x,10)).filter(Boolean):[];
    if(daysOff.length>35||daysOff.some(x=>!validDate(x)))throw Error('Enter valid comma-separated days off (YYYY-MM-DD).');
+   if(credentialExpires&&(!validDate(credentialExpires)||credentialReference.length<6))throw Error('Credential expiry needs a verified date and evidence reference.');
    const workDays=[0,1,2,3,4,5,6].filter(index=>fd.get('workDay'+index)==='on');
 
    if(!name)throw Error('Enter a crew member name.');
    const exists=crewEditId?await api.get('crew',crewEditId):null;
    if(crewEditId&&!exists)throw Error('Crew member no longer exists.');
    if(!exists&&(await api.all('crew')).length>=100)throw Error('Maximum 100 crew members.');
-   await api.put('crew',{...exists,id:exists?.id||api.uid(),name,role,notes,skills,serviceArea,workDays,daysOff,updatedAt:new Date().toISOString()});
+   await api.put('crew',{...exists,id:exists?.id||api.uid(),name,role,notes,skills,serviceArea,credentialExpires,credentialReference,workDays,daysOff,updatedAt:new Date().toISOString()});
    crewFormOpen=false;crewEditId='';api.notify('Crew member saved');return;
   }
   if(form.id==='tfOpsAssignForm'){
