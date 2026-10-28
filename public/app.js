@@ -809,21 +809,30 @@ function tfCustomerRecordedEconomics(d,customerId){
  const ids=new Set(jobs.map(x=>x.id));
  const invoices=(d.invoices||[]).filter(x=>x.customerId===customerId&&x.status!=='Void');
  const invoiceIds=new Set(invoices.map(x=>x.id));
- const payments=(d.payments||[]).filter(p=>
-  (p.invoiceId?invoiceIds.has(p.invoiceId):p.customerId===customerId||ids.has(p.jobId||p.relatedId))&&
-  (!p.currency||p.currency==='USD')&&amountValue(p.amount)!==null);
- const costs=(d.jobCosts||[]).filter(x=>ids.has(x.jobId)&&x.type==='actual'&&(!x.currency||x.currency==='USD'));
- const expenses=(d.expenses||[]).filter(x=>ids.has(x.jobId||x.relatedId)&&(!x.currency||x.currency==='USD'));
+ const invoiceCustomer=new Map((d.invoices||[]).map(i=>[i.id,i.customerId]));
+ const candidatePayments=(d.payments||[]).filter(p=>p.invoiceId?invoiceIds.has(p.invoiceId):
+   p.customerId===customerId||ids.has(p.jobId||p.relatedId));
+ const candidateCosts=(d.jobCosts||[]).filter(x=>ids.has(x.jobId)&&x.type==='actual');
+ const candidateExpenses=(d.expenses||[]).filter(x=>ids.has(x.jobId||x.relatedId));
+ const validCurrency=x=>!x.currency||x.currency==='USD';
+ const payments=candidatePayments.filter(p=>validCurrency(p)&&amountValue(p.amount)!==null&&
+   (!p.customerId||p.customerId===customerId)&&(!p.invoiceId||invoiceCustomer.get(p.invoiceId)===customerId));
+ const costs=candidateCosts.filter(x=>validCurrency(x)&&amountValue(x.amount)!==null);
+ const expenses=candidateExpenses.filter(x=>validCurrency(x)&&amountValue(x.amount)!==null);
  const sum=rows=>rows.reduce((n,x)=>n+(amountValue(x.amount)??0),0);
  const received=sum(payments),recordedCosts=sum(costs)+sum(expenses);
+ const excludedCount=candidatePayments.length-payments.length+candidateCosts.length-costs.length+candidateExpenses.length-expenses.length;
+ const orphanInvoicePayments=(d.payments||[]).some(p=>p.customerId===customerId&&p.invoiceId&&
+   !invoiceIds.has(p.invoiceId));
+ const linkedJobsWithoutCost=jobs.some(j=>!costs.some(x=>x.jobId===j.id)&&!expenses.some(x=>x.jobId===j.id||x.relatedId===j.id));
  const amount=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
- const hasPotentialGaps=jobs.length>0&&(!costs.length&&!expenses.length||payments.some(p=>p.currency&&p.currency!=='USD')||
-  [...costs,...expenses].some(x=>amountValue(x.amount)===null));
+ const hasPotentialGaps=excludedCount>0||orphanInvoicePayments||linkedJobsWithoutCost||jobs.length>0&&(!costs.length&&!expenses.length);
  return '<section class="tf-record-dossier-box"><h3>Recorded customer economics</h3>'+
   '<p>Received payments: <strong>'+esc(amount(received))+'</strong></p>'+
   '<p>Linked recorded job costs and expenses: <strong>'+esc(amount(recordedCosts))+'</strong></p>'+
   '<p>Recorded cash contribution before unrecorded expenses: <strong>'+esc(amount(received-recordedCosts))+'</strong></p>'+
   '<small>'+(hasPotentialGaps?'Records may be incomplete or inconsistent. ':'')+
+  (excludedCount?' '+excludedCount+' linked non-USD, invalid, or mismatched record(s) excluded. ':'')+
   'These are locally recorded USD figures, not verified bank receipts, final profit, or customer lifetime value. Unlinked overhead and supplier commitments are excluded.</small></section>';
 }
 function tfCustomerRelationshipHistory(d,customerId){
