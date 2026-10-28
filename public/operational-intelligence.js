@@ -124,6 +124,47 @@ const optimizationDetectors=[
     constraints:[],action:open(r),evidence:{scheduledDate:j.date,credentialExpires:member.credentialExpires,crewId:j.crewId}};
   });
  }},
+ {id:'job.budget_overrun_review',evaluate(d,c){
+  const costs=list(d,'jobCosts'),expenses=list(d,'expenses');
+  return list(d,'jobs').filter(j=>!['cancelled','canceled'].includes(state(j.status))).flatMap(j=>{
+   const linked=costs.filter(x=>x.jobId===j.id);
+   const estimated=linked.filter(x=>x.type==='estimate');
+   const recorded=linked.filter(x=>x.type==='actual');
+   const related=expenses.filter(x=>x.jobId===j.id||x.relatedId===j.id);
+   const validAmount=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0;
+   if(!estimated.length||[...estimated,...recorded,...related].some(x=>!validAmount(x)))return [];
+   const budget=estimated.reduce((n,x)=>n+x.amount,0);
+   const spent=[...recorded,...related].reduce((n,x)=>n+x.amount,0);
+   if(budget<=0||spent<=budget+0.005)return [];
+   const r=ref('jobs',j.id);
+   return [{type:this.id,refs:[r],explanation:'Recorded job costs exceed the locally entered budget. Review the cost breakdown and any duplicated expenses.',confidence:'limited',
+    limitations:['Labor, overhead, supplier invoices and commitments may be incomplete.','Expenses and manually recorded job costs could overlap and must be reconciled.'],
+    priority:{tier:1,score:Math.min(100,30+Math.round((spent-budget)/budget*40))},constraints:[],action:open(r),
+    evidence:{budget:Math.round(budget*100)/100,recordedCosts:Math.round(spent*100)/100,currency:'USD'} }];
+  });
+ }},
+ {id:'invoice.payment_integrity_review',evaluate(d,c){
+  const payments=list(d,'payments');
+  return list(d,'invoices').filter(i=>state(i.status)==='issued'&&Array.isArray(i.lines)&&i.lines.length).flatMap(i=>{
+   const own=payments.filter(p=>p.invoiceId===i.id);
+   if(!own.length)return [];
+   const validNumber=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
+   const invalidLines=i.lines.some(l=>!validNumber(l.qty)||!validNumber(l.unitPrice));
+   const invalid=invalidLines||!validNumber(Number(i.taxRate||0))||
+     own.some(p=>!validNumber(p.amount)||(p.customerId&&p.customerId!==i.customerId)||(p.currency&&p.currency!==(i.currency||'USD')));
+   let total=null,recorded=null;
+   if(!invalid){
+    const subtotal=i.lines.reduce((n,l)=>n+Math.round(l.qty*l.unitPrice*100),0);
+    total=(subtotal+Math.round(subtotal*Number(i.taxRate||0)/100))/100;
+    recorded=own.reduce((n,p)=>n+p.amount,0);
+   }
+   if(!invalid&&recorded<=total+0.005)return [];
+   const r=ref('invoices',i.id);
+   return [{type:this.id,refs:[r],explanation:invalid?'Invoice payment records have inconsistent amounts, customer links or currency and require reconciliation.':'Manually recorded payments exceed the calculated invoice total. Verify duplicate receipts and transaction history.',confidence:'limited',
+    limitations:['Only locally entered payments are available; external bank or payment-provider settlements are not verified.'],
+    priority:{tier:1,score:65},constraints:[],action:open(r),evidence:{invoiceTotal:total,recordedPayments:recorded,currency:i.currency||'USD',paymentCount:own.length}}];
+  });
+ }},
  {id:'job.billing_review',evaluate(d,c){
   const issued=list(d,'invoices').filter(i=>state(i.status)!=='void');
   return list(d,'jobs').filter(j=>state(j.status)==='completed'&&j.billingReviewWaived!==true&&
