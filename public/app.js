@@ -877,6 +877,7 @@ function tfRecordDetailView(d,record,type){
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
+  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
   if(type==='quotes'&&record.status==='Accepted'&&!d.jobs.some(j=>j.quoteId===record.id))
    sections+='<button type="button" class="tf-record-dossier-primary" data-convert="'+esc(record.id)+'">Create job from accepted quote</button>';
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
@@ -1093,6 +1094,24 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
+ if(el.dataset.action==='tfQuoteReuse'){
+   const source=await get('quotes',el.dataset.id);
+   if(!source)return;
+   const amount=Number(source.amount);
+   tfResetWorkspace('quotes');
+   modal={draftDefaults:{
+    title:String(source.title||'').slice(0,160),
+    category:String(source.category||'').slice(0,90),
+    amount:Number.isFinite(amount)&&amount>=0?String(amount):'',
+    customerId:'',
+    status:'Draft',
+    sentDate:'',
+    followup_date:''
+   }};
+   await render();
+   notify('New draft prepared. Choose the customer and recheck scope and pricing before saving.');
+   return;
+ }
  if(el.dataset.action==='tfJobInvoiceDraft'){
    const job=await get('jobs',el.dataset.id);
    if(!job||job.status!=='Completed')return;
