@@ -125,6 +125,7 @@ function dossier(d,inv){
  const customer=d.customers.find(x=>x.id===inv.customerId);
  const entries=(d.payments||[]).filter(x=>x.invoiceId===inv.id);
  const canRecord=inv.status==='Issued'&&remaining>.005;
+ const pendingFollowUp=(d.tasks||[]).some(t=>t.invoiceId===inv.id&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
  const email=String(customer?.email||'').trim();
  const safeEmail=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email);
  const body='Invoice '+(inv.reference||inv.id)+'\nAmount: '+money(sum.total)+'\nDue: '+(inv.dueDate||'Not specified')+'\nBalance: '+money(remaining)+'\nPlease contact us for payment instructions.';
@@ -142,6 +143,7 @@ function dossier(d,inv){
  '<div class="tf-revenue-actions">'+
  (inv.status==='Draft'?'<button type="button" class="tf-revenue-secondary" data-revenue-action="edit" data-id="'+esc(inv.id)+'">Edit draft</button><button type="button" class="tf-revenue-primary" data-revenue-action="issue" data-id="'+esc(inv.id)+'">Mark as issued</button>':'')+
  (canRecord?'<button type="button" class="tf-revenue-primary" data-revenue-action="record" data-id="'+esc(inv.id)+'">Record received payment</button>':'')+
+ (canRecord&&!pendingFollowUp?'<button type="button" class="tf-revenue-secondary" data-revenue-action="followup" data-id="'+esc(inv.id)+'">Schedule payment follow-up</button>':canRecord?'<span class="tf-revenue-warning">An open follow-up task already exists for this invoice.</span>':'')+
  (safeEmail?'<a class="tf-revenue-secondary" href="mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+'">Prepare email ↗</a>':'')+
  '<button type="button" class="tf-revenue-secondary" data-revenue-action="print">Print / Save PDF</button>'+
  (inv.status==='Draft'||inv.status==='Issued'&&paid===0?'<button type="button" class="tf-revenue-danger" data-revenue-action="void" data-id="'+esc(inv.id)+'">Void invoice</button>':'')+
@@ -370,6 +372,20 @@ async function onClick(event){
   const inv=await api.get('invoices',id);if(!inv||collected(inv,await api.all('payments'))>0)return;
   if(!confirm('Void this invoice? The record will remain for your audit trail.'))return;
   inv.status='Void';inv.voidedAt=new Date().toISOString();await api.put('invoices',inv);api.notify('Invoice voided');return;
+ }
+ if(a==='followup'){
+  const inv=await api.get('invoices',id);
+  if(!inv||inv.status!=='Issued')throw Error('Only issued invoices can have collection follow-up tasks.');
+  const payments=await api.all('payments'),balance=totals(inv).total-collected(inv,payments);
+  if(!Number.isFinite(balance)||balance<=0.005)throw Error('No verified local outstanding balance remains.');
+  if((await api.all('tasks')).some(t=>t.invoiceId===id&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())))throw Error('An open follow-up task already exists.');
+  const date=new Date();date.setDate(date.getDate()+3);
+  const due=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
+  if(!confirm('Create a local payment follow-up task due '+due+'? No email or payment request will be sent.'))return;
+  await api.put('tasks',{id:api.uid(),invoiceId:inv.id,customerId:inv.customerId,jobId:inv.jobId||'',title:'Review unpaid invoice: '+String(inv.reference||inv.id).slice(0,90),
+    description:'Review invoice status and any bank/provider payments before contacting the customer. Follow applicable communication preferences. No outbound message was sent.',
+    due,status:'Open',createdAt:new Date().toISOString(),source:'invoice_manual_followup'});
+  api.notify('Local invoice follow-up task created');return;
  }
  if(a==='record'){mode='payment';invoiceId=id;api.render();return}
  if(a==='print'){window.print?.();return}
