@@ -143,6 +143,8 @@
    if(order.documentStatus==='Issued')return {resultId:order.id,writes:[],reused:true};
    if(!get('suppliers',order.supplierId))throw Error('Supplier no longer exists');
    if(!order.pricingConfirmed||!Array.isArray(order.lineItems)||!order.lineItems.length)throw Error('Add and verify item prices before issuing the purchase order');
+   if(order.supplierQuoteExpires&&(!validDate(order.supplierQuoteExpires)||order.supplierQuoteExpires<String(when).slice(0,10)))
+    throw Error('Supplier price quote has expired. Verify new pricing and update the quote expiry reference before issuing.');
    const business=(data.settings||[]).find(x=>x.id==='business')||{};
    if(!brief(business.company,150)||!brief(business.businessAddress,300))
     throw Error('Complete the business name and address in Settings before issuing');
