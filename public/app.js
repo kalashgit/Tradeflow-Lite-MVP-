@@ -806,9 +806,9 @@ function tfCustomerRecordedEconomics(d,customerId){
  const invoiceIds=new Set(invoices.map(x=>x.id));
  const payments=(d.payments||[]).filter(p=>
   (p.invoiceId?invoiceIds.has(p.invoiceId):p.customerId===customerId||ids.has(p.jobId||p.relatedId))&&
-  typeof p.amount==='number'&&Number.isFinite(p.amount)&&p.amount>=0);
- const costs=(d.jobCosts||[]).filter(x=>ids.has(x.jobId)&&x.type==='actual');
- const expenses=(d.expenses||[]).filter(x=>ids.has(x.jobId||x.relatedId));
+  (!p.currency||p.currency==='USD')&&typeof p.amount==='number'&&Number.isFinite(p.amount)&&p.amount>=0);
+ const costs=(d.jobCosts||[]).filter(x=>ids.has(x.jobId)&&x.type==='actual'&&(!x.currency||x.currency==='USD'));
+ const expenses=(d.expenses||[]).filter(x=>ids.has(x.jobId||x.relatedId)&&(!x.currency||x.currency==='USD'));
  const sum=rows=>rows.reduce((n,x)=>n+(typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0?x.amount:0),0);
  const received=sum(payments),recordedCosts=sum(costs)+sum(expenses);
  const amount=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
