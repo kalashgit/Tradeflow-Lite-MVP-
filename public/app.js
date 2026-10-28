@@ -1849,6 +1849,11 @@ function tfInitializePilot(){
     const address=String(job.address||job.location||job.siteAddress||customer?.address||'').trim();
     return {handled:true,message:address?'Saved job location for '+String(job.title||'job')+': '+address:'The matching job has no saved location. Open the job to add or review its address.'};
    }
+   if(request?.action==='businessAlerts'){
+    await tfNavigateWorkspace('dashboard');
+    await window.TradeFlowNotifications?.show?.();
+    return {handled:true};
+   }
    if(request?.action==='businessRisks'){
     const report=window.TradeFlowPilot?.evaluateSnapshot(await tfPilotSnapshot());
     if(!report)return {handled:true,message:'Business intelligence is not available on this device. Reload TradeFlow.'};
