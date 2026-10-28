@@ -1976,7 +1976,7 @@ window.TradeFlowResearch?.configure({get,put,all,del,render,notify,uid,navigate:
 window.TradeFlowMarketing?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowNotifications?.configure({
- get,put,render,uid,intelligence:data=>window.TradeFlowPilot?.evaluateSnapshot(data)||null,navigate:async function(next){tab=next;query='';modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}
+ get,put,render,uid,intelligence:data=>window.TradeFlowPilot?.evaluateSnapshot(data)||null,openRecord:tfPilotOpenRecord,navigate:async function(next){tab=next;query='';modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}
 });
 window.TradeFlowOpportunityUX?.configure({
  get,put,all,render,uid,notify,exportCSV:exportOpportunities,exportCRM:exportOpportunityCRM,
