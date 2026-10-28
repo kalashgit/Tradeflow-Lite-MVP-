@@ -8,6 +8,7 @@ const workspaces={'opportunities':'opportunities','opportunity':'opportunities',
 const stores={'opportunity':'opportunities','opportunities':'opportunities','customer':'customers','customers':'customers','quote':'quotes','quotes':'quotes','quotation':'quotes','quotations':'quotes','job':'jobs','jobs':'jobs','task':'tasks','tasks':'tasks','invoice':'invoices','invoices':'invoices'};
 function parse(value){
  const s=clean(value);
+ if(/^(?:show|open|review|check) (?:my |the )?(?:business )?(?:alerts|notifications|reminders)$/.test(s))return {action:'businessAlerts'};
  if(/^(?:what (?:needs|requires) (?:my )?attention|what are (?:my )?(?:business )?(?:risks|priorities|bottlenecks)|(?:show|list|review|check) (?:my |the )?(?:business )?(?:risks|issues|bottlenecks|urgent issues)|business health check)$/.test(s))return {action:'businessRisks'};
  let m=s.match(/^(?:open|show|go to|view)\s+(?:the\s+)?(.+?)(?:\s+(?:page|workspace|screen))?$/);
  if(m&&workspaces[m[1]])return {action:'open',workspace:workspaces[m[1]]};
