@@ -871,7 +871,7 @@ function formModal(d){
 async function tfSyncQuoteFollowUp(id,quote,previous={}){
  const tasks=(await all('tasks')).filter(t=>t.quoteId===id);
  const automatic=tasks.find(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
- const validDate=x=>/^\d{4}-\d{2}-\d{2}$/.test(x||'')&&new Date(x+'T12:00:00Z').toISOString().slice(0,10)===x;
+ const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
  const terminal=['Accepted','Declined'].includes(quote.status);
  if(terminal&&automatic&&automatic.status!=='Done'){
   await put('tasks',{...automatic,status:'Done',completedReason:'quotation_closed',updatedAt:new Date().toISOString()});return;
