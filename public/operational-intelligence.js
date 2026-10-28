@@ -7,7 +7,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x)}return x};
 const list=(d,key)=>Array.isArray(d[key])?d[key]:[];
 const state=x=>String(x||'').trim().toLowerCase();
-const recordedAmount=value=>{if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;if(typeof value==='string'&&/^\d+(?:\.\d{1,2})?$/.test(value.trim()))return Number(value);return null};
+const recordedAmount=value=>{if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;if(typeof value==='string'&&value.length<=20&&/^\d+(?:\.\d{1,2})?$/.test(value.trim())){const n=Number(value);return Number.isFinite(n)&&n>=0?n:null}return null};
 const ref=(store,id)=>({store,id});
 const key=r=>r.store+':'+r.id;
 const id=(type,refs)=>type+':'+refs.map(key).sort().map(encodeURIComponent).join('|');
