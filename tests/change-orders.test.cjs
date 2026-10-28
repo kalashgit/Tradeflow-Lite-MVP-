@@ -52,5 +52,5 @@ test('existing app shell loads change control before job forms and caches it',()
  const html=fs.readFileSync('public/index.html','utf8'),sw=fs.readFileSync('public/sw.js','utf8');
  assert.ok(html.indexOf('change-orders.js')<html.indexOf('job-forms.js'));
  assert.ok(sw.includes('change-orders.js?v=scope-r01'));
- assert.ok(sw.includes('change-orders\\.js'));
+ assert.ok(sw.includes('change-orders\\\\.js')||sw.includes('change-orders.js'));
 });

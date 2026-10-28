@@ -21,6 +21,9 @@ test('record lookup and reviewed drafts',()=>{
  assert.deepEqual(more.parse('draft task'),{action:'draft',kind:'task'});
 });
 test('no interception of unrelated or sensitive requests',()=>{
- for(const cmd of ['open calendar','show unpaid invoices','send invoice','delete customer','charge card','set revenue target','book appointment'])
+ for(const cmd of ['open calendar','send invoice','delete customer','charge card','set revenue target','book appointment'])
   assert.equal(more.parse(cmd),null,cmd);
+});
+test('unpaid invoices is a read-only filter, never a payment operation',()=>{
+ assert.deepEqual(more.parse('show unpaid invoices'),{action:'filter',workspace:'invoices',filter:'unpaid'});
 });

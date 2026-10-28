@@ -32,9 +32,9 @@ assert.ok(!view.includes('data-action="opportunityMapFilters"'),'No extra map si
 assert.ok(view.includes('data-action="opportunityMapAll"'),'One map CTA');
 assert.ok(app.includes('opportunityReviewModal()'),'Import evidence review preserved');
 assert.ok(app.includes("map_enabled:opportunityHasLocation(r)"),'Provided coordinates map automatically');
-assert.ok(app.includes('locateOpportunityBatch(selected,{automatic:true})'),'Confirmed imports start mapping without manual button');
-assert.ok(app.includes("locateOpportunityBatch(await all('opportunities'),{automatic:true,all:true})"),'View Map starts all eligible unmapped addresses');
-assert.ok(app.includes("const max=allRequested?queue.length"),'View Map has no arbitrary six-record limit');
+assert.ok(app.includes('No automatic third-party bulk geocoding on import'),'Confirmed imports do not disclose addresses to a third party');
+assert.ok(app.includes("tab='map';await render();/* Map opens immediately"),'View Map opens without an automatic remote lookup');
+assert.ok(app.includes('Math.min(5,queue.length)'),'Manual address lookup is bounded');
 assert.ok(app.includes("map_location_status='needs_review'"),'Geocoded addresses require review');
 assert.ok(app.includes("map_location_status='unresolved'"),'Failed matches remain unresolved');
 assert.ok(app.includes('async function exportOpportunityCRM()'),'CRM export implemented');

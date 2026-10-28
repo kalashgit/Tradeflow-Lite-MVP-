@@ -65,6 +65,14 @@ Do not duplicate Notifications, Customer, Job, Calendar, Revenue or Opportunity 
 
 **Do not market the present preview as a finished production SaaS or count a code-level detector as a retired contractor pain point.**
 
+## Verification resumed — full-suite baseline and notification routing
+- Retrieved the feature branch at `932330444ac85cf307d3c75d3f7161e8e49fa7bc` and independently ran all `tests/*.test.cjs` files. Initial result: 203 passed, 7 failed. After the focused fixes and test alignment: **211 passed, 0 failed** locally (Node 24); GitHub Actions on Node 22 must still verify the pushed revision.
+- Fixed a genuine Notifications navigation defect: financial findings sometimes contain both Customer and Invoice references. The existing notification now chooses the single reference matching its destination workspace, retaining safe no-link behavior for ambiguous references.
+- Updated legacy test expectations for deliberately consent-gated, five-record-maximum address lookups, read-only unpaid-invoice commands, and independently versioned service-worker caches; no automatic bulk geocoding was reintroduced.
+- CI now runs the complete `tests/*.test.cjs` suite rather than a manually curated subset, while retaining syntax, deployment and live-asset gates.
+- The latest inspected GitHub workflow run `40751168442` failed its regression step before deployment. Independently fetched preview HTML still referenced `app.js?v=optimization-r01`, `notifications.js?v=optimization-r01`, and `revenue.js?v=us-v107`, so latest `finance-r02` has **not** been verified live.
+- The unchanged production gates (authentication, tenancy, durable synchronization/backups, provider consent/integrations, iPhone usability, legal validation, measured contractor outcomes) remain blocking. **No pain point retired.**
+
 ## Resumed implementation after interrupted request — account integrity and supplier quote expiration
 - Customer dossier economics now excludes visibly inconsistent payments or costs (wrong customer linkage, unsupported currency, invalid amounts) and warns about excluded records and possible missing job costs. This remains a provisional local cash contribution, not profit, and never implies bank reconciliation.
 - Existing Supplier/Purchase Order screen records `supplierQuoteExpires` and `supplierQuoteEvidence`, validated in `supplyOrder.save`. Issuance of a still-draft PO is blocked when a **recorded** quote-validity date has expired; this does not guarantee real supplier pricing.

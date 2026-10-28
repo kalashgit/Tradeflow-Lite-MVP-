@@ -22,7 +22,9 @@ function intelligenceItems(report,data={}){
   !(f.detectorId==='quotation.stale_open'&&(data.tasks||[]).some(t=>t.quoteId===f.recordRefs[0].id&&
     !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())&&validDate(t.due)))).map(f=>{
   const [title,route]=labels[f.detectorId];
-  return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0,recordRef:f.recordRefs.length===1?{...f.recordRefs[0]}:null};
+  const primary=f.recordRefs.filter(r=>r.store===route);
+  const target=primary.length===1?primary[0]:f.recordRefs.length===1?f.recordRefs[0]:null;
+  return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0,recordRef:target?{...target}:null};
  });
 }
 function loadState(d){return (d.settings||[]).find(x=>x.id===KEY)||null}
