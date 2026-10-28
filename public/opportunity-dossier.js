@@ -87,6 +87,12 @@
    '<p class="tf-od-muted">A bid cutoff must be confirmed from the original invitation. The follow-up date is not a submission deadline.</p>'+
    '<label>Bid / no-bid decision<select name="bid_decision">'+[['Unreviewed','Not reviewed'],['Pursue','Pursue bid'],['Hold','Hold / request information'],['Decline','Do not bid']].map(([value,label])=>'<option value="'+value+'"'+((r.bid_decision||'Unreviewed')===value?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
    '<label>Decision rationale<textarea name="bid_rationale" maxlength="1200" rows="2" placeholder="Invitation verified? Scope fit? Capacity? Profit potential? Why pursue or decline?">'+esc(r.bid_rationale||'')+'</textarea></label>'+
+   '<fieldset class="tf-od-bid-check"><legend>Bid readiness — manually verified</legend>'+
+   [['bidInvitationVerified','Actual invitation / purchasing request'],['bidScopeReviewed','Scope and requirements reviewed'],['bidCapacityChecked','Crew capacity reviewed']].map(([field,label])=>
+   '<label>'+esc(label)+'<select name="'+field+'">'+[['Unknown','Not checked'],['Yes','Verified / checked'],['No','Not satisfied']].map(([value,caption])=>
+   '<option value="'+value+'"'+((r[field]||'Unknown')===value?' selected':'')+'>'+caption+'</option>').join('')+'</select></label>').join('')+
+   '<p class="tf-od-muted">These are owner-recorded checks, not independent due diligence. Verify the original source and procurement conditions.</p></fieldset>'+
+
    '<p class="tf-od-muted">A human decision recorded with evidence. TradeFlow does not predict bid awards or invent project eligibility.</p>'+
    '<label>Bid outcome reason (Won / Lost)<select name="bid_outcome_reason">'+[['','Not recorded'],['Price','Price'],['Capacity','Capacity or timeline'],['Scope','Scope or requirements'],['Relationship','Relationship or incumbent'],['Withdrawn','Customer withdrew project'],['Not shared','Reason not provided'],['Other','Other verified reason']].map(([value,label])=>'<option value="'+esc(value)+'"'+((r.bid_outcome_reason||'')===value?' selected':'')+'>'+esc(label)+'</option>').join('')+'</select></label>'+
    '<label>Outcome evidence / notes<textarea name="bid_outcome_notes" maxlength="600" rows="2" placeholder="What was actually communicated? Leave unknown reasons unasserted.">'+esc(r.bid_outcome_notes||'')+'</textarea></label>'+
