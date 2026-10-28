@@ -946,7 +946,7 @@ function tfReusableQuoteFields(source){
  return {
   title:String(source?.title||'').slice(0,160),
   category:String(source?.category||'').slice(0,90),
-  amount:source?.amount!==''&&Number.isFinite(value)&&value>=0?String(value):'',
+  amount:source?.amount!=null&&source?.amount!==''&&Number.isFinite(value)&&value>=0?String(value):'',
   customerId:'',status:'Draft',sentDate:'',followup_date:''
  };
 }
