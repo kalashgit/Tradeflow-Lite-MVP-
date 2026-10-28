@@ -38,6 +38,8 @@ jobs:
           node --check public/job-intake-links.js
           node --check public/library-commands.js
           node --check public/voice-command.js
+          node --check public/job-forms.js
+          node --check public/change-orders.js
           node --check public/notifications.js
           node --check public/operational-intelligence.js
           node --check public/opportunity-dossier.js
@@ -48,6 +50,8 @@ jobs:
           node --check public/flow-wave-audio.js
           node --check public/sw.js
           node --test tests/document-intake.test.cjs tests/job-intake-links.test.cjs tests/library-commands.test.cjs tests/location-quality.test.cjs tests/flow-wave-art.test.cjs tests/flow-wave-audio.test.cjs tests/voice-command.test.cjs tests/notifications.test.cjs tests/operational-intelligence.test.cjs tests/optimization-notifications.test.cjs tests/optimization-workflows.test.cjs tests/optimization-customer-bid.test.cjs tests/optimization-job-cash.test.cjs tests/optimization-reactivation.test.cjs tests/optimization-contact-log.test.cjs tests/optimization-bid-deadlines.test.cjs tests/optimization-bid-outcomes.test.cjs
+          node --test tests/change-orders.test.cjs
+          node tests/job-forms.test.cjs
           node tests/smoke.test.cjs
           node tests/address-resolution.test.cjs
           node tests/calendar.test.cjs
