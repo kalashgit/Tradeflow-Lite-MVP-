@@ -40,3 +40,17 @@
  .tf-job-checkline{border-bottom:1px solid #ccc!important;break-inside:avoid;padding:11px 0!important}
  #tfJobAssessmentForm textarea{border:1px solid #999!important;min-height:100px!important;white-space:pre-wrap}
 }
+
+/* Reuse the existing Job documentation surface for scoped change orders. */
+.tf-change-control{display:flex;flex-direction:column;gap:12px}
+.tf-change-control .tf-job-checklist{margin-bottom:0}
+.tf-co-row{gap:12px;align-items:center;justify-content:space-between}
+.tf-co-row>span{display:flex;flex-direction:column;gap:5px;min-width:0;overflow-wrap:anywhere}
+.tf-co-row small{display:block;color:#a6c6d2;font-size:11px}
+.tf-co-row button{white-space:normal;text-align:center;min-height:36px}
+#tfChangeOrderForm{display:flex;flex-direction:column;gap:9px}
+#tfChangeOrderForm label{display:flex;flex-direction:column;gap:5px;color:#d2eaf2;font-size:12px;font-weight:710}
+#tfChangeOrderForm input{width:100%;min-width:0;background:#061d2b;border:1px solid #426c81;color:#e3f8ff;font:inherit;padding:10px;border-radius:8px}
+#tfChangeOrderForm button{align-self:flex-start;background:var(--tf-accent,#10cfe1);color:#04212e;border:0;border-radius:8px;padding:11px 14px;font-weight:700;cursor:pointer}
+.tf-change-control button:focus-visible,#tfChangeOrderForm input:focus{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
+@media(max-width:450px){.tf-co-row{flex-wrap:wrap}.tf-co-row button{width:100%}}
