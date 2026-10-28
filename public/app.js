@@ -1905,6 +1905,27 @@ function tfInitializePilot(){
     await window.TradeFlowNotifications?.show?.();
     return {handled:true};
    }
+   if(request?.action==='optimizationReview'){
+    const types={
+     budget:['job.budget_overrun_review'],
+     labor:['job.labor_hours_variance_review'],
+     payments:['invoice.payment_integrity_review'],
+     bids:['opportunity.bid_readiness_review'],
+     materials:['job.material_readiness_review'],
+     closeout:['job.closeout_evidence_review'],
+     credentials:['job.crew_credential_review']
+    };
+    const filters=types[request.category];
+    if(!filters)return {handled:true,message:'This business review is not supported.'};
+    const report=window.TradeFlowPilot?.evaluateSnapshot(await tfPilotSnapshot());
+    if(!report)return {handled:true,message:'Local business intelligence is unavailable. Reload TradeFlow.'};
+    const findings=(report.findings||[]).filter(f=>filters.includes(f.detectorId));
+    const message=findings.length?
+      findings.length+' recorded review item(s):\n'+findings.slice(0,5).map(f=>'• '+f.explanation).join('\n')+
+      (findings.length>5?'\nShowing first five. Open Notifications to review the records.':''):
+      'No matching issues were found in the currently supported local records. This does not verify external accounts or unrecorded activities.';
+    return {handled:true,message};
+   }
    if(request?.action==='businessRisks'){
     const report=window.TradeFlowPilot?.evaluateSnapshot(await tfPilotSnapshot());
     if(!report)return {handled:true,message:'Business intelligence is not available on this device. Reload TradeFlow.'};
