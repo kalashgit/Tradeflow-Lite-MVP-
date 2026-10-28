@@ -255,6 +255,7 @@ function jobCostDetail(d,selected){
  '<div class="tf-revenue-two"><label>Amount ($)<input name="amount" type="number" min=".01" max="100000000" step=".01" required></label>'+
  '<label>Record type<select name="type"><option value="actual">Actual cost</option><option value="estimate">Planned budget</option></select></label></div>'+
  '<label>Cost category<select name="category">'+costKinds.map(k=>'<option>'+k+'</option>').join('')+'</select></label>'+
+ '<label>Labor hours (optional; Labor category only)<input name="laborHours" type="number" min="0.25" max="10000" step="0.25" placeholder="e.g. 8.5"></label>'+
  '<p class="tf-jc-footnote">Do not duplicate Finance expenses or supplier bills already recorded for this job.</p>'+
  '<button class="tf-jc-primary" type="submit">Save cost entry</button></form>':'')+
  (entries.length?entries.slice().reverse().map(c=>'<div class="tf-jc-entry"><span><strong>'+esc(c.title)+'</strong><small>'+esc(c.type==='estimate'?'Budget':'Actual')+' · '+esc(c.category||'Other')+'</small></span><span><strong>'+money(c.amount)+'</strong><button type="button" data-revenue-action="remove-cost" data-id="'+esc(c.id)+'" class="tf-revenue-textdanger">Remove</button></span></div>').join(''):'<p>No manual cost entries yet.</p>')+'</section>'+
@@ -331,8 +332,11 @@ async function onSubmit(event){
     Math.abs(Math.round(amount*100)-amount*100)>1e-6)throw Error('Enter a valid amount with two decimals.');
    const type=trim(fd.get('type'),20);if(!['estimate','actual'].includes(type))throw Error('Invalid cost classification.');
    const title=trim(fd.get('title'),150);if(!title)throw Error('Cost description is required.');
+   const category=trim(fd.get('category'),80),rawHours=String(fd.get('laborHours')||'').trim();
+   const laborHours=rawHours===''?null:Number(rawHours);
+   if(rawHours!==''&&(category!=='Labor'||!Number.isFinite(laborHours)||laborHours<0.25||laborHours>10000||Math.abs(laborHours*4-Math.round(laborHours*4))>1e-6))throw Error('Labor hours require Labor category and quarter-hour increments.');
    await api.put('jobCosts',{id:api.uid(),jobId:job.id,title,amount:Math.round(amount*100)/100,
-      type,category:trim(fd.get('category'),80),createdAt:new Date().toISOString()});
+      type,category,...(laborHours!==null?{laborHours}:{}),createdAt:new Date().toISOString()});
    costFormOpen=false;api.notify('Job cost saved');
   }
  }catch(err){alert('Could not save: '+err.message)}
