@@ -32,6 +32,8 @@ jobs:
       - name: Syntax and regression checks
         run: |
           node --check public/app.js
+          node --check public/suppliers.js
+          node --check public/core-integration.js
           node --check public/library.js
           node --check public/document-intake.js
           node --check public/location-quality.js
@@ -52,7 +54,7 @@ jobs:
           node --check public/flow-wave-audio.js
           node --check public/sw.js
           node --test tests/document-intake.test.cjs tests/job-intake-links.test.cjs tests/library-commands.test.cjs tests/location-quality.test.cjs tests/flow-wave-art.test.cjs tests/flow-wave-audio.test.cjs tests/voice-command.test.cjs tests/notifications.test.cjs tests/operational-intelligence.test.cjs tests/optimization-notifications.test.cjs tests/optimization-workflows.test.cjs tests/optimization-customer-bid.test.cjs tests/optimization-job-cash.test.cjs tests/optimization-reactivation.test.cjs tests/optimization-contact-log.test.cjs tests/optimization-bid-deadlines.test.cjs tests/optimization-bid-outcomes.test.cjs
-          node --test tests/change-orders.test.cjs tests/change-order-intelligence.test.cjs tests/five-run-optimization.test.cjs tests/optimization-financial-integrity.test.cjs tests/optimization-labor-hours.test.cjs tests/optimization-account-economics.test.cjs tests/optimization-bid-readiness.test.cjs tests/optimization-voice-reviews.test.cjs tests/optimization-quote-reuse.test.cjs
+          node --test tests/change-orders.test.cjs tests/change-order-intelligence.test.cjs tests/five-run-optimization.test.cjs tests/optimization-financial-integrity.test.cjs tests/optimization-labor-hours.test.cjs tests/optimization-account-economics.test.cjs tests/optimization-supplier-expiration.test.cjs tests/optimization-bid-readiness.test.cjs tests/optimization-voice-reviews.test.cjs tests/optimization-quote-reuse.test.cjs
           node tests/job-forms.test.cjs
           node tests/smoke.test.cjs
           node tests/address-resolution.test.cjs
