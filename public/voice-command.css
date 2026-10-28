@@ -47,3 +47,31 @@
 @media(max-width:375px){.tf-voice-sheet{padding:18px 14px!important}.tf-voice-actions{gap:7px}.tf-voice-action{font-size:11px;min-height:92px}.tf-voice-intro{margin-top:20px}}
 @media(max-height:680px){.tf-voice-intro{margin-top:12px}.tf-voice-wave{height:130px}.tf-voice-actions{margin-top:6px}.tf-voice-sheet{min-height:0}}
 @media(prefers-reduced-motion:reduce){.tf-wave-layer{animation:none!important;will-change:auto}.tf-voice-overlay{backdrop-filter:none}}
+
+/* Flow Wave V2 — layered translucent ribbons like the approved reference.
+   Graphite surface, original TradeFlow cyan; visually atmospheric but restrained. */
+.tf-voice-overlay{padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)!important;background:rgba(0,0,0,.90)!important}
+.tf-voice-sheet{border-color:#21313b!important;border-radius:29px!important;background:radial-gradient(ellipse at 50% 42%,#071d2b 0%,#10171c 55%,#15181b 100%)!important;padding:25px 20px 26px!important;min-height:min(760px,calc(100dvh - 30px))!important}
+.tf-voice-top small{color:#67cbdc!important;letter-spacing:.12em!important;font-size:11px!important}
+.tf-voice-top button{background:#182632!important;border:1px solid #3e5260!important}
+.tf-voice-intro{margin:31px 0 12px!important}
+.tf-voice-intro h2{max-width:290px!important;font-size:clamp(28px,7.5vw,39px)!important;line-height:1.1!important}
+.tf-voice-intro p{color:#9db0bb!important;margin-top:13px!important;font-size:14px!important}
+.tf-voice-wave{height:clamp(180px,29dvh,265px)!important;margin:9px -20px 0!important;filter:none!important;overflow:hidden!important;isolation:isolate}
+.tf-voice-wave .tf-flow-art{height:100%!important;width:100%!important;display:block}
+.tf-flow-ribbon-group{transform-origin:50% 50%;animation:tfFlowVeil 6s ease-in-out infinite alternate}
+.tf-voice-wave.is-listening .tf-flow-ribbon-group{animation:tfFlowListening 2.1s ease-in-out infinite alternate}
+.tf-flow-fiber{mix-blend-mode:screen}
+@keyframes tfFlowVeil{0%{transform:translateY(-4px) scaleY(.91)}50%{transform:translateY(3px) scaleY(1.03)}100%{transform:translateY(-1px) scaleY(.96)}}
+@keyframes tfFlowListening{0%{transform:translateY(-8px) scaleY(.90)}50%{transform:translateY(6px) scaleY(1.15)}100%{transform:translateY(-4px) scaleY(1.01)}}
+.tf-voice-state{font-size:15px!important;margin:0 0 5px!important;color:#e1e7ec!important}
+.tf-voice-mic{font-size:11px!important;min-height:31px!important;margin:0 0 17px!important;padding:5px 14px!important;opacity:.76!important;background:#12232c!important;border-color:#294956!important}
+.tf-voice-mic:focus-visible,.tf-voice-action:focus-visible,.tf-voice-composer button:focus-visible{outline:2px solid #64cbdf;outline-offset:2px}
+.tf-voice-actions{gap:10px!important;margin:auto 0 20px!important}
+.tf-voice-action{background:linear-gradient(180deg,#132c39,#102532)!important;border-color:#244556!important;min-height:108px!important;border-radius:16px!important}
+.tf-voice-action svg{color:#64c9db!important;width:27px!important;height:27px!important}
+.tf-voice-composer{background:#1b303d!important;border-color:#345667!important}
+.tf-voice-composer button{background:#57c4d9!important;box-shadow:0 0 0 3px #56c4d91a!important}
+.tf-voice-approval{font-size:10px!important;opacity:.75}
+@media(max-height:720px){.tf-voice-sheet{min-height:0!important}.tf-voice-intro{margin-top:15px!important}.tf-voice-wave{height:165px!important}.tf-voice-actions{margin-top:7px!important;min-height:0}}
+@media(prefers-reduced-motion:reduce){.tf-flow-ribbon-group{animation:none!important}}
