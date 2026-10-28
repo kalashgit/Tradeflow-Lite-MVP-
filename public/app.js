@@ -787,6 +787,30 @@ function tfRecordInfoRow(icon,label,value,action=''){
  if(!value)return '';
  return '<div class="tf-record-info-row"><span class="tf-record-info-symbol">'+tfRecordIcon(icon,21)+'</span><div><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div>'+(action?'<span class="tf-record-info-tail">'+tfRecordIcon('arrow',17)+'</span>':'')+'</div>';
 }
+function tfCustomerRelationshipHistory(d,customerId){
+ const rows=[];
+ const append=(kind,items,dateField,label)=>{for(const x of items||[]){
+  if(x.customerId!==customerId)continue;
+  const when=String(x[dateField]||x.updatedAt||x.createdAt||'').slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(when))continue;
+  rows.push({kind,date:when,label:String(label(x)||'').slice(0,120)});
+ }};
+ append('Quotation',d.quotes,'sentDate',x=>(x.title||'Quotation')+' · '+(x.status||'Draft'));
+ append('Job',d.jobs,'date',x=>(x.title||'Job')+' · '+(x.status||'Planned'));
+ append('Invoice',d.invoices,'issuedDate',x=>(x.reference||'Invoice')+' · '+(x.status||'Draft'));
+ append('Task',d.tasks,'due',x=>(x.title||'Task')+' · '+(x.status||'Open'));
+ const invoiceIds=new Set((d.invoices||[]).filter(x=>x.customerId===customerId).map(x=>x.id));
+ const jobIds=new Set((d.jobs||[]).filter(x=>x.customerId===customerId).map(x=>x.id));
+ for(const payment of d.payments||[]){
+  if(payment.customerId!==customerId&&!invoiceIds.has(payment.invoiceId)&&!jobIds.has(payment.jobId))continue;
+  const when=String(payment.date||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))rows.push({kind:'Payment',date:when,label:'Recorded receipt · '+euro(payment.amount)});
+ }
+ rows.sort((a,b)=>b.date.localeCompare(a.date)||a.kind.localeCompare(b.kind));
+ return '<section class="tf-record-dossier-box"><h3>Recorded relationship history</h3>'+
+ (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label)+'</p>').join(''):'<p>No dated linked activity has been recorded yet.</p>')+
+ '<small>Drawn from local TradeFlow records only; calls, emails and external systems are not synchronized.</small></section>';
+}
 function tfRecordDetailView(d,record,type){
  const title=type==='customers'?record.name:record.title||'Untitled';
  const status=tfRecordStatus(record,type);
@@ -803,6 +827,7 @@ function tfRecordDetailView(d,record,type){
   if(record.notes)sections+='<section class="tf-record-dossier-box"><h3>'+tfRecordIcon('note',20)+' Notes</h3><p>'+esc(record.notes)+'</p></section>';
   const related=[['jobs','Jobs',d.jobs.filter(x=>x.customerId===record.id).length],['quotes','Quotations',d.quotes.filter(x=>x.customerId===record.id).length],['tasks','Tasks',d.tasks.filter(x=>x.customerId===record.id).length],['payments','Payments',d.payments.filter(x=>x.customerId===record.id).length]];
   sections+='<section class="tf-record-dossier-box"><h3>Linked records</h3><div class="tf-record-related-grid">'+related.map(([key,name,count])=>'<button type="button" data-action="tfRecordRelated" data-type="'+key+'" data-id="'+esc(record.id)+'">'+tfRecordIcon(key==='payments'?'cash':key,19)+'<span>'+name+'<small>'+count+' records</small></span>'+tfRecordIcon('arrow',17)+'</button>').join('')+'</div></section>';
+  sections+=tfCustomerRelationshipHistory(d,record.id);
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
