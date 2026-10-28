@@ -68,7 +68,7 @@ test('business risk voice intent and cache versions are linked',()=>{
  assert.equal(commands.parse('show overdue tasks').action,'filter');
  assert.deepEqual(JSON.parse(JSON.stringify(commands.parse('show overdue invoices'))),{action:'filter',workspace:'invoices',filter:'overdue'});
  assert.deepEqual(JSON.parse(JSON.stringify(commands.parse('show unpaid invoices'))),{action:'filter',workspace:'invoices',filter:'unpaid'});
- assert.ok(html.includes('notifications.js?v=bid-r01'));
+ assert.ok(html.includes('notifications.js?v=supplier-r01'));
  assert.ok(html.includes('launch-more-commands.js?v=command-r01'));
- assert.ok(sw.includes('notifications.js?v=bid-r01'));
+ assert.ok(sw.includes('notifications.js?v=supplier-r01'));
 });
