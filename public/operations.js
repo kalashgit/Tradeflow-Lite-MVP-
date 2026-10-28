@@ -377,8 +377,14 @@ async function onSubmit(ev){
    if(conflicts.length)throw Error('Time conflict with '+conflicts.map(x=>x.title||'another job').slice(0,3).join(', ')+'. Adjust the schedule or choose another crew member.');
    if(crew){
     const info=crewDay(crew,date,[updated]);
-    if(info.availability==='Off duty'&&!confirm('This crew member is marked off duty on '+date+'. Assign anyway?'))return;
+    if(info.availability==='Off duty'){
+     if(!confirm('This crew member is marked off duty on '+date+'. Assign anyway?'))return;
+     const reason=typeof prompt==='function'?String(prompt('Explain the confirmed exception to the scheduled days off (10–250 characters):')||'').trim():'';
+     if(reason.length<10||reason.length>250)throw Error('An off-duty override requires a recorded explanation.');
+     updated.offDutyOverride={crewId,date,reason,recordedAt:new Date().toISOString(),verifiedBy:'local-owner'};
+    }else delete updated.offDutyOverride;
    }
+   if(!crew)delete updated.offDutyOverride;
    await api.put('jobs',updated);
    assignmentJobId='';assignmentPickerOpen=false;
    api.notify('Job assignment and schedule saved locally');return;
