@@ -125,9 +125,14 @@
    const total=Math.round((subtotal+tax+shippingAmount)*100)/100;
    const poNumber=existing?.poNumber||'PO-'+String(when).slice(0,4)+'-'+String(existing?.id||id).replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase();
    const paymentTerms=brief(body.paymentTerms,350);
+   const supplierQuoteExpires=brief(body.supplierQuoteExpires,10);
+   const supplierQuoteEvidence=brief(body.supplierQuoteEvidence,400);
+   if(supplierQuoteExpires&&(!validDate(supplierQuoteExpires)||supplierQuoteEvidence.length<12))
+    throw Error('Supplier price expiration needs a valid date and verifiable quote reference.');
+   if(!supplierQuoteExpires&&supplierQuoteEvidence)throw Error('Add the supplier price expiry date or clear its evidence reference.');
    return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,
     poNumber,documentStatus:'Draft',pricingConfirmed:!!providedLines,createdAt:existing?.createdAt||when,
-    lineItems,currency,taxRate,shipping:shippingAmount,subtotal,tax,total,paymentTerms,
+    lineItems,currency,taxRate,shipping:shippingAmount,subtotal,tax,total,paymentTerms,supplierQuoteExpires,supplierQuoteEvidence,
     opportunityId,description:lineItems.map(x=>x.description).join(', ').slice(0,240),status,destinationKind,destinationId,destinationAddress,
     latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,
     mapLocationStatus:point?'needs_review':destinationKind==='custom'?'unmapped':'linked_destination',notes:brief(body.notes,900),updatedAt:when}}]};
