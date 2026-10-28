@@ -125,8 +125,10 @@ function groupIcon(name){
 function icon(type){
  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+groupIcon(type)+'</svg>';
 }
-function obligationForm(){
+function obligationForm(d){
+ const related=[['','No linked record'],...['jobs','customers','quotes','opportunities','invoices','suppliers'].flatMap(store=>(d[store]||[]).slice(0,120).map(x=>[store+':'+x.id,store.slice(0,-1)+' · '+String(x.title||x.name||x.project_name||x.reference||x.id).slice(0,75)]))];
  return '<form class="tf-notif-obligation" id="tfNotifObligationForm" aria-label="Add business deadline">'+
+ '<label>Related business record<select name="relation">'+related.map(([id,label])=>'<option value="'+esc(id)+'">'+esc(label)+'</option>').join('')+'</select></label>'+
  '<label>Deadline type<select name="kind" required>'+Object.entries(obligationTypes).map(([id,label])=>'<option value="'+id+'">'+esc(label)+'</option>').join('')+'</select></label>'+
  '<label>What needs doing?<input name="title" maxlength="150" required placeholder="e.g. Renew insurance certificate"></label>'+
  '<label>Verified due date<input name="due" type="date" required></label>'+
@@ -151,7 +153,7 @@ function panel(d,items,now){
   '<header class="tf-notif-panel-head"><div><span>TRADEFLOW / INTELLIGENCE</span><h2>Notifications'+(unread?' <em>'+unread+' new</em>':'')+'</h2></div>'+
   '<button type="button" class="tf-notif-dismiss" data-notif-action="close" aria-label="Close notifications">×</button></header>'+
   '<div class="tf-notif-panel-body">'+(sections||'<div class="tf-notif-empty"><strong>All clear</strong><p>No notifications need your attention.</p></div>')+'</div>'+
-  (obligationEditor?obligationForm():'<button type="button" class="tf-notif-add-obligation" data-notif-action="obligation-new">+ Track a deadline or renewal</button>')+
+  (obligationEditor?obligationForm(d):'<button type="button" class="tf-notif-add-obligation" data-notif-action="obligation-new">+ Track a deadline or renewal</button>')+
   '<footer class="tf-notif-panel-footer">'+(unread?'<button type="button" data-notif-action="read-all">Mark all read</button>':'<span>Up to date</span>')+
   '<small>On-device activity · No push alerts</small></footer></section>';
 }
@@ -196,8 +198,11 @@ async function handleSubmit(event){
  try{
   const form=new FormData(event.target),kind=String(form.get('kind')||''),title=String(form.get('title')||'').trim(),due=String(form.get('due')||'');
   const owner=String(form.get('owner')||'').trim(),notes=String(form.get('notes')||'').trim();
+  const relation=String(form.get('relation')||''),separator=relation.indexOf(':'),store=separator<0?'':relation.slice(0,separator),relatedId=separator<0?'':relation.slice(separator+1);
+  if(relation&&(!['jobs','customers','quotes','opportunities','invoices','suppliers'].includes(store)||!relatedId||
+    !(lastData?.[store]||[]).some(x=>x.id===relatedId)))throw Error('The related record is missing. Refresh and review the deadline.');
   if(!Object.hasOwn(obligationTypes,kind)||!title||title.length>150||!validDate(due)||owner.length>90||notes.length>300)throw Error('Provide a valid deadline type, description and date.');
-  const row={id:api.uid(),title,due,status:'Open',taskType:'business_obligation',obligationType:kind,assignedTo:owner,notes,createdAt:new Date().toISOString()};
+  const row={id:api.uid(),title,due,status:'Open',taskType:'business_obligation',obligationType:kind,assignedTo:owner,notes,relatedStore:store,relatedRecordId:relatedId,createdAt:new Date().toISOString()};
   await api.put('tasks',row);
   obligationEditor=false;
   await api.render();
