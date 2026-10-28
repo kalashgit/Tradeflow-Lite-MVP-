@@ -879,7 +879,7 @@ function formModal(d){
  const defs={
  customers:[['name','Customer name','text',true],['phone','Phone','tel',!modal.id],['email','Email','email'],['address','Address','text'],['company','Company','text'],['notes','Notes','textarea']],
  quotes:[['customerId','Customer','customer',true],['title','Description','text',true],['category','Trade category','category',true],['amount','Estimated value ($)','number',true],['status','Status','select:Draft,Sent,Accepted,Declined'],['sentDate','Date sent','date'],['followup_date','Next follow-up','date']],
- jobs:[['customerId','Customer','customer',true],['title','Job description','text',true],['category','Trade category','category',true],['status','Status','select:Planned,In Progress,Completed'],['date','Scheduled date','date']],
+ jobs:[['customerId','Customer','customer',true],['title','Job description','text',true],['category','Trade category','category',true],['status','Status','select:Planned,In Progress,Completed'],['date','Scheduled date','date'],['materialsStatus','Material readiness','select:Unknown,Ready,Not Ready'],['materialsNotes','Materials / missing items','textarea']],
  tasks:[['title','Task title','text',true],['customerId','Customer','customer'],['due','Due date','date',true],['status','Status','select:Open,Done']],
  expenses:[['title','Expense description','text',true],['category','Trade category','category',true],['amount','Amount ($)','number',true],['date','Date','date',true]]
  }[tab];
