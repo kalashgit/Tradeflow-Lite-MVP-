@@ -63,6 +63,17 @@ const builtins=[
 // Optional contractor optimization detectors. Each finding is read-only and
 // refers exclusively to locally recorded evidence, never presumed outcomes.
 const optimizationDetectors=[
+ {id:'opportunity.bid_readiness_review',evaluate(d,c){
+  const fields=['bidInvitationVerified','bidScopeReviewed','bidCapacityChecked'];
+  return list(d,'opportunities').filter(o=>state(o.bid_decision)==='pursue'&&
+   !['won','lost','closed'].includes(state(o.status))&&fields.some(key=>state(o[key])!=='yes')).map(o=>{
+   const r=ref('opportunities',o.id);
+   return {type:this.id,refs:[r],explanation:'An opportunity is marked for bidding but its recorded invitation, scope or capacity checks remain incomplete. Review before committing estimating effort.',confidence:'limited',
+    limitations:['The checks are supplied by the operator, not independently verified.','A documented opportunity may still be unsuitable or unwinnable.'],
+    priority:{tier:2,score:40},constraints:[],action:open(r),
+    evidence:{invitation:o.bidInvitationVerified||'Unknown',scope:o.bidScopeReviewed||'Unknown',capacity:o.bidCapacityChecked||'Unknown'}};
+  });
+ }},
  {id:'opportunity.bid_deadline',evaluate(d,c){
   const today=c.today,last=new Date(today+'T12:00:00Z');last.setUTCDate(last.getUTCDate()+7);
   const horizon=last.toISOString().slice(0,10);
