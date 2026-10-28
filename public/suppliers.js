@@ -67,6 +67,9 @@
    '<div class="tf-supplier-grid"><label>Latitude<input type="number" name="latitude" step="any" min="-90" max="90" value="'+(destination==='custom'?value(rec,'latitude'):'')+'"></label>'+
    '<label>Longitude<input type="number" name="longitude" step="any" min="-180" max="180" value="'+(destination==='custom'?value(rec,'longitude'):'')+'"></label></div></div>'+
    '<label>Payment terms<input name="paymentTerms" maxlength="350" placeholder="e.g. Net 30 after invoice" value="'+value(rec,'paymentTerms')+'"></label>'+
+   '<div class="tf-supplier-grid"><label>Supplier price quote expires (optional)<input name="supplierQuoteExpires" type="date" value="'+value(rec,'supplierQuoteExpires')+'"></label>'+
+   '<label>Verified quote reference / source<input name="supplierQuoteEvidence" maxlength="400" value="'+value(rec,'supplierQuoteEvidence')+'" placeholder="Email date, price sheet or supplier quote number"></label></div>'+
+   '<p class="tf-supplier-disclaimer">Price-expiration alerts use the date you verify. TradeFlow does not confirm current supplier prices externally.</p>'+
    '<details class="tf-po-more"><summary>Opportunity and delivery instructions</summary><label>Related opportunity<select name="opportunityId"><option value="">None</option>'+opts(opportunityList,rec?.opportunityId)+'</select></label>'+
    '<label>Delivery instructions<textarea name="notes" maxlength="900" rows="2">'+value(rec,'notes')+'</textarea></label></details>'+
    '<div class="tf-supplier-actions"><button class="primary" type="submit">Save PO draft</button><button type="button" data-supply-action="cancel">Cancel</button></div></form>'+
