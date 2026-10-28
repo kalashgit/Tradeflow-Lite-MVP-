@@ -13,7 +13,16 @@ const dateToday=now=>{const d=new Date(now);return d.getFullYear()+'-'+String(d.
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00'));
 const parseTime=v=>{let n=new Date(v).getTime();return Number.isFinite(n)?n:0};
 const fingerprint=s=>{let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)}return (x>>>0).toString(36)};
-let api=null,open=false,working=false,lastData=null;
+let api=null,open=false,working=false,lastData=null,obligationEditor=false;
+const obligationTypes=Object.freeze({license:'License or certification',insurance:'Insurance certificate',bid:'Bid deadline',supplier_quote:'Supplier quote expiration',retainage:'Retainage follow-up',service_agreement:'Service agreement renewal',closeout:'Project closeout',other:'Other deadline'});
+function intelligenceItems(report){
+ if(!report||!Array.isArray(report.findings))return [];
+ const labels={'calendar.conflict':['Scheduling conflict','calendar'],'invoice.overdue':['Overdue invoice','invoices'],'quotation.accepted_handoff':['Accepted quote needs job','quotes'],'quotation.stale_open':['Quotation follow-up review','quotes']};
+ return report.findings.filter(f=>labels[f.detectorId]&&Array.isArray(f.recordRefs)&&f.recordRefs.length).map(f=>{
+  const [title,route]=labels[f.detectorId];
+  return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0};
+ });
+}
 function loadState(d){return (d.settings||[]).find(x=>x.id===KEY)||null}
 function recent(d,now,days=21){const t=parseTime(d);return t&&t<=now+60000&&t>now-days*DAY}
 function sourceEvents(d,now){
@@ -46,13 +55,17 @@ function sourceEvents(d,now){
  }
  return out.sort((a,b)=>b.at-a.at).slice(0,9);
 }
-function generate(d,now=Date.now()){
+function generate(d,now=Date.now(),report=null){
  const day=dateToday(now),items=[],tasks=d.tasks||[],quotes=d.quotes||[],opportunities=d.opportunities||[];
  // Priority: due work must be real and unfinished. The ID changes only for a new deadline.
  for(const task of tasks){
-  if(!task||task.status==='Done'||task.status==='Cancelled'||task.missionOrigin==='growth'||!validDate(task.due)||task.due>day)continue;
+  if(!task||['done','completed','cancelled','canceled'].includes(String(task.status||'').toLowerCase())||task.missionOrigin==='growth'||!validDate(task.due))continue;
+  const obligation=task.taskType==='business_obligation',limit=new Date(day+'T12:00:00Z');
+  limit.setUTCDate(limit.getUTCDate()+(obligation?14:0));
+  if(task.due>limit.toISOString().slice(0,10))continue;
+  const kind=obligation?(obligationTypes[task.obligationType]||'Business deadline'):'';
   items.push({id:'priority:task:'+safe(task.id||fingerprint(task.title))+'|'+task.due,
-   group:'priority',title:safe(task.title)||'Task due',detail:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0});
+   group:'priority',title:obligation?kind:safe(task.title)||'Task due',detail:obligation?safe(task.title)+' · '+(task.due<day?'Overdue: ':'Due: ')+task.due:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0});
  }
  for(const item of opportunities){
   if(!item||['Won','Lost'].includes(item.status)||!validDate(item.followup_date)||item.followup_date>day)continue;
@@ -62,6 +75,7 @@ function generate(d,now=Date.now()){
  }
  for(const quote of quotes){
   if(!quote||!['Sent','Pending','Awaiting'].includes(quote.status))continue;
+  if(tasks.some(t=>t.quoteId===quote.id&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())&&validDate(t.due)))continue;
   const due=quote.followup_date||quote.followupDate;
   if(!validDate(due)||due>day)continue;
   items.push({id:'priority:quote:'+safe(quote.id)+'|'+due,group:'priority',title:'Quote follow-up',
@@ -81,13 +95,15 @@ function generate(d,now=Date.now()){
    detail:'Identify who makes purchasing decisions',route:'growth',sort:'',at:0});
  }
  // Cap each section, but do not hide the newest notifications just because an older one exists.
- const priority=items.filter(x=>x.group==='priority').sort((a,b)=>String(a.sort).localeCompare(String(b.sort))).slice(0,8);
+ items.push(...intelligenceItems(report));
+ const priority=items.filter(x=>x.group==='priority').sort((a,b)=>String(a.sort).localeCompare(String(b.sort))).slice(0,14);
  const growth=items.filter(x=>x.group==='growth').sort((a,b)=>String(b.sort).localeCompare(String(a.sort))).slice(0,7);
  return [...priority,...growth,...sourceEvents(d,now)];
 }
 function itemsWithRead(d,now=Date.now()){
  const state=loadState(d),ids=new Set(Array.isArray(state?.seen)?state.seen:[]),started=parseTime(state?.startedAt);
- const values=generate(d,now);
+ let report=null;try{report=api?.intelligence?.(d)||null}catch(error){console.warn('Notifications intelligence unavailable',error)}
+ const values=generate(d,now,report);
  return values.map(x=>({...x,unread:!ids.has(x.id)&&!(x.group==='activity'&&(!started||!x.at||x.at<=started))}));
 }
 function formatTime(n,now){
@@ -205,5 +221,5 @@ function configure(bridge){
  document.addEventListener('click',handleClick,true);
  document.addEventListener('keydown',onKey);
 }
-global.TradeFlowNotifications={configure,bootstrap,home,close,_test:{generate,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
+global.TradeFlowNotifications={configure,bootstrap,home,close,_test:{generate,intelligenceItems,obligationTypes,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
 })(typeof window!=='undefined'?window:globalThis);
