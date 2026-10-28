@@ -152,16 +152,7 @@ function createController(host){
    active.start();listening=true;void repaint();
   }catch{recognition=null;listening=false;message='Could not start microphone.';void repaint()}
  }
- function wave(){
-  // Original SVG path sets; CSS modulates amplitudes only while actively listening.
-  const paths=[
-   'M0 50 C12 50 18 24 30 24 S48 74 62 74 S80 24 97 24 S115 73 130 73 S150 40 165 50 S187 78 205 75 S230 28 250 28 S282 64 300 50',
-   'M0 50 C15 52 25 37 41 37 S71 63 88 63 S119 24 135 29 S163 77 185 70 S217 37 232 40 S272 68 300 50',
-   'M0 50 C18 39 32 65 47 65 S82 30 103 31 S145 73 164 72 S203 24 221 28 S273 67 300 50',
-   'M0 50 C29 57 35 42 60 43 S93 60 110 59 S153 35 180 36 S211 65 242 63 S280 46 300 50'
-  ];
-  return '<div class="tf-voice-wave '+(listening?'is-listening':busy?'is-processing':'is-idle')+'" aria-hidden="true"><svg viewBox="0 0 300 100" preserveAspectRatio="none" focusable="false"><defs><linearGradient id="tfFlowGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2e8195"/><stop offset="35%" stop-color="#5dc6da"/><stop offset="70%" stop-color="#48aabb"/><stop offset="100%" stop-color="#527c98"/></linearGradient></defs><line x1="0" y1="50" x2="300" y2="50" stroke="#5ac5d5" stroke-opacity=".14"/>'+paths.map((p,i)=>'<path class="tf-wave-layer tf-wave-layer-'+i+'" d="'+p+'" fill="none" stroke="url(#tfFlowGradient)" stroke-width="'+(i===0?'1.7':'.75')+'" opacity="'+(i===0?'.95':'.36')+'"/>').join('')+'</svg></div>';
- }
+ function wave(){return '<div class="tf-voice-wave '+(listening?'is-listening':busy?'is-processing':'is-idle')+'" aria-hidden="true">'+(globalThis.TradeFlowFlowWave?.render?.()||'')+'</div>'}
  function view(){if(!open)return '';
   const state=listening?'Listening…':busy?'Processing…':'Ready when you are.';
   const actions=[['calendar','Schedule a job','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M8 17h3"/>'],['customers','Find a customer','<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 6a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 5"/>'],['quotes','Create a quote','<path d="M6 2h8l5 5v15H6zM14 2v6h5M9 13h7M9 17h6"/>']];
