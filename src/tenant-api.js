@@ -15,6 +15,11 @@ export async function tenantApi(request,env,options={}){
   return json({error:'Secure business API is not configured'},503);
  try{
   const principal=await verifyBearerToken(request,env,options);
+  if(url.pathname==='/api/v1/session/login'){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   // Access handles login before this route; only a verified assertion can return to the app.
+   return new Response(null,{status:303,headers:{Location:'/?account=connected','Cache-Control':'no-store'}});
+  }
   if(url.pathname==='/api/v1/me'){
    if(request.method!=='GET')return json({error:'Method not allowed'},405);
    const items=await env.TF_DB.prepare(

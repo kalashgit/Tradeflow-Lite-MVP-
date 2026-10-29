@@ -90,3 +90,14 @@ test('Cloudflare Access assertion is signed, audience-pinned, and cannot be spoo
  const success=await api(request,env,{fetchJwks:jwksResponse});
  assert.equal(success.status,200);
 });
+test('authenticated login returns only to the fixed local app and cannot grant membership',async()=>{
+ const res=await api(req('/api/v1/session/login?redirect=https://evil.example',await token()),{...envBase,TF_DB:db()},{fetchJwks:jwksResponse});
+ assert.equal(res.status,303);assert.equal(res.headers.get('Location'),'/?account=connected');assert.equal(res.headers.get('Cache-Control'),'no-store');
+ assert.equal((await api(req('/api/v1/session/login'),{...envBase,TF_DB:db()},{fetchJwks:jwksResponse})).status,401);
+});
+test('malformed JWT objects fail as authentication errors, never server errors',async()=>{
+ for(const header of [null,[],42]){
+  const malformed=b64(header)+'.'+b64({})+'.YWJj';
+  assert.equal((await api(req('/api/v1/me',malformed),{...envBase,TF_DB:db()},{fetchJwks:jwksResponse})).status,401);
+ }
+});

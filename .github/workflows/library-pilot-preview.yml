@@ -36,6 +36,7 @@ jobs:
         run: |
           node --check public/app.js
           node --check public/local-recovery.js
+          node --check public/account-session.js
           node --check public/suppliers.js
           node --check public/core-integration.js
           node --check public/library.js
@@ -109,7 +110,7 @@ jobs:
               try{
                 const res=await fetch(root+'/?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                 const body=await res.text();
-                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('suppliers.js?v=supplier-r02')&&body.includes('core-integration.js?v=supplier-r02')&&body.includes('launch-more-commands.js?v=command-r01')&&body.includes('revenue.js?v=finance-r02')&&body.includes('app.js?v=recovery-r01')&&body.includes('notifications.js?v=finance-r02')){
+                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('suppliers.js?v=supplier-r02')&&body.includes('core-integration.js?v=supplier-r02')&&body.includes('launch-more-commands.js?v=command-r01')&&body.includes('revenue.js?v=finance-r02')&&body.includes('app.js?v=account-r01')&&body.includes('notifications.js?v=finance-r02')){
                   for(const file of ['library.js','document-intake.js','location-quality.js','app.js','notifications.js','revenue.js','operational-intelligence.js','launch-more-commands.js','suppliers.js','core-integration.js']){
                     const asset=await fetch(root+'/'+file+'?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                     assert.equal(asset.status,200,file);

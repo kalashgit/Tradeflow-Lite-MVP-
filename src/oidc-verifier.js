@@ -26,6 +26,7 @@ export async function verifyBearerToken(request,env,{fetchJwks=fetch,now=Date.no
  const parts=match[1].split('.');
  if(parts.length!==3)throw unauthorized();
  const header=jsonPart(parts[0]),claims=jsonPart(parts[1]);
+ if(!header||typeof header!=='object'||Array.isArray(header)||!claims||typeof claims!=='object'||Array.isArray(claims))throw unauthorized();
  if(header.alg!=='RS256'||header.typ&&header.typ!=='JWT'||typeof header.kid!=='string'||header.kid.length>128||
   !/^[A-Za-z0-9._-]+$/.test(header.kid))throw unauthorized();
  const seconds=Math.floor(now/1000);
