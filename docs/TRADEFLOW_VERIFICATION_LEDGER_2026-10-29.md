@@ -241,3 +241,12 @@ A fresh live phone-sized browser first hit the expected onboarding screen; the i
 ## Continuation saved — owner authorization received
 
 The product owner approved creating the proposed single empty TradeFlow Pilot workspace and designated verified-identity owner membership. Before execution, they requested saving the current state for their chat engineer. **No provisioning operation was executed**, and no business/customer upload occurred. The next engineer should reuse this specific approval after fresh identity/policy/database checks; no repeat approval is needed for the same scope. Current consolidated continuation instructions are in `TRADEFLOW_ENGINEERING_HANDOFF_2026-10-29.md`. Earlier “awaiting authorization” statements describe the prior state and are superseded by this entry.
+
+## 2026-10-29 — Cloud catalogue discovery candidate (isolated branch)
+- Branch: `feature/cloud-record-discovery` based on `feature/library-universal-intake`; base commit `896ff048df55ed9add7094c371c4c06708af0e71`.
+- Candidate application implementation: `src/tenant-api.js` adds authenticated, tenant-authorized, read-only, 50-item cursor catalogue; `public/sync-queue.js` provides a fail-closed, read-only browser transport method.
+- Test additions: `tests/tenant-api.test.cjs`, `tests/sync-queue.test.cjs`.
+- Non-deploying test workflow: `.github/workflows/cloud-record-discovery-ci.yml`.
+- GitHub source commit at checkpoint: `361f0f13138dd05a00a9f1594822fe5f3e8ca880`. Source commit confirmed; **test execution not verified** (no status or commit-associated workflow run returned).
+- No cloud-to-device import, local overwrite, background sync, D1 migration, live account changes, deployment or contractor acceptance performed.
+- Release gate: obtain passing workflow for exact source SHA; review authorization and pagination against actual D1; then design explicit, backup-gated cloud-to-device comparison/approval in existing Settings before any local write. No pain points retired.
