@@ -61,3 +61,34 @@ test('multiple owned destinations require selection and viewer sessions never ex
  await createMigrationController(host).open(root);assert.match(root.innerHTML,/Choose destination business/);assert.match(root.innerHTML,/data-transfer-action="prepare" disabled/);
  host.session=async()=>({status:'signed_in',businesses:[{business_id:'business_001',business_name:'Viewer business',role:'viewer'}]});await createMigrationController(host).open(root);assert.doesNotMatch(root.innerHTML,/data-transfer-action="prepare"/);
 });
+
+test('existing Settings controller shows read-only cloud comparison without device writes',async()=>{
+ const {createMigrationController}=await import('../public/migration-ui.js');
+ const db=createDB({customers:[{id:'c1',name:'Device customer',businessId:'business_001'}]});
+ const before=db.dump(),root={innerHTML:'',isConnected:true},calls=[];
+ const session=async()=>({status:'signed_in',identity:{issuer:'https://verified.example',subject:'owner_001'},
+  businesses:[{business_id:'business_001',business_name:'Target business',role:'owner'}],
+  capabilities:{recordTypes:['customers','jobs']}});
+ const transport=()=>({async list(type,after){
+  calls.push([type,after]);return {status:200,items:type==='customers'?
+   [{id:'c1',revision:2,record:{id:'c1',name:'Changed cloud customer',businessId:'business_001'}},
+    {id:'c2',revision:1,record:{id:'c2',name:'New cloud customer',businessId:'business_001'}}]:[],nextCursor:null};
+ }});
+ const controller=createMigrationController({document:{addEventListener(){}},session,transport,db:()=>db,stores:STORES});
+ await controller.open(root);
+ assert.match(root.innerHTML,/cloud-review/);
+ await controller.reviewCloud();
+ assert.match(root.innerHTML,/1 missing on this device/);
+ assert.match(root.innerHTML,/1 conflicts/);
+ assert.match(root.innerHTML,/No local data was changed/);
+ assert.deepEqual(calls,[['customers',''],['jobs','']]);
+ assert.deepEqual(db.dump(),before);
+});
+test('viewer never sees cloud comparison action in existing Settings',async()=>{
+ const {createMigrationController}=await import('../public/migration-ui.js');
+ const root={innerHTML:'',isConnected:true};
+ const ctrl=createMigrationController({document:{addEventListener(){}},
+  session:async()=>({status:'signed_in',businesses:[{business_id:'business_001',role:'viewer'}]})});
+ await ctrl.open(root);
+ assert.doesNotMatch(root.innerHTML,/data-transfer-action="cloud-review"/);
+});
