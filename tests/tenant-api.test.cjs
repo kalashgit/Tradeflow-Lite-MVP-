@@ -48,7 +48,7 @@ test('rejects missing credentials, incorrect method and untrusted JWKS origin',a
 });
 test('lists only memberships for verified subject',async()=>{
  const res=await api(req('/api/v1/me',await token()),{...envBase,TF_DB:db()},{fetchJwks:jwksResponse});
- assert.equal(res.status,200);assert.equal((await res.json()).businesses[0].business_id,business);
+ assert.equal(res.status,200);const body=await res.json();assert.equal(body.businesses[0].business_id,business);assert.deepEqual(body.identity,{issuer,subject:'user_123'});
 });
 test('reads only tenant-scoped records with verified membership',async()=>{
  const path='/api/v1/businesses/'+business+'/records/jobs/job_123';
