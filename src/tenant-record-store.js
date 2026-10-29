@@ -18,7 +18,7 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
  const {expectedRevision,payload}=validateRecordWrite(body);
  const sql=`INSERT INTO tenant_records
  (business_id,record_type,id,revision,payload,updated_by_issuer,updated_by_subject)
- SELECT ?,?,?,?,?,?,? WHERE ?=0
+ SELECT ?,?,?,?,?,?,? WHERE ?=0 OR EXISTS (SELECT 1 FROM tenant_records WHERE business_id=? AND record_type=? AND id=?)
  ON CONFLICT(business_id,record_type,id) DO UPDATE SET
  payload=excluded.payload,
  revision=tenant_records.revision+1,
@@ -28,7 +28,7 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
  WHERE tenant_records.revision=? AND tenant_records.deleted_at IS NULL
  RETURNING revision,updated_at`;
  const row=await db.prepare(sql).bind(...params,expectedRevision+1,payload,
-   authorization.issuer,authorization.subject,expectedRevision,expectedRevision).first();
+   authorization.issuer,authorization.subject,expectedRevision,...params,expectedRevision).first();
  if (!row)throw new AuthorizationError('Revision conflict; reload before saving',409);
  return {revision:row.revision,updatedAt:row.updated_at};
 }
