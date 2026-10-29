@@ -61,7 +61,7 @@ assert.equal(core.relationshipAudit({...data,suppliers:[]})[0].missing,'supplier
 const app=fs.readFileSync('public/app.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),sw=fs.readFileSync('public/sw.js','utf8');
 for(const s of ['suppliers','supplyOrders','commandLog'])assert.ok(app.includes("'"+s+"'"),'IDB store configured '+s);
 assert.ok(app.includes("indexedDB.open(DB,9)"),'Versioned DB migration');
-assert.ok(app.includes("version:9"),'Exports carry new schema');
+assert.ok(fs.readFileSync('public/local-recovery.js','utf8').includes("version:9"),'Exports carry existing schema through shared recovery helper');
 assert.ok(html.includes('core-integration.js')&&html.includes('suppliers.js')&&html.includes('suppliers.css'));
 assert.ok(sw.includes('core-integration.js')&&sw.includes('suppliers.js'),'Offline app shell includes supply modules');
 assert.ok(app.includes("supplierLinks("),'Supplier map connections');

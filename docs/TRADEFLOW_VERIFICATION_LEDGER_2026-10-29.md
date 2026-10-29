@@ -117,3 +117,14 @@ Current verified retirement remains **0/62**. These ten are work targets, not re
 | G48 Register reconciliation | BLOCKED on location | Owner identifies Library/TradeFlow; library type/path not yet established. Do not invent the original 62 rows or retire provisional targets. |
 
 Next operation: verify this milestone's CI/preview, investigate reported missing account endpoint, then implement recovery safeguards before enabling data movement. Real login, cross-device sync and contractor outcomes remain unverified.
+
+## Master directive — milestone 1 live evidence and milestone 2 recovery
+
+| Gate | Status | Evidence |
+| --- | --- | --- |
+| G47 Exact release provenance | VERIFIED in isolated preview | Commit ff049eff77a431f752f3ed2f32b794007203d173, Actions 40852796651 succeeded; Node 240/240, SQL and ten targets passed. Worker version d4ec9ba4-42b2-4a17-8677-45d2cc2ba5b4. CI verified all 75 public asset digests; independent /release.json read returned the same SHA. |
+| G49 Account route reachable | VERIFIED anonymous boundary only | Live /api/v1/me returned 302 to autumn-rain-40ca.cloudflareaccess.com after deployment. Access readback confirms restricted email-policy application; Worker readback confirms isolated TF_DB binding. Human signed-in response and owner membership remain unverified; owner was asked to retry. |
+| G50 Local backup/recovery safeguards | VERIFIED locally, pending this source's CI | Shared public/local-recovery.js retains existing local backup format/version 9, checksummed exports, legacy-format validation, duplicate/unknown/missing-store rejection, linked-record review, explicit counts/confirmation, persisted pre-restore snapshot, concurrent-edit abort and all-store atomic rollback. No network writes or schema change. |
+| G51 Recovery scenarios | VERIFIED in isolated browser | 390×844 and 1280×900 Chromium: actual existing Settings restore file input + confirmation, records/links restored, recovery snapshot retained after reload, offline application reload. Artifacts: /workspace/artifacts/tradeflow-master-2026-10-29/recovery-browser/. Unit checks cover failed recovery storage, interrupted transaction, concurrent edits, corrupt checksum, cancellation and legacy compatibility. Full suite 247/247 locally. Physical Safari and real-device recovery remain unverified. |
+
+The recovery copy is local, unencrypted and stores only the most recent pre-restore point in tradeflow-recovery-v1; it is not off-device disaster recovery. Existing backup UI exposes a download for it. No user dataset was restored by engineering tests; scenarios use fresh isolated browser profiles with synthetic records. No owner memberships or tenant data changed. Next: durable offline change tracking and authenticated session handling; automatic sync remains disabled until owner identity, explicit migration review and tenant gates pass. No pain points retired.

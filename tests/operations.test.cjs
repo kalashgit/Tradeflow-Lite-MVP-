@@ -81,7 +81,8 @@ const mkClick=(action,more={})=>({preventDefault(){},target:{closest:()=>({datas
  await click(mkClick('review-tasks'));
  assert.equal(stores.tasks.length,1,'Review preparation tasks must be idempotent');
  assert.ok(app.includes("'crew','routePlans'")&&app.includes('indexedDB.open(DB,9)'));
- assert.ok(app.includes('version:9,exportedAt')&&app.includes("data.version<7"));
+ assert.ok(app.includes('TradeFlowLocalRecovery.createBackup'));
+ assert.ok(fs.readFileSync('public/local-recovery.js','utf8').includes('version:9,exportedAt'));
  assert.ok(html.includes('./operations.js')&&html.includes('./operations.css')&&sw.includes('./operations.js'));
  assert.ok(!js.includes("fetch("),'No hidden server or tracking calls');
  console.log('PASS: Crew & Dispatch V2 dashboard, crew availability, job scheduling, conflict detection and legacy route safety');
