@@ -35,12 +35,14 @@ jobs:
           node --check tests/quotation-legacy-followup-policy.test.cjs
           node --check tests/quotation-contact-recording.test.cjs
           node --check tests/invoice-followup-execution.test.cjs
+          node --check public/calendar.js
+          node --check tests/calendar-conflict-resolution.test.cjs
           node --check tests/reviewed-transfer.test.cjs
           node --check tests/cloud-retrieval.test.cjs
           node --check tests/tenant-api.test.cjs
           node --check tests/sync-queue.test.cjs
       - name: Focused authorization and offline queue regression
-        run: node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs
+        run: node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs tests/calendar-conflict-resolution.test.cjs
       - name: Full Node regression
         run: npm test
       - name: Storage migration regression
