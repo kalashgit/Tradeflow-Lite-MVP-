@@ -100,3 +100,15 @@ test('Settings transfer canonical comparison tolerates optional undefined local 
  assert.equal(staged.status,'staged');
  assert.equal((await q.list()).length,4);
 });
+
+test('Settings comparison refuses expired owner session after remote scan without mutating data',async()=>{
+ const {createMigrationController}=await import('../public/migration-ui.js');
+ const db=createDB({customers:[{id:'c1',name:'On device',businessId:'business_001'}]}),before=db.dump(),root={innerHTML:'',isConnected:true};
+ let signed=true;
+ const session=async()=>signed?{status:'signed_in',identity:{issuer:'https://verified.example',subject:'owner_001'},businesses:[{business_id:'business_001',role:'owner'}],capabilities:{recordTypes:['customers']}}:{status:'signed_out',businesses:[]};
+ const ctrl=createMigrationController({document:{addEventListener(){}},session,db:()=>db,stores:STORES,transport:()=>({async list(){signed=false;return {status:200,items:[],nextCursor:null}}})});
+ await ctrl.open(root);await ctrl.reviewCloud();
+ assert.match(root.innerHTML,/Owner session changed/);
+ assert.doesNotMatch(root.innerHTML,/Read-only cloud comparison complete/);
+ assert.deepEqual(db.dump(),before);
+});
