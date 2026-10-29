@@ -106,3 +106,16 @@ test('command runtime rejects changed quotation before approved task creation',a
  assert.equal((await runtime.approve(p.id)).status,'stale');
  assert.equal((await snapshot(db)).tasks.length,0);
 });
+
+test('creating a follow-up task does not falsely clear stale quotation warning',async()=>{
+ const commands=require('../public/command-registry.js');
+ const {db,args}=fixture();
+ assert.equal(commands.staleQuote(original,'2026-10-29',14),true);
+ await core.execute(args);
+ const after=await snapshot(db);
+ assert.equal(commands.staleQuote(after.quotes[0],'2026-10-29',14),true,
+  'Task creation is not customer contact or resolved follow-up evidence');
+ const actualContact={...after.quotes[0],lastContactAt:'2026-10-29'};
+ assert.equal(commands.staleQuote(actualContact,'2026-10-29',14),false,
+  'Only separately recorded contact evidence advances the detector');
+});
