@@ -498,7 +498,7 @@
  function executeConflictReschedule(args){
   const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',
    approved=false,recordGuard=[],calendar}=args||{};
-  const timeOK=v=>typeof v==='string'&&/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v);
+  const timeOK=v=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
   if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
    typeof actor!=='string'||!actor.trim()||typeof requestKey!=='string'||!requestKey.trim()||
    !payload||typeof payload.eventId!=='string'||!payload.eventId||!payload.date||
