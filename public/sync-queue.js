@@ -7,16 +7,17 @@ const validId=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const types=RECORD_TYPES;
 export function createSyncQueue({db,businessId,session,transport,now=Date.now,uid=()=>crypto.randomUUID()}){
  if(!/^[A-Za-z0-9_-]{8,80}$/.test(businessId)||!db||!session||!transport)throw Error('Explicit business, session and transport required');
- function mutate(fn){return new Promise((resolve,reject)=>{
-  const tx=db.transaction('commandLog','readwrite'),store=tx.objectStore('commandLog'),req=store.getAll();let result,error;
+ function mutate(fn,extraStores=[]){return new Promise((resolve,reject)=>{
+  const names=['commandLog',...extraStores],tx=db.transaction(names,'readwrite'),store=tx.objectStore('commandLog');let result,error,pending=names.length;const data={};
   tx.oncomplete=()=>resolve(clone(result??null));tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Queue transaction failed'));
-  req.onsuccess=()=>{try{result=fn(req.result.filter(r=>r.kind==='sync.change'&&r.businessId===businessId),store)}catch(e){error=e;tx.abort()}};
+  for(const name of names){const req=tx.objectStore(name).getAll();req.onsuccess=()=>{data[name]=req.result;if(--pending)return;try{result=fn(data.commandLog.filter(r=>r.kind==='sync.change'&&r.businessId===businessId),store,Object.fromEntries(extraStores.map(s=>[s,data[s]])))}catch(e){error=e;tx.abort()}}}
  })}
  async function list(){return new Promise((resolve,reject)=>{const tx=db.transaction('commandLog'),req=tx.objectStore('commandLog').getAll();tx.oncomplete=()=>resolve(req.result.filter(r=>r.kind==='sync.change'&&r.businessId===businessId));tx.onabort=tx.onerror=()=>reject(tx.error)})}
  function history(row,event){return [...(row.history||[]).slice(-39),{event,at:now()}]}
  async function authorized(){const current=await session();return current?.status==='signed_in'&&current.businesses?.some(b=>b.business_id===businessId&&['owner','admin','member'].includes(b.role))}
  function enqueue(change){
   if(!change||!types.includes(change.type)||!validId(change.id)||!validId(change.operationId)||!Number.isSafeInteger(change.baseRevision)||change.baseRevision<0||change.baseRevision>2147483646||!change.record||typeof change.record!=='object'||Array.isArray(change.record))throw Error('Invalid queued record');
+  if(change.dependsOn!==undefined&&(!Array.isArray(change.dependsOn)||change.dependsOn.some(id=>!validId(id)||id===change.operationId)||new Set(change.dependsOn).size!==change.dependsOn.length))throw Error('Invalid operation dependencies');
   if(change.record.id&&change.record.id!==change.id||change.record.businessId&&change.record.businessId!==businessId)throw Error('Record identity mismatch');
   if(new TextEncoder().encode(JSON.stringify(change.record)).byteLength>30000)throw Error('Record too large');
   const input=clone(change),id='sync:'+businessId+':'+input.operationId;
@@ -24,11 +25,11 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
    const old=rows.find(r=>r.id===id);
    if(old){if(canonical(old.change)!==canonical(input))throw Error('Operation ID reused for different data');return old}
    if(rows.some(r=>r.change.type===input.type&&r.change.id===input.id&&r.status!=='applied'))throw Error('An unresolved edit already exists for this record');
-   const row={id,kind:'sync.change',businessId,change:input,status:'pending',attempts:0,nextAttemptAt:0,createdAt:now(),history:[{event:'queued',at:now()}]};store.put(row);return row;
+   const row={sequence:Math.max(0,...rows.map(r=>r.sequence||0))+1,id,kind:'sync.change',businessId,change:input,status:'pending',attempts:0,nextAttemptAt:0,createdAt:now(),history:[{event:'queued',at:now()}]};store.put(row);return row;
   });
  }
- async function claim(){return mutate((rows,store)=>{
-  const row=rows.filter(r=>(r.status==='pending'||r.status==='sending'&&r.leaseUntil<=now())&&r.nextAttemptAt<=now()).sort((a,b)=>a.createdAt-b.createdAt)[0];if(!row)return null;
+ async function claim(operationIds){return mutate((rows,store)=>{
+  const row=rows.filter(r=>(!operationIds||operationIds.includes(r.change.operationId))&&(r.change.dependsOn||[]).every(id=>rows.some(p=>p.change.operationId===id&&p.status==='applied'))&&(r.status==='pending'||r.status==='sending'&&r.leaseUntil<=now())&&r.nextAttemptAt<=now()).sort((a,b)=>a.createdAt-b.createdAt||(a.sequence||0)-(b.sequence||0))[0];if(!row)return null;
   const next={...row,status:'sending',lease:uid(),leaseUntil:now()+30000,attempts:row.attempts+1,history:history(row,'attempt')};store.put(next);return next;
  })}
  async function update(row,changes){return mutate((rows,store)=>{
@@ -43,20 +44,21 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   if(!remote||remote.businessId!==businessId||remote.type!==row.change.type||remote.id!==row.change.id||!Number.isSafeInteger(remote.revision)||remote.revision<1||!remote.record)throw Error('Remote identity or revision mismatch');
   return remote;
  }
- async function drain({limit=10}={}){
+ async function drain({limit=10,operationIds}={}){
+  if(operationIds!==undefined&&(!Array.isArray(operationIds)||operationIds.length>200||operationIds.some(id=>!validId(id))))throw Error('Invalid approved operation selection');
   if(!Number.isInteger(limit)||limit<1||limit>20)throw Error('Drain limit must be 1–20');
   if(!await authorized())return {status:'authorization_required',processed:0};
   let processed=0;
   while(processed<limit){
    // Session and business permission checked anew for each operation; API is authoritative at write.
    if(!await authorized())return {status:'authorization_required',processed};
-   const row=await claim();if(!row)break;processed++;
+   const row=await claim(operationIds);if(!row)break;processed++;
    try{
     const current=await session(),supported=Array.isArray(current?.capabilities?.recordTypes)?current.capabilities.recordTypes:LEGACY_RECORD_TYPES;
     if(!supported.includes(row.change.type)){await update(row,{status:'pending',reason:'Server schema upgrade required',nextAttemptAt:now()+60000});return {status:'server_schema_required',processed}}
     if(FINANCIAL_RECORD_TYPES.includes(row.change.type)&&!current.businesses.some(b=>b.business_id===businessId&&['owner','admin'].includes(b.role))){await update(row,{status:'pending',reason:'Financial record permission required',nextAttemptAt:now()+60000});return {status:'authorization_required',processed}}
     const remote=await remoteRecord(row),change={...row.change,businessId};
-    const same=remote&&!remote.deletedAt&&remote.revision===change.baseRevision+1&&canonical(remote.record)===canonical(change.record);
+    const same=remote&&!remote.deletedAt&&remote.revision>change.baseRevision&&canonical(remote.record)===canonical(change.record);
     if(same){await update(row,{status:'applied',result:'already_current',remoteRevision:remote.revision});continue}
     const decision=classifyOfflineChange(change,remote);
     if(decision.status!=='ready'){await update(row,{status:decision.status==='conflict'?'conflict':'failed',reason:decision.reason||'Invalid remote state',remoteRevision:remote?.revision||null});continue}
@@ -90,7 +92,32 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
    const next={...current,status:'pending',change:{...current.change,baseRevision:remote.revision,record:clone(propose)},attempts:0,nextAttemptAt:0,history:history(current,'conflict_reviewed')};store.put(next);return next;
   });
  }
- return Object.freeze({enqueue,list,drain,resolve});
+ async function stageMigration({changes,expectedStores,expectedIdentity,approve,backupConfirmed,backupChecksum}){
+  if(backupConfirmed!==true||!/^[a-f0-9]{64}$/.test(backupChecksum||'')||typeof approve!=='function')throw Error('Saved backup confirmation and explicit approval required');
+  if(!Array.isArray(changes)||changes.length>200||changes.length===0||Object.keys(expectedStores||{}).sort().join(',')!==types.slice().sort().join(','))throw Error('Invalid migration batch');
+  const current=await session(),sameOwner=s=>s?.status==='signed_in'&&s.identity?.issuer===expectedIdentity?.issuer&&s.identity?.subject===expectedIdentity?.subject&&s.businesses?.some(b=>b.business_id===businessId&&b.role==='owner');
+  if(typeof expectedIdentity?.issuer!=='string'||!expectedIdentity.issuer||typeof expectedIdentity?.subject!=='string'||!expectedIdentity.subject||!sameOwner(current))throw Error('Verified owner session changed');
+  const supported=current.capabilities?.recordTypes||LEGACY_RECORD_TYPES;
+  for(const c of changes){if(!types.includes(c.type)||!supported.includes(c.type)||!validId(c.id)||!validId(c.operationId)||c.baseRevision!==0||!c.record||typeof c.record!=='object'||Array.isArray(c.record)||c.record.id&&c.record.id!==c.id||c.record.businessId&&c.record.businessId!==businessId||new TextEncoder().encode(JSON.stringify(c.record)).byteLength>30000||c.dependsOn!==undefined&&(!Array.isArray(c.dependsOn)||c.dependsOn.some(id=>!validId(id))))throw Error('Invalid reviewed change')}
+  if(new Set(changes.map(c=>c.operationId)).size!==changes.length||new Set(changes.map(c=>c.type+':'+c.id)).size!==changes.length)throw Error('Duplicate migration change');
+  if(await approve({businessId,count:changes.length,identity:clone(expectedIdentity)})!==true)return {status:'cancelled'};
+  if(!sameOwner(await session()))throw Error('Verified owner session changed');
+  return mutate((rows,store,actual)=>{
+   if(canonical(actual)!==canonical(expectedStores))throw Error('Local records changed during review; prepare a new review');
+   const known=new Set(rows.filter(r=>r.status==='applied').map(r=>r.change.operationId)),pending=changes.slice();
+   while(pending.length){const index=pending.findIndex(c=>(c.dependsOn||[]).every(id=>known.has(id)));if(index<0)throw Error('Cyclic or unapproved migration dependency');known.add(pending.splice(index,1)[0].operationId)}
+   const reviewId='sync-review:'+businessId+':'+uid();store.put({id:reviewId,kind:'sync.review',businessId,approvedBy:clone(expectedIdentity),backupChecksum,operationIds:changes.map(c=>c.operationId),createdAt:now()});
+   const staged=[];let sequence=Math.max(0,...rows.map(r=>r.sequence||0));
+   for(const change of changes){
+    const input=clone(change),id='sync:'+businessId+':'+input.operationId,old=rows.find(r=>r.id===id);
+    if(old){const strip=c=>{const v=clone(c);delete v.dependsOn;return v};if(canonical(strip(old.change))!==canonical(strip(input)))throw Error('Operation changed since review');if((old.change.dependsOn||[]).some(id=>!known.has(id)))throw Error('Previous transfer dependency requires review');let reused=old;if(['failed','conflict'].includes(old.status)){reused={...old,status:'pending',attempts:0,nextAttemptAt:0,lease:null,leaseUntil:0,history:history(old,'migration_reapproved')};store.put(reused)}staged.push(reused);continue}
+    if(rows.some(r=>r.change.type===input.type&&r.change.id===input.id&&r.status!=='applied'))throw Error('Another unresolved edit exists for this record');
+    const row={id,kind:'sync.change',businessId,change:input,status:'pending',sequence:++sequence,attempts:0,nextAttemptAt:0,createdAt:now(),approvedBy:clone(expectedIdentity),backupChecksum,history:[{event:'migration_reviewed',at:now()}]};store.put(row);rows.push(row);staged.push(row);
+   }
+   return {status:'staged',reviewId,operationIds:staged.map(r=>r.change.operationId)};
+  },types);
+ }
+ return Object.freeze({enqueue,list,drain,resolve,stageMigration});
 }
 // Same-origin transport never follows an Access redirect into an HTML login response.
 export function createTenantTransport(businessId,fetcher=fetch){
