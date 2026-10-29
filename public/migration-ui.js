@@ -1,5 +1,6 @@
 import {RECORD_TYPES,linksForRecord} from './record-model.js';
 import {previewLocalMigration} from './migration-preview.js';
+import {previewCloudRetrieval} from './cloud-retrieval.js';
 import {createSyncQueue,createTenantTransport} from './sync-queue.js';
 const escape=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const canonical=x=>JSON.stringify(x&&typeof x==='object'?Array.isArray(x)?x.map(v=>JSON.parse(canonical(v))):Object.fromEntries(Object.keys(x).sort().map(k=>[k,JSON.parse(canonical(x[k]))])):x);
@@ -30,14 +31,17 @@ export async function prepareTransfer({db,stores,businessId,session,transport,al
 }
 export function createMigrationController(host){
  const doc=host.document||document,session=host.session||(()=>globalThis.TradeFlowAccountSession.readSession()),transportFor=host.transport||createTenantTransport;
- let root=null,token=0,busy=false,status='',current=null,businessId='',plan=null,backupRequested=false,backupConfirmed=false,mapping=false;
+ let root=null,token=0,busy=false,status='',current=null,businessId='',plan=null,cloudReview=null,backupRequested=false,backupConfirmed=false,mapping=false;
  function view(){
   const owners=current?.businesses?.filter(b=>b.role==='owner')||[],ready=plan?.review.readyForReview;
   const choices=(owners.length>1?'<option value="">Choose destination business</option>':'')+owners.map(b=>'<option value="'+escape(b.business_id)+'"'+(b.business_id===businessId?' selected':'')+'>'+escape(b.business_name)+'</option>').join('');
   const report=plan?.review,rows=report?.records||[];
+  const cloud=cloudReview;
+  const cloudPanel=cloud?'<section aria-label="Cloud record comparison"><p>'+cloud.counts.newOnDevice+' missing on this device · '+cloud.counts.identical+' identical · '+cloud.counts.conflicts+' conflicts</p><ul class="tf-transfer-records">'+cloud.records.map(r=>'<li><strong>'+escape(r.type+' / '+r.id)+'</strong><span>'+escape(r.status.replaceAll('_',' '))+'</span></li>').join('')+'</ul><p>This is a read-only comparison. Cloud records have not been copied or merged. Revisions must be rechecked before any future approved import.</p></section>':'';
   return '<div class="tf-transfer"><p data-transfer-status role="status">'+escape(status)+'</p>'+
    (!owners.length?'<p><a href="/api/v1/session/login">Sign in</a> with a provisioned business owner account. Signing in never grants ownership.</p>':
-   '<label>Destination business<select data-transfer-business'+(busy?' disabled':'')+'>'+choices+'</select></label><label class="tf-transfer-check"><input type="checkbox" data-transfer-map'+(mapping?' checked':'')+(busy?' disabled':'')+'> Assign this device’s local-business records to the selected business. Other business scopes cannot be reassigned.</label><button type="button" data-transfer-action="prepare"'+(busy||!businessId?' disabled':'')+'>Review cloud transfer</button>')+
+   '<label>Destination business<select data-transfer-business'+(busy?' disabled':'')+'>'+choices+'</select></label><label class="tf-transfer-check"><input type="checkbox" data-transfer-map'+(mapping?' checked':'')+(busy?' disabled':'')+'> Assign this device’s local-business records to the selected business. Other business scopes cannot be reassigned.</label><button type="button" data-transfer-action="prepare"'+(busy||!businessId?' disabled':'')+'>Review cloud transfer</button> <button type="button" data-transfer-action="cloud-review"'+(busy||!businessId?' disabled':'')+'>Compare cloud records on this device (read only)</button>')+
+   cloudPanel+
    (report?'<p>'+rows.filter(r=>r.status==='ready').length+' new · '+rows.filter(r=>r.status==='already_present').length+' already present · '+rows.filter(r=>!['ready','already_present'].includes(r.status)).length+' needing review</p>'+
    '<p>'+report.unsupported.length+' unsupported record groups · '+report.missingReferences.length+' missing links · '+report.requiresBusinessRelabel.length+' business-scope conflicts · '+report.oversizedRecords.length+' records too large</p>'+
    (report.dependencyError?'<p>'+escape(report.dependencyError)+'</p>':'')+
@@ -47,11 +51,29 @@ export function createMigrationController(host){
    '<p class="tf-transfer-note">Review only reads cloud records. Transfer requires a saved backup and your explicit confirmation. Local records remain unchanged. Settings, command journals, local audit and Library files are excluded. This is a one-time transfer, not automatic synchronization.</p></div>';
  }
  function paint(){if(root?.isConnected!==false&&root)root.innerHTML=view()}
- function reset(){plan=null;backupRequested=false;backupConfirmed=false}
+ function reset(){plan=null;cloudReview=null;backupRequested=false;backupConfirmed=false}
  async function open(container){const generation=++token;root=container;reset();busy=true;current=null;businessId='';status='Checking business access…';paint();const result=await session();if(generation!==token)return;current=result;const owned=result.businesses?.filter(b=>b.role==='owner')||[];businessId=owned.length===1?owned[0].business_id:'';busy=false;status=businessId?'Choose the business that should receive your existing records.':'An authorized owner membership is required. Your records remain on this device.';paint()}
  async function prepare(){
   if(busy)return;reset();busy=true;status='Reading local records and checking existing cloud records…';paint();const generation=token;
   try{const identity=await session();if(!owner(identity,businessId))throw Error('Owner access is unavailable. Sign in again.');const result=await prepareTransfer({db:host.db(),stores:host.stores,businessId,session:identity,transport:transportFor(businessId),allowLocalBusinessMapping:mapping});if(generation!==token)return;current=identity;plan=result;status=result.review.readyForReview?'Review the records, save the backup, then confirm the transfer.':'Transfer blocked by the items below. Local records are unchanged.'}catch(error){status=error.message}finally{if(generation===token){busy=false;paint()}}
+ }
+ async function reviewCloud(){
+  if(busy||!businessId)return;
+  reset();busy=true;status='Comparing cloud records with this device. Nothing will be imported…';paint();
+  const generation=token,selectedBusiness=businessId;
+  try{
+   const identity=await session();
+   if(!owner(identity,selectedBusiness))throw Error('Owner access is unavailable. Sign in again.');
+   const local=await globalThis.TradeFlowLocalRecovery.readStores(host.db(),RECORD_TYPES);
+   const review=await previewCloudRetrieval({businessId:selectedBusiness,session:identity,localStores:local,transport:transportFor(selectedBusiness)});
+   if(generation!==token||businessId!==selectedBusiness)return;
+   const verified=await session();
+   if(!owner(verified,selectedBusiness)||verified.identity.issuer!==identity.identity.issuer||verified.identity.subject!==identity.identity.subject)
+    throw Error('Owner session changed; comparison discarded.');
+   current=verified;cloudReview=review;
+   status='Read-only cloud comparison complete. No local data was changed.';
+  }catch(error){if(generation===token)status=error.message}
+  finally{if(generation===token){busy=false;paint()}}
  }
  async function transfer(){
   if(busy||!plan?.review.readyForReview||!backupConfirmed)return;
@@ -70,7 +92,7 @@ export function createMigrationController(host){
    if(generation!==token)return;
   }catch(error){status=error.message}finally{if(generation===token){busy=false;paint()}}
  }
- doc.addEventListener('click',e=>{const b=e.target.closest?.('[data-transfer-action]');if(!b||!root?.contains(b))return;e.preventDefault();if(b.dataset.transferAction==='prepare')void prepare();if(b.dataset.transferAction==='transfer')void transfer();if(b.dataset.transferAction==='backup'&&plan&&!busy){host.download(plan.snapshot);backupRequested=true;paint()}});
+ doc.addEventListener('click',e=>{const b=e.target.closest?.('[data-transfer-action]');if(!b||!root?.contains(b))return;e.preventDefault();if(b.dataset.transferAction==='prepare')void prepare();if(b.dataset.transferAction==='cloud-review')void reviewCloud();if(b.dataset.transferAction==='transfer')void transfer();if(b.dataset.transferAction==='backup'&&plan&&!busy){host.download(plan.snapshot);backupRequested=true;paint()}});
  doc.addEventListener('change',e=>{if(!root?.contains(e.target)||busy)return;if(e.target.matches('[data-transfer-business]')){businessId=e.target.value;reset();status='Destination changed; prepare a fresh review.'}if(e.target.matches('[data-transfer-map]')){mapping=e.target.checked;reset();status='Business mapping changed; prepare a fresh review.'}if(e.target.matches('[data-transfer-backup]'))backupConfirmed=e.target.checked;paint()});
- return Object.freeze({open,prepare,transfer,view});
+ return Object.freeze({open,prepare,transfer,reviewCloud,view});
 }
