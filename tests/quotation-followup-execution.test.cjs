@@ -160,3 +160,70 @@ test('existing quote detail action uses the same reviewed command rather than a 
  assert.match(app,/commands\.approve\(plan\.id\)/);
  assert.match(app,/commands\.reject\(plan\.id\)/);
 });
+
+test('interrupted command reconciles a genuine committed task and audit after reload without rerun',async()=>{
+ const commands=require('../public/command-registry.js'),{db}=fixture();let n=0,executions=0;
+ const runtime=()=>commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'recovery-'+(++n),ledger:commands.createLedger(db),
+  can:permission=>permission==='modify:quotation.followup.schedule',
+  ports:{operation:()=>{executions++;throw Error('Recovery must not run provider or task write again')}}
+ });
+ const first=runtime(),p=await first.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}});
+ assert.equal((await first.approve(p.id)).status,'approved');
+ const ledger=commands.createLedger(db);
+ assert.equal((await ledger.transition(p.id,['approved'],{type:'executing',at:'2026-10-29T12:00:00Z'}, {status:'executing'})).claimed,true);
+ const data=await snapshot(db),guard=commands.resolve({commandId:'quotation.followup.schedule',params:p.params},data,{actor:'local-owner',businessId}).guard;
+ const saved=await core.execute({db,kind:'quotation.followup.schedule',
+  payload:{quoteId:'q1',due:'2026-10-30'},uid:()=> 'saved-task',
+  requestKey:'operation:'+p.id,actor:'local-owner',businessId,approved:true,recordGuard:guard});
+ assert.equal(saved.id,'saved-task');
+ const afterReload=runtime(),result=await afterReload.reconcile(p.id);
+ assert.equal(result.status,'succeeded');assert.equal(result.result.reconciled,true);
+ assert.equal((await afterReload.execute(p.id)).reused,true);
+ assert.equal(executions,0);
+ const final=await snapshot(db);
+ assert.equal(final.tasks.length,1);
+ const audit=final.commandLog.find(x=>x.id===p.id);
+ assert.equal(audit.status,'succeeded');
+ assert.ok(audit.events.some(e=>e.type==='reconciled'));
+});
+test('recovery stays indeterminate without a durable receipt and never writes',async()=>{
+ const commands=require('../public/command-registry.js'),{db}=fixture();let n=0;
+ const runtime=commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'missing-'+(++n),ledger:commands.createLedger(db),
+  can:permission=>permission==='modify:quotation.followup.schedule'});
+ const p=await runtime.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}});
+ await runtime.approve(p.id);
+ await commands.createLedger(db).transition(p.id,['approved'],{type:'executing'}, {status:'executing'});
+ const before=await snapshot(db),outcome=await runtime.reconcile(p.id);
+ assert.equal(outcome.status,'indeterminate');
+ assert.equal(outcome.error.code,'RECEIPT_MISSING');
+ assert.deepEqual(await snapshot(db),before);
+ assert.equal((await runtime.execute(p.id)).status,'in_progress');
+});
+test('recovery refuses another actor and a receipt missing the task creation event',async()=>{
+ const commands=require('../public/command-registry.js'),{db}=fixture();let n=0,actor='local-owner';
+ const runtime=()=>commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor,businessId,today:'2026-10-29'}),
+  uid:()=> 'guarded-'+(++n),ledger:commands.createLedger(db),
+  can:permission=>permission==='modify:quotation.followup.schedule'});
+ const r=runtime(),p=await r.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}});
+ await r.approve(p.id);
+ await commands.createLedger(db).transition(p.id,['approved'],{type:'executing'}, {status:'executing'});
+ const data=await snapshot(db),guard=commands.resolve({commandId:'quotation.followup.schedule',params:p.params},data,{actor,businessId}).guard;
+ await core.execute({db,kind:'quotation.followup.schedule',payload:{quoteId:'q1',due:'2026-10-30'},
+  uid:()=> 'confirmed-task',requestKey:'operation:'+p.id,actor,businessId,approved:true,recordGuard:guard});
+ actor='unexpected-actor';
+ assert.equal((await runtime().reconcile(p.id)).status,'denied');
+ actor='local-owner';
+ const eventId=(await snapshot(db)).commandLog.find(x=>x.kind==='domain.event').id;
+ await new Promise((resolve,reject)=>{const tx=db.transaction('commandLog','readwrite');tx.objectStore('commandLog').delete(eventId);tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+ const noAudit=await runtime().reconcile(p.id);
+ assert.equal(noAudit.status,'indeterminate');assert.equal(noAudit.error.code,'EVENT_UNVERIFIED');
+ assert.equal((await snapshot(db)).tasks.length,1);
+});
