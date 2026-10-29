@@ -313,21 +313,25 @@ function createRuntime(options){
   if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
    return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
-  if(row.commandId!=='quotation.followup.schedule')return {id,status:'unsupported',error:{code:'UNSUPPORTED_RECOVERY',message:'No verified reconciliation contract for this command.'}};
+  if(!['quotation.followup.schedule','invoice.followup.schedule'].includes(row.commandId))return {id,status:'unsupported',error:{code:'UNSUPPORTED_RECOVERY',message:'No verified reconciliation contract for this command.'}};
   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
   if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'Only interrupted execution can be reconciled.'}};
   if(row.approvedBy!==c.actor||!row.events?.some(e=>e.type==='approved'))
    return {id,status:'indeterminate',error:{code:'APPROVAL_UNVERIFIED',message:'Cannot prove this operation was approved.'}};
-  const data=await snapshot(),receiptId='quote-followup:operation:'+id;
+  const data=await snapshot(),invoiceFollowup=row.commandId==='invoice.followup.schedule';
+  const receiptId=(invoiceFollowup?'invoice-followup:':'quote-followup:')+'operation:'+id;
   const receipts=(data.commandLog||[]).filter(x=>x.id===receiptId);
   if(receipts.length!==1)
    return {id,status:'indeterminate',error:{code:'RECEIPT_MISSING',message:'No unique durable operation receipt. Do not replay automatically.'}};
-  const receipt=receipts[0],expected=canonical({quoteId:row.params.ref.id,due:row.params.due});
-  if(receipt.kind!=='quotation.followup.schedule'||receipt.requestPayload!==expected||
+  const receipt=receipts[0],expected=canonical(invoiceFollowup?
+   {invoiceId:row.params.ref.id,due:row.params.due}:
+   {quoteId:row.params.ref.id,due:row.params.due});
+  if(receipt.kind!==row.commandId||receipt.requestPayload!==expected||
    receipt.actor!==row.actor||receipt.businessId!==row.businessId||
    !['task_created','existing_open_task'].includes(receipt.result))
    return {id,status:'indeterminate',error:{code:'RECEIPT_MISMATCH',message:'Operation receipt does not match approval.'}};
-  const matches=(data.tasks||[]).filter(t=>t.id===receipt.resultId&&t.quoteId===row.params.ref.id&&
+  const matches=(data.tasks||[]).filter(t=>t.id===receipt.resultId&&
+    (invoiceFollowup?t.invoiceId:t.quoteId)===row.params.ref.id&&
     t.customerId===row.result?.customerId&&(!t.businessId||t.businessId===row.businessId));
   if(matches.length!==1)
    return {id,status:'indeterminate',error:{code:'TASK_UNVERIFIED',message:'The linked task could not be independently verified.'}};
