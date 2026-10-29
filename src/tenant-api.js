@@ -22,6 +22,7 @@ export async function tenantApi(request,env,options={}){
   }
   const backup=/^\/api\/v1\/businesses\/([^/]+)\/backup$/.exec(url.pathname);
   if(backup){
+   if(env.TF_BACKUP_EXPORT_ENABLED!=='true')return json({error:'Backup export is not enabled'},503);
    const businessId=requireBusinessId(backup[1]);
    const permission=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'members:manage'});
    const snapshot=await exportTenantSnapshot(env.TF_DB,permission);
