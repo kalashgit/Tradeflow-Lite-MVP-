@@ -63,3 +63,46 @@ test('storage failure rolls back task and audit in the same transaction',async()
  await assert.rejects(core.execute(args),/Simulated audit\/storage failure/);
  assert.deepEqual(await snapshot(db),before);
 });
+
+test('existing command runtime requires approval and records verified task execution',async()=>{
+ const commands=require('../public/command-registry.js');
+ const {db}=fixture(),context={actor:'local-owner',businessId,sourcePage:'quotes',today:'2026-10-29'};
+ let counter=0,invocations=0;
+ const runtime=commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>context,uid:()=> 'cmd-'+(++counter),
+  ledger:commands.createLedger(db),can:permission=>permission==='modify:quotation.followup.schedule',
+  ports:{operation:async(kind,payload,proof)=>{
+   invocations++;
+   return core.execute({db,kind,payload,uid:()=> 'task-integration',
+    requestKey:proof.requestKey,recordGuard:proof.recordGuard,
+    actor:proof.actor,businessId:proof.businessId,approved:proof.approved});
+  }}
+ });
+ const input={commandId:'quotation.followup.schedule',params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}};
+ const prepared=await runtime.prepare(input,{requestKey:'quote-followup-owner-approval'});
+ assert.equal(prepared.status,'needs_review');
+ assert.equal((await runtime.execute(prepared.id)).error.code,'APPROVAL_REQUIRED');
+ assert.equal(invocations,0);
+ assert.equal((await runtime.approve(prepared.id)).status,'approved');
+ const result=await runtime.execute(prepared.id);
+ assert.equal(result.status,'succeeded');assert.equal(invocations,1);
+ assert.equal((await runtime.execute(prepared.id)).reused,true);
+ assert.equal((await snapshot(db)).tasks.length,1);
+ const log=(await snapshot(db)).commandLog.find(r=>r.id===prepared.id);
+ assert.deepEqual(log.events.map(e=>e.type),['prepared','approved','executing','succeeded']);
+});
+test('command runtime rejects changed quotation before approved task creation',async()=>{
+ const commands=require('../public/command-registry.js');
+ const {db}=fixture();let i=0;
+ const runtime=commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'command-'+(++i),ledger:commands.createLedger(db),
+  can:permission=>permission==='modify:quotation.followup.schedule',
+  ports:{operation:()=>{throw Error('Must not execute stale command')}}
+ });
+ const p=await runtime.prepare({commandId:'quotation.followup.schedule',params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}});
+ assert.equal(p.status,'needs_review');
+ await put(db,'quotes',{...original,title:'Changed scope'});
+ assert.equal((await runtime.approve(p.id)).status,'stale');
+ assert.equal((await snapshot(db)).tasks.length,0);
+});
