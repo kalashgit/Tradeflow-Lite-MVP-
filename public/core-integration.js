@@ -352,7 +352,7 @@
   const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
    Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
   return new Promise((resolve,reject)=>{
-   let tx,error,result,remaining=3,prior=null;const data={};
+   let tx,error,result,remaining=4,prior=null;const data={};
    try{tx=db.transaction(['commandLog','events','customers','quotes'],'readwrite')}catch(e){reject(e);return}
    const abort=e=>{error=e;tx.abort()};
    tx.oncomplete=()=>resolve(result);
