@@ -1,9 +1,11 @@
+import {tenantApi} from './tenant-api.js';
 
 /* Private Cloudflare Workers AI preview. No customer records are stored server-side. */
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
+  if(url.pathname.startsWith('/api/v1/'))return tenantApi(request,env);
   if(url.pathname==='/api/ai/health'){
    if(request.method!=='GET')return reply({error:'GET required'},405);
    return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.9.39'});
