@@ -61,6 +61,7 @@ jobs:
           node --check src/offline-conflicts.js
           node --check src/backup-snapshot.js
           node --check src/tenant-export.js
+          node --check src/tenant-restore-plan.js
           node --test tests/*.test.cjs
           python3 tests/tenant-migrations.test.py
       - name: Install Wrangler
