@@ -3,10 +3,7 @@ import {RECORD_TYPES,LEGACY_RECORD_TYPES} from './record-model.js';
 // Read-only cloud-to-device planning. No IndexedDB transaction, writes or merge decisions.
 // Calling code must obtain fresh local records and an authenticated session.
 const validId=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(s);
-const canonical=value=>JSON.stringify(value&&typeof value==='object'
- ?Array.isArray(value)?value.map(v=>JSON.parse(canonical(v)))
- :Object.fromEntries(Object.keys(value).sort().map(k=>[k,JSON.parse(canonical(value[k]))]))
- :value);
+const canonical=x=>JSON.stringify(x,(key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,value[k]])):value);
 export async function previewCloudRetrieval({businessId,session,localStores,transport,maxRecords=200}){
  if(!validId(businessId)||!session||session.status!=='signed_in'||
   typeof session.identity?.issuer!=='string'||!session.identity.issuer||
