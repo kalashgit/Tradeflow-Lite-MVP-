@@ -87,3 +87,55 @@ test('existing calendar review interface routes via owner approval, not direct c
  assert.match(app,/commandId:'calendar\.conflict\.reschedule'/);
  assert.match(app,/commands\.approve\(plan\.id\)/);
 });
+
+test('crash after calendar record commit reconciles approved result without repeating the move',async()=>{
+ const f=fixture(),db=f.db;let n=0,executions=0;
+ const runtime=()=>commands.createRuntime({snapshot:()=>snapshot(db),
+  context:()=>f.context,uid:()=> 'recovery-'+(++n),
+  ledger:commands.createLedger(db),can:p=>p==='modify:calendar.conflict.reschedule',
+  ports:{operation:()=>{executions++;throw Error('Recovery must not reschedule again')}}});
+ const first=runtime(),p=await first.prepare(f.input);
+ assert.equal(p.status,'needs_review');
+ assert.equal((await first.approve(p.id)).status,'approved');
+ await commands.createLedger(db).transition(p.id,['approved'],{type:'executing'},{status:'executing'});
+ const before=await snapshot(db);
+ const guard=commands.resolve(f.input,before,f.context).guard;
+ await core.execute({db,kind:'calendar.conflict.reschedule',payload:{eventId:'e1',date:'2026-11-05',time:'13:00'},
+  uid:()=> 'calendar-audit-recovery',requestKey:'operation:'+p.id,recordGuard:guard,
+  actor:'local-owner',businessId,approved:true,calendar});
+ const next=runtime(),result=await next.reconcile(p.id);
+ assert.equal(result.status,'succeeded');assert.equal(result.result.reconciled,true);
+ assert.equal((await next.execute(p.id)).reused,true);
+ assert.equal(executions,0);assert.equal((await snapshot(db)).calendarAudit.length,1);
+ const saved=(await snapshot(db)).commandLog.find(x=>x.id===p.id);
+ assert.equal(saved.status,'succeeded');
+ assert.ok(saved.events.some(e=>e.type==='reconciled'));
+});
+test('calendar recovery does not claim success without matching domain and calendar audit',async()=>{
+ const f=fixture(),db=f.db;let n=0;
+ const runtime=commands.createRuntime({snapshot:()=>snapshot(db),context:()=>f.context,
+  uid:()=> 'audit-'+(++n),ledger:commands.createLedger(db),
+  can:p=>p==='modify:calendar.conflict.reschedule'});
+ const p=await runtime.prepare(f.input);await runtime.approve(p.id);
+ await commands.createLedger(db).transition(p.id,['approved'],{type:'executing'},{status:'executing'});
+ const missing=await runtime.reconcile(p.id);
+ assert.equal(missing.status,'indeterminate');assert.equal(missing.error.code,'RECEIPT_MISSING');
+ const guard=commands.resolve(f.input,await snapshot(db),f.context).guard;
+ await core.execute({db,kind:'calendar.conflict.reschedule',payload:{eventId:'e1',date:'2026-11-05',time:'13:00'},
+  uid:()=> 'calendar-audit-1',requestKey:'operation:'+p.id,recordGuard:guard,
+  actor:'local-owner',businessId,approved:true,calendar});
+ const audit=(await snapshot(db)).calendarAudit[0];
+ await new Promise((resolve,reject)=>{const tx=db.transaction('calendarAudit','readwrite');
+  tx.objectStore('calendarAudit').delete(audit.id);
+  tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+ const result=await runtime.reconcile(p.id);
+ assert.equal(result.status,'indeterminate');assert.equal(result.error.code,'AUDIT_UNVERIFIED');
+ assert.equal((await runtime.execute(p.id)).status,'in_progress');
+});
+test('hidden calendar layers remain in conflict checks when moving standalone events',async()=>{
+ const f=fixture(),db=f.db;
+ await put(db,'calendarPreferences',{id:'local-owner',hiddenLayerIds:['internal']});
+ const guard=await f.guard();
+ await assert.rejects(f.operate({payload:{eventId:'e1',date:'2026-11-05',time:'10:45'},recordGuard:guard}),/still conflicts/);
+ assert.equal((await snapshot(db)).calendarEntries.find(x=>x.id==='e1').time,'10:00');
+});
