@@ -335,11 +335,79 @@
    }
   });
  }
+ // Manual contact evidence: a local operator report, never provider-confirmed delivery.
+ // Customer contact and quotation's lastContactAt are atomic with the command receipt.
+ function executeContactRecord(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business'}=args||{};
+  const {customerId,quoteId='',method,notes}=payload||{};
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||
+   typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
+   typeof customerId!=='string'||!customerId||typeof quoteId!=='string'||
+   !['Phone','Email','Meeting','Site visit','Other'].includes(method)||
+   typeof notes!=='string'||notes.trim().length<3||notes.length>1000||
+   Object.keys(payload).some(k=>!['customerId','quoteId','method','notes'].includes(k)))
+   return Promise.reject(Error('Valid manually recorded customer contact required'));
+  const key='contact:'+requestKey.trim();
+  const normalized={customerId,quoteId,method,notes:notes.trim()};
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=3,prior=null;const data={};
+   try{tx=db.transaction(['commandLog','events','customers','quotes'],'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Contact transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='customer.contact.record'||prior.requestPayload!==stable(normalized)||
+       prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Contact operation key is bound to different details or actor');
+      const previous=data.events.find(e=>e.id===prior.resultId&&e.kind==='customer_contact'&&
+       e.customerId===customerId&&e.quoteId===quoteId);
+      if(!previous)throw Error('Previous contact record requires recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key};return;
+     }
+     const customer=data.customers.find(c=>c.id===customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)
+      throw Error('Contact customer unavailable in this business');
+     const quote=quoteId?data.quotes.find(q=>q.id===quoteId):null;
+     if(quoteId&&(!quote||quote.customerId!==customerId||
+       quote.businessId&&quote.businessId!==businessId))
+      throw Error('Related quotation no longer belongs to customer and business');
+     const id=String(uid()),when=new Date().toISOString();
+     if(!id||data.events.some(e=>e.id===id))throw Error('Contact record identifier collision');
+     const event={id,kind:'customer_contact',text:'Manually recorded customer contact',
+      customerId,quoteId,method,notes:normalized.notes,date:when,
+      actor,businessId,evidence:'operator_reported',providerVerified:false};
+     tx.objectStore('events').put(event);
+     if(quote){
+      const last=String(quote.lastContactAt||'');
+      const updated={...quote,lastContactAt:last>when?last:when,updatedAt:when};
+      tx.objectStore('quotes').put(updated);
+      domainEvents?.recordCommitted(tx,'quotes',updated,key,{actor,businessId},quote);
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'customer.contact.record',
+      requestPayload:stable(normalized),resultId:id,actor,businessId,quoteId,
+      createdAt:when,result:'manual_contact_recorded',providerVerified:false});
+     result={id,reused:false,commandKey:key,providerVerified:false};
+    }catch(e){abort(e)}
+   }
+   const receipt=tx.objectStore('commandLog').get(key);
+   receipt.onsuccess=()=>{prior=receipt.result;ready()};
+   for(const name of ['events','customers','quotes']){
+    const req=tx.objectStore(name).getAll();
+    req.onsuccess=()=>{data[name]=req.result;ready()};
+   }
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
   if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
+  if(kind==='customer.contact.record')return executeContactRecord(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
   const key=nonempty(requestKey)||'command:'+String(uid());
