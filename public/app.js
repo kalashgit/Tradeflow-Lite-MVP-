@@ -1902,7 +1902,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:invoice.followup.schedule','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2164,7 +2164,28 @@ window.TradeFlowMapExperience?.configure({
 });
 window.TradeFlowResearch?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowMarketing?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
-window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
+window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,
+ scheduleInvoiceFollowup:async(invoice,due)=>{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime is unavailable.');
+  const snapshot=await tfPilotSnapshot();
+  const prior=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='invoice.followup.schedule'&&x.params?.ref?.store==='invoices'&&
+   x.params.ref.id===invoice.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(prior.length)return {status:'indeterminate',error:{message:'An earlier invoice follow-up is interrupted. Review the existing task and audit before retrying.'}};
+  const plan=await commands.prepare({commandId:'invoice.followup.schedule',
+   params:{ref:{store:'invoices',id:invoice.id},due}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Invoice is not eligible for a reviewed follow-up.');
+  if(!confirm('Schedule an internal task for overdue invoice '+String(invoice.reference||invoice.id).slice(0,80)+
+   ' due '+due+'? Check recorded payments and contact preferences first. No email or payment request will be sent.')){
+   await commands.reject(plan.id);return {status:'rejected'};
+  }
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Invoice or payment records changed; review again.');
+  return commands.execute(plan.id);
+ },
+ navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowNotifications?.configure({
  get,put,render,uid,intelligence:data=>window.TradeFlowPilot?.evaluateSnapshot(data)||null,openRecord:tfPilotOpenRecord,navigate:async function(next){tab=next;query='';modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}
 });
