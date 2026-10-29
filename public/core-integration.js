@@ -492,12 +492,108 @@
    }
   });
  }
+ // Shared approved command for a standalone calendar event conflicting with another booking.
+ // The existing calendar conflict evaluator runs on records read inside a single transaction.
+ // Linked job/task work sessions cannot be moved through this action.
+ function executeConflictReschedule(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',
+   approved=false,recordGuard=[],calendar}=args||{};
+  const timeOK=v=>typeof v==='string'&&/^([01]\\d|2[0-3]):[0-5]\\d$/.test(v);
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
+   typeof actor!=='string'||!actor.trim()||typeof requestKey!=='string'||!requestKey.trim()||
+   !payload||typeof payload.eventId!=='string'||!payload.eventId||!payload.date||
+   !validDate(payload.date)||!timeOK(payload.time)||
+   Object.keys(payload).some(k=>!['eventId','date','time'].includes(k))||
+   !calendar||typeof calendar.conflicts!=='function'||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='calendarEntries'&&g.ref.id===payload.eventId&&g.record)||
+   !recordGuard.some(g=>g.calendarState&&typeof g.calendarState==='object'))
+   return Promise.reject(Error('Approved standalone event, calendar evaluator and complete schedule snapshot required'));
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(x=>value[x]!==undefined).map(x=>[x,value[x]])):value);
+  const key='calendar-reschedule:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=5,prior=null;const data={};
+   const names=['commandLog','calendarEntries','tasks','jobs','calendarPreferences','calendarAudit'];
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;try{tx.abort()}catch{reject(e)}};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Calendar conflict transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='calendar.conflict.reschedule'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Reschedule operation key belongs to a different request');
+      const changed=data.calendarEntries.find(x=>x.id===prior.resultId);
+      if(!changed||changed.date!==payload.date||changed.time!==payload.time)
+       throw Error('Prior rescheduled event requires recovery review');
+      result={id:changed.id,reused:true,commandKey:key};return;
+     }
+     for(const expected of recordGuard){
+      if(expected.ref){
+       const rows=data[expected.ref.store]||[];
+       if(rows.filter(x=>x.id===expected.ref.id).length!==1||
+        stable(rows.find(x=>x.id===expected.ref.id))!==stable(expected.record))
+        throw Error('Calendar record changed since approval');
+      }
+      if(expected.calendarState){
+       for(const name of ['tasks','jobs','calendarEntries','calendarPreferences']){
+        if(stable(data[name])!==stable(expected.calendarState[name]))
+         throw Error('Calendar commitments changed since approval');
+       }
+      }
+     }
+     const event=data.calendarEntries.find(x=>x.id===payload.eventId);
+     if(!event||event.businessId&&event.businessId!==businessId)
+      throw Error('Event unavailable in this business');
+     if(event.sourceId&&event.sourceKind&&event.sourceKind!=='event'||
+      ['done','completed','cancelled','canceled'].includes(String(event.status||'').toLowerCase()))
+      throw Error('Linked or completed sessions require source-record review');
+     const duration=Number(event.durationMinutes),start=Number(payload.time.slice(0,2))*60+Number(payload.time.slice(3,5));
+     if(!Number.isInteger(duration)||duration<1||duration>1440||start+duration>1440||
+      event.date===payload.date&&event.time===payload.time)
+      throw Error('Invalid or unchanged calendar slot');
+     const normalized=clone=>({
+      ...clone,
+      tasks:(clone.tasks||[]).map(x=>({...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'})),
+      jobs:(clone.jobs||[]).map(x=>({...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'})),
+      calendarEntries:(clone.calendarEntries||[]).map(x=>({...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'}))
+     });
+     const scope={tasks:data.tasks,jobs:data.jobs,calendarEntries:data.calendarEntries,calendarPreferences:data.calendarPreferences};
+     const involved=issue=>issue.a?.key==='event:'+event.id||issue.b?.key==='event:'+event.id;
+     const earlier=calendar.conflicts(normalized(scope),{from:event.date,until:event.date}).filter(involved);
+     if(!earlier.length)throw Error('This standalone event no longer has a recorded conflict');
+     const next={...event,date:payload.date,time:payload.time,updatedAt:new Date().toISOString()};
+     const proposed={...scope,calendarEntries:scope.calendarEntries.map(x=>x.id===event.id?next:x)};
+     const after=calendar.conflicts(normalized(proposed),{from:payload.date,until:payload.date}).filter(involved);
+     if(after.length)throw Error('Replacement slot still conflicts with another recorded commitment');
+     tx.objectStore('calendarEntries').put(next);
+     domainEvents?.recordCommitted(tx,'calendarEntries',next,key,{actor,businessId},event);
+     tx.objectStore('calendarAudit').put({id:String(uid()),kind:'calendar.conflict.rescheduled',
+      sourceKind:'event',sourceId:event.id,oldDate:event.date,oldTime:event.time,
+      newDate:payload.date,newTime:payload.time,actor,businessId,correlationId:key,
+      createdAt:next.updatedAt});
+     tx.objectStore('commandLog').put({id:key,kind:'calendar.conflict.reschedule',
+      requestPayload:stable(payload),resultId:event.id,actor,businessId,
+      oldDate:event.date,oldTime:event.time,createdAt:next.updatedAt,result:'event_moved'});
+     result={id:event.id,reused:false,commandKey:key,oldDate:event.date,oldTime:event.time,
+      date:payload.date,time:payload.time,verifiedNoConflict:true};
+    }catch(e){abort(e)}
+   }
+   const r=tx.objectStore('commandLog').get(key);r.onsuccess=()=>{prior=r.result;ready()};
+   for(const name of ['calendarEntries','tasks','jobs','calendarPreferences']){
+    const req=tx.objectStore(name).getAll();req.onsuccess=()=>{data[name]=req.result;ready()};
+   }
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
   if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
+  if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
