@@ -24,6 +24,7 @@ export async function tenantApi(request,env,options={}){
   }
   const preview=/^\/api\/v1\/businesses\/([^/]+)\/backup\/dry-run$/.exec(url.pathname);
   if(preview){
+   if(request.method!=='POST')return json({error:'Method not allowed'},405);
    if(env.TF_BACKUP_DRY_RUN_ENABLED!=='true')return json({error:'Recovery dry-run is not enabled'},503);
    if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get('Content-Type')||''))return json({error:'JSON required'},415);
    if(!request.body)return json({error:'Backup body required'},400);
