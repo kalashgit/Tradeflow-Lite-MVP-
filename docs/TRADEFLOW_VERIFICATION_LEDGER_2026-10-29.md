@@ -250,3 +250,10 @@ The product owner approved creating the proposed single empty TradeFlow Pilot wo
 - GitHub source commit at checkpoint: `361f0f13138dd05a00a9f1594822fe5f3e8ca880`. Source commit confirmed; **test execution not verified** (no status or commit-associated workflow run returned).
 - No cloud-to-device import, local overwrite, background sync, D1 migration, live account changes, deployment or contractor acceptance performed.
 - Release gate: obtain passing workflow for exact source SHA; review authorization and pagination against actual D1; then design explicit, backup-gated cloud-to-device comparison/approval in existing Settings before any local write. No pain points retired.
+
+## 2026-10-29 — Read-only cloud-to-device comparison increment
+- Candidate source commit: `f4ac1a5ca3f511f8a34df11edb08a6112740263a`; branch `feature/cloud-record-discovery`.
+- New `public/cloud-retrieval.js` requires verified owner session, scans the existing tenant API by bounded pages, detects incomplete/duplicate/out-of-order/foreign records, and labels records as new-on-device, identical or conflicting without writes.
+- New `tests/cloud-retrieval.test.cjs` exercises synthetic review, unauthorized identity, pagination, boundaries and cross-business records. CI includes syntax, targeted Node, whole Node and storage regression tests.
+- **SOURCE-COMMITTED ONLY:** The suite has not been executed or verified on this candidate commit. A new CI run and exact commit provenance remain release gates. This is a read-only planning prerequisite, not a deployed feature, verified import, secure snapshot, automatic synchronization or completed contractor outcome.
+- Next: verify CI and deploy only after release gates; add Settings comparison UI, pre-apply remote revision re-read, backup, explicit owner approval, rollback and unresolved conflict recovery before any local data modifications. Preserve `tradeflow-lite-v1` schema and all records.
