@@ -37,7 +37,7 @@ test('accepts only signed, unexpired JWT for configured issuer and audience',asy
  for(const claims of [{iss:'https://evil.example.test'},{aud:'other-app'},{exp:1},{sub:'x'}]){
   await assert.rejects(verifier(req('/api/v1/me',await token(claims)),envBase,{fetchJwks:jwksResponse}));
  }
- const forged=(await token()).replace(/.$/,c=>c==='A'?'B':'A');
+ const original=await token();const parts=original.split('.');parts[2]=(parts[2][0]==='A'?'B':'A')+parts[2].slice(1);const forged=parts.join('.');
  await assert.rejects(verifier(req('/api/v1/me',forged),envBase,{fetchJwks:jwksResponse}));
 });
 test('rejects missing credentials, incorrect method and untrusted JWKS origin',async()=>{
