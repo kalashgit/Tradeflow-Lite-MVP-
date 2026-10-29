@@ -58,6 +58,8 @@ jobs:
           node --check src/oidc-verifier.js
           node --check src/tenant-api.js
           node --check src/tenant-record-store.js
+          node --check src/offline-conflicts.js
+          node --check src/backup-snapshot.js
           node --test tests/*.test.cjs
           python3 tests/tenant-migrations.test.py
       - name: Install Wrangler
