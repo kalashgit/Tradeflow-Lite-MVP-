@@ -288,3 +288,7 @@ The product owner approved creating the proposed single empty TradeFlow Pilot wo
 - All scripts are SOURCE-COMMITTED but repository test execution remains UNVERIFIED. Current container has Node 22.16.0 but no checkout/network resolution for GitHub; no claim of successful Node, browser, tenant, signed Access, or customer tests.
 - Scope limits: this is a local-owner command, not real Cloudflare Access role verification; no UI click-path acceptance, server background scheduler, provider delivery or customer contact. A task record is not proof that a quote has been followed up. The existing warning continues until independent contact/resolution evidence.
 - Release gates: verify exact-head CI and browser tests, inspect duplicate task and interrupted-command recovery, test actual local GUI workflow and authorized user, then complete follow-up/contact audit and outcome measurement before retiring original research row #2. Overall retired **0/62**.
+
+### 2026-10-29 — Follow-up rejection regression
+- Commit `c481780ecbd5f613877fa791013f66311726a766` adds `owner rejection leaves quotation and customer untouched and creates no task` to `tests/quotation-followup-execution.test.cjs`.
+- Source is committed; execution of that test and all CI gates remain unverified. No independent actual customer follow-up, message delivery or data migration performed.
