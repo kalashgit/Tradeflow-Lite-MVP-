@@ -62,3 +62,17 @@ test('reads only tenant-scoped records with verified membership',async()=>{
  const invalid=await api(req('/api/v1/businesses/'+business+'/records/unknown/job_123',signed),env,{fetchJwks:jwksResponse});
  assert.equal(invalid.status,400);
 });
+
+test('PUT requires signed identity, active writer membership and expected revision',async()=>{
+ const path='/api/v1/businesses/'+business+'/records/jobs/job_123';
+ const signed=await token();
+ const request=()=>new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:3,record:{name:'Changed'}})});
+ const denied=await api(request(),{...envBase,TF_DB:db('viewer')},{fetchJwks:jwksResponse});
+ assert.equal(denied.status,403);
+ const noToken=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{'Content-Type':'application/json'},body:'{}'}),{...envBase,TF_DB:db('member')},{fetchJwks:jwksResponse});
+ assert.equal(noToken.status,401);
+ const wrongBusiness=await api(new Request('https://pilot.example.test/api/v1/businesses/business_999/records/jobs/job_123',{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:'{}'}),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse});
+ assert.equal(wrongBusiness.status,403);
+ const badPayload=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({record:{}})}),{...envBase,TF_DB:db('member')},{fetchJwks:jwksResponse});
+ assert.equal(badPayload.status,415);
+});
