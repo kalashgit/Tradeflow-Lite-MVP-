@@ -1022,11 +1022,15 @@ document.addEventListener('submit',async function(e){
  if(!['Phone','Email','Meeting','Site visit','Other'].includes(method)||notes.length<3||notes.length>1000){alert('Choose a contact method and enter the actual outcome.');return}
  const quote=quoteId?await get('quotes',quoteId):null;
  if(quoteId&&(!quote||quote.customerId!==customerId)){alert('Related quotation no longer matches this customer.');return}
- const timestamp=new Date().toISOString();
- await put('events',{id:uid(),kind:'customer_contact',text:'Customer contact recorded',customerId,
-  quoteId,method,notes,date:timestamp});
- if(quote){await put('quotes',{...quote,lastContactAt:timestamp,updatedAt:timestamp})}
- await notify('Contact logged against customer record');
+ try{
+  const outcome=await window.TradeFlowCore.execute({db,kind:'customer.contact.record',
+   payload:{customerId,quoteId,method,notes},uid,requestKey:uid(),
+   actor:'local-owner',businessId:'local-business'});
+  if(!outcome?.id)throw Error('Contact operation was not confirmed');
+  await notify('Manual contact recorded with linked quotation history. Delivery is not independently verified.');
+ }catch(error){
+  alert('Contact was not confirmed. Review the customer history before retrying: '+String(error.message||error));
+ }
 });
 function tfDownloadBackup(data){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 async function exportData(){try{tfDownloadBackup(await window.TradeFlowLocalRecovery.createBackup(db,STORES))}catch(error){alert('Backup failed: '+error.message)}}
