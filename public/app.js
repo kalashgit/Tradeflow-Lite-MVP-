@@ -1902,9 +1902,9 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:invoice.followup.schedule','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
-   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
+   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
  // Header evaluation does not copy image payloads or the growing command journal.
  const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','crew','events','jobCosts','expenses','supplyOrders','calendarEntries','calendars','calendarPreferences'];
@@ -2138,7 +2138,28 @@ async function tfReviewQuotationHandoff(quote){
 }
 
 window.TradeFlowCalendar?.configure({
- get,put,all,del,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
+ get,put,all,del,render,notify,uid,
+ resolveConflict:async(event,date,time)=>{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime unavailable');
+  const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(interrupted.length)throw Error('Earlier calendar reschedule is unresolved. Review command audit before another change.');
+  const plan=await commands.prepare({commandId:'calendar.conflict.reschedule',
+   params:{ref:{store:'calendarEntries',id:event.id},date,time}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Calendar event is not eligible for reschedule');
+  if(!confirm('Move standalone event “'+String(event.title||event.id).slice(0,110)+
+   '” from '+String(event.date)+' '+String(event.time)+' to '+date+' '+time+
+   '? This changes a local calendar booking. Linked jobs and tasks are not rescheduled; no notifications are sent.')){
+   await commands.reject(plan.id);return {status:'rejected'};
+  }
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Schedule changed; review again');
+  return commands.execute(plan.id);
+ },
+ commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openRecord:async function(kind,id){
   if(!id)return;
