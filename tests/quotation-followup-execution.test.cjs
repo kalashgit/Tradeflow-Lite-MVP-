@@ -227,3 +227,38 @@ test('recovery refuses another actor and a receipt missing the task creation eve
  assert.equal(noAudit.status,'indeterminate');assert.equal(noAudit.error.code,'EVENT_UNVERIFIED');
  assert.equal((await snapshot(db)).tasks.length,1);
 });
+
+test('quote detail recovery action gates new approval on verified prior result',()=>{
+ const fs=require('node:fs'),app=fs.readFileSync('public/app.js','utf8');
+ const start=app.indexOf('async function tfReviewQuotationFollowup(quote){');
+ const end=app.indexOf('async function tfReviewQuotationHandoff(',start);
+ assert.ok(start>=0&&end>start);
+ const section=app.slice(start,end);
+ assert.match(section,/status==='executing'/);
+ assert.match(section,/await commands\.reconcile\(pending\.id\)/);
+ assert.match(section,/if\(recovery\.status!=='succeeded'\)/);
+ assert.ok(section.indexOf('commands.reconcile(')<section.indexOf('commands.prepare('));
+ assert.match(section,/An earlier follow-up is unresolved/);
+});
+test('recovery refuses mismatched operation receipt without changing existing task',async()=>{
+ const commands=require('../public/command-registry.js'),{db}=fixture();let n=0;
+ const runtime=commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'tamper-'+(++n),ledger:commands.createLedger(db),
+  can:p=>p==='modify:quotation.followup.schedule'});
+ const plan=await runtime.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}});
+ await runtime.approve(plan.id);
+ await commands.createLedger(db).transition(plan.id,['approved'],{type:'executing'},{status:'executing'});
+ const guard=commands.resolve({commandId:'quotation.followup.schedule',params:plan.params},
+  await snapshot(db),{actor:'local-owner',businessId}).guard;
+ await core.execute({db,kind:'quotation.followup.schedule',payload:{quoteId:'q1',due:'2026-10-30'},
+  uid:()=> 'original-task',requestKey:'operation:'+plan.id,actor:'local-owner',businessId,approved:true,recordGuard:guard});
+ const receiptId='quote-followup:operation:'+plan.id;
+ const data=await snapshot(db),receipt=data.commandLog.find(e=>e.id===receiptId);
+ await put(db,'commandLog',{...receipt,requestPayload:'{"quoteId":"another"}'});
+ const result=await runtime.reconcile(plan.id);
+ assert.equal(result.status,'indeterminate');assert.equal(result.error.code,'RECEIPT_MISMATCH');
+ assert.equal((await snapshot(db)).tasks.length,1);
+ assert.equal((await runtime.execute(plan.id)).status,'in_progress');
+});
