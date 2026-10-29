@@ -1,0 +1,36 @@
+name: TradeFlow Cloud Record Discovery Checks
+on:
+  push:
+    branches:
+      - feature/cloud-record-discovery
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discovery-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Syntax checks
+        run: |
+          node --check src/tenant-api.js
+          node --check public/sync-queue.js
+          node --check tests/tenant-api.test.cjs
+          node --check tests/sync-queue.test.cjs
+      - name: Focused authorization and offline queue regression
+        run: node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs
+      - name: Full Node regression
+        run: npm test
+      - name: Storage migration regression
+        run: npm run test:storage
