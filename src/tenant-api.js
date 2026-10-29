@@ -1,3 +1,4 @@
+import {exportTenantSnapshot} from './tenant-export.js';
 import {writeTenantRecord} from './tenant-record-store.js';
 import {verifyBearerToken} from './oidc-verifier.js';
 import {authorizeBusiness,tenantRecordQuery,AuthorizationError,requireBusinessId} from './tenant-security.js';
@@ -7,7 +8,7 @@ export async function tenantApi(request,env,options={}){
  if(!url.pathname.startsWith('/api/v1/'))return null;
  if(!['GET','PUT'].includes(request.method))return json({error:'Method not allowed'},405);
  if(request.method==='PUT' && !/^\/api\/v1\/businesses\/[^/]+\/records\/[^/]+\/[^/]+$/.test(url.pathname))return json({error:'Method not allowed'},405);
- // The pilot intentionally exposes no record writes, membership changes, or user provisioning.
+ // No membership changes, self-provisioning, automatic backup storage, or restore.
  if(!env.TF_OIDC_ISSUER||!env.TF_OIDC_AUDIENCE||!env.TF_OIDC_JWKS_URL||!env.TF_DB)
   return json({error:'Secure business API is not configured'},503);
  try{
@@ -18,6 +19,13 @@ export async function tenantApi(request,env,options={}){
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
    return json({businesses:items.results||[]});
+  }
+  const backup=/^\/api\/v1\/businesses\/([^/]+)\/backup$/.exec(url.pathname);
+  if(backup){
+   const businessId=requireBusinessId(backup[1]);
+   const permission=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'members:manage'});
+   const snapshot=await exportTenantSnapshot(env.TF_DB,permission);
+   return new Response(JSON.stringify(snapshot),{status:200,headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="tradeflow-tenant-backup.json"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Authorization'}});
   }
   const match=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)\/([^/]+)$/.exec(url.pathname);
   if(!match)return json({error:'Not found'},404);
