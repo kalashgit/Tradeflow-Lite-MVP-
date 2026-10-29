@@ -1,4 +1,4 @@
-import pathlib, sqlite3
+import pathlib, sqlite3, re
 
 root = pathlib.Path(__file__).resolve().parents[1]
 db = sqlite3.connect(":memory:")
@@ -7,21 +7,14 @@ for migration in ("0001_tenant_foundation.sql", "0002_record_audit.sql"):
 
 db.execute("INSERT INTO businesses(id,name) VALUES (?,?)", ("business_001","Pilot Company"))
 db.execute("INSERT INTO businesses(id,name) VALUES (?,?)", ("business_002","Other Company"))
-sql = """
-INSERT INTO tenant_records
-(business_id,record_type,id,revision,payload,updated_by_issuer,updated_by_subject)
-SELECT ?,?,?,?,?,?,? WHERE ?=0 OR EXISTS
-(SELECT 1 FROM tenant_records WHERE business_id=? AND record_type=? AND id=?)
-ON CONFLICT(business_id,record_type,id) DO UPDATE SET
-payload=excluded.payload,revision=tenant_records.revision+1,
-updated_at=datetime('now'),updated_by_issuer=excluded.updated_by_issuer,
-updated_by_subject=excluded.updated_by_subject
-WHERE tenant_records.revision=? AND tenant_records.deleted_at IS NULL
-RETURNING revision,updated_at
-"""
+source = (root / "src" / "tenant-record-store.js").read_text()
+sql = re.search(r"export const RECORD_WRITE_SQL =`(.*?)`;", source, re.S).group(1)
+for business in ("business_001", "business_002"):
+    db.execute("INSERT INTO business_memberships(business_id,issuer,subject,role) VALUES (?,?,?,?)", (business,"issuer.example","user_001","owner"))
+
 
 def save(business, expected, payload):
-    return db.execute(sql,(business,"jobs","job_001",expected+1,payload,"issuer.example","user_001",expected,business,"jobs","job_001",expected)).fetchone()
+    return db.execute(sql,(business,"jobs","job_001",expected+1,payload,"issuer.example","user_001",expected,business,"jobs","job_001",business,"issuer.example","user_001",expected)).fetchone()
 
 assert save("business_001",0,'{"name":"First"}')[0]==1
 assert save("business_001",0,'{"name":"Stale"}') is None
@@ -36,3 +29,9 @@ assert len(audit)==3,audit
 assert {r[1] for r in audit}=={"record.create","record.update"}
 assert all(r[2:]==("issuer.example","user_001") for r in audit)
 print("PASS: D1-compatible schema, create/update revisions, isolation, and transactional audit")
+
+# Membership revocation is enforced inside the write statement, including stale pre-authorized requests.
+db.execute("UPDATE business_memberships SET status='suspended' WHERE business_id='business_001'")
+assert save("business_001",2,'{"name":"Revoked write"}') is None
+assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==3
+print("PASS: execution-time membership revocation cannot write or add audit events")

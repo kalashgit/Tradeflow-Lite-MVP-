@@ -39,8 +39,20 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   assert.equal(result.now.stores.payments[0].jobId,'recovery-job');assert.equal(result.now.version,9);
   await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
   await context.setOffline(true);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery&&!!window.TradeFlowPilot);
+  await page.evaluate(async()=>{
+   const {createSyncQueue}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const queue=createSyncQueue({db,businessId:'business_001',session:async()=>({status:'signed_out'}),transport:{read:async()=>{throw Error('Must not send')},write:async()=>{throw Error('Must not send')}}});
+   await queue.enqueue({type:'customers',id:'offline-test',operationId:'offline-op',baseRevision:0,record:{id:'offline-test',name:'Synthetic queued record'}});db.close();
+  });
+  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery);
+  const queueResult=await page.evaluate(async()=>{
+   const {createSyncQueue}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const queue=createSyncQueue({db,businessId:'business_001',session:async()=>({status:'signed_out'}),transport:{read:async()=>{throw Error('Must not send')},write:async()=>{throw Error('Must not send')}}});
+   const rows=await queue.list(),drained=await queue.drain();db.close();return {rows:rows.length,status:drained.status};
+  });
+  assert.equal(queueResult.rows,1);assert.equal(queueResult.status,'authorization_required');
   await page.screenshot({path:path.join(out,'offline-'+viewport.width+'.png')});
-  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,dialogs},null,2));
+  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,dialogs},null,2));
   await context.close();
  }}finally{await browser.close();await new Promise(r=>server.close(r))}
  console.log('PASS: mobile and desktop real UI restore, recovery after reload, linked records and offline reload');

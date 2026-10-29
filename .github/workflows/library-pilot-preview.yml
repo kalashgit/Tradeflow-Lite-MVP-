@@ -37,6 +37,9 @@ jobs:
           node --check public/app.js
           node --check public/local-recovery.js
           node --check public/account-session.js
+          node --check public/sync-queue.js
+          node --check public/offline-conflicts.js
+          node --check public/migration-preview.js
           node --check public/suppliers.js
           node --check public/core-integration.js
           node --check public/library.js

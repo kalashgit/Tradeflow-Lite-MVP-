@@ -1,0 +1,60 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const {createDB}=require('./helpers/local-db.cjs');
+let createSyncQueue,createTenantTransport;
+require('node:test').before(async()=>({createSyncQueue,createTenantTransport}=await import('../public/sync-queue.js')));
+const businessId='business_001',change={type:'customers',id:'c1',operationId:'request_1',baseRevision:0,record:{id:'c1',name:'Test customer'}};
+function fixture(){
+ const db=createDB(),remote=new Map();let writes=0,time=100000,status='signed_in',failure=0,lost=false;
+ const session=async()=>({status,businesses:[{business_id:businessId,role:'owner'}]});
+ const transport={read:async(type,id)=>remote.has(type+id)?{status:200,record:structuredClone(remote.get(type+id))}:{status:404},write:async(type,id,body)=>{
+  if(failure)return {status:failure};const key=type+id,old=remote.get(key);
+  if((old?.revision||0)!==body.revision)return {status:409};
+  writes++;remote.set(key,{businessId,type,id,revision:body.revision+1,record:structuredClone(body.record)});
+  if(lost){lost=false;throw Error('Acknowledgment lost')}return {status:201};
+ }};
+ const make=()=>createSyncQueue({db,businessId,session,transport,now:()=>time});
+ return {db,remote,make,transport,queue:make(),writes:()=>writes,advance:()=>time+=61000,deny:()=>status='signed_out',allow:()=>status='signed_in',failure:n=>failure=n,loseAck:()=>lost=true};
+}
+test('queue survives runtime recreation, serializes duplicate requests and verifies persisted result',async()=>{
+ const f=fixture();await Promise.all([f.queue.enqueue(change),f.queue.enqueue(change)]);assert.equal((await f.make().list()).length,1);
+ assert.equal((await f.make().drain()).status,'drained');assert.equal(f.writes(),1);assert.equal((await f.make().list())[0].status,'applied');
+ await f.make().drain();assert.equal(f.writes(),1);assert.equal(f.db.version,9);
+ await assert.rejects(f.queue.enqueue({...change,record:{id:'c1',name:'Different request'}}),/Operation ID/);
+});
+test('lost response reconciles actual remote record without repeating a write',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.loseAck();assert.equal((await f.queue.drain()).status,'retry_pending');
+ f.advance();await f.make().drain();assert.equal(f.writes(),1);assert.equal((await f.queue.list())[0].result,'already_current');
+});
+test('stale changes retain both versions until explicit conflict review; resolution can be cancelled',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Other device'}});
+ await f.queue.drain();let row=(await f.queue.list())[0];assert.equal(row.status,'conflict');assert.equal(f.writes(),0);
+ assert.equal((await f.queue.resolve(row.id,change.record,()=>false)).status,'cancelled');assert.equal((await f.queue.list())[0].status,'conflict');
+ await f.queue.resolve(row.id,{id:'c1',name:'Reviewed merge'},proposal=>{assert.equal(proposal.remote.record.name,'Other device');return true});
+ await f.queue.drain();row=(await f.queue.list())[0];assert.equal(row.status,'applied');assert.equal(f.remote.get('customersc1').revision,3);assert.equal(f.writes(),1);
+});
+test('expired sessions, forbidden responses and rate limits preserve work without uncontrolled retries',async()=>{
+ for(const status of [401,403,429,503]){
+  const f=fixture();await f.queue.enqueue(change);f.failure(status);await f.queue.drain();assert.equal(f.writes(),0);assert.equal((await f.queue.list())[0].status,'pending');
+  assert.equal((await f.queue.drain()).processed,0);f.advance();f.failure(0);await f.queue.drain();assert.equal(f.writes(),1);
+ }
+ const f=fixture();await f.queue.enqueue(change);f.deny();assert.equal((await f.queue.drain()).status,'authorization_required');assert.equal(f.writes(),0);
+});
+test('concurrent tab drains cannot claim one operation twice',async()=>{
+ const f=fixture();await f.queue.enqueue(change);await Promise.all([f.queue.drain(),f.make().drain()]);assert.equal(f.writes(),1);assert.equal((await f.queue.list())[0].status,'applied');
+});
+test('invalid or cross-business queued and remote identities fail closed',async()=>{
+ const f=fixture();assert.throws(()=>f.queue.enqueue({...change,record:{id:'other'}}),/identity/);
+ assert.throws(()=>f.queue.enqueue({...change,baseRevision:-1}),/Invalid/);
+ await f.queue.enqueue(change);f.remote.set('customersc1',{businessId:'business_999',type:'customers',id:'c1',revision:1,record:change.record});
+ await f.queue.drain();assert.equal(f.writes(),0);assert.equal((await f.queue.list())[0].status,'pending');
+});
+test('failed verification never reports success and retry count is bounded',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.failure(503);
+ for(let i=0;i<7;i++){await f.queue.drain();f.advance()}
+ const row=(await f.queue.list())[0];assert.equal(row.status,'failed');assert.equal(row.attempts,5);assert.equal(f.writes(),0);
+});
+test('same-origin transport rejects login redirects and mismatched successful payloads',async()=>{
+ const transport=createTenantTransport(businessId,async(url,options)=>{assert.ok(url.startsWith('/api/v1/businesses/'+businessId));assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'manual');return {status:0,type:'opaqueredirect'}});
+ assert.equal((await transport.read('customers','c1')).status,401);
+ const bad=createTenantTransport(businessId,async()=>Response.json({id:'c2',type:'customers',revision:1,record:{}}));await assert.rejects(bad.read('customers','c1'),/identity mismatch/);
+});

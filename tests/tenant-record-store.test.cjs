@@ -13,7 +13,8 @@ function mockDb(output){
   assert.match(sql,/updated_by_subject/);
   return {bind(...args){
    assert.deepEqual(args.slice(0,3),['business_001','jobs','job_01']);
-   assert.deepEqual(args.slice(-4),['business_001','jobs','job_01',args[3]-1]);
+   assert.deepEqual(args.slice(-4),['business_001',auth.issuer,auth.subject,args[3]-1]);
+   assert.match(sql,/business_memberships/);
    return {first:async()=>output};
   }};
  }};
@@ -38,4 +39,20 @@ test('invalid record types, revisions and shapes are rejected',async()=>{
 });
 test('rejects large payloads',async()=>{
  await assert.rejects(save(mockDb(null),auth,'jobs','job_01',{revision:0,record:{text:'x'.repeat(31000)}}),{status:413});
+});
+test('record identity and viewer permissions cannot be supplied as business data',async()=>{
+ await assert.rejects(save(mockDb(null),{...auth,role:'viewer'},'jobs','job_01',{revision:0,record:{}}),{status:403});
+ for(const record of [{id:'other'},{businessId:'business_999'}])await assert.rejects(save(mockDb(null),auth,'jobs','job_01',{revision:0,record}),{status:400});
+});
+test('linked records must exist in the same business and share one customer; revisions guard commit',async()=>{
+ const links={customers:{payload:'{"id":"c1"}',revision:1},quotes:{payload:'{"customerId":"c2"}',revision:2}};
+ let sqlUsed='';const db={prepare(sql){return {bind(...params){return {first:async()=>{
+  if(sql.startsWith('SELECT payload')){assert.equal(params[0],auth.businessId);return links[params[1]]||null}
+  sqlUsed=sql;return {revision:1,updated_at:'now'};
+ }}}}}};
+ await assert.rejects(save(db,auth,'jobs','job_01',{revision:0,record:{customerId:'c1',quoteId:'q1'}}),{status:400});
+ links.quotes={payload:'{"customerId":"c1"}',revision:2};
+ await save(db,auth,'jobs','job_01',{revision:0,record:{customerId:'c1',quoteId:'q1'}});
+ assert.match(sqlUsed,/AND revision=\? AND deleted_at IS NULL/);assert.match(sqlUsed,/business_memberships/);
+ delete links.quotes;await assert.rejects(save(db,auth,'jobs','job_01',{revision:0,record:{quoteId:'q1'}}),{status:400});
 });
