@@ -33,7 +33,9 @@ jobs:
         with:
           node-version: "22"
       - name: Syntax and regression checks
+        shell: bash
         run: |
+          set -euo pipefail
           node --check public/app.js
           node --check public/record-model.js
           node --check public/business-events.js
