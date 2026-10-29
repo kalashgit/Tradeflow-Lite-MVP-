@@ -39,7 +39,9 @@ export async function previewCloudRetrieval({businessId,session,localStores,tran
       remote.record.businessId&&remote.record.businessId!==businessId)
       throw Error('Invalid cloud record identity');
     const key=type+':'+remote.id;
-    if(seen.has(key)||after&&remote.id<=after)throw Error('Duplicate or unordered cloud catalogue');
+    if(seen.has(key)||(after&&remote.id<=after)||
+      (response.items.indexOf(remote)>0&&remote.id<=response.items[response.items.indexOf(remote)-1].id))
+      throw Error('Duplicate or unordered cloud catalogue');
     seen.add(key);
     if(++total>maxRecords)throw Error('Cloud retrieval exceeds bounded review limit');
     const existing=byId.get(remote.id);
