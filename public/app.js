@@ -962,26 +962,29 @@ function tfReusableQuoteFields(source){
  };
 }
 async function tfSyncQuoteFollowUp(id,quote,previous={}){
+ // Legacy compatibility only: existing automatic tasks are preserved and updated.
+ // A newly sent quote must not silently create a task; use the explicit
+ // quotation.followup.schedule command in the existing quotation dossier.
  const tasks=(await all('tasks')).filter(t=>t.quoteId===id);
- const automatic=tasks.find(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
- const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ const linked=tasks.filter(t=>t.taskKind==='quotation_follow_up'||t.followupAuto===true||
+  String(t.title||'').startsWith('Follow up quote: '));
+ const active=linked.filter(t=>!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
  const terminal=['Accepted','Declined'].includes(quote.status);
- if(terminal&&automatic&&automatic.status!=='Done'){
-  await put('tasks',{...automatic,status:'Done',completedReason:'quotation_closed',updatedAt:new Date().toISOString()});return;
+ if(terminal){
+  for(const task of active)await put('tasks',{...task,status:'Done',
+   completedReason:'quotation_closed',updatedAt:new Date().toISOString()});
+  return;
  }
  if(quote.status!=='Sent')return;
- const due=validDate(quote.followup_date)?quote.followup_date:
-   validDate(previous.followup_date)?previous.followup_date:
-   (()=>{const x=new Date();x.setDate(x.getDate()+3);return window.TradeFlowCommands?.dateText?.(x)||x.toISOString().slice(0,10)})();
- if(!automatic){
-  if(tasks.some(t=>!['Done','Cancelled'].includes(t.status)))return;
-  await put('tasks',{id:uid(),title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),customerId:quote.customerId,
-    due,status:'Open',quoteId:id,followupAuto:true,createdAt:new Date().toISOString()});return;
+ const legacy=active.filter(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
+ const validDate=x=>{if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ for(const old of legacy){
+  const updated={...old,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),
+   customerId:quote.customerId,due:validDate(quote.followup_date)?quote.followup_date:old.due,
+   updatedAt:new Date().toISOString()};
+  if(updated.due!==old.due||updated.title!==old.title||updated.customerId!==old.customerId)
+   await put('tasks',updated);
  }
- if(['Done','Cancelled'].includes(automatic.status))return;
- const updated={...automatic,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),customerId:quote.customerId,
-  due:validDate(quote.followup_date)?due:automatic.due,updatedAt:new Date().toISOString()};
- if(updated.due!==automatic.due||updated.title!==automatic.title||updated.customerId!==automatic.customerId)await put('tasks',updated);
 }
 async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntries(new FormData(form))};if(modal.commandDraft){try{window.TradeFlowCommands.validateDraft({...modal.commandDraft,fields:f},await tfPilotSnapshot(),tfPilotContext())}catch(error){alert('Draft needs review: '+error.message);return}}if(tab==='customers'){if(!modal.id&&!String(f.phone||'').trim()){alert('Customer phone number is required.');return}f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}if(tab==='jobs'&&f.closeoutStatus==='Complete'&&String(f.closeoutEvidence||'').trim().length<12){alert('Document the actual closeout evidence before marking documentation complete.');return}
 if(tab==='jobs'&&f.closeoutStatus==='Waived'&&String(f.closeoutEvidence||'').trim().length<12){alert('Record who waived closeout documentation and why.');return}
