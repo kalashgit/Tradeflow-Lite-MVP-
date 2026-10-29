@@ -233,7 +233,10 @@ function renderSchedulingReview(d,report){
 }
 function renderConflictReview(d,issues){
  return '<section class="tf-cal-review" aria-label="Scheduling conflicts"><header class="tf-cal-review-head"><div><span>CONFLICT REVIEW</span><h2>Scheduling conflicts</h2><p>Only recorded overlapping commitments are shown. Resolve conflicts in linked records.</p></div><button type="button" data-calendar-action="back-calendar">Back to calendar →</button></header>'+
- (issues.length?issues.map(function(x){return '<article class="tf-cal-proposal tf-cal-conflict-record"><strong>'+e(label(x.date))+'</strong><p>'+e(x.a.title)+' overlaps '+e(x.b.title)+'</p><button type="button" data-calendar-action="event" data-key="'+e(x.a.key)+'">Open first event →</button></article>'}).join(''):'<p class="tf-cal-review-empty">No overlapping recorded commitments were found.</p>')+'</section>';
+ (issues.length?issues.map(function(x){return '<article class="tf-cal-proposal tf-cal-conflict-record"><strong>'+e(label(x.date))+'</strong><p>'+e(x.a.title)+' overlaps '+e(x.b.title)+'</p><button type="button" data-calendar-action="event" data-key="'+e(x.a.key)+'">Open first event →</button>'+
+ ((x.a.kind==='event'&&!x.a.linked||x.b.kind==='event'&&!x.b.linked)&&bridge?.resolveConflict?
+ '<button type="button" data-calendar-action="resolve-conflict" data-id="'+e(x.a.kind==='event'&&!x.a.linked?x.a.id:x.b.id)+'">Review standalone event reschedule</button>':'')+
+ '</article>'}).join(''):'<p class="tf-cal-review-empty">No overlapping recorded commitments were found.</p>')+'</section>';
 }
 
 function directConflicts(data,date,time,duration){
@@ -702,6 +705,23 @@ async function click(evt){
   rememberViewport();
   if(bridge.openRecord){await bridge.openRecord(record.sourceKind,record.sourceId);return}
   await bridge.navigate(record.kind==='job'?'jobs':'tasks');return;
+ }
+ if(action==='resolve-conflict'){
+  const id=String(b.dataset.id||'');
+  if(!id||!bridge?.resolveConflict)throw Error('Conflict review is unavailable');
+  const record=(lastData?.calendarEntries||[]).find(x=>x.id===id);
+  if(!record||record.sourceId&&record.sourceKind&&record.sourceKind!=='event')throw Error('Only standalone events can be moved here');
+  const newDate=prompt('New date for standalone event (YYYY-MM-DD):',record.date||day());
+  if(newDate===null)return;
+  const newTime=prompt('New start time (HH:MM, 24-hour):',record.time||'09:00');
+  if(newTime===null)return;
+  try{
+   const result=await bridge.resolveConflict(record,newDate.trim(),newTime.trim());
+   if(result?.status==='succeeded'){bridge.notify('Calendar reschedule verified and recorded');await bridge.render()}
+   else if(result?.status==='indeterminate'||result?.status==='in_progress')
+    bridge.notify('Calendar action is unresolved. Review the audit before retrying.');
+  }catch(error){alert('Calendar reschedule not completed: '+String(error.message||error))}
+  return;
  }
  if(action==='reschedule'||action==='edit-event'){
   var record=activeEvent(lastData||{});if(!record)return;
