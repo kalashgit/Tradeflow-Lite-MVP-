@@ -2173,7 +2173,14 @@ window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,
    x.commandId==='invoice.followup.schedule'&&x.params?.ref?.store==='invoices'&&
    x.params.ref.id===invoice.id&&x.status==='executing'&&
    x.actor==='local-owner'&&x.businessId==='local-business');
-  if(prior.length)return {status:'indeterminate',error:{message:'An earlier invoice follow-up is interrupted. Review the existing task and audit before retrying.'}};
+  if(prior.length){
+   for(const pending of prior){
+    const recovered=await commands.reconcile(pending.id);
+    if(recovered.status!=='succeeded')
+     return {status:'indeterminate',error:{message:'Earlier invoice follow-up could not be verified. Review the audit before retrying.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
   const plan=await commands.prepare({commandId:'invoice.followup.schedule',
    params:{ref:{store:'invoices',id:invoice.id},due}});
   if(plan.status!=='needs_review')throw Error(plan.error?.message||'Invoice is not eligible for a reviewed follow-up.');
