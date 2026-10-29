@@ -7,6 +7,7 @@ on:
       - ".github/workflows/library-pilot-preview.yml"
       - "public/**"
       - "src/**"
+      - "migrations/**"
       - "tests/**"
       - "wrangler.jsonc"
   workflow_dispatch:
@@ -52,7 +53,13 @@ jobs:
           node --check public/flow-wave-art.js
           node --check public/flow-wave-audio.js
           node --check public/sw.js
+          node --check src/index.js
+          node --check src/tenant-security.js
+          node --check src/oidc-verifier.js
+          node --check src/tenant-api.js
+          node --check src/tenant-record-store.js
           node --test tests/*.test.cjs
+          python3 tests/tenant-migrations.test.py
       - name: Install Wrangler
         run: npm install --no-audit --no-fund
       - name: Verify isolation
