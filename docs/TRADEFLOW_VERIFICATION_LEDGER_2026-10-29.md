@@ -96,3 +96,13 @@ Existing G01–G27 are preserved; prior 'Access not available' and 'D1 unavailab
 | G40 Actual login HTTP E2E | UNVERIFIED | With real Access OTP and deployed exact source: anonymous request must be blocked, verified /me returns subject and tenant-specific memberships, invalid JWT 401, wrong tenant 403, stale write 409, role restrictions and audit validated. Continue only after verified subject and latest CI. |
 
 This checkpoint preserves all earlier G01-G33 records. Earlier Access-disabled and D1-unbound statuses were true historically and are superseded only where specifically verified above. Backup export and restore preview still disabled. Neither account login nor production contractor ownership is yet established. No customer data imported and 0/62 contractor pain points retired.
+
+
+## Ten-workflow operational closure automation — 2026-10-29
+| Gate | Status | Evidence |
+| --- | --- | --- |
+| G41 Ten existing contractor scenarios selected | SOURCE-COMMITTED | `automation/ten-pain-points.json` contains TF-P01..TF-P10; names mapped provisionally from existing optimization work. Original research register IDs still need reconciliation. |
+| G42 Automated ten-scenario evidence generation | SOURCE-COMMITTED / CI UNVERIFIED | `automation/run-ten-pain-points.cjs` runs one filtered regression per scenario and writes JSON, Markdown, and per-case logs; fails if any test missing or zero matched. No false retirement counts. |
+| G43 Automatic deployment hold on regression | SOURCE-COMMITTED / CI UNVERIFIED | Existing `.github/workflows/library-pilot-preview.yml` invokes ten-scenario runner before Wrangler deploy, uploads artifact `tradeflow-ten-pain-points` even on failed tests, and triggers on automation changes. |
+| G44 Ten field-acceptance criteria | DOCUMENTED / NOT EXECUTED | `docs/TRADEFLOW_TEN_PAIN_POINT_CLOSURE_2026-10-29.md` sets per-scenario iPhone/desktop, operations, and measured contractor outcome criteria. |
+Current verified retirement remains **0/62**. These ten are work targets, not resolved register rows. Full latest Actions status, live deployment, device verification, and independent contractor study remain open. Do not claim automatic customer outreach or app-side orchestration from CI automation alone.
