@@ -74,7 +74,9 @@ test('PUT requires signed identity, active writer membership and expected revisi
  const wrongBusiness=await api(new Request('https://pilot.example.test/api/v1/businesses/business_999/records/jobs/job_123',{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:'{}'}),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse});
  assert.equal(wrongBusiness.status,403);
  const badPayload=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({record:{}})}),{...envBase,TF_DB:db('member')},{fetchJwks:jwksResponse});
- assert.equal(badPayload.status,415);
+ assert.equal(badPayload.status,400,'JSON without required revision is an invalid record');
+ const wrongType=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'text/plain'},body:'{}'}),{...envBase,TF_DB:db('member')},{fetchJwks:jwksResponse});
+ assert.equal(wrongType.status,415,'Unsupported content type remains rejected');
 });
 
 test('Cloudflare Access assertion is signed, audience-pinned, and cannot be spoofed',async()=>{

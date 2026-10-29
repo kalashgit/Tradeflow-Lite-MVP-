@@ -106,3 +106,14 @@ This checkpoint preserves all earlier G01-G33 records. Earlier Access-disabled a
 | G43 Automatic deployment hold on regression | SOURCE-COMMITTED / CI UNVERIFIED | Existing `.github/workflows/library-pilot-preview.yml` invokes ten-scenario runner before Wrangler deploy, uploads artifact `tradeflow-ten-pain-points` even on failed tests, and triggers on automation changes. |
 | G44 Ten field-acceptance criteria | DOCUMENTED / NOT EXECUTED | `docs/TRADEFLOW_TEN_PAIN_POINT_CLOSURE_2026-10-29.md` sets per-scenario iPhone/desktop, operations, and measured contractor outcome criteria. |
 Current verified retirement remains **0/62**. These ten are work targets, not resolved register rows. Full latest Actions status, live deployment, device verification, and independent contractor study remain open. Do not claim automatic customer outreach or app-side orchestration from CI automation alone.
+
+## Master directive — milestone 1: regression stabilization
+
+| Gate | Status | Evidence |
+| --- | --- | --- |
+| G45 Repository baseline recovered | VERIFIED | Active clean worktree fast-forwarded from 9e097a3 to 90efa2e; unfinished older worktree edits preserved. Architecture/dependencies recorded in TRADEFLOW_MASTER_ENGINEERING_2026-10-29.md. |
+| G46 Full local regressions | VERIFIED locally | Initial 238/240 reproduced both CI failures from run 40851308605. Corrected ES-module test harness and JSON error classification; all 240/240 pass on Node 24. SQLite migration/revision/audit check passed; ten target regressions 10/10 pass. Evidence directory: /workspace/artifacts/tradeflow-master-2026-10-29/. |
+| G47 Exact release provenance | SOURCE-COMMITTED pending CI | Preview workflow checks out triggering SHA and verifies generated release manifest plus all public asset digests. No production configuration, memberships or backup-enable flags changed. |
+| G48 Register reconciliation | BLOCKED on location | Owner identifies Library/TradeFlow; library type/path not yet established. Do not invent the original 62 rows or retire provisional targets. |
+
+Next operation: verify this milestone's CI/preview, investigate reported missing account endpoint, then implement recovery safeguards before enabling data movement. Real login, cross-device sync and contractor outcomes remain unverified.

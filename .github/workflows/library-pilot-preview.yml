@@ -19,13 +19,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   preview:
+    if: github.ref == 'refs/heads/feature/library-universal-intake'
     runs-on: ubuntu-latest
     environment: tradeflow-preview
     steps:
       - name: Checkout the actual Library feature branch
         uses: actions/checkout@v4
         with:
-          ref: feature/library-universal-intake
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Setup Node 22
         uses: actions/setup-node@v4
@@ -86,6 +87,8 @@ jobs:
           if(d1.length!==1||d1[0].binding!=='TF_DB'||d1[0].database_name!=='tradeflow-pilot-isolated')throw Error('Unexpected D1 binding');
           if(config.vars?.TF_BACKUP_EXPORT_ENABLED==='true'||config.vars?.TF_BACKUP_DRY_RUN_ENABLED==='true')throw Error('Backup routes unexpectedly enabled');
           NODE
+      - name: Record exact preview source
+        run: node automation/preview-release.cjs build
       - name: Deploy separate Library pilot Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -93,6 +96,8 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
           npx wrangler deploy --config wrangler.jsonc --name tradeflow-library-pilot-preview
+      - name: Verify exact deployed source
+        run: node automation/preview-release.cjs verify https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev
       - name: Verify preview serves current Library assets
         run: |
           node - <<'NODE'
