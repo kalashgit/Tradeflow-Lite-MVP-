@@ -5,7 +5,7 @@ const {before}=require('node:test');
 let api,verifier,keyPair,jwk;
 const issuer='https://identity.example.test',audience='tradeflow-pilot',business='business_001';
 const envBase={TF_OIDC_ISSUER:issuer,TF_OIDC_AUDIENCE:audience,TF_OIDC_JWKS_URL:issuer+'/.well-known/jwks.json'};
-const b64=data=>Buffer.from(typeof data==='string'?data:JSON.stringify(data)).toString('base64url');
+const b64=data=>Buffer.from(Buffer.isBuffer(data)?data:typeof data==='string'?data:JSON.stringify(data)).toString('base64url');
 async function token(overrides={},signer=null){
  const now=Math.floor(Date.now()/1000),h=b64({alg:'RS256',typ:'JWT',kid:'primary'});
  const p=b64({iss:issuer,aud:audience,sub:'user_123',iat:now-5,exp:now+900,...overrides});
