@@ -78,3 +78,14 @@ test('read-only catalogue transport validates tenant, cursor, revisions and redi
  const truncated=createTenantTransport(businessId,async()=>Response.json({...expected,nextCursor:'job_999'}));
  await assert.rejects(truncated.list('jobs'),/catalogue response invalid/);
 });
+
+test('optional undefined fields do not crash canonical queue idempotency and remain omitted in persisted snapshots',async()=>{
+ const f=fixture(),withOptional={...change,record:{id:'c1',name:'Test customer',optional:undefined,details:{priority:1,note:undefined}}};
+ const again={...change,record:{details:{priority:1},name:'Test customer',id:'c1'}};
+ await f.queue.enqueue(withOptional);
+ await f.queue.enqueue(again);
+ assert.equal((await f.queue.list()).length,1);
+ assert.equal((await f.queue.drain()).status,'drained');
+ assert.equal(f.writes(),1);
+ assert.equal((await f.queue.list())[0].status,'applied');
+});
