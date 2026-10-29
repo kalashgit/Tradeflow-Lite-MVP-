@@ -2060,6 +2060,24 @@ async function tfPilotNavigateCommand(workspace){
 async function tfReviewQuotationFollowup(quote){
  const commands=window.TradeFlowPilot?.commands;
  if(!commands){notify('Command foundation unavailable. Reload TradeFlow.');return null}
+ // A browser restart can occur after the task commit but before command finalization.
+ // Inspect interrupted journal entries first, never silently create a second request.
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='quotation.followup.schedule'&&x.status==='executing'&&
+  x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.store==='quotes'&&
+  x.params.ref.id===quote.id);
+ if(interrupted.length){
+  for(const pending of interrupted){
+   const recovery=await commands.reconcile(pending.id);
+   if(recovery.status!=='succeeded'){
+    notify('An earlier follow-up is unresolved. Review the task and audit history before continuing.');
+    return {status:'indeterminate'};
+   }
+  }
+  notify('Existing follow-up task verified after interruption. No duplicate task was created.');
+  return {status:'reconciled'};
+ }
  const planned=String(quote.followup_date||'');
  const due=window.TradeFlowCommands.isDate(planned)?planned:(()=>{
   const d=new Date();d.setDate(d.getDate()+3);return window.TradeFlowCommands.dateText(d);
