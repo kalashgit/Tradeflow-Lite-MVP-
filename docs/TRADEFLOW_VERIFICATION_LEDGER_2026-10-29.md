@@ -257,3 +257,11 @@ The product owner approved creating the proposed single empty TradeFlow Pilot wo
 - New `tests/cloud-retrieval.test.cjs` exercises synthetic review, unauthorized identity, pagination, boundaries and cross-business records. CI includes syntax, targeted Node, whole Node and storage regression tests.
 - **SOURCE-COMMITTED ONLY:** The suite has not been executed or verified on this candidate commit. A new CI run and exact commit provenance remain release gates. This is a read-only planning prerequisite, not a deployed feature, verified import, secure snapshot, automatic synchronization or completed contractor outcome.
 - Next: verify CI and deploy only after release gates; add Settings comparison UI, pre-apply remote revision re-read, backup, explicit owner approval, rollback and unresolved conflict recovery before any local data modifications. Preserve `tradeflow-lite-v1` schema and all records.
+
+## 2026-10-29 — Existing Settings read-only cloud comparison candidate
+- Source commit: `c82c657088ccdd6821375990d312e69b7934c6ba`, isolated `feature/cloud-record-discovery`.
+- Extended existing `public/migration-ui.js`: owner-only **Compare cloud records on this device (read only)** action within existing transfer UI; displays per-type record identity and new/identical/conflict classification; no device writes or import approval.
+- Extended `tests/reviewed-transfer.test.cjs` with synthetic controller comparison and viewer denial. Candidate CI `.github/workflows/cloud-record-discovery-ci.yml` checks new UI module and includes its regression.
+- Safety: unchanged local IndexedDB schema; no implicit sync, D1 migration, local merge, cloud overwrite, customer communication, or deployment.
+- Gate: **SOURCE-COMMITTED, EXECUTION UNVERIFIED**. No CI statuses or workflow runs surfaced for the earlier candidate; execute on the final SHA before integration or deployment. Next verify real authorized owner account, Access behavior, page streaming, mobile/desktop Settings view and record integrity.
+- Retired contractor pain points: **0/62**. The comparison is infrastructure, not an operational contractor outcome.
