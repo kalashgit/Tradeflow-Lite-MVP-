@@ -1,3 +1,4 @@
+import {RECORD_TYPES} from '../public/record-model.js';
 /* Portable, explicit TradeFlow tenant snapshot format.
  * Integrity hashes detect accidental damage, not adversarial tampering.
  * Export and validation are pure: no network, D1 or IndexedDB writes.
@@ -9,7 +10,7 @@ function canonical(value){
 }
 function validItem(r,businessId){
  return !!r&&r.businessId===businessId&&
-  ['customers','jobs','quotes','invoices'].includes(r.type)&&
+  RECORD_TYPES.includes(r.type)&&
   typeof r.id==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(r.id)&&
   Number.isSafeInteger(r.revision)&&r.revision>0&&
   r.record&&typeof r.record==='object'&&!Array.isArray(r.record);

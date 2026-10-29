@@ -24,6 +24,7 @@
     "TF_OIDC_AUDIENCE": "ef0829362f709c1d06f9a2fa4c2b0dbd959a8436e003cc6c8a3e862d40f3bba3",
     "TF_OIDC_JWKS_URL": "https://autumn-rain-40ca.cloudflareaccess.com/cdn-cgi/access/certs",
     "TF_BACKUP_EXPORT_ENABLED": "false",
-    "TF_BACKUP_DRY_RUN_ENABLED": "false"
+    "TF_BACKUP_DRY_RUN_ENABLED": "false",
+    "TF_EXTENDED_RECORDS_ENABLED": "false"
   }
 }

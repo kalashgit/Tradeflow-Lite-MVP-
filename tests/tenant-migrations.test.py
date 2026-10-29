@@ -35,3 +35,35 @@ db.execute("UPDATE business_memberships SET status='suspended' WHERE business_id
 assert save("business_001",2,'{"name":"Revoked write"}') is None
 assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==3
 print("PASS: execution-time membership revocation cannot write or add audit events")
+
+# Prepared expansion preserves the exact existing rows and audit history, atomically.
+before_records=db.execute("SELECT * FROM tenant_records ORDER BY business_id,record_type,id").fetchall()
+before_audit=db.execute("SELECT * FROM tenant_audit_events ORDER BY id").fetchall()
+expansion=(root / "migrations" / "0003_extended_business_records.sql").read_text()
+db.commit()
+try:
+    db.executescript("BEGIN IMMEDIATE;\n"+expansion+"\nSELECT deliberately_missing_migration_function();\nCOMMIT;")
+except sqlite3.OperationalError:
+    db.rollback()
+else:
+    raise AssertionError("Injected migration failure did not abort")
+assert db.execute("SELECT * FROM tenant_records ORDER BY business_id,record_type,id").fetchall()==before_records
+assert db.execute("SELECT * FROM tenant_audit_events ORDER BY id").fetchall()==before_audit
+assert not db.execute("SELECT name FROM sqlite_master WHERE name='tenant_records_expanded'").fetchall()
+db.executescript("BEGIN IMMEDIATE;\n"+expansion+"\nCOMMIT;")
+# SELECT * column ordering is explicitly preserved by the expansion schema.
+assert db.execute("SELECT * FROM tenant_records ORDER BY business_id,record_type,id").fetchall()==before_records
+assert db.execute("SELECT * FROM tenant_audit_events ORDER BY id").fetchall()==before_audit
+for kind in ("tasks","payments","expenses","jobCosts","opportunities","suppliers","supplyOrders","crew","calendars","calendarEntries","calendarProposals","calendarPreferences","routePlans","marketingCampaigns","pins","events"):
+    db.execute("INSERT INTO tenant_records(business_id,record_type,id,payload) VALUES (?,?,?,?)",("business_002",kind,"expanded_1",'{"custom":"preserved"}'))
+assert db.execute("SELECT COUNT(*) FROM tenant_records").fetchone()[0]==18
+assert db.execute("PRAGMA foreign_key_check").fetchall()==[]
+# A member's pre-authorized financial request is denied inside SQL, not merely by JS.
+db.execute("UPDATE business_memberships SET role='member' WHERE business_id='business_002'")
+financial_sql=sql.replace("/* financial-guard */", "AND role IN ('owner','admin')")
+financial_args=("business_002","payments","payment_new",1,'{"amount":25}',"issuer.example","user_001",0,"business_002","payments","payment_new","business_002","issuer.example","user_001",0)
+assert db.execute(financial_sql,financial_args).fetchone() is None
+db.execute("UPDATE business_memberships SET role='admin' WHERE business_id='business_002'")
+assert db.execute(financial_sql,financial_args).fetchone()[0]==1
+assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==4
+print("PASS: 20-type expansion preserves rows/audits, rollback works, financial SQL permissions enforced")

@@ -1,3 +1,4 @@
+import {RECORD_TYPES} from './record-model.js';
 /* Offline replay policy: never silently merge conflicting contractor records.
  * This module is pure and does not send data over the network or touch IndexedDB.
  * Callers must persist the queue themselves and obtain an authenticated session.
@@ -8,7 +9,7 @@ export const OFFLINE_OUTCOME=Object.freeze({
 const keyPart=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(s);
 export function classifyOfflineChange(change,remote){
  if(!change||!keyPart(change.businessId)||!keyPart(change.id)||
-   !['customers','jobs','quotes','invoices'].includes(change.type)||
+   !RECORD_TYPES.includes(change.type)||
    !Number.isSafeInteger(change.baseRevision)||change.baseRevision<0||
    !change.record||typeof change.record!=='object'||Array.isArray(change.record))
   return {status:OFFLINE_OUTCOME.INVALID};

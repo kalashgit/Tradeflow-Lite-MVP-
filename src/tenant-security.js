@@ -1,3 +1,4 @@
+import {RECORD_TYPES} from '../public/record-model.js';
 /* TradeFlow server-side business authorization boundary.
  * No public endpoint should trust a client-provided userId, role or businessId.
  * An upstream identity verifier must establish the principal cryptographically.
@@ -15,8 +16,8 @@ export function requireVerifiedPrincipal(principal){
   return Object.freeze({subject:principal.subject,issuer:principal.issuer});
 }
 const permissions=Object.freeze({
-  owner:new Set(['records:read','records:write','members:read','members:manage','billing:manage']),
-  admin:new Set(['records:read','records:write','members:read']),
+  owner:new Set(['records:read','records:write','members:read','members:manage','billing:manage','records:finance:write']),
+  admin:new Set(['records:read','records:write','records:finance:write','members:read']),
   member:new Set(['records:read','records:write']),
   viewer:new Set(['records:read'])
 });
@@ -40,7 +41,7 @@ export async function authorizeBusiness({db,principal,businessId,permission}){
 }
 export function tenantRecordQuery({authorization,table,recordId}){
   if(!authorization?.businessId)throw new AuthorizationError();
-  const allowed=new Set(['customers','jobs','quotes','invoices']);
+  const allowed=new Set(RECORD_TYPES);
   if(!allowed.has(table))throw new AuthorizationError('Unknown record type',400);
   if(typeof recordId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(recordId))
     throw new AuthorizationError('Invalid record identifier',400);

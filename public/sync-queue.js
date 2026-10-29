@@ -1,9 +1,10 @@
+import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES} from './record-model.js';
 import {classifyOfflineChange} from './offline-conflicts.js';
 // Opt-in prerequisite only: the application does not enqueue or drain automatically.
 const canonical=x=>JSON.stringify(x&&typeof x==='object'?Array.isArray(x)?x.map(v=>JSON.parse(canonical(v))):Object.fromEntries(Object.keys(x).sort().map(k=>[k,JSON.parse(canonical(x[k]))])):x);
 const clone=x=>JSON.parse(JSON.stringify(x));
 const validId=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
-const types=['customers','jobs','quotes','invoices'];
+const types=RECORD_TYPES;
 export function createSyncQueue({db,businessId,session,transport,now=Date.now,uid=()=>crypto.randomUUID()}){
  if(!/^[A-Za-z0-9_-]{8,80}$/.test(businessId)||!db||!session||!transport)throw Error('Explicit business, session and transport required');
  function mutate(fn){return new Promise((resolve,reject)=>{
@@ -51,6 +52,9 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
    if(!await authorized())return {status:'authorization_required',processed};
    const row=await claim();if(!row)break;processed++;
    try{
+    const current=await session(),supported=Array.isArray(current?.capabilities?.recordTypes)?current.capabilities.recordTypes:LEGACY_RECORD_TYPES;
+    if(!supported.includes(row.change.type)){await update(row,{status:'pending',reason:'Server schema upgrade required',nextAttemptAt:now()+60000});return {status:'server_schema_required',processed}}
+    if(FINANCIAL_RECORD_TYPES.includes(row.change.type)&&!current.businesses.some(b=>b.business_id===businessId&&['owner','admin'].includes(b.role))){await update(row,{status:'pending',reason:'Financial record permission required',nextAttemptAt:now()+60000});return {status:'authorization_required',processed}}
     const remote=await remoteRecord(row),change={...row.change,businessId};
     const same=remote&&!remote.deletedAt&&remote.revision===change.baseRevision+1&&canonical(remote.record)===canonical(change.record);
     if(same){await update(row,{status:'applied',result:'already_current',remoteRevision:remote.revision});continue}

@@ -101,3 +101,10 @@ test('malformed JWT objects fail as authentication errors, never server errors',
   assert.equal((await api(req('/api/v1/me',malformed),{...envBase,TF_DB:db()},{fetchJwks:jwksResponse})).status,401);
  }
 });
+test('extended routes are disabled until migration activation and financial writes need stronger permission',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/records/payments/payment_1';
+ assert.equal((await api(req(path,signed),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse})).status,400);
+ const denied=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{id:'payment_1',amount:25}})}),{...envBase,TF_EXTENDED_RECORDS_ENABLED:'true',TF_DB:db('member')},{fetchJwks:jwksResponse});
+ assert.equal(denied.status,403);
+ const me=await api(req('/api/v1/me',signed),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse});assert.equal((await me.json()).capabilities.recordTypes.length,4);
+});

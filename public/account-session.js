@@ -11,7 +11,7 @@ async function readSession(fetcher=fetch){
   const data=await response.json();
   if(!data?.identity||typeof data.identity.issuer!=='string'||typeof data.identity.subject!=='string'||!Array.isArray(data.businesses)||data.businesses.length>100)return {status:'unavailable',businesses:[]};
   if(data.businesses.some(b=>!/^[A-Za-z0-9_-]{8,80}$/.test(b.business_id)||!['owner','admin','member','viewer'].includes(b.role)))return {status:'unavailable',businesses:[]};
-  return {status:data.businesses.length?'signed_in':'unprovisioned',identity:data.identity,businesses:data.businesses};
+  return {status:data.businesses.length?'signed_in':'unprovisioned',identity:data.identity,businesses:data.businesses,capabilities:data.capabilities};
  }catch{return {status:'offline_or_unavailable',businesses:[]}}
 }
 function statusText(session){

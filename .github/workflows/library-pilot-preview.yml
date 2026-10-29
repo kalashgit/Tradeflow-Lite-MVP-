@@ -35,6 +35,7 @@ jobs:
       - name: Syntax and regression checks
         run: |
           node --check public/app.js
+          node --check public/record-model.js
           node --check public/business-events.js
           node --check public/local-recovery.js
           node --check public/account-session.js
@@ -106,6 +107,7 @@ jobs:
           for(const item of ['library.js','library.css','document-intake.js','location-quality.js','job-intake-links.js','library-commands.js'])if(!fs.existsSync('public/'+item))throw Error('Missing '+item);
           const d1=config.d1_databases||[];
           if(d1.length!==1||d1[0].binding!=='TF_DB'||d1[0].database_name!=='tradeflow-pilot-isolated')throw Error('Unexpected D1 binding');
+          if(config.vars?.TF_EXTENDED_RECORDS_ENABLED!=='false')throw Error('Extended schema must remain disabled until separately migrated');
           if(config.vars?.TF_BACKUP_EXPORT_ENABLED==='true'||config.vars?.TF_BACKUP_DRY_RUN_ENABLED==='true')throw Error('Backup routes unexpectedly enabled');
           NODE
       - name: Record exact preview source

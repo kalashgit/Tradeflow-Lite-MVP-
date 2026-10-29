@@ -1,3 +1,4 @@
+import {serverRecordTypes,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
 import {planTenantRestore} from './tenant-restore-plan.js';
 import {exportTenantSnapshot} from './tenant-export.js';
 import {writeTenantRecord} from './tenant-record-store.js';
@@ -25,7 +26,7 @@ export async function tenantApi(request,env,options={}){
    const items=await env.TF_DB.prepare(
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
-   return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[]});
+   return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[],capabilities:{recordTypes:serverRecordTypes(env),extendedRecords:env.TF_EXTENDED_RECORDS_ENABLED==='true'}});
   }
   const preview=/^\/api\/v1\/businesses\/([^/]+)\/backup\/dry-run$/.exec(url.pathname);
   if(preview){
@@ -51,7 +52,8 @@ export async function tenantApi(request,env,options={}){
   const match=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)\/([^/]+)$/.exec(url.pathname);
   if(!match)return json({error:'Not found'},404);
   const businessId=requireBusinessId(match[1]);
-  const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:request.method==='PUT'?'records:write':'records:read'});
+  if(!serverRecordTypes(env).includes(match[2]))return json({error:'Record type is unavailable in the current server schema'},400);
+  const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:request.method==='PUT'?(FINANCIAL_RECORD_TYPES.includes(match[2])?'records:finance:write':'records:write'):'records:read'});
   if(request.method==='PUT'){
    if(!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''))return json({error:'JSON required'},415);
    if(!request.body)return json({error:'JSON body required'},400);
