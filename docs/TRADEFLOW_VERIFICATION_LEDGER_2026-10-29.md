@@ -56,3 +56,16 @@ Last feature commit inspected: 864bb19db2c2a2289f5cd00070c80c2f9139c4d0
 | G24 | Restore and reconciliation | NOT IMPLEMENTED | No live restore endpoint; require independently authorized dry-run, verified snapshot origin, role controls, tenant isolation, exact backup point-in-time, rollback, and test recovery. |
 
 Previous G01-G20 remain open at their recorded status unless specifically reverified. No unapproved Cloudflare resources, OIDC setup, external integrations, or automatic record sync occurred. No pain points retired.
+
+
+## Cloudflare access and Phase 6 recovery dry-run — 2026-10-29
+| Gate | Status | Direct evidence / next verification |
+| --- | --- | --- |
+| G08 Cloudflare isolated D1 | VERIFIED (provisioned) | Cloudflare connected account listing succeeded; newly created TradeFlow-only D1 `tradeflow-pilot-isolated` UUID `91eeef63-48d4-4925-a2f1-1a43b164754c`, US jurisdiction, read replication disabled. Existing unrelated databases untouched. |
+| G25 D1 migrations | VERIFIED (schema only) | Live D1 query applied migrations 0001/0002 successfully; queried sqlite_master and confirmed businesses, business_memberships, tenant_records, tenant_audit_events, create/update audit triggers. Counts: zero businesses/records/audits. No actual tenant write or recovery verified. |
+| G26 Recovery dry-run source | SOURCE-COMMITTED | `src/tenant-restore-plan.js`, `src/tenant-api.js`, `tests/tenant-restore-plan.test.cjs`. POST `/api/v1/businesses/:businessId/backup/dry-run` requires verified OIDC, active owner membership, valid tenant snapshot; max 200 records and 1 MB body, reports create/already-present/manual-review. No writes. Disabled unless `TF_BACKUP_DRY_RUN_ENABLED=true`. |
+| G27 Phase 6 test execution | UNVERIFIED | CI workflow syntax/test glob includes restore plan; obtain successful workflow result on latest commit and confirm expected server and live API behavior. |
+| G09 Identity provider | UNVERIFIED | No real configured OIDC issuer/audience/JWKS or verified owner bootstrap; do not enable record APIs before security validation. |
+| G10 Backup restoration | STILL UNVERIFIED | Dry-run is not restoration. Must independently validate backup authenticity/key custody and test approved restore to distinct isolated database, with rollback. |
+
+Previous ledger entries remain historical, including the earlier G08 block, which is now superseded by this date-stamped verified D1 inventory/migration result. A D1 resource alone does not prove production authorization, actual recovery, or full CI success. No customer data inserted; no unapproved cross-project changes.
