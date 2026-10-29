@@ -887,6 +887,8 @@ function tfRecordDetailView(d,record,type){
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
   if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
+  if(type==='quotes'&&record.status==='Sent')
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteFollowupReview" data-id="'+esc(record.id)+'">Review follow-up task</button>';
   if(type==='quotes'&&record.status==='Accepted'&&!d.jobs.some(j=>j.quoteId===record.id))
    sections+='<button type="button" class="tf-record-dossier-primary" data-convert="'+esc(record.id)+'">Create job from accepted quote</button>';
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
@@ -1122,6 +1124,16 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
+ if(el.dataset.action==='tfQuoteFollowupReview'){
+  const quote=await get('quotes',el.dataset.id);
+  if(quote?.status!=='Sent'){notify('Only sent quotations can schedule follow-ups.');return}
+  const result=await tfReviewQuotationFollowup(quote);
+  if(result?.status==='succeeded'){
+   await render();
+   notify(result.result?.reused?'Existing open follow-up task confirmed':'Follow-up task saved. Customer contact is still outstanding.');
+  }
+  return;
+ }
  if(el.dataset.action==='tfQuoteReuse'){
    const source=await get('quotes',el.dataset.id);
    if(!source)return;
@@ -2044,6 +2056,26 @@ async function tfPilotNavigateCommand(workspace){
  const command=await window.TradeFlowPilot.commands.prepare({commandId:'workspace.open',params:{workspace}});
  const result=command.status==='ready'?await window.TradeFlowPilot.commands.execute(command.id):command;
  if(result.status!=='succeeded')notify(result.error?.message||'Command could not complete');
+}
+async function tfReviewQuotationFollowup(quote){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command foundation unavailable. Reload TradeFlow.');return null}
+ const planned=String(quote.followup_date||'');
+ const due=window.TradeFlowCommands.isDate(planned)?planned:(()=>{
+  const d=new Date();d.setDate(d.getDate()+3);return window.TradeFlowCommands.dateText(d);
+ })();
+ const plan=await commands.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:quote.id},due}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Follow-up review unavailable');return null}
+ const label=String(quote.title||'Quotation').slice(0,100);
+ if(!confirm('Create an internal follow-up task for “'+label+'” due '+due+'? This does not contact the customer.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approved=await commands.approve(plan.id);
+ if(approved.status!=='approved'){notify(approved.error?.message||'Quotation changed; review again.');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Follow-up task outcome requires review.');
+ return result;
 }
 async function tfReviewQuotationHandoff(quote){
  const commands=window.TradeFlowPilot?.commands;
