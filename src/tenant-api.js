@@ -52,7 +52,7 @@ export async function tenantApi(request,env,options={}){
   }
   // Explicit, read-only cloud catalogue for a future reviewed device retrieval.
   // Stable ID cursor and bounded pages; never silently claim a complete snapshot.
-  const catalogue=/^\\/api\\/v1\\/businesses\\/([^/]+)\\/records\\/([^/]+)$/.exec(url.pathname);
+  const catalogue=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)$/.exec(url.pathname);
   if(catalogue){
    if(request.method!=='GET')return json({error:'Method not allowed'},405);
    const businessId=requireBusinessId(catalogue[1]),type=catalogue[2];
