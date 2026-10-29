@@ -864,6 +864,27 @@ function tfCustomerRelationshipHistory(d,customerId){
  (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label)+'</p>').join(''):'<p>No dated linked activity has been recorded yet.</p>')+
  '<small>Drawn from local TradeFlow records only; calls, emails and external systems are not synchronized.</small></section>';
 }
+function tfQuotationRecordedHistory(d,quote){
+ const linkedTasks=(d.tasks||[]).filter(t=>t.quoteId===quote.id&&t.customerId===quote.customerId);
+ const contacts=(d.events||[]).filter(e=>e.kind==='customer_contact'&&
+  e.quoteId===quote.id&&e.customerId===quote.customerId);
+ const rows=[];
+ for(const task of linkedTasks){
+  const when=String(task.createdAt||task.updatedAt||'').slice(0,10);
+  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(when))
+   rows.push({date:when,kind:'Internal task',label:String(task.title||'Task')+' · '+String(task.status||'Open')});
+ }
+ for(const contact of contacts){
+  const when=String(contact.date||'').slice(0,10);
+  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(when))
+   rows.push({date:when,kind:'Manually recorded contact',label:String(contact.method||'Other')+' · '+String(contact.notes||'')});
+ }
+ rows.sort((a,b)=>b.date.localeCompare(a.date)||a.kind.localeCompare(b.kind));
+ return '<section class="tf-record-dossier-box" aria-label="Quotation recorded activity"><h3>Quotation activity</h3>'+
+ (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label.slice(0,150))+'</p>').join(''):
+ '<p>No linked follow-up task or contact has been recorded for this quotation.</p>')+
+ '<small>Task creation is not customer contact. Contact entries are operator-reported and have no independent provider delivery verification.</small></section>';
+}
 function tfRecordDetailView(d,record,type){
  const title=type==='customers'?record.name:record.title||'Untitled';
  const status=tfRecordStatus(record,type);
@@ -886,6 +907,7 @@ function tfRecordDetailView(d,record,type){
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
+  if(type==='quotes')sections+=tfQuotationRecordedHistory(d,record);
   if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
   if(type==='quotes'&&record.status==='Sent')
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteFollowupReview" data-id="'+esc(record.id)+'">Review follow-up task</button>';
