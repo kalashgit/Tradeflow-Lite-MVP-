@@ -16,7 +16,10 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "overdue invoices include partial payments",
       "feature": "Existing revenue / notifications",
-      "originalRegisterRef": 11
+      "originalRegisterRef": 11,
+      "executionTest": "tests/invoice-followup-execution.test.cjs",
+      "executionScope": "owner-approved internal task creation with payment snapshot, idempotency and audited reconciliation; no customer outreach or bank verification",
+      "verification": "source implementation committed; real browser, Node suite and contractor outcome not yet verified"
     },
     {
       "id": "TF-P03",
