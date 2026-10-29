@@ -58,3 +58,23 @@ test('same-origin transport rejects login redirects and mismatched successful pa
  assert.equal((await transport.read('customers','c1')).status,401);
  const bad=createTenantTransport(businessId,async()=>Response.json({id:'c2',type:'customers',revision:1,record:{}}));await assert.rejects(bad.read('customers','c1'),/identity mismatch/);
 });
+
+test('read-only catalogue transport validates tenant, cursor, revisions and redirect boundaries',async()=>{
+ const expected={businessId,type:'jobs',items:[{id:'job_001',revision:3,record:{name:'Test job'}}],nextCursor:null};
+ let calls=0;
+ const transport=createTenantTransport(businessId,async(url,options)=>{
+  calls++;assert.equal(options.method,'GET');assert.equal(options.credentials,'same-origin');
+  assert.equal(url,'/api/v1/businesses/'+businessId+'/records/jobs?after=job_000');
+  return Response.json(expected);
+ });
+ const result=await transport.list('jobs','job_000');
+ assert.equal(result.status,200);assert.equal(result.items[0].revision,3);assert.equal(result.nextCursor,null);
+ assert.equal(calls,1);
+ await assert.rejects(transport.list('jobs','../../wrong'),/Invalid catalogue/);
+ const redirect=createTenantTransport(businessId,async()=>({status:302,type:'opaqueredirect'}));
+ assert.equal((await redirect.list('jobs')).status,401);
+ const crossTenant=createTenantTransport(businessId,async()=>Response.json({...expected,businessId:'business_999'}));
+ await assert.rejects(crossTenant.list('jobs'),/catalogue response invalid/);
+ const truncated=createTenantTransport(businessId,async()=>Response.json({...expected,nextCursor:'job_999'}));
+ await assert.rejects(truncated.list('jobs'),/catalogue response invalid/);
+});
