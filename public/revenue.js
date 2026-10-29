@@ -143,7 +143,7 @@ function dossier(d,inv){
  '<div class="tf-revenue-actions">'+
  (inv.status==='Draft'?'<button type="button" class="tf-revenue-secondary" data-revenue-action="edit" data-id="'+esc(inv.id)+'">Edit draft</button><button type="button" class="tf-revenue-primary" data-revenue-action="issue" data-id="'+esc(inv.id)+'">Mark as issued</button>':'')+
  (canRecord?'<button type="button" class="tf-revenue-primary" data-revenue-action="record" data-id="'+esc(inv.id)+'">Record received payment</button>':'')+
- (canRecord&&!pendingFollowUp?'<button type="button" class="tf-revenue-secondary" data-revenue-action="followup" data-id="'+esc(inv.id)+'">Schedule payment follow-up</button>':canRecord?'<span class="tf-revenue-warning">An open follow-up task already exists for this invoice.</span>':'')+
+ (canRecord&&invoiceDisplayState(inv,d.payments)==='Overdue'&&!pendingFollowUp?'<button type="button" class="tf-revenue-secondary" data-revenue-action="followup" data-id="'+esc(inv.id)+'">Review overdue invoice follow-up</button>':pendingFollowUp?'<span class="tf-revenue-warning">An open follow-up task already exists for this invoice.</span>':'')+
  (safeEmail?'<a class="tf-revenue-secondary" href="mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+'">Prepare email ↗</a>':'')+
  '<button type="button" class="tf-revenue-secondary" data-revenue-action="print">Print / Save PDF</button>'+
  (inv.status==='Draft'||inv.status==='Issued'&&paid===0?'<button type="button" class="tf-revenue-danger" data-revenue-action="void" data-id="'+esc(inv.id)+'">Void invoice</button>':'')+
