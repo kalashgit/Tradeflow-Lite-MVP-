@@ -131,5 +131,18 @@ export function createTenantTransport(businessId,fetcher=fetch){
   if(data.id!==id||data.type!==type)throw Error('Server response identity mismatch');
   return {status:response.status,record:body?null:{businessId,type,id,revision:data.revision,record:data.record,deletedAt:data.deletedAt}};
  }
- return {read:(type,id)=>request(type,id),write:(type,id,body)=>request(type,id,body)};
+ async function list(type,after=''){
+  if(!types.includes(type)||after&&!validId(after))throw Error('Invalid catalogue request');
+  const url='/api/v1/businesses/'+businessId+'/records/'+type+(after?'?after='+encodeURIComponent(after):'');
+  const response=await fetcher(url,{method:'GET',credentials:'same-origin',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(10000),headers:{Accept:'application/json'}});
+  if(response.type==='opaqueredirect'||[0,301,302,303,307,308].includes(response.status))return {status:401};
+  if(!response.ok)return {status:response.status};
+  const data=await response.json();
+  if(data.businessId!==businessId||data.type!==type||!Array.isArray(data.items)||data.items.length>50||
+   data.items.some(row=>!validId(row?.id)||!Number.isSafeInteger(row.revision)||row.revision<1||!row.record||typeof row.record!=='object'||Array.isArray(row.record))||
+   data.nextCursor!==null&&(!validId(data.nextCursor)||data.items.length===0||data.nextCursor!==data.items[data.items.length-1].id))
+   throw Error('Server catalogue response invalid');
+  return {status:response.status,items:data.items,nextCursor:data.nextCursor};
+ }
+ return {read:(type,id)=>request(type,id),write:(type,id,body)=>request(type,id,body),list};
 }
