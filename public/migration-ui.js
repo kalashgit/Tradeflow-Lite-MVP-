@@ -3,7 +3,7 @@ import {previewLocalMigration} from './migration-preview.js';
 import {previewCloudRetrieval} from './cloud-retrieval.js';
 import {createSyncQueue,createTenantTransport} from './sync-queue.js';
 const escape=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const canonical=x=>JSON.stringify(x&&typeof x==='object'?Array.isArray(x)?x.map(v=>JSON.parse(canonical(v))):Object.fromEntries(Object.keys(x).sort().map(k=>[k,JSON.parse(canonical(x[k]))])):x);
+const canonical=x=>JSON.stringify(x,(key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,value[k]])):value);
 const clone=x=>JSON.parse(JSON.stringify(x));
 async function hash(value){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(value)))),b=>b.toString(16).padStart(2,'0')).join('')}
 function owner(session,businessId){return session?.status==='signed_in'&&session.identity?.issuer&&session.identity.subject&&session.businesses?.some(b=>b.business_id===businessId&&b.role==='owner')}
