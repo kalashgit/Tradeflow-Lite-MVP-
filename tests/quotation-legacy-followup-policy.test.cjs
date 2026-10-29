@@ -49,3 +49,24 @@ test('closing quote closes existing approved and legacy open follow-ups without 
  assert.equal(f.rows.find(x=>x.id==='approved').completedReason,'quotation_closed');
  assert.ok(f.rows.every(x=>!x.lastContactAt&&!x.customerContacted));
 });
+
+test('quotation dossier separates linked internal tasks from operator-recorded customer contacts',()=>{
+ const start=source.indexOf('function tfQuotationRecordedHistory(d,quote){');
+ const end=source.indexOf('function tfRecordDetailView(',start);
+ assert.ok(start>=0&&end>start);
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ const helper=new Function('esc',source.slice(start,end)+';return tfQuotationRecordedHistory')(esc);
+ const data={tasks:[
+  {id:'t1',quoteId:'q1',customerId:'c1',title:'Follow-up scheduled',status:'Open',createdAt:'2026-10-29T10:00:00Z'},
+  {id:'t2',quoteId:'q2',customerId:'c1',title:'Other quote task',status:'Open',createdAt:'2026-10-29T10:00:00Z'}],
+  events:[
+   {kind:'customer_contact',quoteId:'q1',customerId:'c1',method:'Phone',notes:'No answer',date:'2026-10-29T11:00:00Z'},
+   {kind:'customer_contact',quoteId:'q2',customerId:'c1',method:'Email',notes:'Other quote',date:'2026-10-29T11:00:00Z'}]};
+ const view=helper(data,{id:'q1',customerId:'c1'});
+ assert.match(view,/Internal task/);
+ assert.match(view,/Manually recorded contact/);
+ assert.match(view,/No answer/);
+ assert.doesNotMatch(view,/Other quote task|Other quote/);
+ assert.match(view,/no independent provider delivery verification/);
+ assert.ok(source.includes('sections+=tfQuotationRecordedHistory(d,record)'));
+});
