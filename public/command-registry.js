@@ -332,6 +332,38 @@ function createRuntime(options){
   if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
    return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
+  if(row.commandId==='calendar.conflict.reschedule'){
+   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
+   if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'Only interrupted execution can be reconciled.'}};
+   if(row.approvedBy!==c.actor||!row.events?.some(e=>e.type==='approved'))
+    return {id,status:'indeterminate',error:{code:'APPROVAL_UNVERIFIED',message:'The original approval cannot be verified.'}};
+   const data=await snapshot(),receiptId='calendar-reschedule:operation:'+id;
+   const receipts=(data.commandLog||[]).filter(x=>x.id===receiptId);
+   if(receipts.length!==1)return {id,status:'indeterminate',error:{code:'RECEIPT_MISSING',message:'Calendar operation receipt missing; do not replay.'}};
+   const receipt=receipts[0],expected=canonical({eventId:row.params.ref.id,date:row.params.date,time:row.params.time});
+   if(receipt.kind!==row.commandId||receipt.requestPayload!==expected||
+    receipt.actor!==row.actor||receipt.businessId!==row.businessId||
+    receipt.resultId!==row.params.ref.id||receipt.result!=='event_moved')
+    return {id,status:'indeterminate',error:{code:'RECEIPT_MISMATCH',message:'Calendar receipt differs from the approved change.'}};
+   const found=(data.calendarEntries||[]).filter(x=>x.id===receipt.resultId&&
+    x.date===row.params.date&&x.time===row.params.time&&(!x.businessId||x.businessId===row.businessId));
+   if(found.length!==1)return {id,status:'indeterminate',error:{code:'EVENT_UNVERIFIED',message:'Rescheduled event is missing or was changed again.'}};
+   const domain=(data.commandLog||[]).filter(x=>x.kind==='domain.event'&&
+    x.correlationId===receiptId&&x.type==='calendar.updated'&&
+    x.ref?.store==='calendarEntries'&&x.ref.id===receipt.resultId&&x.businessId===row.businessId);
+   const audits=(data.calendarAudit||[]).filter(x=>x.kind==='calendar.conflict.rescheduled'&&
+    x.correlationId===receiptId&&x.sourceId===receipt.resultId&&x.actor===row.actor&&
+    x.businessId===row.businessId&&x.oldDate===receipt.oldDate&&x.oldTime===receipt.oldTime&&
+    x.newDate===row.params.date&&x.newTime===row.params.time);
+   if(domain.length!==1||audits.length!==1)
+    return {id,status:'indeterminate',error:{code:'AUDIT_UNVERIFIED',message:'Matching calendar change evidence is incomplete.'}};
+   const outcome={id,status:'succeeded',effect:row.effect,
+    result:{id:receipt.resultId,reused:true,commandKey:receiptId,reconciled:true}};
+   const changed=await ledger.transition(id,['executing'],event('reconciled',c,{receiptId}),{status:'succeeded',outcome});
+   if(!changed.claimed)return changed.row.status==='succeeded'?{...clone(changed.row.outcome),reused:true}:
+    {id,status:'indeterminate',error:{code:'RECOVERY_RACE',message:'Calendar command changed while reconciling.'}};
+   return outcome;
+  }
   if(!['quotation.followup.schedule','invoice.followup.schedule'].includes(row.commandId))return {id,status:'unsupported',error:{code:'UNSUPPORTED_RECOVERY',message:'No verified reconciliation contract for this command.'}};
   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
   if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'Only interrupted execution can be reconciled.'}};
