@@ -92,3 +92,11 @@ test('viewer never sees cloud comparison action in existing Settings',async()=>{
  await ctrl.open(root);
  assert.doesNotMatch(root.innerHTML,/data-transfer-action="cloud-review"/);
 });
+
+test('Settings transfer canonical comparison tolerates optional undefined local record fields',async()=>{
+ const f=fixture(),plan=await f.prepare(true),q=f.queue();
+ plan.expectedStores.customers[0].optional=undefined;
+ const staged=await f.stage(q,plan);
+ assert.equal(staged.status,'staged');
+ assert.equal((await q.list()).length,4);
+});
