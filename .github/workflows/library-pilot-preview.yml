@@ -102,7 +102,11 @@ jobs:
                     const required={'app.js':'tfReusableQuoteFields','notifications.js':'opportunity.bid_readiness_review','revenue.js':'invoice_manual_followup','operational-intelligence.js':'job.crew_credential_review','launch-more-commands.js':'overdue|unpaid|draft','suppliers.js':'supplierQuoteExpires','core-integration.js':'Supplier price quote has expired.'};
                     if(required[file])assert.ok(source.includes(required[file]),file+' is not the latest optimization build');
                   }
-                  console.log('Live pilot preview assets verified at '+root);return;
+                  const api=await fetch(root+'/api/v1/me',{headers:{'Cache-Control':'no-store'},signal:AbortSignal.timeout(15000)});
+                  assert.equal(api.status,503,'Unconfigured business login must remain disabled');
+                  const error=await api.json();
+                  assert.equal(error.error,'Secure business API is not configured');
+                  console.log('Live assets verified; secure business API remains fail-closed at '+root);return;
                 }
               }catch(e){console.log('Verification attempt:',e.message)}
               await new Promise(r=>setTimeout(r,4000));
