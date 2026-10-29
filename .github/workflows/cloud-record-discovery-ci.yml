@@ -38,3 +38,17 @@ jobs:
         run: npm test
       - name: Storage migration regression
         run: npm run test:storage
+      - name: Contractor pain-point regression
+        run: npm run test:contractors
+      - name: Browser prerequisites
+        run: npx playwright install --with-deps chromium
+      - name: Desktop and mobile browser regression
+        run: npm run test:browser
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-cloud-review-verification
+          path: |
+            artifacts/
+          if-no-files-found: warn
