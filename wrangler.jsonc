@@ -11,5 +11,12 @@
   "main": "./src/index.js",
   "ai": {
     "binding": "AI"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "TF_DB",
+      "database_name": "tradeflow-pilot-isolated",
+      "database_id": "91eeef63-48d4-4925-a2f1-1a43b164754c"
+    }
+  ]
 }
