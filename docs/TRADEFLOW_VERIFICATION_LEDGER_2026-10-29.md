@@ -44,3 +44,15 @@ Last feature commit inspected: 864bb19db2c2a2289f5cd00070c80c2f9139c4d0
 4. Apply migrations 0001 then 0002 only to the approved isolated D1 pilot and run the revision/audit query tests.
 5. Implement a session-safe onboarding interface within existing Settings, backups/restore and explicit opt-in synchronization.
 6. Run independent iPhone and desktop acceptance plus 62-item research quality review.
+
+
+## Phase 5 — Controlled tenant backup export, 2026-10-29
+
+| ID | Gate | Status | Evidence / next action |
+| --- | --- | --- | --- |
+| G21 | Authenticated tenant backup export source | SOURCE-COMMITTED | `src/tenant-export.js`, existing `src/tenant-api.js`; route `GET /api/v1/businesses/:businessId/backup` requires verified OIDC, active owner membership, same-business bounded D1 query and explicit `TF_BACKUP_EXPORT_ENABLED=true`. Disabled by default. |
+| G22 | Backup export regression coverage | SOURCE-COMMITTED | `tests/tenant-export.test.cjs`, plus `node --check src/tenant-export.js` in CI workflow. Real CI execution on latest commit UNVERIFIED. |
+| G23 | Secure export handling and storage | UNVERIFIED | Download must be user-initiated over TLS, handled as sensitive customer data, encrypted and stored with owner-controlled keys, retention and access restrictions. No server-side automatic export or storage exists. |
+| G24 | Restore and reconciliation | NOT IMPLEMENTED | No live restore endpoint; require independently authorized dry-run, verified snapshot origin, role controls, tenant isolation, exact backup point-in-time, rollback, and test recovery. |
+
+Previous G01-G20 remain open at their recorded status unless specifically reverified. No unapproved Cloudflare resources, OIDC setup, external integrations, or automatic record sync occurred. No pain points retired.
