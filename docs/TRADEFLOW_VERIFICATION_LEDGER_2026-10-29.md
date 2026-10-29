@@ -1,7 +1,7 @@
 # TradeFlow — Engineering verification ledger
 Updated: 2026-10-29
 Source: feature/library-universal-intake
-Last feature commit inspected: 16f58dc4768070a2c6649035f81ee49a27acf5e8
+Last feature commit inspected: d6016b94c396f335cd5b1614d30af753f08f32a6
 
 ## Rules
 - VERIFIED means a specific tool or executable check returned direct supporting evidence.
@@ -211,3 +211,5 @@ Prepared migration 0003 preserves existing rows/revisions/tombstones/attribution
 Extended-record source commit 9c1a2c6 passed unit/SQL/browser steps and deployed preview version 21c471ba-23b9-456c-a8c1-e29a503f0912. Its immediate release-manifest check caught transient rollout propagation and correctly failed the CI verification step. A later independent read matched that exact commit and all 82 asset digests. Added bounded rollout retries that still require the exact SHA and every asset hash; tests reject a persistently stale release. The record expansion flag remains false; migration 0003 has not been applied to live databases.
 
 Publishing guard correction: run 40859547478 reported overall success while its full-suite log contained one failed rollout-test fixture (URL-encoded Unicode filename was not decoded by the mocked filesystem fetch). The logging pipeline had masked Node's failure status. Corrected the fixture and made the regression shell explicitly use bash with `set -euo pipefail`; a negative test now proves logging preserves a failed test exit code. Local full suite is 280/280, with expansion/rollback SQL checks passing. This corrects the CI status interpretation; the earlier verified asset match is retained as deployment evidence only, not a full test pass.
+
+Extended record-model delivery completed: application source d6016b94c396f335cd5b1614d30af753f08f32a6, Actions 40860101537 succeeded with the corrected failure-preserving gate: 280/280 Node tests, SQL expansion/rollback/permissions, recovery/offline browser checks and 20/20 contractor scenarios. Pilot Worker version 675ad464-1f73-428b-aeb5-f3e571147d7e; CI and independent read matched all 82 asset digests. Migration 0003 remains prepared-only and the live expansion flag remains false; no original records or ownership changed.
