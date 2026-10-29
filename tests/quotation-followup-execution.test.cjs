@@ -119,3 +119,24 @@ test('creating a follow-up task does not falsely clear stale quotation warning',
  assert.equal(commands.staleQuote(actualContact,'2026-10-29',14),false,
   'Only separately recorded contact evidence advances the detector');
 });
+
+test('owner rejection leaves quotation and customer untouched and creates no task',async()=>{
+ const commands=require('../public/command-registry.js'),{db}=fixture();
+ let count=0;
+ const runtime=commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'reject-'+(++count),ledger:commands.createLedger(db),
+  can:permission=>permission==='modify:quotation.followup.schedule',
+  ports:{operation:()=>{throw Error('Rejected command must never execute')}}
+ });
+ const before=await snapshot(db);
+ const p=await runtime.prepare({commandId:'quotation.followup.schedule',params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}});
+ assert.equal(p.status,'needs_review');
+ assert.equal((await runtime.reject(p.id)).status,'rejected');
+ assert.equal((await runtime.execute(p.id)).status,'rejected');
+ const after=await snapshot(db);
+ assert.deepEqual(after.quotes,before.quotes);
+ assert.deepEqual(after.customers,before.customers);
+ assert.equal(after.tasks.length,0);
+ assert.deepEqual(after.commandLog.find(x=>x.id===p.id).events.map(x=>x.type),['prepared','rejected']);
+});
