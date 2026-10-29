@@ -1,7 +1,7 @@
 # TradeFlow — Engineering verification ledger
 Updated: 2026-10-29
 Source: feature/library-universal-intake
-Last feature commit inspected: 864bb19db2c2a2289f5cd00070c80c2f9139c4d0
+Last feature commit inspected: 16f58dc4768070a2c6649035f81ee49a27acf5e8
 
 ## Rules
 - VERIFIED means a specific tool or executable check returned direct supporting evidence.
@@ -189,3 +189,15 @@ Next operation: verify this source's full CI/browser/deployment results, perform
 | 9 Verification | Full suite + SQL + ten targets + browser checks + exact live digests gate preview | Real two-device, physical iPhone, provider and contractor acceptance evidence |
 
 No production deployment, destructive migration, owner/member change, customer-data upload, external communication, payment or new recurring infrastructure was performed. **0/62 pain points retired.** Pending owner answers: exact Library type/path for the original register, and the result after real sign-in. Next gated operation is identity verification and a concrete owner-provisioning proposal for explicit authorization; do not bypass it.
+
+
+## Final observed release for this engineering batch
+
+**VERIFIED preview source:** `16f58dc4768070a2c6649035f81ee49a27acf5e8` on `feature/library-universal-intake`.
+
+- Actions run **40857556256** succeeded: 271/271 Node tests on Node 22, actual-source SQLite membership/revision/audit checks, 10/10 targeted regressions, phone/desktop browser recovery/offline/account-layout checks, and 20/20 synthetic Chromium contractor scenarios.
+- Worker **tradeflow-library-pilot-preview**, version **1778e862-f392-40b9-b630-232c2d540534**. URL: https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev/ . CI and independent post-deploy CLI verification matched all **81** asset digests and the exact source manifest.
+- Independent fresh-browser live check passed: mobile Account row uses the content column, signed-out state is accurate, and the real Access sign-in link is present. Real human login, owner provisioning, two-device sync and physical Safari remain unverified.
+- This final ledger update is documentation-only; it does not imply that a later documentation commit was the deployed application source.
+- The milestone sequence and source modules are preserved in the Git commits: ff049ef (stabilization/provenance), c9078a1 (recovery), 5aeadc3 (account/session), e39f1c5 (queue/migration/security), 8d34e2c (events/shared reviews/browser gates), 16f58dc (mobile correction/event quarantine).
+- Work remains open as shown in the nine-workstream table. No original research rows were fabricated, no business ownership was granted, no customer data was migrated, and no provider/financial outcomes were simulated. **0/62 retired.**
