@@ -2146,7 +2146,15 @@ window.TradeFlowCalendar?.configure({
   const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
    x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
    x.actor==='local-owner'&&x.businessId==='local-business');
-  if(interrupted.length)throw Error('Earlier calendar reschedule is unresolved. Review command audit before another change.');
+  if(interrupted.length){
+   for(const pending of interrupted){
+    const recovery=await commands.reconcile(pending.id);
+    if(recovery.status!=='succeeded')
+     return {status:'indeterminate',error:{code:'RECOVERY_UNVERIFIED',
+      message:'Earlier calendar change cannot be verified. Review the audit before another change.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
   const plan=await commands.prepare({commandId:'calendar.conflict.reschedule',
    params:{ref:{store:'calendarEntries',id:event.id},date,time}});
   if(plan.status!=='needs_review')throw Error(plan.error?.message||'Calendar event is not eligible for reschedule');
