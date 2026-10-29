@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {previewCloudRetrieval}=require('../public/cloud-retrieval.js');
+let previewCloudRetrieval;
+test.before(async()=>({previewCloudRetrieval}=await import('../public/cloud-retrieval.js')));
 const businessId='business_001',identity={issuer:'https://identity.example.test',subject:'owner_001'};
 const session={status:'signed_in',identity,businesses:[{business_id:businessId,role:'owner'}],
  capabilities:{recordTypes:['customers','jobs']}};
