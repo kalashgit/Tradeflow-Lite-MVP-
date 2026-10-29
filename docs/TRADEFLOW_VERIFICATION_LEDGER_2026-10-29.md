@@ -69,3 +69,15 @@ Previous G01-G20 remain open at their recorded status unless specifically reveri
 | G10 Backup restoration | STILL UNVERIFIED | Dry-run is not restoration. Must independently validate backup authenticity/key custody and test approved restore to distinct isolated database, with rollback. |
 
 Previous ledger entries remain historical, including the earlier G08 block, which is now superseded by this date-stamped verified D1 inventory/migration result. A D1 resource alone does not prove production authorization, actual recovery, or full CI success. No customer data inserted; no unapproved cross-project changes.
+
+
+## Identity + D1 binding checkpoint — 2026-10-29
+| Gate | Status | Direct evidence |
+| --- | --- | --- |
+| G28 Cloudflare account access | VERIFIED | Connected Cloudflare API listed account and D1 databases; isolated TradeFlow D1 was previously created and migrated. |
+| G29 Cloudflare Access application | BLOCKED: SERVICE NOT ENABLED | GET /accounts/{account_id}/access/apps returned Cloudflare 403 access.api.error.not_enabled. User must enable Access in Cloudflare Zero Trust dashboard or choose/configure a trusted external OIDC provider. Reconnecting connector permissions will not resolve this error. |
+| G30 Preview Worker D1 binding | SOURCE-COMMITTED / LIVE UNVERIFIED | `wrangler.jsonc` commit b70dd072 adds TF_DB pointing only to `tradeflow-pilot-isolated` UUID `91eeef63-48d4-4925-a2f1-1a43b164754c`. Before CI/deploy, Worker settings had only AI and ASSETS. Verify actual deployment binding later. |
+| G31 CI preview safety gates | SOURCE-COMMITTED / RUN UNVERIFIED | CI checks name/isolation and backup flags; live smoke must see HTTP 503 from /api/v1/me until trusted issuer/audience/JWKS are configured. |
+| G32 Owner identity/member bootstrap | BLOCKED | No verified identity-provider signing issuer and subject; no owner membership should be inserted or invented. |
+| G33 Authenticated end-to-end tests | BLOCKED | Must configure supported OIDC, provision verified owner only after identity proof, exercise customer read/write across two memberships, no privilege escalation, wrong-business rejection and audit on isolated D1. |
+Existing G01–G27 are preserved; prior 'Access not available' and 'D1 unavailable' labels should not be conflated. D1 is verified created, Cloudflare Access is not enabled, and the live Worker binding still requires verification. No user business data inserted or migrated.
