@@ -181,7 +181,7 @@ function resolve(input,data={},context={}){
   }
   if(def.id==='calendar.conflict.reschedule'){
    if(params.ref.store!=='calendarEntries')return problem('INVALID_RECORD_TYPE','Only standalone calendar events may be rescheduled here.');
-   if(!isDate(params.date)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(params.time))
+   if(!isDate(params.date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(params.time))
     return problem('INVALID_SLOT','Choose a valid date and 24-hour start time.');
    const entry=lookup(data,params.ref,context);
    if(entry.sourceId&&entry.sourceKind&&entry.sourceKind!=='event'||['done','completed','cancelled','canceled'].includes(normalize(entry.status)))
