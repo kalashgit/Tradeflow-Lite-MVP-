@@ -871,12 +871,12 @@ function tfQuotationRecordedHistory(d,quote){
  const rows=[];
  for(const task of linkedTasks){
   const when=String(task.createdAt||task.updatedAt||'').slice(0,10);
-  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(when))
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))
    rows.push({date:when,kind:'Internal task',label:String(task.title||'Task')+' · '+String(task.status||'Open')});
  }
  for(const contact of contacts){
   const when=String(contact.date||'').slice(0,10);
-  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(when))
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))
    rows.push({date:when,kind:'Manually recorded contact',label:String(contact.method||'Other')+' · '+String(contact.notes||'')});
  }
  rows.sort((a,b)=>b.date.localeCompare(a.date)||a.kind.localeCompare(b.kind));
@@ -999,7 +999,7 @@ async function tfSyncQuoteFollowUp(id,quote,previous={}){
  }
  if(quote.status!=='Sent')return;
  const legacy=active.filter(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
- const validDate=x=>{if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
  for(const old of legacy){
   const updated={...old,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),
    customerId:quote.customerId,due:validDate(quote.followup_date)?quote.followup_date:old.due,
