@@ -402,11 +402,102 @@
    }
   });
  }
+ // Approved, internal invoice follow-up. Does not send a payment demand or verify a bank receipt.
+ // Invoice, customer, payment snapshot, task, domain event and command receipt are checked/written atomically.
+ function executeInvoiceFollowup(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
+   typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
+   typeof payload.invoiceId!=='string'||!payload.invoiceId||!validDate(payload.due)||!payload.due||
+   Object.keys(payload).some(k=>!['invoiceId','due'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(x=>x.ref?.store==='invoices'&&x.ref.id===payload.invoiceId&&x.record)||
+   !recordGuard.some(x=>Array.isArray(x.invoicePayments)))
+   return Promise.reject(Error('Approved invoice, payment snapshot and operation key required'));
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
+  const key='invoice-followup:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=6,prior;const data={};
+   try{tx=db.transaction(['commandLog','invoices','customers','payments','tasks','jobs'],'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Invoice follow-up transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     const invoice=data.invoices.find(x=>x.id===payload.invoiceId);
+     if(prior){
+      if(prior.kind!=='invoice.followup.schedule'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)throw Error('Invoice operation key belongs to a different request');
+      if(!data.tasks.some(t=>t.id===prior.resultId&&t.invoiceId===payload.invoiceId))
+       throw Error('Previous invoice task needs recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key};return;
+     }
+     if(!invoice||invoice.businessId&&invoice.businessId!==businessId)
+      throw Error('Invoice unavailable in this business');
+     for(const expected of recordGuard){
+      if(expected.ref){
+       const records=data[expected.ref.store];
+       if(!records||records.filter(x=>x.id===expected.ref.id).length!==1||
+        stable(records.find(x=>x.id===expected.ref.id))!==stable(expected.record))
+        throw Error('Invoice or related record changed since approval');
+      }
+      if(expected.invoicePayments&&stable(data.payments.filter(p=>p.invoiceId===payload.invoiceId))!==stable(expected.invoicePayments))
+       throw Error('Invoice payments changed since approval');
+     }
+     if(String(invoice.status||'').toLowerCase()!=='issued'||!invoice.customerId||
+      !validDate(invoice.dueDate)||invoice.dueDate>=new Date().toISOString().slice(0,10))
+      throw Error('Invoice is not an overdue issued invoice');
+     const customer=data.customers.find(x=>x.id===invoice.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)
+      throw Error('Invoice customer unavailable in business');
+     if(invoice.currency&&invoice.currency!=='USD'||!Array.isArray(invoice.lines)||!invoice.lines.length||
+      invoice.lines.some(l=>!Number.isFinite(Number(l.qty))||Number(l.qty)<=0||
+       !Number.isFinite(Number(l.unitPrice))||Number(l.unitPrice)<0)||
+      !Number.isFinite(Number(invoice.taxRate||0))||Number(invoice.taxRate||0)<0||Number(invoice.taxRate||0)>100)
+      throw Error('Invoice amount cannot be verified');
+     const payments=data.payments.filter(p=>p.invoiceId===invoice.id);
+     if(payments.some(p=>!Number.isFinite(Number(p.amount))||Number(p.amount)<0||
+      p.currency&&p.currency!==(invoice.currency||'USD')||p.customerId&&p.customerId!==invoice.customerId))
+      throw Error('Invoice payment integrity needs review');
+     const subtotal=invoice.lines.reduce((n,l)=>n+Math.round(Number(l.qty)*Math.round(Number(l.unitPrice)*100)),0);
+     const amount=subtotal+Math.round(subtotal*Number(invoice.taxRate||0)/100);
+     const paid=payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
+     if(amount-paid<=0)throw Error('No recorded outstanding invoice balance remains');
+     const existing=data.tasks.find(t=>t.invoiceId===invoice.id&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     const when=new Date().toISOString();
+     let id;
+     if(existing)id=existing.id;
+     else {
+      id=String(uid());
+      if(!id||data.tasks.some(t=>t.id===id))throw Error('Invoice task identifier collision');
+      const task={id,invoiceId:invoice.id,customerId:invoice.customerId,jobId:invoice.jobId||'',
+       title:'Review unpaid invoice: '+String(invoice.reference||invoice.id).slice(0,90),
+       description:'Review actual bank/provider records before contacting this customer. No outbound message was sent.',
+       due:payload.due,status:'Open',taskKind:'invoice_follow_up',businessId,createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'invoice.followup.schedule',requestPayload:stable(payload),
+      resultId:id,actor,businessId,invoiceId:invoice.id,createdAt:when,
+      result:existing?'existing_open_task':'task_created',providerVerified:false});
+     result={id,reused:!!existing,commandKey:key,providerVerified:false};
+    }catch(e){abort(e)}
+   }
+   const read=tx.objectStore('commandLog').get(key);
+   read.onsuccess=()=>{prior=read.result;ready()};
+   for(const name of ['invoices','customers','payments','tasks','jobs']){
+    const req=tx.objectStore(name).getAll();req.onsuccess=()=>{data[name]=req.result;ready()};
+   }
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
   if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
+  if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
