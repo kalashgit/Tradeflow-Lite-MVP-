@@ -307,7 +307,7 @@
      const customer=data.customers.find(c=>c.id===quote.customerId);
      if(!customer||customer.businessId&&customer.businessId!==businessId)
       throw Error('Quotation customer unavailable in this business');
-     const existing=data.tasks.filter(t=>t.quoteId===quote.id&&t.taskKind==='quotation_follow_up'&&
+     const existing=data.tasks.filter(t=>t.quoteId===quote.id&&(t.taskKind==='quotation_follow_up'||t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '))&&
       !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
      if(existing.length){
       result={id:existing[0].id,reused:true,commandKey:key};
