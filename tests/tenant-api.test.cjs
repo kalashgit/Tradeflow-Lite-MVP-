@@ -76,3 +76,15 @@ test('PUT requires signed identity, active writer membership and expected revisi
  const badPayload=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({record:{}})}),{...envBase,TF_DB:db('member')},{fetchJwks:jwksResponse});
  assert.equal(badPayload.status,415);
 });
+
+test('Cloudflare Access assertion is signed, audience-pinned, and cannot be spoofed',async()=>{
+ const signed=await token();
+ const request=new Request('https://pilot.example.test/api/v1/me',{headers:{'Cf-Access-Jwt-Assertion':signed}});
+ const result=await verifier(request,envBase,{fetchJwks:jwksResponse});
+ assert.equal(result.subject,'user_123');
+ const bad=new Request('https://pilot.example.test/api/v1/me',{headers:{'Cf-Access-Jwt-Assertion':signed.slice(0,-5)+'xxxxx'}});
+ await assert.rejects(verifier(bad,envBase,{fetchJwks:jwksResponse}),{status:401});
+ const env={...envBase,TF_DB:db()};
+ const success=await api(request,env,{fetchJwks:jwksResponse});
+ assert.equal(success.status,200);
+});
