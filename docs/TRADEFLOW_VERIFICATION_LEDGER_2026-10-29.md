@@ -292,3 +292,10 @@ The product owner approved creating the proposed single empty TradeFlow Pilot wo
 ### 2026-10-29 — Follow-up rejection regression
 - Commit `c481780ecbd5f613877fa791013f66311726a766` adds `owner rejection leaves quotation and customer untouched and creates no task` to `tests/quotation-followup-execution.test.cjs`.
 - Source is committed; execution of that test and all CI gates remain unverified. No independent actual customer follow-up, message delivery or data migration performed.
+
+## 2026-10-29 — Quotation owner action integrated into existing dossier
+- Existing `public/app.js` quotation detail renders **Review follow-up task** only for `Sent` quotes. User gesture leads to the shared `quotation.followup.schedule` command prepare → explicit confirmation → approve → execute. The GUI only reports task creation if the runtime returns `succeeded`, and states that no customer contact occurred.
+- Existing legacy quotation follow-up auto-task path `tfSyncQuoteFollowUp` was preserved. `public/core-integration.js` now detects its `followupAuto` flag or legacy `Follow up quote:` title in deduplication and avoids creating a second active follow-up. No records or IndexedDB schema migrated.
+- `tests/quotation-followup-execution.test.cjs` adds legacy task reuse and GUI integration wiring assertions. These are **committed test definitions only**; no actual head-commit Node/Playwright/Safari run observed.
+- Caveat: the existing legacy auto-task path itself remains outside the new approval registry; UI acceptance and reconciliation of both creation mechanisms are pending. This cannot yet be called a fully unified workflow. The existing quote warning must not clear on task creation.
+- Release: PR #16 stays draft; no deployment, owner provisioning, cloud import, external communication or contractor outcome. Retired **0/62**.
