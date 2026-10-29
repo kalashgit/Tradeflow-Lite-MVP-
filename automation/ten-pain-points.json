@@ -27,7 +27,10 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "calendar conflicts preserve resources",
       "feature": "Existing calendar / dispatch",
-      "originalRegisterRef": 13
+      "originalRegisterRef": 13,
+      "executionTest": "tests/calendar-conflict-resolution.test.cjs",
+      "executionScope": "standalone calendar event overlap reschedule only; approved, snapshot guarded and atomic, with calendar audit and nonreplaying recovery; linked jobs and tasks remain review-only",
+      "verification": "source committed with isolated parse, conflict and transaction checks; full Node/browser/contractor acceptance pending"
     },
     {
       "id": "TF-P04",
