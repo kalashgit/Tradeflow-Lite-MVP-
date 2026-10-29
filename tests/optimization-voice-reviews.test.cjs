@@ -20,7 +20,7 @@ test('no unsupported request is converted into a financial instruction',()=>{
 test('spoken reviews are read-only and routed to shared business intelligence',()=>{
  const app=fs.readFileSync('public/app.js','utf8'),voice=fs.readFileSync('public/voice-command.js','utf8');
  assert.ok(app.includes("if(request?.action==='optimizationReview')"));
- assert.ok(app.includes("window.TradeFlowPilot?.evaluateSnapshot(await tfPilotSnapshot())"));
+ assert.ok(app.includes("await authorizedOperationalReview()"));
  for(const detector of ['job.budget_overrun_review','invoice.payment_integrity_review','opportunity.bid_readiness_review'])assert.ok(app.includes(detector));
  assert.ok(voice.includes("'optimizationReview'"));
  assert.ok(app.includes('This does not verify external accounts'));

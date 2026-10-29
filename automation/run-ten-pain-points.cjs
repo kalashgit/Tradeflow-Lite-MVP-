@@ -21,13 +21,16 @@ for(const item of manifest.targets){
  const passing=command.status===0&&count&&Number(count[1])>=1&&!command.error;
  results.push({id:item.id,name:item.name,feature:item.feature,test:item.test,pattern:item.pattern,
   status:passing?'code_regression_pass':'code_regression_fail',
+  originalRegisterRef:item.originalRegisterRef||null,
+  gates:{code:passing?'verified':'failed',product:'unverified',operations:'unverified',outcome:'unverified'},
   passedTests:count?Number(count[1]):0,exitCode:command.status,
   error:command.error?.message||null});
  fs.writeFileSync(path.join(outDir,item.id+'.log'),stdout+'\n'+stderr);
  process.stdout.write(item.id+' '+(passing?'PASS':'FAIL')+' '+item.name+'\n');
 }
 const summary={schemaVersion:1,scope:'code-regression-only',generatedAt:new Date().toISOString(),
- commit:process.env.GITHUB_SHA||'local',branch:process.env.GITHUB_REF_NAME||'local',
+ commit:process.env.GITHUB_SHA||cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),
+ dirty:!!cp.execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim(),branch:process.env.GITHUB_REF_NAME||'local',
  total:results.length,codeRegressionPassed:results.filter(r=>r.status==='code_regression_pass').length,
  contractorVerifiedRetired:0,results,
  outstanding:['exact register-row mapping','latest full CI and deployed asset verification',

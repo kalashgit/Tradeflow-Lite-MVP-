@@ -35,6 +35,7 @@ jobs:
       - name: Syntax and regression checks
         run: |
           node --check public/app.js
+          node --check public/business-events.js
           node --check public/local-recovery.js
           node --check public/account-session.js
           node --check public/sync-queue.js
@@ -69,18 +70,33 @@ jobs:
           node --check src/backup-snapshot.js
           node --check src/tenant-export.js
           node --check src/tenant-restore-plan.js
-          node --test tests/*.test.cjs
+          mkdir -p artifacts/regression
+          node --test tests/*.test.cjs 2>&1 | tee artifacts/regression/full-node.log
           python3 tests/tenant-migrations.test.py
-          node automation/run-ten-pain-points.cjs
+      - name: Ten contractor regressions
+        if: ${{ !cancelled() }}
+        run: node automation/run-ten-pain-points.cjs
       - name: Upload ten-workflow evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tradeflow-ten-pain-points
-          path: artifacts/ten-pain-points/
+          path: artifacts/
           if-no-files-found: warn
       - name: Install Wrangler
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+      - name: Browser recovery and contractor scenarios
+        run: |
+          npx playwright install --with-deps chromium
+          OUTPUT_DIR=artifacts/browser/recovery node scripts/verify-local-recovery.cjs
+          OUTPUT_DIR=artifacts/browser/contractor-workflows node scripts/verify-contractor-workflows.cjs
+      - name: Upload browser verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-browser-evidence
+          path: artifacts/browser/
+          if-no-files-found: warn
       - name: Verify isolation
         run: |
           node - <<'NODE'
@@ -113,7 +129,7 @@ jobs:
               try{
                 const res=await fetch(root+'/?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                 const body=await res.text();
-                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('suppliers.js?v=supplier-r02')&&body.includes('core-integration.js?v=supplier-r02')&&body.includes('launch-more-commands.js?v=command-r01')&&body.includes('revenue.js?v=finance-r02')&&body.includes('app.js?v=account-r01')&&body.includes('notifications.js?v=finance-r02')){
+                if(res.status===200&&body.includes('document-intake-r01')&&body.includes('location-quality.js')&&body.includes('suppliers.js?v=supplier-r02')&&body.includes('core-integration.js?v=events-r01')&&body.includes('launch-more-commands.js?v=command-r01')&&body.includes('revenue.js?v=finance-r02')&&body.includes('app.js?v=events-r01')&&body.includes('notifications.js?v=finance-r02')){
                   for(const file of ['library.js','document-intake.js','location-quality.js','app.js','notifications.js','revenue.js','operational-intelligence.js','launch-more-commands.js','suppliers.js','core-integration.js']){
                     const asset=await fetch(root+'/'+file+'?fresh='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
                     assert.equal(asset.status,200,file);

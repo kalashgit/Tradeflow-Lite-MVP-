@@ -3,10 +3,10 @@
  * No AI, network, provider secrets, verified routing claims, or automatic data migrations.
  */
 (function(root,factory){
- const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter);
+ const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter,typeof module==='object'&&module.exports?require('./business-events.js'):root?.TradeFlowBusinessEvents);
  if(typeof module==='object'&&module.exports)module.exports=api;
  if(root)root.TradeFlowCore=api;
-})(typeof globalThis==='object'?globalThis:null,function(records){
+})(typeof globalThis==='object'?globalThis:null,function(records,domainEvents){
  'use strict';
  const nonempty=v=>String(v==null?'':v).trim();
  const brief=(v,max=240)=>nonempty(v).slice(0,max);
@@ -208,7 +208,7 @@
       if(expected.linkedJobs&&stable(data.jobs.filter(x=>x.quoteId===payload.quoteId))!==stable(expected.linkedJobs))throw Error('Quotation job links changed before commit; review the existing job');
      }
      const when=new Date().toISOString(),plan=prepare('quotation.convert',payload,data,uid,when);
-     for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+     for(const write of plan.writes){tx.objectStore(write.store).put(write.record);domainEvents?.recordCommitted(tx,write.store,write.record,key,{actor,businessId:args.businessId||'local-business'},undefined,args.kind==='customer.create'||write.store==='jobs'&&args.kind==='quotation.convert')}
      tx.objectStore('commandLog').put({id:key,kind:'quotation.convert',requestPayload:stable(payload),resultId:plan.resultId,recordIds:plan.writes.map(x=>x.record.id),actor:brief(actor,40),createdAt:when,reused:!!plan.reused});
      outcome={id:plan.resultId,reused:!!plan.reused,commandKey:key};
     }catch(err){abort(err)}
@@ -250,7 +250,7 @@
       if(payload.sourceHash&&!sourceValid)throw Error('Re-enter the original wording to retain it, or turn retention off');
       const plan=prepare(kind,payload,data,uid,when,{businessId});customerId=plan.resultId;
       if(data.customers.some(x=>x.id===customerId))throw Error('Customer identifier already exists');
-      for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+      for(const write of plan.writes){tx.objectStore(write.store).put(write.record);domainEvents?.recordCommitted(tx,write.store,write.record,key,{actor,businessId:args.businessId||'local-business'},undefined,args.kind==='customer.create'||write.store==='jobs'&&args.kind==='quotation.convert')}
       if(payload.sourceHash){
        const sourceId='customer-source:'+customerId;if(data.settings.some(x=>x.id===sourceId))throw Error('Original wording storage already exists');
        tx.objectStore('settings').put({id:sourceId,customerId,text:sourceText,sourceHash:payload.sourceHash,createdAt:when});sourceSaved=true;
@@ -287,7 +287,7 @@
      return;
     }
     const time=new Date().toISOString();
-    for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+    for(const write of plan.writes){tx.objectStore(write.store).put(write.record);domainEvents?.recordCommitted(tx,write.store,write.record,key,{actor,businessId:args.businessId||'local-business'},undefined,args.kind==='customer.create'||write.store==='jobs'&&args.kind==='quotation.convert')}
     tx.objectStore('commandLog').put({id:key,kind,resultId:plan.resultId,recordIds:plan.writes.map(x=>x.record.id),
       actor:brief(actor,40),createdAt:time,reused:!!plan.reused});
     outcome={id:plan.resultId,reused:!!plan.reused,commandKey:key};

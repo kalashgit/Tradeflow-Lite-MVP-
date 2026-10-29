@@ -1,6 +1,6 @@
 import {tenantApi} from './tenant-api.js';
 
-/* Private Cloudflare Workers AI preview. No customer records are stored server-side. */
+/* Private AI preview and authenticated tenant API. Local records are not uploaded automatically. */
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export default {
  async fetch(request,env){

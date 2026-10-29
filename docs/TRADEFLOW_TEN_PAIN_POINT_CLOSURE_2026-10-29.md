@@ -39,3 +39,11 @@ No item is 4/4 or retired on a code test alone. Baseline retired: **0 of 62**.
 - iPhone and desktop testing, IndexedDB preservation, and meaningful after-reload scenarios.
 - Connected inbox, accounting and payment integrations must be verified before promising autonomous sending, settlement or real-world follow-up.
 - Do not introduce duplicate Notifications/Jobs/Quotes/Customer screens or classify local drafts as external outcomes.
+
+## Master directive browser evidence — 29 October 2026
+
+All ten candidate scenarios passed at 390×844 and 1280×900 in Chromium (20/20). The first eight exercise actual Notifications and navigation, then controlled fixture corrections and warning clearing. These fixture corrections are not proof of GUI approval, external settlement or real customer approval. Quote reuse additionally uses the actual form to save a clean new draft, verifies metadata was not inherited, and observes its transaction-coupled review event. Customer economics renders actual locally recorded receipt/cost/contribution values and limitations.
+
+Recovery tests separately exercise real Settings backup restore, rollback-point persistence, interrupted/stale writes, offline reload and durable pending-queue retention. New browser tests run before preview deployment and screenshots/results are archived as `tradeflow-browser-evidence`. Public release manifest and asset digests tie the deployment to its exact commit.
+
+These advance synthetic product verification, not all four gates. Physical iOS Safari, real-user authorization, provider acknowledgments, independent contractor acceptance and before/after outcomes remain open. The original research entry references remain null in the existing scenario manifest until the Library source is accessible. **0/62 retired.**
