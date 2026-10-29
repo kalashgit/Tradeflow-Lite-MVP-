@@ -25,6 +25,6 @@
     "TF_OIDC_JWKS_URL": "https://autumn-rain-40ca.cloudflareaccess.com/cdn-cgi/access/certs",
     "TF_BACKUP_EXPORT_ENABLED": "false",
     "TF_BACKUP_DRY_RUN_ENABLED": "false",
-    "TF_EXTENDED_RECORDS_ENABLED": "false"
+    "TF_EXTENDED_RECORDS_ENABLED": "true"
   }
 }

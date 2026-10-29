@@ -16,6 +16,7 @@ async function token(overrides={},signer=null){
 const jwksResponse=async()=>new Response(JSON.stringify({keys:[jwk]}));
 const db=(role='viewer',recordBusiness=business)=>({prepare(sql){return {bind(...params){return {
  async first(){
+  if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
   if(sql.includes('FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
   if(sql.includes('FROM tenant_records'))return params[0]===recordBusiness?{payload:'{"name":"Private test job"}',revision:3,updated_at:'2026-10-29',deleted_at:null}:null;
   throw Error('Unexpected SQL');

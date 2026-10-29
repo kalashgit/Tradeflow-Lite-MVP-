@@ -12,3 +12,5 @@ export function linksForRecord(record){
  if(record.sourceId&&source)links.push(['sourceId',source]);
  return links;
 }
+
+export const EXTENDED_SCHEMA=Object.freeze({id:'0003_extended_business_records',sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0',version:3});

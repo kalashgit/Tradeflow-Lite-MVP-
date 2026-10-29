@@ -68,6 +68,7 @@ jobs:
           node --check src/tenant-security.js
           node --check src/oidc-verifier.js
           node --check src/tenant-api.js
+          node --check src/schema-capabilities.js
           node --check src/tenant-record-store.js
           node --check src/offline-conflicts.js
           node --check src/backup-snapshot.js
@@ -102,14 +103,14 @@ jobs:
           if-no-files-found: warn
       - name: Verify isolation
         run: |
-          node - <<'NODE'
-          const fs=require('node:fs');
+          node --input-type=module - <<'NODE'
+          const fs=(await import('node:fs')).default,crypto=(await import('node:crypto')).default,model=await import('./public/record-model.js');
           const config=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
           if(config.name!=='tradeflow-v05-preview'||config.assets?.directory!=='./public')throw Error('Unexpected base configuration');
           for(const item of ['library.js','library.css','document-intake.js','location-quality.js','job-intake-links.js','library-commands.js'])if(!fs.existsSync('public/'+item))throw Error('Missing '+item);
           const d1=config.d1_databases||[];
           if(d1.length!==1||d1[0].binding!=='TF_DB'||d1[0].database_name!=='tradeflow-pilot-isolated')throw Error('Unexpected D1 binding');
-          if(config.vars?.TF_EXTENDED_RECORDS_ENABLED!=='false')throw Error('Extended schema must remain disabled until separately migrated');
+          if(config.vars?.TF_EXTENDED_RECORDS_ENABLED!=='true'||crypto.createHash('sha256').update(fs.readFileSync('migrations/0003_extended_business_records.sql')).digest('hex')!==model.EXTENDED_SCHEMA.sha256)throw Error('Unexpected extended schema activation or migration checksum');
           if(config.vars?.TF_BACKUP_EXPORT_ENABLED==='true'||config.vars?.TF_BACKUP_DRY_RUN_ENABLED==='true')throw Error('Backup routes unexpectedly enabled');
           NODE
       - name: Record exact preview source

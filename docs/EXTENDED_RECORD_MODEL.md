@@ -8,9 +8,9 @@ New financial types (`payments`, `expenses`, `jobCosts`, `supplyOrders`) require
 
 ## Activation boundary
 
-`TF_EXTENDED_RECORDS_ENABLED=false` remains the deployed default and is enforced by preview CI. `/api/v1/me` reports the actual available type list. Queues retain unsupported extended records as pending with `server_schema_required`, and migration previews use server capabilities rather than assuming a schema upgrade happened. The default four-type API remains usable without a database migration. No records are uploaded automatically.
+`TF_EXTENDED_RECORDS_ENABLED=true` now requests the expansion on the isolated pilot. The server additionally requires the exact applied migration ID and checksum; a missing/mismatched stamp falls back to the legacy catalogue. Preview CI checks the committed migration checksum. `/api/v1/me` reports the actual available type list. Queues retain unsupported extended records as pending with `server_schema_required`, and migration previews use server capabilities rather than assuming a schema upgrade happened. The default four-type API remains usable without a database migration. No records are uploaded automatically.
 
-`0003_extended_business_records.sql` expands the SQLite CHECK constraint using an explicit table copy, preserving payloads, revisions, tombstones, attribution and existing audit rows. It recreates the existing index and audit triggers after copying, so old records do not create new audit events. No production database or live pilot database was modified by this source delivery.
+`0003_extended_business_records.sql` expands the SQLite CHECK constraint using an explicit table copy, preserving payloads, revisions, tombstones, attribution and existing audit rows. It recreates the existing index and audit triggers after copying, so old records do not create new audit events. The initial source delivery did not change live databases. Subsequent guarded activation on 29 October expanded only the empty isolated pilot; counts remained zero for businesses, memberships, records and audit events. Production was not touched.
 
 Before applying it to an authorized database:
 
@@ -21,3 +21,7 @@ Before applying it to an authorized database:
 5. Activation is a separate controlled configuration change; never infer customer ownership from a local profile or the feature flag.
 
 Local executable coverage includes all 20 types, legacy capabilities, richer migration relationships, queue schema/permission blocks, financial SQL permissions, interrupted migration rollback and exact row/audit preservation. These checks do not assert human login or actual cross-device synchronization.
+
+## Applied empty-pilot checkpoint
+
+The actual D1 schema was reconstructed from a protected metadata backup, the atomic batch path was exercised, and expansion ran in one REST batch with a transaction-local CHECK guard requiring zero business/membership/record/audit rows. The migration ledger stores the exact source SHA-256. Follow-up reads confirmed all 20 types, no foreign-key errors and no leftover staging/guard tables. This is schema activation, not ownership provisioning or customer-data migration.
