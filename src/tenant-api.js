@@ -50,6 +50,26 @@ export async function tenantApi(request,env,options={}){
    const snapshot=await exportTenantSnapshot(env.TF_DB,permission);
    return new Response(JSON.stringify(snapshot),{status:200,headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="tradeflow-tenant-backup.json"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Authorization'}});
   }
+  // Explicit, read-only cloud catalogue for a future reviewed device retrieval.
+  // Stable ID cursor and bounded pages; never silently claim a complete snapshot.
+  const catalogue=/^\\/api\\/v1\\/businesses\\/([^/]+)\\/records\\/([^/]+)$/.exec(url.pathname);
+  if(catalogue){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   const businessId=requireBusinessId(catalogue[1]),type=catalogue[2];
+   if(!RECORD_TYPES.includes(type)||!LEGACY_RECORD_TYPES.includes(type)&&!(await schemaCapabilities(env)).recordTypes.includes(type))
+    return json({error:'Record type is unavailable in the current server schema'},400);
+   const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
+   const cursor=url.searchParams.get('after')||'';
+   if(cursor&&!/^[A-Za-z0-9_-]{1,100}$/.test(cursor))return json({error:'Invalid record cursor'},400);
+   if([...url.searchParams.keys()].some(key=>key!=='after'))return json({error:'Unsupported catalogue parameter'},400);
+   const page=await env.TF_DB.prepare(
+    'SELECT id,revision,updated_at,payload FROM tenant_records WHERE business_id=? AND record_type=? AND id>? AND deleted_at IS NULL ORDER BY id LIMIT 51'
+   ).bind(authorization.businessId,type,cursor).all();
+   const rows=page.results||[];
+   if(!Array.isArray(rows)||rows.length>51)return json({error:'Invalid record catalogue result'},503);
+   const items=rows.slice(0,50).map(row=>({id:row.id,revision:row.revision,updatedAt:row.updated_at,record:JSON.parse(row.payload)}));
+   return json({businessId,type,items,nextCursor:rows.length>50?items[items.length-1].id:null});
+  }
   const match=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)\/([^/]+)$/.exec(url.pathname);
   if(!match)return json({error:'Not found'},404);
   const businessId=requireBusinessId(match[1]);
