@@ -264,10 +264,82 @@
    for(const store of ['customers','settings']){const req=tx.objectStore(store).getAll();req.onsuccess=()=>{data[store]=req.result;ready()}}
   });
  }
+ // Owner-approved internal quotation follow-up. Never represents an external contact.
+ // All checks and writes share one IndexedDB transaction, including the audit receipt.
+ function executeQuotationFollowup(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',
+   approved=false,recordGuard=[]}=args||{};
+  if(!db||typeof db.transaction!=='function'||approved!==true||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof uid!=='function'||typeof actor!=='string'||!actor.trim()||
+   !payload||typeof payload.quoteId!=='string'||!payload.quoteId||
+   !Array.isArray(recordGuard)||recordGuard.length!==1||recordGuard[0]?.ref?.store!=='quotes'||
+   recordGuard[0].ref.id!==payload.quoteId||!recordGuard[0].record)
+   return Promise.reject(Error('Explicit approved quote, guard and operation key required'));
+  if(Object.keys(payload).some(k=>!['quoteId','due'].includes(k))||!validDate(payload.due)||!payload.due)
+   return Promise.reject(Error('Valid follow-up due date required'));
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
+  const key='quote-followup:'+requestKey.trim(),expected=recordGuard[0].record;
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=4,prior=null;const data={};
+   try{tx=db.transaction(['commandLog','quotes','customers','tasks'],'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Follow-up transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     const quote=data.quotes.find(q=>q.id===payload.quoteId);
+     if(prior){
+      if(prior.kind!=='quotation.followup.schedule'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Operation key has a different owner or payload');
+      if(!data.tasks.some(t=>t.id===prior.resultId&&t.quoteId===payload.quoteId))
+       throw Error('Previous follow-up task needs recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key};return;
+     }
+     if(!quote||stable(quote)!==stable(expected))
+      throw Error('Quotation changed since approval; review again');
+     if(quote.businessId&&quote.businessId!==businessId)
+      throw Error('Quotation belongs to another business');
+     if(String(quote.status||'').toLowerCase()!=='sent'||!quote.customerId)
+      throw Error('Only sent quotations with customers can be followed up');
+     const customer=data.customers.find(c=>c.id===quote.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)
+      throw Error('Quotation customer unavailable in this business');
+     const existing=data.tasks.filter(t=>t.quoteId===quote.id&&t.taskKind==='quotation_follow_up'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(existing.length){
+      result={id:existing[0].id,reused:true,commandKey:key};
+      tx.objectStore('commandLog').put({id:key,kind:'quotation.followup.schedule',
+       requestPayload:stable(payload),resultId:existing[0].id,actor,businessId,
+       createdAt:new Date().toISOString(),result:'existing_open_task'});
+      return;
+     }
+     const id=String(uid()),when=new Date().toISOString();
+     if(!id||data.tasks.some(t=>t.id===id))throw Error('Follow-up task identifier collision');
+     const title='Follow up quotation: '+String(quote.title||quote.id).slice(0,120);
+     const task={id,title,due:payload.due,quoteId:quote.id,customerId:quote.customerId,
+      taskKind:'quotation_follow_up',status:'Open',businessId,updatedAt:when};
+     tx.objectStore('tasks').put(task);
+     domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+     tx.objectStore('commandLog').put({id:key,kind:'quotation.followup.schedule',
+      requestPayload:stable(payload),resultId:id,actor,businessId,quoteId:quote.id,
+      createdAt:when,result:'task_created'});
+     result={id,reused:false,commandKey:key};
+    }catch(e){abort(e)}
+   }
+   for(const name of ['commandLog','quotes','customers','tasks']){
+    const store=tx.objectStore(name),req=name==='commandLog'?store.get(key):store.getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()};
+   }
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
+  if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
   const key=nonempty(requestKey)||'command:'+String(uid());
