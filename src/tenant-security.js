@@ -40,10 +40,10 @@ export async function authorizeBusiness({db,principal,businessId,permission}){
 }
 export function tenantRecordQuery({authorization,table,recordId}){
   if(!authorization?.businessId)throw new AuthorizationError();
-  const allowed={customers:'customers',jobs:'jobs',quotes:'quotes',invoices:'invoices'};
-  if(!Object.hasOwn(allowed,table))throw new AuthorizationError('Unknown record type',400);
+  const allowed=new Set(['customers','jobs','quotes','invoices']);
+  if(!allowed.has(table))throw new AuthorizationError('Unknown record type',400);
   if(typeof recordId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(recordId))
     throw new AuthorizationError('Invalid record identifier',400);
-  return {sql:`SELECT * FROM ${allowed[table]} WHERE business_id = ? AND id = ? LIMIT 1`,
-    params:[authorization.businessId,recordId]};
+  return {sql:'SELECT payload, revision, updated_at, deleted_at FROM tenant_records WHERE business_id = ? AND record_type = ? AND id = ? LIMIT 1',
+    params:[authorization.businessId,table,recordId]};
 }
