@@ -265,3 +265,11 @@ The product owner approved creating the proposed single empty TradeFlow Pilot wo
 - Safety: unchanged local IndexedDB schema; no implicit sync, D1 migration, local merge, cloud overwrite, customer communication, or deployment.
 - Gate: **SOURCE-COMMITTED, EXECUTION UNVERIFIED**. No CI statuses or workflow runs surfaced for the earlier candidate; execute on the final SHA before integration or deployment. Next verify real authorized owner account, Access behavior, page streaming, mobile/desktop Settings view and record integrity.
 - Retired contractor pain points: **0/62**. The comparison is infrastructure, not an operational contractor outcome.
+
+## 2026-10-29 — PR #16 canonical JSON defect stabilization
+- Corrected optional-`undefined` canonicalization in `public/cloud-retrieval.js`, `public/migration-ui.js`, and `public/sync-queue.js`. The prior recursive JSON.parse(JSON.stringify(undefined)) failed when object fields were optional. Canonical JSON now sorts defined object keys via a JSON.stringify replacer and preserves ordinary JSON array/null behavior.
+- Regression scenarios committed in `tests/cloud-retrieval.test.cjs`, `tests/sync-queue.test.cjs`, and `tests/reviewed-transfer.test.cjs`: absent optional fields, nested fields, queue replay, unchanged device records and expired session after remote scan.
+- Local isolated Node 22.16.0 execution: **3/3 canonicalization assertions passed** using the same replacement function; this is NOT a repository test-suite run.
+- Exact GitHub repository test execution: **BLOCKED / NOT VERIFIED**. Current container cannot DNS-resolve github.com; connector can read/write GitHub files but does not execute a checked-out Node workspace. Current commit statuses have returned no successful checks. No browser, signed Access, D1 E2E or physical Safari claim.
+- PR must remain draft and undeployed until exact-head full Node, storage, contractor and desktop/mobile browser gates pass. No changes to IndexedDB schema, existing tenant records, membership, Cloudflare infrastructure or production.
+- Original register references #2/#11/#13/#9/#12/#7/#22/#4/#38/#61 were provided in the latest directive, but original 62-row source itself has not been independently inspected; mappings remain provisional pending source reconciliation. Pain points retired: **0/62**.
