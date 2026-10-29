@@ -52,3 +52,20 @@ test('cross-business and malformed records fail closed',async()=>{
  const cross=fixture({customers:{'':{status:200,items:[{...record('c1','Private'),record:{id:'c1',businessId:'business_999'}}],nextCursor:null}}});
  await assert.rejects(previewCloudRetrieval({businessId,session,localStores:{},transport:cross.transport}),/Invalid cloud record/);
 });
+
+test('canonical comparison safely ignores optional undefined object fields and retains array semantics',async()=>{
+ const localStores={customers:[{id:'c1',name:'Same',businessId,optional:undefined,details:{note:undefined,priority:2},tags:[undefined,null]}]};
+ const before=structuredClone(localStores);
+ const f=fixture({customers:{'':{status:200,items:[{id:'c1',revision:2,record:{tags:[null,null],details:{priority:2},businessId,name:'Same',id:'c1'}}],nextCursor:null}}});
+ const result=await previewCloudRetrieval({businessId,session,localStores,transport:f.transport});
+ assert.deepEqual(result.counts,{newOnDevice:0,identical:1,conflicts:0});
+ assert.deepEqual(localStores,before);
+});
+test('cloud comparison remains read-only when optional undefined fields appear in conflicting records',async()=>{
+ const source={id:'c1',name:'Local',businessId,optional:undefined};
+ const localStores={customers:[source]};
+ const f=fixture({customers:{'':{status:200,items:[record('c1','Cloud updated',3)],nextCursor:null}}});
+ const result=await previewCloudRetrieval({businessId,session,localStores,transport:f.transport});
+ assert.equal(result.counts.conflicts,1);
+ assert.equal(source.optional,undefined);
+});
