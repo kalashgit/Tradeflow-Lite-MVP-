@@ -8,7 +8,7 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "completion, future dates, invalid dates and confirmed handoffs",
       "feature": "Existing operational intelligence / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 2
     },
     {
       "id": "TF-P02",
@@ -16,7 +16,7 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "overdue invoices include partial payments",
       "feature": "Existing revenue / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 11
     },
     {
       "id": "TF-P03",
@@ -24,7 +24,7 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "calendar conflicts preserve resources",
       "feature": "Existing calendar / dispatch",
-      "originalRegisterRef": null
+      "originalRegisterRef": 13
     },
     {
       "id": "TF-P04",
@@ -32,7 +32,7 @@
       "test": "tests/change-order-intelligence.test.cjs",
       "pattern": "proposed work prompts review",
       "feature": "Existing job dossier / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 9
     },
     {
       "id": "TF-P05",
@@ -40,7 +40,8 @@
       "test": "tests/optimization-financial-integrity.test.cjs",
       "pattern": "budget overrun uses recorded costs",
       "feature": "Existing job costing / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 12,
+      "mappingScope": "partial: recorded overrun detection does not prove complete job profitability"
     },
     {
       "id": "TF-P06",
@@ -48,7 +49,7 @@
       "test": "tests/optimization-labor-hours.test.cjs",
       "pattern": "labor-hour variance is based",
       "feature": "Existing job costing / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 7
     },
     {
       "id": "TF-P07",
@@ -56,7 +57,8 @@
       "test": "tests/optimization-financial-integrity.test.cjs",
       "pattern": "payment overrecording is flagged",
       "feature": "Existing invoice / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 22,
+      "mappingScope": "adjacent: payment discrepancy alerts do not integrate accounting and operations systems"
     },
     {
       "id": "TF-P08",
@@ -64,7 +66,7 @@
       "test": "tests/optimization-bid-readiness.test.cjs",
       "pattern": "pursued bids require explicit",
       "feature": "Existing opportunity dossier",
-      "originalRegisterRef": null
+      "originalRegisterRef": 4
     },
     {
       "id": "TF-P09",
@@ -72,7 +74,7 @@
       "test": "tests/optimization-quote-reuse.test.cjs",
       "pattern": "copying an accepted quotation",
       "feature": "Existing quote dossier",
-      "originalRegisterRef": null
+      "originalRegisterRef": 38
     },
     {
       "id": "TF-P10",
@@ -80,13 +82,13 @@
       "test": "tests/optimization-account-economics.test.cjs",
       "pattern": "customer account economics sums local receipts",
       "feature": "Existing customer dossier",
-      "originalRegisterRef": null
+      "originalRegisterRef": 61
     }
   ],
   "researchRegister": {
-    "locationReportedByOwner": "Library / TradeFlow",
-    "accessStatus": "Library type/path clarification pending",
+    "locationReportedByOwner": "Library /TradeFlow/TradeFlow_Pain_Point_Research_Register_2026-10-28.md",
+    "accessStatus": "original 62-entry register located and exact row IDs read",
     "originalEntryCount": 62,
-    "mappingStatus": "unreconciled"
+    "mappingStatus": "candidate IDs mapped to actual register rows; no outcome closure verified"
   }
 }
