@@ -16,17 +16,27 @@ async function main(){
  const base=new URL(process.argv[3]);
  if(base.origin!=='https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev')throw Error('Only isolated pilot preview can be verified');
  const expected=manifest();
- const response=await fetch(new URL('/release.json?verify='+Date.now(),base),{cache:'no-store',signal:AbortSignal.timeout(15000)});
- if(!response.ok)throw Error('Release manifest unavailable');
- const actual=await response.json();
- if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('Live release does not match exact source');
+ // Worker rollout is eventually consistent. Retry briefly without accepting a different SHA.
+ let ready=false;
+ for(let attempt=0;attempt<6;attempt++){
+  try{
+   const response=await fetch(new URL('/release.json?verify='+Date.now(),base),{cache:'no-store',signal:AbortSignal.timeout(15000)});
+   if(response.ok&&JSON.stringify(await response.json())===JSON.stringify(expected)){ready=true;break}
+  }catch{}
+  if(attempt<5)await new Promise(resolve=>setTimeout(resolve,1500));
+ }
+ if(!ready)throw Error('Live release does not match exact source after bounded rollout retries');
  // Bound network concurrency and verify every shipped asset, not just stale version markers.
  const pending=Object.entries(expected.assets);let index=0;
  await Promise.all(Array.from({length:4},async()=>{while(index<pending.length){
   const [name,sha256]=pending[index++];
   const url=new URL('/'+name,base);url.searchParams.set('verify',expected.commit);
-  const res=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(20000)});
-  if(!res.ok||digest(Buffer.from(await res.arrayBuffer()))!==sha256)throw Error('Live asset mismatch: '+name);
+  let matched=false;
+  for(let attempt=0;attempt<3;attempt++){
+   try{const res=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(20000)});if(res.ok&&digest(Buffer.from(await res.arrayBuffer()))===sha256){matched=true;break}}catch{}
+   if(attempt<2)await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  if(!matched)throw Error('Live asset mismatch: '+name);
  }}));
  console.log('VERIFIED '+expected.commit+'; '+pending.length+' live asset digests match');
 }
