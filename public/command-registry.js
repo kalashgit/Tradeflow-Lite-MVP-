@@ -201,7 +201,6 @@ function resolve(input,data={},context={}){
    const total=subtotal+Math.round(subtotal*Number(invoice.taxRate||0)/100);
    const paid=payments.reduce((sum,p)=>sum+Math.round(Number(p.amount)*100),0);
    if(total-paid<=0)return problem('NO_BALANCE','No recorded outstanding balance exists.');
-   for(const payment of payments)guard.push(...validateReferences(data,[{store:'payments',id:payment.id}],context));
    guard.push({invoicePayments:payments.map(p=>clone(p))});
    result={invoiceId:invoice.id,customerId:invoice.customerId,due:params.due,recordedOutstanding:(total-paid)/100,providerVerified:false};
   }
