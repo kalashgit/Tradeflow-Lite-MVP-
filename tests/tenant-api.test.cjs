@@ -109,3 +109,38 @@ test('extended routes are disabled until migration activation and financial writ
  assert.equal(denied.status,403);
  const me=await api(req('/api/v1/me',signed),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse});assert.equal((await me.json()).capabilities.recordTypes.length,4);
 });
+
+test('cloud catalogue is tenant-authorized, bounded, cursor-paged and read-only',async()=>{
+ const signed=await token(),prefix='/api/v1/businesses/'+business+'/records/jobs';
+ const source=Array.from({length:51},(_,n)=>({id:'job_'+String(n).padStart(3,'0'),revision:2,updated_at:'2026-10-29',payload:JSON.stringify({name:'Synthetic job '+n})}));
+ let reads=0,writes=0;
+ const store={
+  prepare(sql){return {bind(...params){return {
+   async first(){
+    if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
+    if(sql.includes('FROM business_memberships'))return params[0]===business?{role:'viewer'}:null;
+    throw Error('Unexpected first query');
+   },
+   async all(){
+    if(!sql.includes('FROM tenant_records')||!sql.includes('LIMIT 51'))throw Error('Unbounded catalogue');
+    reads++;
+    assert.equal(params[0],business);assert.equal(params[1],'jobs');
+    return {results:source.filter(row=>row.id>params[2]).slice(0,51)};
+   },
+   async run(){writes++;throw Error('Catalogue must not write')}
+  }}}}
+ };
+ const env={...envBase,TF_DB:store},options={fetchJwks:jwksResponse};
+ const first=await api(req(prefix,signed),env,options);
+ assert.equal(first.status,200);
+ const body=await first.json();assert.equal(body.items.length,50);assert.equal(body.nextCursor,'job_049');
+ assert.equal(body.items[0].record.name,'Synthetic job 0');
+ assert.equal(body.items[0].revision,2);
+ const next=await api(req(prefix+'?after='+body.nextCursor,signed),env,options);
+ assert.equal(next.status,200);assert.equal((await next.json()).items.length,1);
+ assert.equal((await api(req(prefix+'?after=not%2Fsafe',signed),env,options)).status,400);
+ assert.equal((await api(req(prefix+'?limit=10000',signed),env,options)).status,400);
+ assert.equal((await api(req('/api/v1/businesses/business_999/records/jobs',signed),env,options)).status,403);
+ assert.equal((await api(req(prefix),env,options)).status,401);
+ assert.equal(reads,2);assert.equal(writes,0);
+});
