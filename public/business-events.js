@@ -6,7 +6,7 @@ const states={quotes:{sent:'sent',accepted:'accepted',declined:'declined'},jobs:
 const allowed=new Set(Object.entries(families).flatMap(([store,family])=>['created','updated','committed',...Object.values(states[store]||{})].map(s=>family+'.'+s)));
 const clone=x=>JSON.parse(JSON.stringify(x)),equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function validate(event){
- if(!event||event.kind!=='domain.event'||!allowed.has(event.type)||typeof event.id!=='string'||!event.id||!event.correlationId||!event.businessId||!event.actor||!Number.isFinite(Date.parse(event.at))||!families[event.ref?.store]||typeof event.ref.id!=='string'||!event.ref.id)throw Error('Invalid business event');
+ if(!event||event.kind!=='domain.event'||!allowed.has(event.type)||typeof event.id!=='string'||!event.id||!event.correlationId||!event.businessId||!event.actor||!Number.isFinite(Date.parse(event.at))||!families[event.ref?.store]||typeof event.ref.id!=='string'||!event.ref.id||!event.type.startsWith(families[event.ref.store]+'.')||typeof event.actor!=='string'||typeof event.businessId!=='string')throw Error('Invalid business event');
  return event;
 }
 function make({store,record,previous,key,context={},at=new Date().toISOString(),knownCreate=false}){

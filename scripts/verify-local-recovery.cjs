@@ -52,7 +52,13 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   });
   assert.equal(queueResult.rows,1);assert.equal(queueResult.status,'authorization_required');
   await page.screenshot({path:path.join(out,'offline-'+viewport.width+'.png')});
-  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,dialogs},null,2));
+  await page.evaluate(async()=>{const c=window.TradeFlowPilot.commands,p=await c.prepare('open settings');const r=await c.execute(p.id);if(r.status!=='succeeded')throw Error('Settings failed')});
+  const account=page.locator('[data-action="settingsPanel"][data-panel="account"]');
+  const label=await account.locator('.tf-settings-rowcopy').boundingBox();assert.ok(label.width>150,'Account label must use the content column');
+  await account.click();await page.waitForFunction(()=>{const el=document.querySelector('[data-account-status]');return el&&!el.textContent.includes('Checking')});
+  assert.equal(await page.locator('a[href="/api/v1/session/login"]').count(),1);
+  await page.screenshot({path:path.join(out,'account-offline-'+viewport.width+'.png')});
+  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,accountLabelLayout:true,offlineAccountStatus:true,dialogs},null,2));
   await context.close();
  }}finally{await browser.close();await new Promise(r=>server.close(r))}
  console.log('PASS: mobile and desktop real UI restore, recovery after reload, linked records and offline reload');

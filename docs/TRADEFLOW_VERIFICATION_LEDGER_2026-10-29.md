@@ -164,3 +164,28 @@ Security: no ownership/provisioning changes, live tenant writes, customer commun
 Limits: events cover the integrated GUI put and core command paths, not every legacy direct transaction, bulk import or delete. Processing runs on app activity; it is not a durable server scheduler or background worker while the browser is closed. No broad pre-authorized business modification policy was enabled. D1's entity model still covers only four record types; migration preview blocks unsupported linked records. Workstreams 4/5/8 are connected foundations, not a complete autonomous system. Workstream 7 remains blocked on a selected provider, verified credentials/consent and consequential-action approvals; no fabricated sending/payment results.
 
 Next operation: verify this source's full CI/browser/deployment results, perform live account-route/asset checks, and resume identity/provisioning and register reconciliation after the owner's pending answers. No pain points retired.
+
+## Master directive — milestone 6: release verification and mobile account correction
+
+- Prior integrated source `8d34e2c9ee8cc54cf98ebd94b12e2c20fb2fed34` passed Actions **40856634547**: Node **270/270**, SQLite revision/membership/audit checks, ten targeted regressions, browser recovery/offline queue checks and **20/20** Chromium contractor scenarios.
+- Deployed pilot Worker version **d7deb68f-6ecc-4a8c-9689-27de6d38bc8b**. Both CI and an independent CLI read verified the manifest and all **81** public asset digests against that SHA.
+- Independent live `/api/v1/me` and `/api/v1/session/login` checks returned **302** to the configured Cloudflare Access team. Fresh phone-sized live browser showed signed-out Account access and the real login link. This is not human OTP/session verification.
+- Visual review found the newly added Account label occupying the icon column. Corrected its existing row structure and added phone/desktop browser assertions for label width and offline session behavior. Also added a negative event-contract test: mismatched type/reference envelopes are quarantined without starving later valid events. Focused **19/19**, full local **271/271** pass; this correction's CI/deployment will be verified separately.
+- Live `/api/ai/health` returned AI binding present but `secretConfigured:false`. No inference or paid provider operation was invoked. Configuring a preview credential requires the owner's secure credential handling; no existing key was invented, exposed or overwritten.
+- CI reported successful evidence-artifact uploads. Downloading the GitHub artifact into this runtime was denied by the artifact-storage egress path; no claim of locally inspecting that CI artifact. Corresponding CI logs and independently generated local screenshots/results remain available.
+
+### Dependency status across the nine workstreams
+
+| Workstream | Actual state | Remaining acceptance |
+| --- | --- | --- |
+| 1 Audit/stabilization | Verified baseline and reproducible passing release gates | Ongoing audit/debt resolution; no claim of an exhaustive feature certification |
+| 2 Data | Verified local recovery; durable opt-in queue and migration preview tested | Full D1 entity mapping, explicit migration/backup approval, actual signed-in cross-device sync and off-device recovery |
+| 3 Identity | Signed assertion checks, scoped API and Account Settings connected | Human OTP sign-in, independently verified and explicitly authorized owner provisioning, real expiry/reauthentication/device checks |
+| 4 Events | Transaction-coupled local GUI/core events and bounded read-only consumer | Legacy bulk/delete paths, server durable outbox, browser-independent schedule/recovery |
+| 5 Actions | Existing approvals/idempotency plus registered read-only review reused by voice/events | Owner-defined narrow automatic modification policies, remaining GUI operations unified, provider confirmation/recovery |
+| 6 Ten workflows | Code plus 20 synthetic Chromium display/resolution/draft/economics scenarios | Remaining real GUI authorization scenarios, physical Safari, original register mapping and contractor outcomes |
+| 7 Providers | Existing disconnected states preserved; live AI credential missing | Select authorized provider, configure official OAuth/credentials, verify expiry/webhooks/reconciliation and approve consequential operations |
+| 8 Master Intelligence | Operational reviews now use shared audited action; existing commands preserved | Broader real capability coverage after permissions/data/provider gates; no unrestricted autonomous execution |
+| 9 Verification | Full suite + SQL + ten targets + browser checks + exact live digests gate preview | Real two-device, physical iPhone, provider and contractor acceptance evidence |
+
+No production deployment, destructive migration, owner/member change, customer-data upload, external communication, payment or new recurring infrastructure was performed. **0/62 pain points retired.** Pending owner answers: exact Library type/path for the original register, and the result after real sign-in. Next gated operation is identity verification and a concrete owner-provisioning proposal for explicit authorization; do not bypass it.

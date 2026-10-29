@@ -43,3 +43,11 @@ test('business review is a read-only audited action and permission is rechecked 
  assert.equal((await r.rt.execute(plan.id)).status,'denied');assert.equal((await snapshot(db)).jobs.length,0);
  assert.equal(commands.parse('review operations').commandId,'intelligence.review');
 });
+test('malformed or mismatched event contracts are quarantined without starving later valid events',async()=>{
+ const db=fixture(),r=runtime(db);await events.write(db,'customers',{id:'c1',name:'Updated'});
+ const valid=(await rows(db))[0],bad={...valid,id:'invalid-event',type:'quotation.accepted'};
+ await assert.rejects(Promise.resolve().then(()=>events.validate(bad)),/Invalid/);
+ const tx=db.transaction('commandLog','readwrite');tx.objectStore('commandLog').put(bad);await new Promise(resolve=>tx.oncomplete=resolve);
+ await events.drain({db,events:[bad,valid],commands:r.rt});const journal=await rows(db);
+ assert.equal(journal.find(e=>e.id==='invalid-event').status,'failed');assert.equal(journal.find(e=>e.id===valid.id).status,'processed');
+});
