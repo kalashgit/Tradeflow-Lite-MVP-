@@ -26,10 +26,12 @@ jobs:
         run: |
           node --check src/tenant-api.js
           node --check public/sync-queue.js
+          node --check public/cloud-retrieval.js
+          node --check tests/cloud-retrieval.test.cjs
           node --check tests/tenant-api.test.cjs
           node --check tests/sync-queue.test.cjs
       - name: Focused authorization and offline queue regression
-        run: node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs
+        run: node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs
       - name: Full Node regression
         run: npm test
       - name: Storage migration regression
