@@ -105,3 +105,51 @@ test('existing revenue button invokes approved bridge, not direct task writes',(
  assert.ok(start>=0&&end>start);
  assert.doesNotMatch(revenue.slice(start,end),/api\.put\('tasks'/);
 });
+
+test('interrupted invoice task reconciles receipt and event after reload with no second execution',async()=>{
+ const f=fixture(),db=f.db;let n=0,executions=0;
+ const make=()=>commands.createRuntime({snapshot:()=>snapshot(db),
+  context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'recovery-'+(++n),ledger:commands.createLedger(db),
+  can:p=>p==='modify:invoice.followup.schedule',
+  ports:{operation:()=>{executions++;throw Error('Must not replay after interruption')}}});
+ const original=make(),plan=await original.prepare({commandId:'invoice.followup.schedule',
+  params:{ref:{store:'invoices',id:'i1'},due:'2026-11-02'}});
+ assert.equal(plan.status,'needs_review');
+ assert.equal((await original.approve(plan.id)).status,'approved');
+ await commands.createLedger(db).transition(plan.id,['approved'],{type:'executing'},{status:'executing'});
+ const guard=commands.resolve({commandId:'invoice.followup.schedule',params:plan.params},
+  await snapshot(db),{businessId,today:'2026-10-29'}).guard;
+ const saved=await core.execute({db,kind:'invoice.followup.schedule',
+  payload:{invoiceId:'i1',due:'2026-11-02'},uid:()=> 'saved-invoice-task',
+  requestKey:'operation:'+plan.id,actor:'local-owner',businessId,approved:true,recordGuard:guard});
+ const afterReload=make(),recovered=await afterReload.reconcile(plan.id);
+ assert.equal(recovered.status,'succeeded');
+ assert.equal(recovered.result.id,saved.id);
+ assert.equal(recovered.result.reconciled,true);
+ assert.equal((await afterReload.execute(plan.id)).reused,true);
+ assert.equal(executions,0);
+ assert.equal((await snapshot(db)).tasks.length,1);
+});
+test('invoice recovery cannot report success without durable task and event evidence',async()=>{
+ const f=fixture(),db=f.db;let n=0;
+ const runtime=commands.createRuntime({snapshot:()=>snapshot(db),
+  context:()=>({actor:'local-owner',businessId,today:'2026-10-29'}),
+  uid:()=> 'missing-'+(++n),ledger:commands.createLedger(db),
+  can:p=>p==='modify:invoice.followup.schedule'});
+ const plan=await runtime.prepare({commandId:'invoice.followup.schedule',
+  params:{ref:{store:'invoices',id:'i1'},due:'2026-11-02'}});
+ await runtime.approve(plan.id);
+ await commands.createLedger(db).transition(plan.id,['approved'],{type:'executing'},{status:'executing'});
+ const before=await snapshot(db),missing=await runtime.reconcile(plan.id);
+ assert.equal(missing.status,'indeterminate');assert.equal(missing.error.code,'RECEIPT_MISSING');
+ assert.deepEqual(await snapshot(db),before);
+});
+test('partially paid invoice retains recorded balance and explicit approval guard',()=>{
+ const partial={id:'p1',invoiceId:'i1',customerId:'c1',amount:50,currency:'USD'};
+ const data={invoices:[invoice],customers:[{id:'c1',name:'Pilot customer',businessId}],payments:[partial]};
+ const found=commands.resolve({commandId:'invoice.followup.schedule',
+  params:{ref:{store:'invoices',id:'i1'},due:'2026-11-02'}},data,{businessId,today:'2026-10-29'});
+ assert.equal(found.status,'needs_review');assert.equal(found.result.recordedOutstanding,150);
+ assert.ok(found.guard.some(x=>Array.isArray(x.invoicePayments)&&x.invoicePayments[0].id==='p1'));
+});
