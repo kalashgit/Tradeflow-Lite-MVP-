@@ -20,7 +20,7 @@ export async function tenantApi(request,env,options={}){
    const items=await env.TF_DB.prepare(
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
-   return json({businesses:items.results||[]});
+   return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[]});
   }
   const preview=/^\/api\/v1\/businesses\/([^/]+)\/backup\/dry-run$/.exec(url.pathname);
   if(preview){
