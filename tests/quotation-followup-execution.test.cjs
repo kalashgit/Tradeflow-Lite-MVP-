@@ -140,3 +140,23 @@ test('owner rejection leaves quotation and customer untouched and creates no tas
  assert.equal(after.tasks.length,0);
  assert.deepEqual(after.commandLog.find(x=>x.id===p.id).events.map(x=>x.type),['prepared','rejected']);
 });
+
+test('approved scheduling reuses existing legacy automatic follow-up without duplicate records',async()=>{
+ const {db,args}=fixture();
+ await put(db,'tasks',{id:'legacy-task',title:'Follow up quote: Panel upgrade',quoteId:'q1',
+  customerId:'c1',status:'Open',followupAuto:true,due:'2026-10-31'});
+ const result=await core.execute(args);
+ assert.equal(result.id,'legacy-task');assert.equal(result.reused,true);
+ const state=await snapshot(db);
+ assert.equal(state.tasks.length,1);
+ assert.equal(state.commandLog.filter(x=>x.kind==='quotation.followup.schedule').length,1);
+ assert.equal(state.commandLog.filter(x=>x.kind==='domain.event').length,0);
+});
+test('existing quote detail action uses the same reviewed command rather than a separate route',()=>{
+ const fs=require('node:fs');
+ const app=fs.readFileSync('public/app.js','utf8');
+ assert.match(app,/data-action="tfQuoteFollowupReview"/);
+ assert.match(app,/commandId:'quotation.followup.schedule'/);
+ assert.match(app,/commands\.approve\(plan\.id\)/);
+ assert.match(app,/commands\.reject\(plan\.id\)/);
+});
