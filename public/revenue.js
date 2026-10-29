@@ -375,17 +375,15 @@ async function onClick(event){
  }
  if(a==='followup'){
   const inv=await api.get('invoices',id);
-  if(!inv||inv.status!=='Issued')throw Error('Only issued invoices can have collection follow-up tasks.');
-  const payments=await api.all('payments'),balance=totals(inv).total-collected(inv,payments);
-  if(!Number.isFinite(balance)||balance<=0.005)throw Error('No verified local outstanding balance remains.');
-  if((await api.all('tasks')).some(t=>t.invoiceId===id&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())))throw Error('An open follow-up task already exists.');
+  if(!inv||inv.status!=='Issued')throw Error('Only issued invoices can be reviewed for collection follow-up.');
   const date=new Date();date.setDate(date.getDate()+3);
   const due=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
-  if(!confirm('Create a local payment follow-up task due '+due+'? No email or payment request will be sent.'))return;
-  await api.put('tasks',{id:api.uid(),invoiceId:inv.id,customerId:inv.customerId,jobId:inv.jobId||'',title:'Review unpaid invoice: '+String(inv.reference||inv.id).slice(0,90),
-    description:'Review invoice status and any bank/provider payments before contacting the customer. Follow applicable communication preferences. No outbound message was sent.',
-    due,status:'Open',createdAt:new Date().toISOString(),source:'invoice_manual_followup'});
-  api.notify('Local invoice follow-up task created');return;
+  if(typeof api.scheduleInvoiceFollowup!=='function')throw Error('Approved invoice workflow is unavailable.');
+  const result=await api.scheduleInvoiceFollowup(inv,due);
+  if(result?.status==='succeeded')api.notify(result.result?.reused?'Existing invoice follow-up task verified':'Internal invoice follow-up task recorded. No message was sent.');
+  else if(result?.status==='indeterminate'||result?.status==='in_progress')
+   api.notify('Invoice follow-up outcome uncertain. Review the audit before retrying.');
+  return;
  }
  if(a==='record'){mode='payment';invoiceId=id;api.render();return}
  if(a==='print'){window.print?.();return}
