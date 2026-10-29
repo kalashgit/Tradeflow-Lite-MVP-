@@ -17,7 +17,7 @@ assert.ok(app.includes("fields.map(f=>csvCell(r[f]))"),'Finance CSV escapes cell
 assert.ok(css.includes('--tf-income-neon:#00ed64')&&css.includes('--tf-expense-neon:#ff334d'),'Trading-style finance indicator colors');
 assert.ok(app.includes("sum.net<0?'negative':'positive'"),'Net flow uses income green or expense red based on sign');
 assert.ok(app.includes("format=jsonv2&addressdetails=1&limit=5"),'Geocoding matches structured address evidence');
-assert.ok(app.includes("{automatic:true,all:true}"),'View Map checks full eligible queue again');
+assert.ok(app.includes("tab='map';await render();/* Map opens immediately"),'View Map does not silently send all addresses to a third party');
 assert.ok(!app.includes("r.map_location_status==='no_address')return false"),'No-address status cannot permanently block a newly repaired address');
 assert.ok(app.includes("record.map_location_status=raw?'address_review':'no_address'"),'Only missing addresses are explicitly marked no_address');
 assert.ok(app.includes("opportunityGeoCacheId='tf-opportunity-geocode-cache-v2'"),'Retain structured geocoding response cache');

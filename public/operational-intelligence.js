@@ -7,6 +7,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x)}return x};
 const list=(d,key)=>Array.isArray(d[key])?d[key]:[];
 const state=x=>String(x||'').trim().toLowerCase();
+const recordedAmount=value=>{if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;if(typeof value==='string'&&value.length<=20&&/^\d+(?:\.\d{1,2})?$/.test(value.trim())){const n=Number(value);return Number.isFinite(n)&&n>=0?n:null}return null};
 const ref=(store,id)=>({store,id});
 const key=r=>r.store+':'+r.id;
 const id=(type,refs)=>type+':'+refs.map(key).sort().map(encodeURIComponent).join('|');
@@ -60,6 +61,203 @@ const builtins=[
   });
  }}
 ];
+// Optional contractor optimization detectors. Each finding is read-only and
+// refers exclusively to locally recorded evidence, never presumed outcomes.
+const optimizationDetectors=[
+ {id:'opportunity.bid_readiness_review',evaluate(d,c){
+  const fields=['bidInvitationVerified','bidScopeReviewed','bidCapacityChecked'];
+  return list(d,'opportunities').filter(o=>state(o.bid_decision)==='pursue'&&
+   !['won','lost','closed'].includes(state(o.status))&&fields.some(key=>state(o[key])!=='yes')).map(o=>{
+   const r=ref('opportunities',o.id);
+   return {type:this.id,refs:[r],explanation:'An opportunity is marked for bidding but its recorded invitation, scope or capacity checks remain incomplete. Review before committing estimating effort.',confidence:'limited',
+    limitations:['The checks are supplied by the operator, not independently verified.','A documented opportunity may still be unsuitable or unwinnable.'],
+    priority:{tier:2,score:40},constraints:[],action:open(r),
+    evidence:{invitation:o.bidInvitationVerified||'Unknown',scope:o.bidScopeReviewed||'Unknown',capacity:o.bidCapacityChecked||'Unknown'}};
+  });
+ }},
+ {id:'opportunity.bid_deadline',evaluate(d,c){
+  const today=c.today,last=new Date(today+'T12:00:00Z');last.setUTCDate(last.getUTCDate()+7);
+  const horizon=last.toISOString().slice(0,10);
+  return list(d,'opportunities').filter(o=>
+   !['won','lost','declined','closed'].includes(state(o.status))&&
+   c.commands.isDate(o.bid_deadline)&&o.bid_deadline>=today&&o.bid_deadline<=horizon&&
+   typeof o.bid_deadline_evidence==='string'&&o.bid_deadline_evidence.trim().length>=12
+  ).map(o=>{
+    const r=ref('opportunities',o.id);
+    return {type:this.id,refs:[r],explanation:'A verified bid submission deadline is approaching. Review the original invitation before submitting.',confidence:'limited',
+      limitations:['The stored deadline is owner-verified, not independently checked against external tender systems.','In-app notifications are not background push alerts.'],
+      priority:{tier:o.bid_deadline===today?0:1,score:Math.max(0,100-days(o.bid_deadline,today))},constraints:[],action:open(r),
+      evidence:{bidDeadline:o.bid_deadline,deadlineSource:o.bid_deadline_evidence.trim().slice(0,600)}};
+  });
+ }},
+
+ {id:'job.unapproved_change_review',evaluate(d,c){
+  return list(d,'jobs').filter(j=>Array.isArray(j.changeOrders)&&j.changeOrders.some(x=>x&&x.status==='proposed')).map(j=>{
+   const r=ref('jobs',j.id);
+   const pending=j.changeOrders.filter(x=>x&&x.status==='proposed');
+   return {type:this.id,refs:[r],explanation:'This job has proposed extra work without recorded customer approval. Review the change before treating the work as authorized or billable.',confidence:'record_based',
+    limitations:['Approval may exist outside TradeFlow; this detector only checks saved change-order records.','Proposed amounts are not invoices or contract values.'],
+    priority:{tier:1,score:35+Math.min(20,pending.length*3)},constraints:[],action:open(r),
+    evidence:{proposedCount:pending.length}};
+  });
+ }},
+ {id:'job.material_readiness_review',evaluate(d,c){
+  const due=new Date(c.today+'T12:00:00Z');due.setUTCDate(due.getUTCDate()+7);
+  const horizon=due.toISOString().slice(0,10);
+  return list(d,'jobs').filter(j=>!['completed','cancelled','canceled'].includes(state(j.status))&&
+    c.commands.isDate(j.date)&&j.date>=c.today&&j.date<=horizon&&state(j.materialsStatus)==='not ready').map(j=>{
+   const r=ref('jobs',j.id);
+   return {type:this.id,refs:[r],explanation:'Upcoming job is marked "Not Ready" for materials. Review missing supplies before dispatch.',confidence:'record_based',
+    limitations:['Material readiness is entered manually and does not verify supplier inventory.'],priority:{tier:j.date===c.today?0:1,score:45},
+    constraints:[],action:open(r),evidence:{scheduledDate:j.date,materialsStatus:j.materialsStatus,notes:String(j.materialsNotes||'').slice(0,180)}};
+  });
+ }},
+ {id:'job.closeout_evidence_review',evaluate(d,c){
+  return list(d,'jobs').filter(j=>state(j.status)==='completed'&&
+    !(state(j.closeoutStatus)==='complete'&&String(j.closeoutEvidence||'').trim().length>=12)&&
+    !(state(j.closeoutStatus)==='waived'&&String(j.closeoutEvidence||'').trim().length>=12)).map(j=>{
+   const r=ref('jobs',j.id);
+   return {type:this.id,refs:[r],explanation:'Completed job does not have documented closeout completion or a recorded waiver. Verify customer handoff and required evidence.',confidence:'limited',
+    limitations:['Actual closeout requirements vary by job and contract; external records are not synchronized.'],priority:{tier:2,score:28},
+    constraints:[],action:open(r),evidence:{jobStatus:j.status,closeoutStatus:j.closeoutStatus||'unknown'}};
+  });
+ }},
+ {id:'job.crew_credential_review',evaluate(d,c){
+  const crew=new Map(list(d,'crew').filter(x=>x.id).map(x=>[x.id,x]));
+  const due=new Date(c.today+'T12:00:00Z');due.setUTCDate(due.getUTCDate()+30);
+  const horizon=due.toISOString().slice(0,10);
+  return list(d,'jobs').filter(j=>j.crewId&&crew.has(j.crewId)&&!['completed','cancelled','canceled'].includes(state(j.status))&&
+    c.commands.isDate(j.date)&&j.date>=c.today&&j.date<=horizon&&
+    c.commands.isDate(crew.get(j.crewId).credentialExpires)&&
+    crew.get(j.crewId).credentialExpires<=j.date).map(j=>{
+   const member=crew.get(j.crewId),r=ref('jobs',j.id);
+   return {type:this.id,refs:[r],explanation:'A scheduled job is assigned to a crew member whose recorded credential expires on or before the job date. Verify license requirements and current status.',confidence:'limited',
+    limitations:['A stored expiration is not proof of license invalidity or worker eligibility. Verify with the issuing authority.'],priority:{tier:1,score:55},
+    constraints:[],action:open(r),evidence:{scheduledDate:j.date,credentialExpires:member.credentialExpires,crewId:j.crewId}};
+  });
+ }},
+ {id:'supplier.quote_expiration_review',evaluate(d,c){
+  const suppliers=new Map(list(d,'suppliers').map(x=>[x.id,x]));
+  const horizonDate=new Date(c.today+'T12:00:00Z');horizonDate.setUTCDate(horizonDate.getUTCDate()+7);
+  const horizon=horizonDate.toISOString().slice(0,10),grouped=new Map();
+  for(const po of list(d,'supplyOrders')){
+   if(!po.supplierId||!suppliers.has(po.supplierId)||state(po.documentStatus)==='issued'||state(po.status)==='cancelled')continue;
+   if(!c.commands.isDate(po.supplierQuoteExpires)||po.supplierQuoteExpires>horizon||
+      String(po.supplierQuoteEvidence||'').trim().length<12)continue;
+   const arr=grouped.get(po.supplierId)||[];arr.push(po);grouped.set(po.supplierId,arr);
+  }
+  return [...grouped.entries()].map(([supplierId,orders])=>{
+   orders.sort((a,b)=>a.supplierQuoteExpires.localeCompare(b.supplierQuoteExpires));
+   const r=ref('suppliers',supplierId),soonest=orders[0].supplierQuoteExpires;
+   return {type:this.id,refs:[r],explanation:orders.length+' supplier price quote(s) on unissued purchase order drafts have expired or expire within seven days. Confirm pricing with the supplier before committing.',confidence:'limited',
+    limitations:['These dates and quote references are manually entered, not independently verified against supplier systems.','Issued purchase orders are excluded; this does not update actual supplier prices.'],
+    priority:{tier:soonest<=c.today?0:1,score:70},constraints:[],action:open(r),
+    evidence:{supplierId,soonestExpiry:soonest,orderIds:orders.slice(0,30).map(x=>x.id),count:orders.length}};
+  });
+ }},
+ {id:'job.labor_hours_variance_review',evaluate(d,c){
+  const costs=list(d,'jobCosts');
+  return list(d,'jobs').flatMap(j=>{
+   const relevant=costs.filter(x=>x.jobId===j.id&&x.category==='Labor'&&['estimate','actual'].includes(x.type)&&x.laborHours!=null);
+   if(relevant.some(x=>!Number.isFinite(x.laborHours)||x.laborHours<=0))return [];
+   const estimated=relevant.filter(x=>x.type==='estimate').reduce((n,x)=>n+x.laborHours,0);
+   const actual=relevant.filter(x=>x.type==='actual').reduce((n,x)=>n+x.laborHours,0);
+   if(!estimated||actual<=estimated)return [];
+   const r=ref('jobs',j.id);
+   return [{type:this.id,refs:[r],explanation:'Manually recorded labor hours exceed the planned hours for this job. Review scope, assignments and time-entry completeness.',confidence:'limited',
+    limitations:['Hours are manual entries, not verified time clock data.','Overrun does not alone prove avoidable overtime or reduced profitability.'],
+    priority:{tier:2,score:Math.min(80,20+Math.round((actual-estimated)/estimated*40))},constraints:[],action:open(r),
+    evidence:{estimatedLaborHours:estimated,recordedLaborHours:actual}}];
+  });
+ }},
+ {id:'job.budget_overrun_review',evaluate(d,c){
+  const costs=list(d,'jobCosts'),expenses=list(d,'expenses');
+  return list(d,'jobs').filter(j=>!['cancelled','canceled'].includes(state(j.status))).flatMap(j=>{
+   const linked=costs.filter(x=>x.jobId===j.id);
+   const estimated=linked.filter(x=>x.type==='estimate');
+   const recorded=linked.filter(x=>x.type==='actual');
+   const related=expenses.filter(x=>x.jobId===j.id||x.relatedId===j.id);
+   const validAmount=x=>recordedAmount(x.amount)!==null;
+   if(!estimated.length||[...estimated,...recorded,...related].some(x=>!validAmount(x)))return [];
+   const budget=estimated.reduce((n,x)=>n+recordedAmount(x.amount),0);
+   const spent=[...recorded,...related].reduce((n,x)=>n+recordedAmount(x.amount),0);
+   if(budget<=0||spent<=budget+0.005)return [];
+   const r=ref('jobs',j.id);
+   return [{type:this.id,refs:[r],explanation:'Recorded job costs exceed the locally entered budget. Review the cost breakdown and any duplicated expenses.',confidence:'limited',
+    limitations:['Labor, overhead, supplier invoices and commitments may be incomplete.','Expenses and manually recorded job costs could overlap and must be reconciled.'],
+    priority:{tier:1,score:Math.min(100,30+Math.round((spent-budget)/budget*40))},constraints:[],action:open(r),
+    evidence:{budget:Math.round(budget*100)/100,recordedCosts:Math.round(spent*100)/100,currency:'USD'} }];
+  });
+ }},
+ {id:'invoice.payment_integrity_review',evaluate(d,c){
+  const payments=list(d,'payments');
+  return list(d,'invoices').filter(i=>state(i.status)==='issued'&&Array.isArray(i.lines)&&i.lines.length).flatMap(i=>{
+   const own=payments.filter(p=>p.invoiceId===i.id);
+   if(!own.length)return [];
+   const validNumber=n=>recordedAmount(n)!==null;
+   const invalidLines=i.lines.some(l=>!validNumber(l.qty)||!validNumber(l.unitPrice));
+   const invalid=invalidLines||!validNumber(Number(i.taxRate||0))||
+     own.some(p=>!validNumber(p.amount)||(p.customerId&&p.customerId!==i.customerId)||(p.currency&&p.currency!==(i.currency||'USD')));
+   let total=null,recorded=null;
+   if(!invalid){
+    const subtotal=i.lines.reduce((n,l)=>n+Math.round(recordedAmount(l.qty)*recordedAmount(l.unitPrice)*100),0);
+    total=(subtotal+Math.round(subtotal*Number(i.taxRate||0)/100))/100;
+    recorded=own.reduce((n,p)=>n+recordedAmount(p.amount),0);
+   }
+   if(!invalid&&recorded<=total+0.005)return [];
+   const r=ref('invoices',i.id);
+   return [{type:this.id,refs:[r],explanation:invalid?'Invoice payment records have inconsistent amounts, customer links or currency and require reconciliation.':'Manually recorded payments exceed the calculated invoice total. Verify duplicate receipts and transaction history.',confidence:'limited',
+    limitations:['Only locally entered payments are available; external bank or payment-provider settlements are not verified.'],
+    priority:{tier:1,score:65},constraints:[],action:open(r),evidence:{invoiceTotal:total,recordedPayments:recorded,currency:i.currency||'USD',paymentCount:own.length}}];
+  });
+ }},
+ {id:'job.billing_review',evaluate(d,c){
+  const issued=list(d,'invoices').filter(i=>state(i.status)!=='void');
+  return list(d,'jobs').filter(j=>state(j.status)==='completed'&&j.billingReviewWaived!==true&&
+   !issued.some(i=>i.jobId===j.id)).map(j=>{
+    const r=ref('jobs',j.id);
+    return {type:this.id,refs:[r],explanation:'Completed job has no locally recorded invoice linked to it. Review whether billing is required.',confidence:'limited',
+     limitations:['An invoice may exist in an external accounting system or billing may not apply.','This is a billing review, not evidence that revenue was lost.'],
+     priority:{tier:1,score:25},constraints:[],action:open(r),evidence:{status:j.status,linkedInvoiceCount:0}};
+  });
+ }},
+ {id:'customer.reactivation_review',evaluate(d,c){
+  const customers=list(d,'customers'),jobs=list(d,'jobs'),quotes=list(d,'quotes'),contacts=list(d,'events');
+  const cutoff=new Date(c.today+'T12:00:00Z');cutoff.setUTCDate(cutoff.getUTCDate()-90);
+  const threshold=cutoff.toISOString().slice(0,10);
+  return customers.filter(customer=>{
+   if(!customer.id||(!customer.phone&&!customer.email))return false;
+   const own=jobs.filter(job=>job.customerId===customer.id);
+   if(!own.some(job=>state(job.status)==='completed'&&c.commands.isDate(job.date)))return false;
+   if(own.some(job=>!['completed','cancelled','canceled'].includes(state(job.status))))return false;
+   if(quotes.some(q=>q.customerId===customer.id&&['sent','accepted'].includes(state(q.status))))return false;
+   const dates=[
+    ...own.map(j=>j.date),...quotes.filter(q=>q.customerId===customer.id).map(q=>q.sentDate),
+    ...contacts.filter(e=>e.kind==='customer_contact'&&e.customerId===customer.id).map(e=>String(e.date||'').slice(0,10))
+   ].filter(c.commands.isDate).sort();
+   return dates.length>0&&dates.at(-1)<threshold;
+  }).map(customer=>{
+   const r=ref('customers',customer.id);
+   return {type:this.id,refs:[r],explanation:'Former customer has a completed job but no activity recorded in the local history during the last 90 days. Review whether a relationship check-in is appropriate.',confidence:'limited',
+     limitations:['Email, calls and work in external systems may not be recorded.','Contact permission and marketing preferences must be checked before outreach.'],
+     priority:{tier:2,score:12},constraints:[],action:open(r),evidence:{inactivityReviewDays:90}};
+  });
+ }},
+ {id:'job.crew_assignment_review',evaluate(d,c){
+  const crew=list(d,'crew'),jobs=list(d,'jobs');
+  if(!crew.length)return [];
+  const ids=new Set(crew.map(x=>x.id));
+  const end=new Date(c.today+'T12:00:00Z');end.setUTCDate(end.getUTCDate()+7);
+  const last=end.toISOString().slice(0,10);
+  return jobs.filter(j=>!['completed','cancelled','canceled'].includes(state(j.status))&&
+   c.commands.isDate(j.date)&&j.date>=c.today&&j.date<=last&&(!j.crewId||!ids.has(j.crewId))).map(j=>{
+    const r=ref('jobs',j.id);
+    return {type:this.id,refs:[r],explanation:'Scheduled job has no valid crew assignment in the local Dispatch roster.',confidence:'record_based',
+      limitations:['Crew assignments in an external scheduling system are not visible.','An unassigned job may be intentionally unallocated.'],
+      priority:{tier:1,score:30},constraints:[],action:open(r),evidence:{scheduledDate:j.date,crewId:j.crewId||null}};
+  });
+ }}
+];
 function createEngine({commands,calendar,revenue,detectors=builtins}={}){
  if(!commands?.validateReferences||!commands?.staleQuote)throw Error('The shared command validation adapter is required');
  const modules=detectors.slice();if(new Set(modules.map(x=>x.id)).size!==modules.length||modules.some(x=>!x.id||typeof x.evaluate!=='function'))throw Error('Detectors need unique identifiers and an evaluate function');
@@ -97,5 +295,5 @@ function createEngine({commands,calendar,revenue,detectors=builtins}={}){
  }
  return Object.freeze({evaluate,detectorIds:Object.freeze(modules.map(x=>x.id))});
 }
-return Object.freeze({version:1,createEngine,builtinDetectors:Object.freeze(builtins.map(x=>Object.freeze(x)))});
+return Object.freeze({version:1,createEngine,builtinDetectors:Object.freeze(builtins.map(x=>Object.freeze(x))),optimizationDetectors:Object.freeze(optimizationDetectors.map(x=>Object.freeze(x)))});
 });

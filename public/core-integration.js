@@ -3,10 +3,10 @@
  * No AI, network, provider secrets, verified routing claims, or automatic data migrations.
  */
 (function(root,factory){
- const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter);
+ const api=factory(typeof module==='object'&&module.exports?require('./record-interpreter.js'):root?.TradeFlowRecordInterpreter,typeof module==='object'&&module.exports?require('./business-events.js'):root?.TradeFlowBusinessEvents);
  if(typeof module==='object'&&module.exports)module.exports=api;
  if(root)root.TradeFlowCore=api;
-})(typeof globalThis==='object'?globalThis:null,function(records){
+})(typeof globalThis==='object'?globalThis:null,function(records,domainEvents){
  'use strict';
  const nonempty=v=>String(v==null?'':v).trim();
  const brief=(v,max=240)=>nonempty(v).slice(0,max);
@@ -125,9 +125,14 @@
    const total=Math.round((subtotal+tax+shippingAmount)*100)/100;
    const poNumber=existing?.poNumber||'PO-'+String(when).slice(0,4)+'-'+String(existing?.id||id).replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase();
    const paymentTerms=brief(body.paymentTerms,350);
+   const supplierQuoteExpires=brief(body.supplierQuoteExpires,10);
+   const supplierQuoteEvidence=brief(body.supplierQuoteEvidence,400);
+   if(supplierQuoteExpires&&(!validDate(supplierQuoteExpires)||supplierQuoteEvidence.length<12))
+    throw Error('Supplier price expiration needs a valid date and verifiable quote reference.');
+   if(!supplierQuoteExpires&&supplierQuoteEvidence)throw Error('Add the supplier price expiry date or clear its evidence reference.');
    return {resultId:existing?.id||id,writes:[{store:'supplyOrders',record:{...existing,id:existing?.id||id,supplierId,
     poNumber,documentStatus:'Draft',pricingConfirmed:!!providedLines,createdAt:existing?.createdAt||when,
-    lineItems,currency,taxRate,shipping:shippingAmount,subtotal,tax,total,paymentTerms,
+    lineItems,currency,taxRate,shipping:shippingAmount,subtotal,tax,total,paymentTerms,supplierQuoteExpires,supplierQuoteEvidence,
     opportunityId,description:lineItems.map(x=>x.description).join(', ').slice(0,240),status,destinationKind,destinationId,destinationAddress,
     latitude:point?.lat??null,longitude:point?.lon??null,plannedDate,
     mapLocationStatus:point?'needs_review':destinationKind==='custom'?'unmapped':'linked_destination',notes:brief(body.notes,900),updatedAt:when}}]};
@@ -138,6 +143,8 @@
    if(order.documentStatus==='Issued')return {resultId:order.id,writes:[],reused:true};
    if(!get('suppliers',order.supplierId))throw Error('Supplier no longer exists');
    if(!order.pricingConfirmed||!Array.isArray(order.lineItems)||!order.lineItems.length)throw Error('Add and verify item prices before issuing the purchase order');
+   if(order.supplierQuoteExpires&&(!validDate(order.supplierQuoteExpires)||order.supplierQuoteExpires<String(when).slice(0,10)))
+    throw Error('Supplier price quote has expired. Verify new pricing and update the quote expiry reference before issuing.');
    const business=(data.settings||[]).find(x=>x.id==='business')||{};
    if(!brief(business.company,150)||!brief(business.businessAddress,300))
     throw Error('Complete the business name and address in Settings before issuing');
@@ -201,7 +208,7 @@
       if(expected.linkedJobs&&stable(data.jobs.filter(x=>x.quoteId===payload.quoteId))!==stable(expected.linkedJobs))throw Error('Quotation job links changed before commit; review the existing job');
      }
      const when=new Date().toISOString(),plan=prepare('quotation.convert',payload,data,uid,when);
-     for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+     for(const write of plan.writes){tx.objectStore(write.store).put(write.record);domainEvents?.recordCommitted(tx,write.store,write.record,key,{actor,businessId:args.businessId||'local-business'},undefined,args.kind==='customer.create'||write.store==='jobs'&&args.kind==='quotation.convert')}
      tx.objectStore('commandLog').put({id:key,kind:'quotation.convert',requestPayload:stable(payload),resultId:plan.resultId,recordIds:plan.writes.map(x=>x.record.id),actor:brief(actor,40),createdAt:when,reused:!!plan.reused});
      outcome={id:plan.resultId,reused:!!plan.reused,commandKey:key};
     }catch(err){abort(err)}
@@ -243,7 +250,7 @@
       if(payload.sourceHash&&!sourceValid)throw Error('Re-enter the original wording to retain it, or turn retention off');
       const plan=prepare(kind,payload,data,uid,when,{businessId});customerId=plan.resultId;
       if(data.customers.some(x=>x.id===customerId))throw Error('Customer identifier already exists');
-      for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+      for(const write of plan.writes){tx.objectStore(write.store).put(write.record);domainEvents?.recordCommitted(tx,write.store,write.record,key,{actor,businessId:args.businessId||'local-business'},undefined,args.kind==='customer.create'||write.store==='jobs'&&args.kind==='quotation.convert')}
       if(payload.sourceHash){
        const sourceId='customer-source:'+customerId;if(data.settings.some(x=>x.id===sourceId))throw Error('Original wording storage already exists');
        tx.objectStore('settings').put({id:sourceId,customerId,text:sourceText,sourceHash:payload.sourceHash,createdAt:when});sourceSaved=true;
@@ -280,7 +287,7 @@
      return;
     }
     const time=new Date().toISOString();
-    for(const write of plan.writes)tx.objectStore(write.store).put(write.record);
+    for(const write of plan.writes){tx.objectStore(write.store).put(write.record);domainEvents?.recordCommitted(tx,write.store,write.record,key,{actor,businessId:args.businessId||'local-business'},undefined,args.kind==='customer.create'||write.store==='jobs'&&args.kind==='quotation.convert')}
     tx.objectStore('commandLog').put({id:key,kind,resultId:plan.resultId,recordIds:plan.writes.map(x=>x.record.id),
       actor:brief(actor,40),createdAt:time,reused:!!plan.reused});
     outcome={id:plan.resultId,reused:!!plan.reused,commandKey:key};

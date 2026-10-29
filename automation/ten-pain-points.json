@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "description": "Ten candidate contractor pain-point scenarios; automated regressions are not contractor acceptance.",
+  "targets": [
+    {
+      "id": "TF-P01",
+      "name": "Stale quotations not followed up",
+      "test": "tests/operational-intelligence.test.cjs",
+      "pattern": "completion, future dates, invalid dates and confirmed handoffs",
+      "feature": "Existing operational intelligence / notifications",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P02",
+      "name": "Overdue invoice balances overlooked",
+      "test": "tests/operational-intelligence.test.cjs",
+      "pattern": "overdue invoices include partial payments",
+      "feature": "Existing revenue / notifications",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P03",
+      "name": "Scheduling conflicts missed",
+      "test": "tests/operational-intelligence.test.cjs",
+      "pattern": "calendar conflicts preserve resources",
+      "feature": "Existing calendar / dispatch",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P04",
+      "name": "Unapproved job changes forgotten",
+      "test": "tests/change-order-intelligence.test.cjs",
+      "pattern": "proposed work prompts review",
+      "feature": "Existing job dossier / notifications",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P05",
+      "name": "Job spending exceeds budget unnoticed",
+      "test": "tests/optimization-financial-integrity.test.cjs",
+      "pattern": "budget overrun uses recorded costs",
+      "feature": "Existing job costing / notifications",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P06",
+      "name": "Labor-hour variance goes unnoticed",
+      "test": "tests/optimization-labor-hours.test.cjs",
+      "pattern": "labor-hour variance is based",
+      "feature": "Existing job costing / notifications",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P07",
+      "name": "Invoice payment discrepancies overlooked",
+      "test": "tests/optimization-financial-integrity.test.cjs",
+      "pattern": "payment overrecording is flagged",
+      "feature": "Existing invoice / notifications",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P08",
+      "name": "Bid pursued without readiness checks",
+      "test": "tests/optimization-bid-readiness.test.cjs",
+      "pattern": "pursued bids require explicit",
+      "feature": "Existing opportunity dossier",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P09",
+      "name": "Re-entering estimates without safe quote reuse",
+      "test": "tests/optimization-quote-reuse.test.cjs",
+      "pattern": "copying an accepted quotation",
+      "feature": "Existing quote dossier",
+      "originalRegisterRef": null
+    },
+    {
+      "id": "TF-P10",
+      "name": "Customer account economics unclear",
+      "test": "tests/optimization-account-economics.test.cjs",
+      "pattern": "customer account economics sums local receipts",
+      "feature": "Existing customer dossier",
+      "originalRegisterRef": null
+    }
+  ],
+  "researchRegister": {
+    "locationReportedByOwner": "Library / TradeFlow",
+    "accessStatus": "Library type/path clarification pending",
+    "originalEntryCount": 62,
+    "mappingStatus": "unreconciled"
+  }
+}

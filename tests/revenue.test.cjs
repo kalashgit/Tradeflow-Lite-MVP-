@@ -52,7 +52,8 @@ const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:ext
  assert.ok(profit.includes('Actual cost'));
  assert.ok(profit.includes('not final profit'));
  assert.ok(app.includes("'invoices','jobCosts'")&&app.includes('indexedDB.open(DB,9)'));
- assert.ok(app.includes('version:9,exportedAt')&&app.includes("data.version<6"));
+ assert.ok(app.includes('TradeFlowLocalRecovery.createBackup'));
+ assert.ok(fs.readFileSync('public/local-recovery.js','utf8').includes('version:9,exportedAt'));
  assert.ok(html.includes('./revenue.js')&&html.includes('./revenue.css')&&sw.includes('./revenue.js'));
  console.log('PASS: Revenue R03 invoice save, issue, manual payment, job costs, currency disclosure, backup compatibility');
 })().catch(e=>{console.error(e);process.exitCode=1});

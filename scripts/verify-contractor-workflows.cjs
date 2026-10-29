@@ -1,0 +1,56 @@
+// Synthetic Chromium product scenarios, not contractor acceptance or provider outcomes.
+const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict'),cp=require('node:child_process');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const out=process.env.OUTPUT_DIR||'/tmp/tradeflow-contractor-scenarios';fs.mkdirSync(out,{recursive:true});
+const root=path.resolve('public'),types={'.js':'application/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'};
+const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http://local').pathname,p=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!p.startsWith(root+'/')){res.writeHead(403);res.end();return}fs.readFile(p,(e,b)=>{if(e){res.writeHead(404);res.end();return}res.setHeader('Content-Type',types[path.extname(p)]||'application/octet-stream');res.end(b)})});
+const customer={id:'c1',name:'Scenario customer',phone:'+15125550198'},job={id:'j1',title:'Scenario job',customerId:'c1',status:'In Progress'},invoice={id:'i1',customerId:'c1',status:'Issued',dueDate:'2026-10-01',currency:'USD',lines:[{qty:1,unitPrice:100}],taxRate:0};
+const cases=[
+ {id:'TF-P01',title:'Quotation follow-up review',data:{quotes:[{id:'q1',title:'Scenario quote',customerId:'c1',status:'Sent',sentDate:'2026-09-01'}]},resolved:{quotes:[{id:'q1',title:'Scenario quote',customerId:'c1',status:'Declined'}]}},
+ {id:'TF-P02',title:'Overdue invoice',data:{invoices:[invoice],payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:30}]},resolved:{payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:100}]}},
+ {id:'TF-P03',title:'Scheduling conflict',data:{jobs:[{...job,date:'2026-10-29',scheduleTime:'09:00',durationMinutes:60,assignedTo:'owner'},{...job,id:'j2',date:'2026-10-29',scheduleTime:'09:30',durationMinutes:60,assignedTo:'owner'}]},resolved:{jobs:[{...job,date:'2026-10-29',scheduleTime:'09:00',durationMinutes:60,assignedTo:'owner'},{...job,id:'j2',status:'Cancelled',date:'2026-10-29',scheduleTime:'09:30',durationMinutes:60,assignedTo:'owner'}]}},
+ {id:'TF-P04',title:'Proposed extra work needs approval',data:{jobs:[{...job,changeOrders:[{id:'co1',description:'Synthetic additional work',amount:200,status:'proposed'}]}]},resolved:{jobs:[{...job,changeOrders:[{id:'co1',description:'Synthetic additional work',amount:200,status:'approved_recorded',approvalEvidence:'Synthetic fixture only, no real customer approval'}]}]}},
+ {id:'TF-P05',title:'Job spending exceeds recorded budget',data:{jobs:[job],jobCosts:[{id:'e1',jobId:'j1',type:'estimate',amount:1000},{id:'a1',jobId:'j1',type:'actual',amount:1200}]},resolved:{jobCosts:[{id:'e1',jobId:'j1',type:'estimate',amount:1000},{id:'a1',jobId:'j1',type:'actual',amount:900}]}},
+ {id:'TF-P06',title:'Recorded labor exceeds planned hours',data:{jobs:[job],jobCosts:[{id:'e1',jobId:'j1',category:'Labor',type:'estimate',laborHours:20,amount:800},{id:'a1',jobId:'j1',category:'Labor',type:'actual',laborHours:25,amount:1000}]},resolved:{jobCosts:[{id:'e1',jobId:'j1',category:'Labor',type:'estimate',laborHours:20,amount:800},{id:'a1',jobId:'j1',category:'Labor',type:'actual',laborHours:19,amount:760}]}},
+ {id:'TF-P07',title:'Invoice payments need reconciliation',data:{invoices:[invoice],payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:150}]},resolved:{payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:100}]}},
+ {id:'TF-P08',title:'Bid readiness needs review',data:{opportunities:[{id:'o1',project_name:'Scenario bid',status:'Interested',bid_decision:'Pursue',bidInvitationVerified:'Unknown',bidScopeReviewed:'Yes',bidCapacityChecked:'No'}]},resolved:{opportunities:[{id:'o1',project_name:'Scenario bid',status:'Interested',bid_decision:'Pursue',bidInvitationVerified:'Yes',bidScopeReviewed:'Yes',bidCapacityChecked:'Yes'}]}},
+ {id:'TF-P09',data:{quotes:[{id:'q1',title:'Scenario source quote',category:'Electrical',customerId:'c1',status:'Accepted',amount:'1250',sentDate:'2026-09-01',signature:'NEVER COPY',approvedBy:'NEVER COPY'}]}},
+ {id:'TF-P10',data:{jobs:[job],invoices:[{...invoice,lines:[{qty:1,unitPrice:1000}]}],payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:750}],jobCosts:[{id:'k1',jobId:'j1',type:'actual',amount:250}],expenses:[{id:'e1',jobId:'j1',amount:150}]}}
+];
+async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
+ const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),stores=clear?[...db.objectStoreNames]:Object.keys(data),tx=db.transaction(stores,'readwrite');
+ for(const store of stores){tx.objectStore(store).clear();for(const row of data[store]||[])tx.objectStore(store).put(row)}await new Promise(r=>tx.oncomplete=r);db.close();
+},{data,clear})}
+(async()=>{
+ await new Promise(r=>server.listen(4193,'127.0.0.1',r));const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
+ try{for(const viewport of [{width:390,height:844},{width:1280,height:900}])for(const item of cases){
+  const context=await browser.newContext({viewport,timezoneId:'America/Chicago'}),page=await context.newPage();page.setDefaultTimeout(10000);await page.clock.setFixedTime(new Date('2026-10-29T15:00:00Z'));
+  const result={id:item.id,viewport,source:'isolated synthetic browser fixture',outcomeVerified:false};
+  try{
+   await page.goto('http://127.0.0.1:4193');await page.waitForFunction(()=>!!window.TradeFlowPilot);
+   await seed(page,{customers:[customer],settings:[{id:'business',company:'Contractor scenario',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true}],...item.data},true);
+   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+   if(item.title){
+    await page.locator('[data-notif-action="toggle"]').click();const notification=page.locator('.tf-notif-item').filter({hasText:item.title});await notification.waitFor();result.notificationShown=true;
+    await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'.png')});await notification.click();result.navigationClicked=true;
+    // Controlled record corrections validate resolution detection; not a claim of field authorization.
+    await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);await page.locator('[data-notif-action="toggle"]').click();assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);result.notificationCleared=true;
+   }else{
+    await page.evaluate(async type=>{const c=window.TradeFlowPilot.commands,p=await c.prepare({commandId:'record.open',params:{ref:{store:type,id:type==='quotes'?'q1':'c1'}}});const r=await c.execute(p.id);if(r.status!=='succeeded')throw Error('Record navigation failed')},item.id==='TF-P09'?'quotes':'customers');
+    if(item.id==='TF-P09'){
+     await page.locator('[data-action="tfQuoteReuse"]').click();const form=page.locator('#recordForm');await form.waitFor();assert.equal(await form.locator('[name="customerId"]').inputValue(),'');assert.equal(await form.locator('[name="status"]').inputValue(),'Draft');
+     await form.locator('[name="customerId"]').selectOption('c1');await form.locator('[type="submit"]').click();await page.getByText('Record saved',{exact:true}).waitFor();
+     const check=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes','commandLog']);db.close();return rows});
+     assert.equal(check.quotes.length,2);const draft=check.quotes.find(q=>q.id!=='q1');assert.equal(draft.status,'Draft');assert.equal(draft.sentDate,'');assert.equal(draft.signature,undefined);assert.equal(draft.approvedBy,undefined);
+     assert.ok(check.commandLog.some(r=>r.kind==='domain.event'&&r.ref.id===draft.id&&r.status==='processed'));result.safeDraftPersisted=true;result.transactionalReviewProcessed=true;
+    }else{
+     const box=page.locator('.tf-record-dossier-box').filter({hasText:'Recorded customer economics'});await box.waitFor();const text=await box.innerText();for(const value of ['$750.00','$400.00','$350.00','not verified bank receipts'])assert.ok(text.includes(value));result.recordedEconomicsRendered=true;
+    }
+    await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'.png')});
+   }
+   result.status='pass';
+  }catch(error){result.status='fail';result.error=error.message;await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'-failure.png')}).catch(()=>{})}
+  finally{results.push(result);await context.close();fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({commit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),kind:'synthetic-browser-product-check',dirty:!!cp.execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim(),results,painPointsRetired:0},null,2))}
+ }}finally{await browser.close();await new Promise(r=>server.close(r))}
+ const failed=results.filter(r=>r.status==='fail');for(const row of failed)console.error(row.id+' '+row.viewport.width+': '+row.error);console.log(results.length-failed.length+'/'+results.length+' Chromium workflow scenarios passed; contractor outcomes unverified.');if(failed.length)process.exitCode=1;
+})().catch(e=>{console.error(e);server.close();process.exitCode=1});

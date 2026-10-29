@@ -21,6 +21,7 @@ const workspaces=[...new Set(Object.values(workspaceAliases))];
 const storeAliases={customer:'customers',customers:'customers',quote:'quotes',quotes:'quotes',quotation:'quotes',quotations:'quotes',job:'jobs',jobs:'jobs',task:'tasks',tasks:'tasks',invoice:'invoices',invoices:'invoices',supplier:'suppliers',suppliers:'suppliers',opportunity:'opportunities',opportunities:'opportunities',event:'calendarEntries',events:'calendarEntries'};
 const filters={tasks:['all','overdue','open','done'],quotes:['all','open','accepted','stale'],invoices:['all','overdue','unpaid','draft'],calendar:['conflicts','proposals']};
 const definitions=freeze([
+ {id:'intelligence.review',intent:'Review actual authorized business records',aliases:['review business','review operations'],required:[],parameters:[],effect:'read',permission:'read',approval:'none'},
  {id:'workspace.open',intent:'Open an existing workspace',aliases:['open','go to','show'],required:['workspace'],parameters:['workspace'],effect:'navigation',permission:'navigate',approval:'none'},
  {id:'record.find',intent:'Find existing local records',aliases:['find','search','look for'],required:['query'],parameters:['query','store'],effect:'read',permission:'read',approval:'none'},
  {id:'record.open',intent:'Open one unambiguous existing record',aliases:['open record'],required:['ref or query or context.record'],parameters:['ref','query','store'],effect:'navigation',permission:'read',approval:'none'},
@@ -41,6 +42,7 @@ function parse(input){
  }
  const value=text(input);if(!value||value.length>500)return problem('INVALID_TEXT','Enter a command of 1–500 characters.');
  let m;
+ if(/^(?:review business|review operations)$/i.test(value))return {status:'parsed',commandId:'intelligence.review',params:{}};
  if(/^(?:draft|prepare)$/i.test(value))return {status:'ambiguous',choices:['draft task','draft quote'],error:{code:'AMBIGUOUS_INTENT',message:'Choose which draft to prepare.'}};
  if((m=value.match(/^(?:show|view) (overdue|open|done|accepted|stale|unpaid|draft|all) (tasks?|quotes?|quotations?|invoices?)$/i)))return {status:'parsed',commandId:'view.filter',params:{workspace:storeAliases[normalize(m[2])],filter:normalize(m[1])}};
  if((m=value.match(/^(?:show|view) (?:calendar )?(conflicts|proposals)$/i)))return {status:'parsed',commandId:'view.filter',params:{workspace:'calendar',filter:normalize(m[1])}};
@@ -247,7 +249,8 @@ function createRuntime(options){
   if(!claim.claimed)return claim.row.status==='succeeded'?{...clone(claim.row.outcome),reused:true}:claim.row.status==='executing'?{id,status:'in_progress',reused:true}:publicPlan(claim.row);
   let result;
   try{
-   if(row.commandId==='record.find')result=fresh.result;
+   if(row.commandId==='intelligence.review'){if(typeof ports.review!=='function')throw Error('Operational review is unavailable');result=await ports.review()}
+   else if(row.commandId==='record.find')result=fresh.result;
    else if(row.commandId==='workspace.open')result=await ports.navigate(row.params.workspace);
    else if(row.commandId==='record.open')result=await ports.openRecord(clone(row.params.ref));
    else if(row.commandId==='view.filter')result=await ports.filter(row.params.workspace,row.params.filter);

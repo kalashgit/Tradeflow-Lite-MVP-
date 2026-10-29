@@ -6,14 +6,27 @@
 const KEY='tf-notifications-v1';
 const MAX_SEEN=650;
 const DAY=86400000;
-const routes=new Set(['dashboard','growth','missions','tasks','calendar','opportunities','quotes','jobs','customers','expenses','invoices','research','marketing','settings']);
+const routes=new Set(['dashboard','growth','missions','tasks','calendar','opportunities','quotes','jobs','customers','expenses','invoices','research','marketing','settings','dispatch']);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safe=v=>String(v==null?'':v).trim().slice(0,160);
 const dateToday=now=>{const d=new Date(now);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
-const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00'));
+const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T12:00:00Z'))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;
 const parseTime=v=>{let n=new Date(v).getTime();return Number.isFinite(n)?n:0};
 const fingerprint=s=>{let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)}return (x>>>0).toString(36)};
-let api=null,open=false,working=false,lastData=null;
+let api=null,open=false,working=false,lastData=null,obligationEditor=false;
+const obligationTypes=Object.freeze({license:'License or certification',insurance:'Insurance certificate',bid:'Bid deadline',supplier_quote:'Supplier quote expiration',retainage:'Retainage follow-up',service_agreement:'Service agreement renewal',closeout:'Project closeout',other:'Other deadline'});
+function intelligenceItems(report,data={}){
+ if(!report||!Array.isArray(report.findings))return [];
+ const labels={'calendar.conflict':['Scheduling conflict','calendar'],'invoice.overdue':['Overdue invoice','invoices'],'quotation.accepted_handoff':['Accepted quote needs job','quotes'],'quotation.stale_open':['Quotation follow-up review','quotes'],'job.billing_review':['Completed job billing review','jobs'],'job.budget_overrun_review':['Job spending exceeds recorded budget','jobs'],'job.labor_hours_variance_review':['Recorded labor exceeds planned hours','jobs'],'supplier.quote_expiration_review':['Supplier price quotes need reconfirmation','suppliers'],'invoice.payment_integrity_review':['Invoice payments need reconciliation','invoices'],'job.unapproved_change_review':['Proposed extra work needs approval','jobs'],'job.material_readiness_review':['Materials not ready for upcoming job','jobs'],'job.closeout_evidence_review':['Completed job closeout needs review','jobs'],'job.crew_credential_review':['Crew credential requires verification','jobs'],'job.crew_assignment_review':['Crew assignment review','dispatch'],'opportunity.bid_deadline':['Upcoming bid submission deadline','opportunities'],'opportunity.bid_readiness_review':['Bid readiness needs review','opportunities'],'customer.reactivation_review':['Past customer relationship review','customers']};
+ return report.findings.filter(f=>labels[f.detectorId]&&Array.isArray(f.recordRefs)&&f.recordRefs.length&&
+  !(f.detectorId==='quotation.stale_open'&&(data.tasks||[]).some(t=>t.quoteId===f.recordRefs[0].id&&
+    !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())&&validDate(t.due)))).map(f=>{
+  const [title,route]=labels[f.detectorId];
+  const primary=f.recordRefs.filter(r=>r.store===route);
+  const target=primary.length===1?primary[0]:f.recordRefs.length===1?f.recordRefs[0]:null;
+  return {id:'priority:intelligence:'+safe(f.id),group:'priority',title,detail:safe(f.explanation),route,sort:f.priority?.tier===0?'0':f.detectorId==='invoice.overdue'?'1':'2',at:0,recordRef:target?{...target}:null};
+ });
+}
 function loadState(d){return (d.settings||[]).find(x=>x.id===KEY)||null}
 function recent(d,now,days=21){const t=parseTime(d);return t&&t<=now+60000&&t>now-days*DAY}
 function sourceEvents(d,now){
@@ -46,26 +59,31 @@ function sourceEvents(d,now){
  }
  return out.sort((a,b)=>b.at-a.at).slice(0,9);
 }
-function generate(d,now=Date.now()){
+function generate(d,now=Date.now(),report=null){
  const day=dateToday(now),items=[],tasks=d.tasks||[],quotes=d.quotes||[],opportunities=d.opportunities||[];
  // Priority: due work must be real and unfinished. The ID changes only for a new deadline.
  for(const task of tasks){
-  if(!task||task.status==='Done'||task.status==='Cancelled'||task.missionOrigin==='growth'||!validDate(task.due)||task.due>day)continue;
+  if(!task||['done','completed','cancelled','canceled'].includes(String(task.status||'').toLowerCase())||task.missionOrigin==='growth'||!validDate(task.due))continue;
+  const obligation=task.taskType==='business_obligation',limit=new Date(day+'T12:00:00Z');
+  limit.setUTCDate(limit.getUTCDate()+(obligation?14:0));
+  if(task.due>limit.toISOString().slice(0,10))continue;
+  const kind=obligation?(obligationTypes[task.obligationType]||'Business deadline'):'';
   items.push({id:'priority:task:'+safe(task.id||fingerprint(task.title))+'|'+task.due,
-   group:'priority',title:safe(task.title)||'Task due',detail:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0});
+   group:'priority',title:obligation?kind:safe(task.title)||'Task due',detail:obligation?safe(task.title)+' · '+(task.due<day?'Overdue: ':'Due: ')+task.due:task.due<day?'Overdue · '+task.due:'Due today',route:'tasks',sort:task.due,at:0,recordRef:task.id?{store:'tasks',id:task.id}:null});
  }
  for(const item of opportunities){
   if(!item||['Won','Lost'].includes(item.status)||!validDate(item.followup_date)||item.followup_date>day)continue;
   items.push({id:'priority:op:'+safe(item.id||item.record_id)+'|'+item.followup_date,
    group:'priority',title:'Opportunity follow-up',detail:safe(item.project_name||item.organization_name)||'Review contact and next step',
-   route:'opportunities',sort:item.followup_date,at:0});
+   route:'opportunities',sort:item.followup_date,at:0,recordRef:item.id?{store:'opportunities',id:item.id}:null});
  }
  for(const quote of quotes){
   if(!quote||!['Sent','Pending','Awaiting'].includes(quote.status))continue;
+  if(tasks.some(t=>t.quoteId===quote.id&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase())&&validDate(t.due)))continue;
   const due=quote.followup_date||quote.followupDate;
   if(!validDate(due)||due>day)continue;
   items.push({id:'priority:quote:'+safe(quote.id)+'|'+due,group:'priority',title:'Quote follow-up',
-   detail:safe(quote.title||quote.reference||'Sent quotation'),route:'quotes',sort:due,at:0});
+   detail:safe(quote.title||quote.reference||'Sent quotation'),route:'quotes',sort:due,at:0,recordRef:quote.id?{store:'quotes',id:quote.id}:null});
  }
  const s=(d.settings||[]).find(x=>x.id==='growth-profiles-v1')||{},icps=Array.isArray(s.icps)?s.icps:[],personas=Array.isArray(s.personas)?s.personas:[];
  const active=icps.find(x=>x.id===s.activeIcpId)||icps[0];
@@ -81,13 +99,15 @@ function generate(d,now=Date.now()){
    detail:'Identify who makes purchasing decisions',route:'growth',sort:'',at:0});
  }
  // Cap each section, but do not hide the newest notifications just because an older one exists.
- const priority=items.filter(x=>x.group==='priority').sort((a,b)=>String(a.sort).localeCompare(String(b.sort))).slice(0,8);
+ items.push(...intelligenceItems(report,d));
+ const priority=items.filter(x=>x.group==='priority').sort((a,b)=>String(a.sort).localeCompare(String(b.sort))).slice(0,14);
  const growth=items.filter(x=>x.group==='growth').sort((a,b)=>String(b.sort).localeCompare(String(a.sort))).slice(0,7);
  return [...priority,...growth,...sourceEvents(d,now)];
 }
 function itemsWithRead(d,now=Date.now()){
  const state=loadState(d),ids=new Set(Array.isArray(state?.seen)?state.seen:[]),started=parseTime(state?.startedAt);
- const values=generate(d,now);
+ let report=null;try{report=api?.intelligence?.(d)||null}catch(error){console.warn('Notifications intelligence unavailable',error)}
+ const values=generate(d,now,report);
  return values.map(x=>({...x,unread:!ids.has(x.id)&&!(x.group==='activity'&&(!started||!x.at||x.at<=started))}));
 }
 function formatTime(n,now){
@@ -107,6 +127,18 @@ function groupIcon(name){
 function icon(type){
  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+groupIcon(type)+'</svg>';
 }
+function obligationForm(d){
+ const related=[['','No linked record'],...['jobs','customers','quotes','opportunities','invoices','suppliers'].flatMap(store=>(d[store]||[]).slice(0,120).map(x=>[store+':'+x.id,store.slice(0,-1)+' · '+String(x.title||x.name||x.project_name||x.reference||x.id).slice(0,75)]))];
+ return '<form class="tf-notif-obligation" id="tfNotifObligationForm" aria-label="Add business deadline">'+
+ '<label>Related business record<select name="relation">'+related.map(([id,label])=>'<option value="'+esc(id)+'">'+esc(label)+'</option>').join('')+'</select></label>'+
+ '<label>Deadline type<select name="kind" required>'+Object.entries(obligationTypes).map(([id,label])=>'<option value="'+id+'">'+esc(label)+'</option>').join('')+'</select></label>'+
+ '<label>What needs doing?<input name="title" maxlength="150" required placeholder="e.g. Renew insurance certificate"></label>'+
+ '<label>Verified due date<input name="due" type="date" required></label>'+
+ '<label>Responsible person (optional)<input name="owner" maxlength="90" placeholder="Office manager"></label>'+
+ '<label>Notes / evidence reference (optional)<input name="notes" maxlength="300" placeholder="Policy number, source or link"></label>'+
+ '<p>Enter a confirmed date. TradeFlow does not calculate legal deadlines or renew credentials automatically. Open obligations appear here within 14 days of their due date.</p>'+
+ '<div class="tf-notif-obligation-actions"><button type="button" data-notif-action="obligation-cancel">Cancel</button><button type="submit">Save deadline</button></div></form>';
+}
 function panel(d,items,now){
  const unread=items.filter(x=>x.unread).length;
  const sections=['priority','growth','activity'].map(section=>{
@@ -123,6 +155,7 @@ function panel(d,items,now){
   '<header class="tf-notif-panel-head"><div><span>TRADEFLOW / INTELLIGENCE</span><h2>Notifications'+(unread?' <em>'+unread+' new</em>':'')+'</h2></div>'+
   '<button type="button" class="tf-notif-dismiss" data-notif-action="close" aria-label="Close notifications">×</button></header>'+
   '<div class="tf-notif-panel-body">'+(sections||'<div class="tf-notif-empty"><strong>All clear</strong><p>No notifications need your attention.</p></div>')+'</div>'+
+  (obligationEditor?obligationForm(d):'<button type="button" class="tf-notif-add-obligation" data-notif-action="obligation-new">+ Track a deadline or renewal</button>')+
   '<footer class="tf-notif-panel-footer">'+(unread?'<button type="button" data-notif-action="read-all">Mark all read</button>':'<span>Up to date</span>')+
   '<small>On-device activity · No push alerts</small></footer></section>';
 }
@@ -156,7 +189,27 @@ async function mark(ids){
 }
 function close(){
  if(!open)return;
- open=false;
+ open=false;obligationEditor=false;
+}
+function show(){open=true;obligationEditor=false;return api?.render?.()}
+async function handleSubmit(event){
+ if(event.target?.id!=='tfNotifObligationForm')return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(working||!api?.uid||!api?.put)return;
+ working=true;
+ try{
+  const form=new FormData(event.target),kind=String(form.get('kind')||''),title=String(form.get('title')||'').trim(),due=String(form.get('due')||'');
+  const owner=String(form.get('owner')||'').trim(),notes=String(form.get('notes')||'').trim();
+  const relation=String(form.get('relation')||''),separator=relation.indexOf(':'),store=separator<0?'':relation.slice(0,separator),relatedId=separator<0?'':relation.slice(separator+1);
+  if(relation&&(!['jobs','customers','quotes','opportunities','invoices','suppliers'].includes(store)||!relatedId||
+    !(lastData?.[store]||[]).some(x=>x.id===relatedId)))throw Error('The related record is missing. Refresh and review the deadline.');
+  if(!Object.hasOwn(obligationTypes,kind)||!title||title.length>150||!validDate(due)||owner.length>90||notes.length>300)throw Error('Provide a valid deadline type, description and date.');
+  const row={id:api.uid(),title,due,status:'Open',taskType:'business_obligation',obligationType:kind,assignedTo:owner,notes,relatedStore:store,relatedRecordId:relatedId,createdAt:new Date().toISOString()};
+  await api.put('tasks',row);
+  obligationEditor=false;
+  await api.render();
+ }catch(error){alert('Deadline not saved: '+String(error.message||error))}
+ finally{working=false}
 }
 async function handleClick(event){
  const button=event.target.closest?.('[data-notif-action]');
@@ -174,6 +227,8 @@ async function handleClick(event){
    if(open)document.querySelector('#tfNotificationsPanel')?.focus({preventScroll:true});
    return;
   }
+  if(action==='obligation-new'){obligationEditor=true;open=true;await api.render();return}
+  if(action==='obligation-cancel'){obligationEditor=false;await api.render();return}
   if(action==='close'){
    close();await api.render();document.querySelector('.tf-home-alert')?.focus({preventScroll:true});return;
   }
@@ -188,7 +243,8 @@ async function handleClick(event){
    if(!item)return;
    working=true;
    await mark([item.id]);close();
-   await api.navigate(routes.has(item.route)?item.route:'dashboard');
+   if(item.recordRef&&api.openRecord){await api.openRecord(item.recordRef)}
+   else await api.navigate(routes.has(item.route)?item.route:'dashboard');
    return;
   }
  }catch(err){alert('Notifications could not be updated: '+String(err?.message||err))}
@@ -203,7 +259,8 @@ function onKey(event){
 function configure(bridge){
  api=bridge;
  document.addEventListener('click',handleClick,true);
+ document.addEventListener('submit',handleSubmit,true);
  document.addEventListener('keydown',onKey);
 }
-global.TradeFlowNotifications={configure,bootstrap,home,close,_test:{generate,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
+global.TradeFlowNotifications={configure,bootstrap,home,close,show,_test:{generate,intelligenceItems,obligationTypes,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
 })(typeof window!=='undefined'?window:globalThis);

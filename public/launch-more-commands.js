@@ -8,8 +8,17 @@ const workspaces={'opportunities':'opportunities','opportunity':'opportunities',
 const stores={'opportunity':'opportunities','opportunities':'opportunities','customer':'customers','customers':'customers','quote':'quotes','quotes':'quotes','quotation':'quotes','quotations':'quotes','job':'jobs','jobs':'jobs','task':'tasks','tasks':'tasks','invoice':'invoices','invoices':'invoices'};
 function parse(value){
  const s=clean(value);
+ const review=s.match(/^(?:show|review|check|list)\s+(?:my\s+|the\s+)?(?:business\s+)?(budget overruns|labor overruns|payment discrepancies|bid readiness issues|material shortages|closeout problems|crew credential problems)$/);
+ if(review){
+  const kinds={'budget overruns':'budget','labor overruns':'labor','payment discrepancies':'payments','bid readiness issues':'bids','material shortages':'materials','closeout problems':'closeout','crew credential problems':'credentials'};
+  return {action:'optimizationReview',category:kinds[review[1]]};
+ }
+ if(/^(?:show|open|review|check) (?:my |the )?(?:business )?(?:alerts|notifications|reminders)$/.test(s))return {action:'businessAlerts'};
+ if(/^(?:what (?:needs|requires) (?:my )?attention|what are (?:my )?(?:business )?(?:risks|priorities|bottlenecks)|(?:show|list|review|check) (?:my |the )?(?:business )?(?:risks|issues|bottlenecks|urgent issues)|business health check)$/.test(s))return {action:'businessRisks'};
  let m=s.match(/^(?:open|show|go to|view)\s+(?:the\s+)?(.+?)(?:\s+(?:page|workspace|screen))?$/);
  if(m&&workspaces[m[1]])return {action:'open',workspace:workspaces[m[1]]};
+ m=s.match(/^(?:show|view|filter|list)\s+(?:my\s+|the\s+)?(overdue|unpaid|draft)\s+invoices?$/);
+ if(m)return {action:'filter',workspace:'invoices',filter:m[1]};
  m=s.match(/^(?:show|view|filter)\s+(?:my\s+|the\s+)?(overdue|open|done|completed|unfinished|accepted|stale)\s+(tasks?|quotes?|quotations?)$/);
  if(m){
   const workspace=/^tasks?$/.test(m[2])?'tasks':'quotes';

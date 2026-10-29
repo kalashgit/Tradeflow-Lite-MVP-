@@ -46,15 +46,22 @@ function tomorrowWork(data,date,calendarRecords){
 function createController(host){
  let open=false,busy=false,listening=false,recognition=null,draft='',message='',showCalendarDate='';
  const doc=host.document,repaint=()=>host.repaint();
- function close(){showCalendarDate='';if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false;open=false;draft='';message='';void repaint()}
+ const waveAudio=globalThis.TradeFlowFlowWaveAudio?.createMeter({document:doc});
+ function close(){waveAudio?.stop();showCalendarDate='';if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false;open=false;draft='';message='';void repaint()}
  function start(){open=true;draft='';message='';showCalendarDate='';void repaint()}
- function startListening(){if(!open){open=true;draft='';message=''};toggle();void repaint()}
+ function startListening(){if(!open){open=true;draft='';message=''};if(!recognition&&!busy)toggle();else void repaint()}
  async function submit(text){
   if(busy)return;const instruction=String(text||'').trim();draft=instruction;
   if(!instruction){message='Speak or enter a command first.';await repaint();return}
   busy=true;message='';
   let mapExecuted=false;
   try{
+   const libraryIntent=globalThis.TradeFlowLibraryCommands?.parse(instruction);
+   if(libraryIntent&&host.libraryCommand){
+    const outcome=await host.libraryCommand(libraryIntent);
+    if(outcome?.status==='not_found'||outcome?.status==='ambiguous'||outcome?.status==='unsupported'){message=outcome.message||'That Library action is unavailable.';return}
+    close();mapExecuted=true;return;
+   }
    const mapIntent=globalThis.TradeFlowLaunchMapCommands?.parse(instruction);
    if(mapIntent&&host.mapCommand){
     // Close first so the map action runs after the voice overlay is dismissed.
@@ -73,7 +80,7 @@ function createController(host){
    }
    const moreIntent=globalThis.TradeFlowLaunchMoreCommands?.parse(instruction);
    if(moreIntent&&host.moreCommand){
-    if(['find','activeJobs','completeTask','jobLocation'].includes(moreIntent.action)){
+    if(['find','activeJobs','completeTask','jobLocation','businessRisks','optimizationReview'].includes(moreIntent.action)){
      const outcome=await host.moreCommand(moreIntent);
      message=outcome?.message||'Command completed without additional details.';
      return;
@@ -127,14 +134,14 @@ function createController(host){
  }
  function finish(active){
   if(!active||recognition!==active||active.finished)return;
-  active.finished=true;recognition=null;listening=false;
+  active.finished=true;recognition=null;listening=false;waveAudio?.stop();
   if(active.timeout)clearTimeout(active.timeout);
   const text=String(active.transcript||draft||'').trim();
   if(text){draft=text;void submit(text)}else{message=active.error||'No speech captured. Try again or type your command.';void repaint()}
  }
  function toggle(){
   if(!open||busy)return;
-  if(recognition){const active=recognition;active.stopping=true;listening=false;void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
+  if(recognition){const active=recognition;active.stopping=true;listening=false;waveAudio?.stop();void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
   const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
   if(!Engine){message='Speech recognition is unavailable in this browser. Try keyboard dictation.';void repaint();return}
   try{
@@ -143,13 +150,16 @@ function createController(host){
    active.onresult=e=>{if(recognition!==active)return;active.transcript=Array.from(e.results||[]).map(r=>r?.[0]?.transcript||'').join(' ').trim();draft=active.transcript;if(active.stopping)finish(active);else void repaint()};
    active.onend=()=>finish(active);
    active.onerror=e=>{if(recognition!==active)return;active.error=e.error==='not-allowed'?'Microphone permission denied.':e.error==='no-speech'?'No speech detected.':'Speech recognition failed.';finish(active)};
-   active.start();listening=true;void repaint();
-  }catch{recognition=null;listening=false;message='Could not start microphone.';void repaint()}
+   active.start();listening=true;waveAudio?.start();void repaint();
+  }catch{waveAudio?.stop();recognition=null;listening=false;message='Could not start microphone.';void repaint()}
  }
+ function wave(){return '<div class="tf-voice-wave '+(listening?'is-listening':busy?'is-processing':'is-idle')+'" aria-hidden="true">'+(globalThis.TradeFlowFlowWave?.render?.()||'')+'</div>'}
  function view(){if(!open)return '';
-  return '<div class="tf-voice-overlay" role="dialog" aria-modal="true" aria-label="TradeFlow voice assistant"><section class="tf-voice-sheet"><div class="tf-voice-top"><div><small>TRADEFLOW / COMMAND</small><h2>Talk to TradeFlow</h2></div><button type="button" data-voice="close" aria-label="Close assistant">×</button></div><p>Ask about work or prepare a change. Records are never saved without approval.</p><button class="tf-voice-mic" type="button" data-voice="mic" aria-pressed="'+listening+'">'+(listening?'■ Stop & process':'🎙 Speak to TradeFlow')+'</button><form id="tfVoiceForm"><label for="tfVoiceText">Command</label><textarea id="tfVoiceText" rows="3" placeholder="Hey TradeFlow, what jobs do I have tomorrow?">'+esc(draft)+'</textarea><button type="submit" '+(busy?'disabled':'')+'>'+(busy?'Working…':'Run command')+'</button></form>'+(message?'<div class="tf-voice-result" role="status">'+esc(message)+'</div>':'')+(showCalendarDate?'<button type="button" class="tf-voice-calendar-link" data-voice="calendar">View tomorrow in Calendar →</button>':'')+'</section></div>';
+  const state=listening?'Listening…':busy?'Processing…':'Ready when you are.';
+  const actions=[['calendar','Schedule a job','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M8 17h3"/>'],['customers','Find a customer','<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 6a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 5"/>'],['quotes','Create a quote','<path d="M6 2h8l5 5v15H6zM14 2v6h5M9 13h7M9 17h6"/>']];
+  return '<div class="tf-voice-overlay" role="dialog" aria-modal="true" aria-label="TradeFlow Master Intelligence"><section class="tf-voice-sheet"><div class="tf-voice-top"><div><small>TRADEFLOW / INTELLIGENCE</small></div><button type="button" data-voice="close" aria-label="Close assistant">×</button></div><div class="tf-voice-intro"><h2>What would you like to do?</h2><p>Speak naturally or type a command.</p></div>'+wave()+'<div class="tf-voice-state" role="status">'+state+'</div><button class="tf-voice-mic" type="button" data-voice="mic" aria-pressed="'+listening+'" aria-label="'+(listening?'Stop and process speech':'Start listening')+'"><span class="tf-voice-mic-dot"></span>'+(listening?'Stop & process':'Tap to speak')+'</button><div class="tf-voice-actions">'+actions.map(([id,label,svg])=>'<button type="button" class="tf-voice-action" data-voice-workspace="'+id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+svg+'</svg><span>'+label+'</span></button>').join('')+'</div><form id="tfVoiceForm" class="tf-voice-composer"><label for="tfVoiceText" class="tf-voice-sr">Type a command</label><input id="tfVoiceText" type="text" placeholder="Type a command…" autocomplete="off" value="'+esc(draft)+'"><button type="submit" '+(busy?'disabled':'')+' aria-label="Run command">➜</button></form>'+(message?'<div class="tf-voice-result" role="status">'+esc(message)+'</div>':'')+(showCalendarDate?'<button type="button" class="tf-voice-calendar-link" data-voice="calendar">View tomorrow in Calendar →</button>':'')+'<small class="tf-voice-approval">Business changes still require the appropriate approval.</small></section></div>';
  }
- doc.addEventListener('click',e=>{const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='calendar'){if(showCalendarDate&&host.openCalendar)void host.openCalendar(showCalendarDate).then(()=>close()).catch(error=>{message=String(error.message||error);void repaint()});return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
+ doc.addEventListener('click',e=>{const quick=e.target.closest?.('[data-voice-workspace]');if(quick){e.preventDefault();const workspace=quick.dataset.voiceWorkspace;close();if(host.navigate)void host.navigate(workspace);return}const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='calendar'){if(showCalendarDate&&host.openCalendar)void host.openCalendar(showCalendarDate).then(()=>close()).catch(error=>{message=String(error.message||error);void repaint()});return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
  doc.addEventListener('submit',e=>{if(e.target.id!=='tfVoiceForm')return;e.preventDefault();void submit(e.target.querySelector('#tfVoiceText')?.value||'')});
  doc.addEventListener('input',e=>{if(e.target.id==='tfVoiceText')draft=e.target.value});
  return Object.freeze({start,startListening,close,view,submit});
