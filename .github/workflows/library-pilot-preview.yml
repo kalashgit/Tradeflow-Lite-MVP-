@@ -9,6 +9,7 @@ on:
       - "src/**"
       - "migrations/**"
       - "tests/**"
+      - "automation/**"
       - "wrangler.jsonc"
   workflow_dispatch:
 permissions:
@@ -64,6 +65,14 @@ jobs:
           node --check src/tenant-restore-plan.js
           node --test tests/*.test.cjs
           python3 tests/tenant-migrations.test.py
+          node automation/run-ten-pain-points.cjs
+      - name: Upload ten-workflow evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-ten-pain-points
+          path: artifacts/ten-pain-points/
+          if-no-files-found: warn
       - name: Install Wrangler
         run: npm install --no-audit --no-fund
       - name: Verify isolation
