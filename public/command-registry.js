@@ -29,6 +29,7 @@ const definitions=freeze([
  {id:'draft.prepare',intent:'Prepare an unsaved business record for review',aliases:['draft task','draft quote','draft job','draft calendar'],required:['kind'],parameters:['kind','ref','title','fields'],effect:'draft',permission:'draft',approval:'review_on_save'},
  {id:'customer.create',intent:'Create a customer from reviewed structured fields',aliases:['add customer','create customer'],required:['fields'],parameters:['fields','reviewedDuplicateIds','sourceHash'],effect:'modification',permission:'modify:customer.create',approval:'explicit'},
  {id:'customer.source.delete',intent:'Remove locally retained original wording',aliases:[],required:['ref'],parameters:['ref'],effect:'modification',permission:'modify:customer.create',approval:'explicit'},
+ {id:'calendar.conflict.reschedule',intent:'Reschedule a standalone conflicting calendar event after owner review',aliases:[],required:['ref','date','time'],parameters:['ref','date','time'],effect:'modification',permission:'modify:calendar.conflict.reschedule',approval:'explicit'},
  {id:'invoice.followup.schedule',intent:'Schedule an approved internal overdue invoice follow-up',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:invoice.followup.schedule',approval:'explicit'},
  {id:'quotation.followup.schedule',intent:'Schedule a reviewed internal follow-up task for a sent quotation',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:quotation.followup.schedule',approval:'explicit'},
  {id:'quotation.convert',intent:'Create a linked job from an accepted quotation',aliases:['convert quote to job'],required:['ref or context.record'],parameters:['ref'],effect:'modification',permission:'modify:quotation.convert',approval:'explicit'}
@@ -147,7 +148,7 @@ function resolve(input,data={},context={}){
    if(def.id==='record.find')result={matches};
    else {const exact=matches.filter(x=>x.exact),choices=exact.length?exact:matches;if(choices.length!==1)return {status:choices.length?'ambiguous':'not_found',commandId:def.id,choices,error:{code:choices.length?'AMBIGUOUS_RECORD':'RECORD_NOT_FOUND',message:choices.length?'Choose a specific record.':'No matching local record.'}};params.ref=choices[0].ref;delete params.query;delete params.store}
   }
-  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.followup.schedule'||def.id==='invoice.followup.schedule'){
+  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.followup.schedule'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'){
    if(!params.ref)params.ref=context.record?clone(context.record):null;
    if(!params.ref)return problem('MISSING_RECORD','Select or specify an existing record.');refs.push(params.ref);
   }
@@ -177,6 +178,24 @@ function resolve(input,data={},context={}){
    guard.push(...validateReferences(data,[params.ref],context));
    const retained=rows(data,'settings').find(x=>x.id==='customer-source:'+params.ref.id);
    guard.push({customerSource:{sourceHash:retained?.sourceHash||''}});result={retained:!!retained};
+  }
+  if(def.id==='calendar.conflict.reschedule'){
+   if(params.ref.store!=='calendarEntries')return problem('INVALID_RECORD_TYPE','Only standalone calendar events may be rescheduled here.');
+   if(!isDate(params.date)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(params.time))
+    return problem('INVALID_SLOT','Choose a valid date and 24-hour start time.');
+   const entry=lookup(data,params.ref,context);
+   if(entry.sourceId&&entry.sourceKind&&entry.sourceKind!=='event'||['done','completed','cancelled','canceled'].includes(normalize(entry.status)))
+    return problem('LINKED_EVENT_REVIEW_REQUIRED','Linked or completed sessions must be reviewed in their source record.');
+   const minutes=Number(params.time.slice(0,2))*60+Number(params.time.slice(3,5));
+   const duration=Number(entry.durationMinutes);
+   if(!Number.isInteger(duration)||duration<1||duration>1440||minutes+duration>1440)
+    return problem('INVALID_DURATION','The event must fit within one calendar day.');
+   if(entry.date===params.date&&entry.time===params.time)
+    return problem('UNCHANGED_SLOT','Choose a different event date or time.');
+   const schedulerStores=['tasks','jobs','calendarEntries','calendarPreferences'];
+   guard.push({calendarState:Object.fromEntries(schedulerStores.map(store=>[store,clone(rows(data,store))]))});
+   result={eventId:entry.id,oldDate:entry.date,oldTime:entry.time,newDate:params.date,newTime:params.time,
+    owner:entry.assignedTo||entry.ownerId||'local-owner',relatedWorkUnchanged:true};
   }
   if(def.id==='invoice.followup.schedule'){
    if(params.ref.store!=='invoices')return problem('INVALID_RECORD_TYPE','Choose an issued invoice.');
@@ -293,6 +312,7 @@ function createRuntime(options){
    else if(row.commandId==='record.open')result=await ports.openRecord(clone(row.params.ref));
    else if(row.commandId==='view.filter')result=await ports.filter(row.params.workspace,row.params.filter);
    else if(row.commandId==='draft.prepare')result=await ports.prepareDraft(clone(fresh.result));
+   else if(row.commandId==='calendar.conflict.reschedule')result=await ports.operation('calendar.conflict.reschedule',{eventId:row.params.ref.id,date:row.params.date,time:row.params.time},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='invoice.followup.schedule')result=await ports.operation('invoice.followup.schedule',{invoiceId:row.params.ref.id,due:row.params.due},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.followup.schedule')result=await ports.operation('quotation.followup.schedule',{quoteId:row.params.ref.id,due:row.params.due},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.convert')result=await ports.operation('quotation.convert',{quoteId:row.params.ref.id},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard)});
