@@ -277,10 +277,46 @@ function createRuntime(options){
   catch(error){return {id,status:'indeterminate',error:{code:'AUDIT_FINALIZATION_FAILED',message:'The action may have completed. Inspect the record; it will not be executed again automatically.'}}}
  }
  function execute(id){if(typeof id!=='string')return Promise.resolve(problem('INVALID_REQUEST','Execute a prepared request ID, not interpreted text or a payload.'));if(inFlight.has(id))return inFlight.get(id);const promise=executeOnce(id).catch(error=>({id,status:'failed',error:{code:'AUDIT_UNAVAILABLE',message:error.message}})).finally(()=>inFlight.delete(id));inFlight.set(id,promise);return promise}
+ // Explicit recovery of an interrupted quotation follow-up. Never replays a side effect.
+ // A matching durable core receipt AND linked task are required before success is reported.
+ async function reconcile(id){
+  const c=await ctx(),row=await ledger.get(id);
+  if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
+  if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
+   return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
+  if(row.commandId!=='quotation.followup.schedule')return {id,status:'unsupported',error:{code:'UNSUPPORTED_RECOVERY',message:'No verified reconciliation contract for this command.'}};
+  if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
+  if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'Only interrupted execution can be reconciled.'}};
+  if(row.approvedBy!==c.actor||!row.events?.some(e=>e.type==='approved'))
+   return {id,status:'indeterminate',error:{code:'APPROVAL_UNVERIFIED',message:'Cannot prove this operation was approved.'}};
+  const data=await snapshot(),receiptId='quote-followup:operation:'+id;
+  const receipts=(data.commandLog||[]).filter(x=>x.id===receiptId);
+  if(receipts.length!==1)
+   return {id,status:'indeterminate',error:{code:'RECEIPT_MISSING',message:'No unique durable operation receipt. Do not replay automatically.'}};
+  const receipt=receipts[0],expected=canonical({quoteId:row.params.ref.id,due:row.params.due});
+  if(receipt.kind!=='quotation.followup.schedule'||receipt.requestPayload!==expected||
+   receipt.actor!==row.actor||receipt.businessId!==row.businessId||
+   !['task_created','existing_open_task'].includes(receipt.result))
+   return {id,status:'indeterminate',error:{code:'RECEIPT_MISMATCH',message:'Operation receipt does not match approval.'}};
+  const matches=(data.tasks||[]).filter(t=>t.id===receipt.resultId&&t.quoteId===row.params.ref.id&&
+    t.customerId===row.result?.customerId&&(!t.businessId||t.businessId===row.businessId));
+  if(matches.length!==1)
+   return {id,status:'indeterminate',error:{code:'TASK_UNVERIFIED',message:'The linked task could not be independently verified.'}};
+  if(receipt.result==='task_created'){
+   const journal=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&e.correlationId===receiptId&&
+    e.type==='task.created'&&e.ref?.store==='tasks'&&e.ref.id===receipt.resultId&&e.businessId===row.businessId);
+   if(journal.length!==1)return {id,status:'indeterminate',error:{code:'EVENT_UNVERIFIED',message:'The task creation audit event is missing.'}};
+  }
+  const outcome={id,status:'succeeded',effect:row.effect,result:{id:receipt.resultId,reused:receipt.result!=='task_created',commandKey:receiptId,reconciled:true}};
+  const changed=await ledger.transition(id,['executing'],event('reconciled',c,{receiptId}),{status:'succeeded',outcome});
+  if(!changed.claimed)return changed.row.status==='succeeded'?{...clone(changed.row.outcome),reused:true}:
+   {id,status:'indeterminate',error:{code:'RECOVERY_RACE',message:'Command state changed during reconciliation.'}};
+  return outcome;
+ }
  async function reject(id){const c=await ctx(),row=await ledger.get(id);if(!row||row.actor!==c.actor||row.businessId!==c.businessId)return problem('UNKNOWN_REQUEST','Request is not available.');const result=await ledger.transition(id,['ready','needs_review','approved'],event('rejected',c),{status:'rejected'});return publicPlan(result.row)}
  async function history(id){const c=await ctx(),row=await ledger.get(id);return row?.kind==='pilot.command'&&row.actor===c.actor&&row.businessId===c.businessId?clone(row.events):[]}
  const guarded=fn=>async(...args)=>{try{return await fn(...args)}catch(error){return {status:'failed',error:{code:'COMMAND_UNAVAILABLE',message:String(error.message||error)}}}};
- return Object.freeze({prepare:guarded(prepare),approve:guarded(approve),execute,reject:guarded(reject),parse,definitions,history,get:async id=>{const c=await ctx(),row=await ledger.get(id);return row?.kind==='pilot.command'&&row.actor===c.actor&&row.businessId===c.businessId?publicPlan(row):null}});
+ return Object.freeze({prepare:guarded(prepare),approve:guarded(approve),execute,reconcile:guarded(reconcile),reject:guarded(reject),parse,definitions,history,get:async id=>{const c=await ctx(),row=await ledger.get(id);return row?.kind==='pilot.command'&&row.actor===c.actor&&row.businessId===c.businessId?publicPlan(row):null}});
 }
 return Object.freeze({version:VERSION,definitions,parse,resolve,validateReferences,prepareDraft,validateDraft,filterRecords,staleQuote,findRecords,createRuntime,createLedger,canonical,isDate,dateText,terminal});
 });
