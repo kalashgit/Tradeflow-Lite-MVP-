@@ -19,7 +19,8 @@ export async function verifyBearerToken(request,env,{fetchJwks=fetch,now=Date.no
    keysUrl.username||keysUrl.password||keysUrl.origin!==trustedIssuer.origin||trustedIssuer.search||trustedIssuer.hash||
    !jwksUrl.startsWith(issuer.replace(/\/$/,'')+'/'))throw Error('Invalid trusted issuer');
  }catch{throw new AuthorizationError('Identity configuration invalid',503)}
- const authorization=request.headers.get('Authorization')||'';
+ const accessAssertion=request.headers.get('Cf-Access-Jwt-Assertion');
+ const authorization=accessAssertion?'Bearer '+accessAssertion:(request.headers.get('Authorization')||'');
  const match=/^Bearer ([A-Za-z0-9_.-]+)$/.exec(authorization);
  if(!match||match[1].length>8192)throw unauthorized();
  const parts=match[1].split('.');
@@ -40,7 +41,7 @@ export async function verifyBearerToken(request,env,{fetchJwks=fetch,now=Date.no
  let jwks;
  try{const raw=await response.text();if(raw.length>64000)throw Error('Oversize');jwks=JSON.parse(raw)}catch{throw new AuthorizationError('Identity keys invalid',503)}
  if(!Array.isArray(jwks.keys))throw new AuthorizationError('Identity keys invalid',503);
- const matches=jwks.keys.filter(k=>k.kid===header.kid&&k.kty==='RSA'&&k.alg==='RS256'&&
+ const matches=jwks.keys.filter(k=>k.kid===header.kid&&k.kty==='RSA'&&(k.alg===undefined||k.alg==='RS256')&&
   (k.use===undefined||k.use==='sig')&&typeof k.n==='string'&&typeof k.e==='string'&&!k.d);
  if(matches.length!==1)throw unauthorized();
  try{
