@@ -47,10 +47,10 @@ async function verifyInvoiceFollowupJourney(page,result){
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return d;
  });
  const tasks=evidence.tasks.filter(t=>t.invoiceId==='i1');
- assert.equal(tasks.length,1);
+ assert.equal(tasks.length,1,'Invoice dossier task count mismatch: '+JSON.stringify({tasks:evidence.tasks,receipts:evidence.commandLog.filter(c=>c.kind==='invoice.followup.schedule'),commands:evidence.commandLog.filter(c=>c.kind==='pilot.command'&&c.commandId==='invoice.followup.schedule'),decisions}));
  assert.equal(tasks[0].status,'Open');
  assert.equal(tasks[0].customerId,'c1');
- assert.equal(evidence.commandLog.filter(c=>c.kind==='invoice.followup.schedule').length,1);
+ assert.equal(evidence.commandLog.filter(c=>c.kind==='invoice.followup.schedule').length,1,'Invoice core receipt missing: '+JSON.stringify({tasks:evidence.tasks,receipts:evidence.commandLog.filter(c=>String(c.kind).includes('invoice')),commands:evidence.commandLog.filter(c=>c.kind==='pilot.command')}));
  assert.ok(decisions.some(m=>m.includes('No email or payment request will be sent')));
  result.invoiceOwnerReviewedTask=true;
  result.externalInvoiceMessageSent=false;
@@ -60,7 +60,7 @@ async function verifyInvoiceFollowupJourney(page,result){
   const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return d;
  });
- assert.equal(after.tasks.filter(t=>t.invoiceId==='i1').length,1);
+ assert.equal(after.tasks.filter(t=>t.invoiceId==='i1').length,1,'Invoice task missing after reload: '+JSON.stringify({tasks:after.tasks,receipts:after.commandLog.filter(c=>c.kind==='invoice.followup.schedule')}));
  assert.ok(after.commandLog.some(c=>c.kind==='invoice.followup.schedule'));
  result.invoiceReloadPersistence=true;
 }
