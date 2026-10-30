@@ -29,7 +29,7 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
    await page.locator('[data-transfer-action="prepare"]').click();await page.waitForFunction(()=>document.querySelector('[data-transfer-status]')?.textContent.includes('save the backup'));
    assert.equal(await page.locator('[data-transfer-action="transfer"]').isDisabled(),true);
    const downloadPromise=page.waitForEvent('download');await page.locator('[data-transfer-action="backup"]').click();const download=await downloadPromise;const file=path.join(out,'backup-'+viewport.width+'-'+attempt+'.json');await download.saveAs(file);assert.ok(JSON.parse(fs.readFileSync(file)).integrity.sha256);
-   await page.locator('[data-transfer-backup]').check();await page.locator('[data-transfer-action="transfer"]').click();await page.waitForFunction(()=>document.querySelector('[data-transfer-status]')?.textContent.includes('4 reviewed record(s) are confirmed'));
+   await page.locator('[data-transfer-backup]').check();await page.locator('[data-transfer-action="transfer"]').click();await page.waitForFunction(()=>document.querySelector('[data-transfer-status]')?.textContent.includes('4 reviewed record(s) verified in the selected cloud business'));
   }
   assert.deepEqual(writes,['customers:c1','jobs:j1','invoices:i1','payments:p1']);assert.equal(remote.get('customers:c1').record.businessId,'business_001');
   const unchanged=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),r=await window.TradeFlowLocalRecovery.readStores(db,['customers','jobs','payments']);db.close();return r});
