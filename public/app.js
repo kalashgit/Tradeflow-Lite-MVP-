@@ -795,6 +795,7 @@ function tfCustomerContactForm(d,customerId){
  '<label>Contact method<select name="method" required>'+['Phone','Email','Meeting','Site visit','Other'].map(x=>'<option value="'+x+'">'+x+'</option>').join('')+'</select></label>'+
  '<label>Related quotation (optional)<select name="quoteId"><option value="">Customer-level contact</option>'+
  quotes.map(q=>'<option value="'+esc(q.id)+'">'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ '<label>Outcome<select name="outcome" required><option value="attempted">Attempted — customer not reached</option><option value="reached">Customer reached — owner attests actual conversation or reply</option></select></label>'+
  '<label>Outcome / notes<textarea name="notes" required maxlength="1000" rows="2" placeholder="What happened and what is the agreed next step?"></textarea></label>'+
  '<button type="submit" class="tf-record-dossier-primary">Save contact log</button>'+
  '</form><small>Manual record only. TradeFlow cannot verify that a call or email was delivered.</small></section>';
@@ -877,7 +878,7 @@ function tfQuotationRecordedHistory(d,quote){
  for(const contact of contacts){
   const when=String(contact.date||'').slice(0,10);
   if(/^\d{4}-\d{2}-\d{2}$/.test(when))
-   rows.push({date:when,kind:'Manually recorded contact',label:String(contact.method||'Other')+' · '+String(contact.notes||'')});
+   rows.push({date:when,kind:'Manually recorded contact',label:(contact.outcome==='reached'?'Owner-attested reached':'Attempted / unspecified')+' · '+String(contact.method||'Other')+' · '+String(contact.notes||'')});
  }
  rows.sort((a,b)=>b.date.localeCompare(a.date)||a.kind.localeCompare(b.kind));
  return '<section class="tf-record-dossier-box" aria-label="Quotation recorded activity"><h3>Quotation activity</h3>'+
@@ -1018,16 +1019,18 @@ document.addEventListener('submit',async function(e){
  const customer=await get('customers',customerId);
  if(!customer){alert('Customer is no longer available. Refresh before saving.');return}
  const values=new FormData(e.target),method=String(values.get('method')||''),
-  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim();
+  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim(),contactOutcome=String(values.get('outcome')||'attempted');
  if(!['Phone','Email','Meeting','Site visit','Other'].includes(method)||notes.length<3||notes.length>1000){alert('Choose a contact method and enter the actual outcome.');return}
  const quote=quoteId?await get('quotes',quoteId):null;
  if(quoteId&&(!quote||quote.customerId!==customerId)){alert('Related quotation no longer matches this customer.');return}
  try{
   const outcome=await window.TradeFlowCore.execute({db,kind:'customer.contact.record',
-   payload:{customerId,quoteId,method,notes},uid,requestKey:uid(),
+   payload:{customerId,quoteId,method,notes,outcome:contactOutcome},uid,requestKey:uid(),
    actor:'local-owner',businessId:'local-business'});
   if(!outcome?.id)throw Error('Contact operation was not confirmed');
-  await notify('Manual contact recorded with linked quotation history. Delivery is not independently verified.');
+  await notify(outcome.outcome==='reached'?
+   'Owner-attested customer contact recorded; linked open follow-up tasks resolved. Provider delivery remains unverified.':
+   'Contact attempt recorded. Customer was not marked reached; follow-up tasks remain open.');
  }catch(error){
   alert('Contact was not confirmed. Review the customer history before retrying: '+String(error.message||error));
  }
