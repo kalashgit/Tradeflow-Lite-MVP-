@@ -139,3 +139,39 @@ test('hidden calendar layers remain in conflict checks when moving standalone ev
  await assert.rejects(f.operate({payload:{eventId:'e1',date:'2026-11-05',time:'10:45'},recordGuard:guard}),/still conflicts/);
  assert.equal((await snapshot(db)).calendarEntries.find(x=>x.id==='e1').time,'10:00');
 });
+
+test('calendar GUI reconciles prior committed move before checking for now-vanished conflict',async()=>{
+ const fs=require('node:fs'),app=fs.readFileSync('public/app.js','utf8');
+ const start=app.indexOf(' resolveConflict:async(event,date,time)=>{');
+ const end=app.indexOf(' commitScheduleProposal:',start);
+ assert.ok(start>=0&&end>start);
+ const handler=app.slice(start,end).trim().replace(/,$/,'');
+ let checks=0,reconciliations=0,prepares=0,approvals=0;
+ const pending={id:'pilot:command:previous',kind:'pilot.command',commandId:'calendar.conflict.reschedule',
+  status:'executing',actor:'local-owner',businessId:'local-business',
+  params:{ref:{store:'calendarEntries',id:'e1'}}};
+ const state={commandLog:[pending],calendarEntries:[{...e1,time:'13:00'}],tasks:[],jobs:[]};
+ const window={TradeFlowCalendar:{conflicts:()=>{checks++;return []}},
+  TradeFlowPilot:{commands:{reconcile:async()=>{reconciliations++;return {status:'succeeded',result:{reconciled:true}}},
+   prepare:async()=>{prepares++;throw Error('Must not prepare a second command')},
+   approve:async()=>{approvals++;throw Error('Must not approve another command')}}}};
+ const bridge=new Function('window','tfPilotSnapshot','confirm','return ({'+handler+'}).resolveConflict')(
+  window,async()=>state,()=>{throw Error('Must not confirm another command')});
+ const result=await bridge(e1,'2026-11-05','13:00');
+ assert.equal(result.status,'succeeded');assert.equal(result.result.reconciled,true);
+ assert.equal(reconciliations,1);assert.equal(prepares,0);assert.equal(approvals,0);assert.equal(checks,0);
+});
+test('calendar GUI checks occupied replacement before starting owner approval',async()=>{
+ const fs=require('node:fs'),app=fs.readFileSync('public/app.js','utf8');
+ const start=app.indexOf(' resolveConflict:async(event,date,time)=>{');
+ const end=app.indexOf(' commitScheduleProposal:',start);
+ const handler=app.slice(start,end).trim().replace(/,$/,'');
+ let prepared=0;
+ const conflict={a:{key:'event:e1',title:'Customer walkthrough'},b:{key:'event:e2',title:'Overlapping visit'}};
+ const window={TradeFlowCalendar:{conflicts:()=>[conflict]},
+  TradeFlowPilot:{commands:{prepare:async()=>{prepared++;throw Error('Must not prepare a command for an occupied slot')}}}};
+ const bridge=new Function('window','tfPilotSnapshot','confirm','return ({'+handler+'}).resolveConflict')(
+  window,async()=>({commandLog:[],calendarEntries:[e1,e2],tasks:[],jobs:[]}),()=>true);
+ await assert.rejects(bridge(e1,'2026-11-05','10:45'),/Replacement slot overlaps/);
+ assert.equal(prepared,0);
+});
