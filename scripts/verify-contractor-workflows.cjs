@@ -104,7 +104,12 @@ async function verifyQuoteFollowupJourney(page,result){
  await form.locator('[name="method"]').selectOption('Phone');
  await form.locator('[name="outcome"]').selectOption('attempted');
  await form.locator('[name="notes"]').fill('Called and left no message; customer did not answer');
+ const attemptedApproval=page.waitForEvent('dialog',{timeout:15000}).then(async dialog=>{
+  assert.match(dialog.message(),/attempted contact/);
+  dialogs.push(dialog.message());await dialog.accept();
+ });
  await form.locator('button[type="submit"]').click();
+ await attemptedApproval;
  await waitForPersistedQuoteContact(page,'attempted');
  state=await snapshot();
  assert.equal(state.tasks.filter(t=>t.quoteId==='q1'&&t.status==='Open').length,1);
@@ -114,7 +119,12 @@ async function verifyQuoteFollowupJourney(page,result){
  await page.locator('#tfContactLogForm [name="quoteId"]').selectOption('q1');
  await page.locator('#tfContactLogForm [name="outcome"]').selectOption('reached');
  await page.locator('#tfContactLogForm [name="notes"]').fill('Spoke directly with the customer and confirmed the estimate discussion');
+ const reachedApproval=page.waitForEvent('dialog',{timeout:15000}).then(async dialog=>{
+  assert.match(dialog.message(),/actually reached this customer/);
+  dialogs.push(dialog.message());await dialog.accept();
+ });
  await page.locator('#tfContactLogForm button[type="submit"]').click();
+ await reachedApproval;
  await waitForPersistedQuoteContact(page,'reached');
  state=await snapshot();
  const task=state.tasks.find(x=>x.id===linked[0].id);
