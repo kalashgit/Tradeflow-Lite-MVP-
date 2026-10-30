@@ -39,16 +39,10 @@ async function verifyQuoteFollowupJourney(page,result){
  });
  await review.click();
  await ownerConfirmation;
- // Playwright click waits for dispatch, not completion of an async document listener.
- // Wait for the actual IndexedDB commit, not a guessed rendering delay.
- await page.waitForFunction(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9);
-  const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
-  try{
-   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks']);
-   return data.tasks.some(t=>t.quoteId==='q1'&&t.taskKind==='quotation_follow_up');
-  }finally{db.close()}
- },null,{timeout:10000}).catch(()=>{});
+ // Wait on the existing completion notification without opening competing
+ // IndexedDB read transactions while the command's write transaction is active.
+ await page.getByText('Follow-up task saved.',{exact:false})
+  .waitFor({timeout:20000}).catch(()=>{});
  let state=await snapshot();
  const linked=state.tasks.filter(t=>t.quoteId==='q1'&&t.taskKind==='quotation_follow_up');
  if(linked.length!==1){
