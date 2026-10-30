@@ -102,6 +102,10 @@ UI acceptance: Settings > reviewed transfer; prepare synthetic backup, review re
 
 Refer to the final H04-04 section of `docs/TRADEFLOW_ENGINEERING_TASK_LEDGER.md`. This increment adds only a disabled server-side advisory contract and mock tests, not a live model integration or a second writer. Baseline source `390b5715fd7a727282116fe674d55269765b040d` passed exact-source Actions #282. New local tests: 4 focused, 506 full Node, six storage groups, TF-P01–P10 green. Chromium binary download was blocked by malformed CDN downloads; verify the new commit through exact-commit Actions before claiming browser acceptance. PR #16 must remain draft/unmerged/undeployed. R01-02 role grants still await founder approval; physical-device/contractor outcomes remain unverified.
 
+## Continuation checkpoint — H04-05 server advisory gate
+
+See H04-05 in the task ledger. The new `src/advisory-server.js` accepts only predeclared advisory intents on an explicitly enabled mock server transport after matching the current context identity and principal. It has no external network or credential adapter and cannot execute business commands. New local verification: focused 7/7, full Node 509/509, storage six groups and ten contractor detectors pass. Browser testing requires exact-commit CI because the local Chromium CDN install is blocked. Keep PR #16 draft/unmerged/undeployed; do not configure real provider secrets or activate inference without authorization and budget/egress controls.
+
 ## Copy/paste successor prompt
 > Continue TradeFlow from the actual GitHub HEAD of **draft PR #16**. Read `docs/TRADEFLOW_ENGINEERING_HANDOFF_2026-10-30.md`, the authoritative v1.1 Google Doc and existing architecture/evidence docs. Verify exact SHA and CI (including the formerly queued #252), inspect real code/tests, then continue H03 server-authorized, revocation-safe, conflict-safe offline synchronization without duplicating existing systems. Maintain TF-P01–P10, run complete tests, commit small safe increments, report verified evidence and blockers, keep the PR draft/unmerged/undeployed and do not claim the 62 pain points solved.
 
