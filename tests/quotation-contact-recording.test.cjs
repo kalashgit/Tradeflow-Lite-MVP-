@@ -266,3 +266,25 @@ test('a newly added follow-up task after approval invalidates reached-contact re
   requestKey:'stale-followup-list',recordGuard:plan.guard}),/Linked follow-up tasks changed/);
  assert.deepEqual(await snapshot(db),before);
 });
+
+test('idempotent replay refuses to claim success after completed follow-up evidence disappears',async()=>{
+ const {db,request}=setup();
+ await put(db,'tasks',{id:'followup-replay',quoteId:'q1',customerId:'c1',
+  taskKind:'quotation_follow_up',status:'Open',businessId:'local-business'});
+ const done=await core.execute(request);
+ assert.equal(done.resolvedTasks,1);
+ const task=(await snapshot(db)).tasks.find(t=>t.id==='followup-replay');
+ await put(db,'tasks',{...task,status:'Open',contactEventId:null,completedReason:null});
+ await assert.rejects(core.execute(request),/Previous follow-up task resolution requires recovery review/);
+ const state=await snapshot(db);
+ assert.equal(state.events.length,1);
+ assert.equal(state.tasks.length,1);
+});
+test('idempotent replay refuses to claim reached contact if quotation resolution was removed',async()=>{
+ const {db,request}=setup(),done=await core.execute(request);
+ const quote=(await snapshot(db)).quotes[0];
+ await put(db,'quotes',{...quote,followupResolution:null});
+ await assert.rejects(core.execute(request),/Previous quotation resolution requires recovery review/);
+ assert.equal((await snapshot(db)).events.length,1);
+ assert.ok(done.id);
+});
