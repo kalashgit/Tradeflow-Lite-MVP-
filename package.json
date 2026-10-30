@@ -8,7 +8,7 @@
     "test": "node --test tests/*.test.cjs",
     "test:storage": "python3 tests/tenant-migrations.test.py",
     "test:contractors": "node automation/run-ten-pain-points.cjs",
-    "test:browser": "node scripts/verify-local-recovery.cjs && node scripts/verify-command-cross-tab.cjs && node scripts/verify-contractor-workflows.cjs && node scripts/verify-cloud-transfer.cjs && node scripts/verify-intelligence-context.cjs"
+    "test:browser": "node scripts/verify-local-recovery.cjs && node scripts/verify-command-cross-tab.cjs && node scripts/verify-contractor-workflows.cjs && node scripts/verify-cloud-transfer.cjs && node scripts/verify-intelligence-context.cjs && node scripts/verify-two-device-sync.cjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

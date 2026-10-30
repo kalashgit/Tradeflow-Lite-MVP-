@@ -41,6 +41,7 @@ jobs:
           node --check src/intelligence-context.js
           node --check public/cloud-intelligence.js
           node --check scripts/verify-intelligence-context.cjs
+          node --check scripts/verify-two-device-sync.cjs
           node --check public/sync-queue.js
           node --check tests/sync-intent-status.test.cjs
           node --check public/record-model.js
