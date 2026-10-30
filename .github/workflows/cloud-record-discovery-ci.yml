@@ -43,6 +43,8 @@ jobs:
           node --check public/migration-ui.js
           node --check public/core-integration.js
           node --check public/command-registry.js
+          node --check scripts/verify-command-cross-tab.cjs
+          node --check tests/command-hardening-adversarial.test.cjs
           node --check public/operational-intelligence.js
           node --check public/change-orders.js
           node --check public/app.js
