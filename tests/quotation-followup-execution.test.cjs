@@ -280,3 +280,11 @@ test('approved registry quote and customer snapshots execute through atomic core
   recordGuard:guarded.guard}),/linked customer changed since approval/);
  assert.equal((await snapshot(another.db)).tasks.length,0);
 });
+
+test('unrelated customer guard cannot authorize a quotation follow-up',async()=>{
+ const {db,args}=fixture();
+ const wrong={ref:{store:'customers',id:'c2'},record:{id:'c2',businessId}};
+ await assert.rejects(core.execute({...args,requestKey:'unrelated-customer',
+  recordGuard:[...args.recordGuard,wrong]}),/changed since approval|does not match/);
+ assert.equal((await snapshot(db)).tasks.length,0);
+});
