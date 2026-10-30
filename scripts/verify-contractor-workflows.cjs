@@ -121,7 +121,16 @@ async function verifyQuoteFollowupJourney(page,result){
     .map(e=>({id:e.id,status:e.status,error:e.error})),
    dialogs,browserErrors
   }));
- assert.equal(state.events.filter(x=>x.quoteId==='q1'&&x.outcome==='attempted').length,1);
+ assert.equal(state.events.filter(x=>x.quoteId==='q1'&&x.outcome==='attempted').length,1,
+  'Attempted event disappeared from committed snapshot: '+JSON.stringify({
+   events:state.events.map(e=>({id:e.id,kind:e.kind,quoteId:e.quoteId,outcome:e.outcome})),
+   receipts:state.commandLog.filter(x=>x.kind==='customer.contact.record')
+    .map(x=>({id:x.id,kind:x.kind,resultId:x.resultId,outcome:x.outcome})),
+   commands:state.commandLog.filter(x=>x.kind==='pilot.command'&&x.commandId==='customer.contact.record')
+    .map(x=>({id:x.id,status:x.status,error:x.error})),
+   quote:state.quotes.find(q=>q.id==='q1'),
+   browserErrors
+  }));
  assert.equal(state.quotes.find(x=>x.id==='q1').lastContactAt,undefined);
  result.stage='save owner-attested reached contact';
  await page.locator('#tfContactLogForm [name="quoteId"]').selectOption('q1');
