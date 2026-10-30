@@ -44,6 +44,7 @@ jobs:
           node --check tests/record-identity-contract.test.cjs
           node --check public/cloud-retrieval.js
           node --check public/migration-ui.js
+          node --check public/migration-preview.js
           node --check public/core-integration.js
           node --check public/command-registry.js
           node --check scripts/verify-command-cross-tab.cjs
