@@ -112,7 +112,15 @@ async function verifyQuoteFollowupJourney(page,result){
  await attemptedApproval;
  await waitForPersistedQuoteContact(page,'attempted');
  state=await snapshot();
- assert.equal(state.tasks.filter(t=>t.quoteId==='q1'&&t.status==='Open').length,1);
+ assert.equal(state.tasks.filter(t=>t.quoteId==='q1'&&t.status==='Open').length,1,
+  'Attempted contact must preserve open follow-up: '+JSON.stringify({
+   tasks:state.tasks.map(t=>({id:t.id,quoteId:t.quoteId,status:t.status,taskKind:t.taskKind,
+    completedReason:t.completedReason,contactEventId:t.contactEventId})),
+   events:state.events.filter(e=>e.quoteId==='q1').map(e=>({id:e.id,outcome:e.outcome})),
+   contactCommands:state.commandLog.filter(e=>e.kind==='pilot.command'&&e.commandId==='customer.contact.record')
+    .map(e=>({id:e.id,status:e.status,error:e.error})),
+   dialogs,browserErrors
+  }));
  assert.equal(state.events.filter(x=>x.quoteId==='q1'&&x.outcome==='attempted').length,1);
  assert.equal(state.quotes.find(x=>x.id==='q1').lastContactAt,undefined);
  result.stage='save owner-attested reached contact';
