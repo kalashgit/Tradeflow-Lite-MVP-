@@ -37,6 +37,11 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   });
   assert.equal(result.old.stores.customers[0].name,'After edit');assert.equal(result.now.stores.customers[0].name,'Before edit');
   assert.equal(result.now.stores.payments[0].jobId,'recovery-job');assert.equal(result.now.version,9);
+  // Service-worker registration readiness may precede control of an already open tab.
+  await page.evaluate(()=>navigator.serviceWorker.ready);
+  if(!await page.evaluate(()=>navigator.serviceWorker.controller!==null)){
+   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery);
+  }
   await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
   await context.setOffline(true);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery&&!!window.TradeFlowPilot);
   await page.evaluate(async()=>{
