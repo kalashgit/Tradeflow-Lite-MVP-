@@ -67,3 +67,27 @@ db.execute("UPDATE business_memberships SET role='admin' WHERE business_id='busi
 assert db.execute(financial_sql,financial_args).fetchone()[0]==1
 assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==4
 print("PASS: 20-type expansion preserves rows/audits, rollback works, financial SQL permissions enforced")
+
+# Crew management and job assignment are checked inside the write statement,
+# even when the JS authorization object is stale after a role downgrade.
+job_guard = re.search(r"export const JOB_ASSIGNMENT_GUARD_SQL =`(.*?)`;", source, re.S).group(1)
+job_sql = sql.replace("/* financial-guard */", job_guard)
+business="business_002"
+def assigned_job(expected, payload):
+    return db.execute(job_sql,(business,"jobs","assignment_job",expected+1,payload,"issuer.example","user_001",expected,business,"jobs","assignment_job",business,"issuer.example","user_001",payload,business,"assignment_job",expected)).fetchone()
+
+db.execute("UPDATE business_memberships SET role='owner' WHERE business_id=?",(business,))
+assert assigned_job(0,'{"title":"Panel replacement","crewId":"crew_001"}')[0]==1
+before_audit=db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]
+db.execute("UPDATE business_memberships SET role='member' WHERE business_id=?",(business,))
+assert assigned_job(1,'{"title":"Unapproved assignment","crewId":"crew_002"}') is None
+assert assigned_job(1,'{"title":"Unapproved removal"}') is None
+assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==before_audit
+assert assigned_job(1,'{"title":"Permitted note edit","crewId":"crew_001"}')[0]==2
+roster_sql=sql.replace("/* financial-guard */", "AND role IN ('owner','admin')")
+roster_args=(business,"crew","crew_private",1,'{"role":"owner"}',"issuer.example","user_001",0,business,"crew","crew_private",business,"issuer.example","user_001",0)
+assert db.execute(roster_sql,roster_args).fetchone() is None
+db.execute("UPDATE business_memberships SET role='admin' WHERE business_id=?",(business,))
+assert db.execute(roster_sql,roster_args).fetchone()[0]==1
+assert assigned_job(2,'{"title":"Authorized reassignment","crewId":"crew_002"}')[0]==3
+print("PASS: roster and assignment authority enforced atomically; member note edits preserved")

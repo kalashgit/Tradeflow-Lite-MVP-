@@ -1,3 +1,4 @@
+import {mayWriteRecord,MANAGED_RECORD_TYPES} from '../public/record-permissions.js';
 import {linksForRecord,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
 import {AuthorizationError,tenantRecordQuery} from './tenant-security.js';
 
@@ -14,6 +15,12 @@ export const RECORD_WRITE_SQL =`INSERT INTO tenant_records
  updated_by_subject=excluded.updated_by_subject
  WHERE tenant_records.revision=? AND tenant_records.deleted_at IS NULL
  RETURNING revision,updated_at`;
+
+// Evaluated inside the same statement as membership, revision and audit. A
+// member may edit an ordinary job but cannot assign/reassign its crew.
+export const JOB_ASSIGNMENT_GUARD_SQL =`AND (role IN ('owner','admin') OR
+ COALESCE(json_extract(?, '$.crewId'),'')=COALESCE((SELECT json_extract(payload,'$.crewId')
+ FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?),''))`;
 
 
 export function validateRecordWrite(body) {
@@ -32,7 +39,7 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
  if (!authorization?.subject || !authorization?.issuer || !['owner','admin','member'].includes(authorization.role))
    throw new AuthorizationError('Authenticated membership required',403);
  const financial=FINANCIAL_RECORD_TYPES.includes(recordType);
- if(financial&&!['owner','admin'].includes(authorization.role))throw new AuthorizationError('Financial record permission required',403);
+ if(!mayWriteRecord(authorization.role,recordType))throw new AuthorizationError(financial?'Financial record permission required':'Crew administration permission required',403);
  if(body?.expectedActor!==undefined&&(!body.expectedActor||body.expectedActor.issuer!==authorization.issuer||body.expectedActor.subject!==authorization.subject))
   throw new AuthorizationError('Request actor changed; review again',403);
  const {expectedRevision,payload}=validateRecordWrite(body);
@@ -52,11 +59,14 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
   relationshipArgs.push(...query.params,linked.revision);
  }
  if(customers.size>1)throw new AuthorizationError('Linked records belong to different customers',400);
- const sql=RECORD_WRITE_SQL.replace('/* relationship-guards */',guards.join('\n')).replace('/* financial-guard */',financial?"AND role IN ('owner','admin')":'');
+ const managed=financial||MANAGED_RECORD_TYPES.includes(recordType);
+ const permissionGuard=managed?"AND role IN ('owner','admin')":recordType==='jobs'?JOB_ASSIGNMENT_GUARD_SQL:'';
+ const permissionArgs=recordType==='jobs'?[payload,authorization.businessId,recordId]:[];
+ const sql=RECORD_WRITE_SQL.replace('/* relationship-guards */',guards.join('\n')).replace('/* financial-guard */',permissionGuard);
 
 
  const row=await db.prepare(sql).bind(...params,expectedRevision+1,payload,
-   authorization.issuer,authorization.subject,expectedRevision,...params,authorization.businessId,authorization.issuer,authorization.subject,...relationshipArgs,expectedRevision).first();
+   authorization.issuer,authorization.subject,expectedRevision,...params,authorization.businessId,authorization.issuer,authorization.subject,...permissionArgs,...relationshipArgs,expectedRevision).first();
  if (!row)throw new AuthorizationError('Revision or membership conflict; reload before saving',409);
  return {revision:row.revision,updatedAt:row.updated_at};
 }

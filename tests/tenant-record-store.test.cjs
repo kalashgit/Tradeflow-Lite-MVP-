@@ -13,7 +13,9 @@ function mockDb(output){
   assert.match(sql,/updated_by_subject/);
   return {bind(...args){
    assert.deepEqual(args.slice(0,3),['business_001','jobs','job_01']);
-   assert.deepEqual(args.slice(-4),['business_001',auth.issuer,auth.subject,args[3]-1]);
+   assert.deepEqual(args.slice(11,14),['business_001',auth.issuer,auth.subject]);
+   assert.deepEqual(args.slice(14,17),[JSON.stringify(JSON.parse(args[4])),'business_001','job_01']);
+   assert.equal(args.at(-1),args[3]-1);
    assert.match(sql,/business_memberships/);
    return {first:async()=>output};
   }};
@@ -63,4 +65,10 @@ test('server rejects a queued request intended for a different authenticated act
   await assert.rejects(save(db,auth,'jobs','job_01',{revision:0,record:{name:'Stale actor request'},expectedActor}),{status:403});
  }
  const result=await save(mockDb({revision:1,updated_at:'now'}),auth,'jobs','job_01',{revision:0,record:{name:'Correct actor'},expectedActor:{issuer:auth.issuer,subject:auth.subject}});assert.equal(result.revision,1);
+});
+
+test('crew writes reject ordinary members below the API and keep commit-time role guard for stale owners',async()=>{
+ let used='';const db={prepare(sql){used=sql;return {bind(){return {first:async()=>({revision:1,updated_at:'now'})}}}}};
+ await assert.rejects(save(db,{...auth,role:'member'},'crew','crew_001',{revision:0,record:{name:'Self-appointed owner',role:'owner'}}),{status:403});assert.equal(used,'');
+ await save(db,auth,'crew','crew_001',{revision:0,record:{name:'Electrician',role:'Foreman'}});assert.match(used,/role IN \('owner','admin'\)/);
 });

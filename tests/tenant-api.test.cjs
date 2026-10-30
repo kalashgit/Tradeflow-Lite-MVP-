@@ -144,3 +144,9 @@ test('cloud catalogue is tenant-authorized, bounded, cursor-paged and read-only'
  assert.equal((await api(req(prefix),env,options)).status,401);
  assert.equal(reads,2);assert.equal(writes,0);
 });
+
+test('API rejects crew administration by members despite owner-like fields in the roster payload',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/records/crew/crew_001';
+ const request=new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{name:'Display only',role:'owner',permissions:['members:manage']}})});
+ const res=await api(request,{...envBase,TF_DB:db('member'),TF_EXTENDED_RECORDS_ENABLED:'true'},{fetchJwks:jwksResponse});assert.equal(res.status,403);
+});

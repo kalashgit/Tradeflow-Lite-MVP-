@@ -1,4 +1,5 @@
 import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES,recordIdentity} from './record-model.js';
+import {mayWriteRecord} from './record-permissions.js';
 import {classifyOfflineChange} from './offline-conflicts.js';
 // Opt-in prerequisite only: the application does not enqueue or drain automatically.
 const canonical=x=>JSON.stringify(x,(key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,value[k]])):value);
@@ -16,7 +17,7 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
  function history(row,event){return [...(row.history||[]).slice(-39),{event,at:now()}]}
  const principal=s=>s?.identity?.issuer&&s?.identity?.subject?{issuer:s.identity.issuer,subject:s.identity.subject}:null;
  const samePrincipal=(a,b)=>canonical(a)===canonical(b);
- function permitted(s,type){return s?.status==='signed_in'&&s.businesses?.some(b=>b.business_id===businessId&&(FINANCIAL_RECORD_TYPES.includes(type)?['owner','admin']:['owner','admin','member']).includes(b.role))}
+ function permitted(s,type){return s?.status==='signed_in'&&s.businesses?.some(b=>b.business_id===businessId&&(type?mayWriteRecord(b.role,type):['owner','admin','member'].includes(b.role)))}
  async function authorized(){return permitted(await session())}
  function enqueue(change){
   if(!change||!types.includes(change.type)||!validId(change.id)||!validId(change.operationId)||!Number.isSafeInteger(change.baseRevision)||change.baseRevision<0||change.baseRevision>2147483646||!change.record||typeof change.record!=='object'||Array.isArray(change.record))throw Error('Invalid queued record');
@@ -96,10 +97,10 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
  async function resolve(id,propose,approve){
   const reviewedSession=await session();
   const canReview=(s,type)=>s?.status==='signed_in'&&s.businesses?.some(b=>b.business_id===businessId&&
-   (FINANCIAL_RECORD_TYPES.includes(type)?['owner','admin']:['owner','admin','member']).includes(b.role));
+   (type?mayWriteRecord(b.role,type):['owner','admin','member'].includes(b.role)));
   if(!canReview(reviewedSession,null))throw Error('Authorized session required');
   const row=(await list()).find(r=>r.id===id);if(!row||!['conflict','failed'].includes(row.status))throw Error('No reviewable conflict');
-  if(!canReview(reviewedSession,row.change?.type))throw Error('Financial record review requires owner or admin');
+  if(!canReview(reviewedSession,row.change?.type))throw Error('Financial or crew record review requires owner or admin');
   const remote=await remoteRecord(row);
   if(!remote||remote.deletedAt)throw Error('Missing/deleted remote record requires manual recovery');
   // Snapshot and validate the exact proposed record before awaiting approval.

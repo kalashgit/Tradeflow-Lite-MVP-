@@ -16,8 +16,8 @@ export function requireVerifiedPrincipal(principal){
   return Object.freeze({subject:principal.subject,issuer:principal.issuer});
 }
 const permissions=Object.freeze({
-  owner:new Set(['records:read','records:write','members:read','members:manage','billing:manage','records:finance:write']),
-  admin:new Set(['records:read','records:write','records:finance:write','members:read']),
+  owner:new Set(['records:read','records:write','members:read','members:manage','billing:manage','records:finance:write','records:crew:write']),
+  admin:new Set(['records:read','records:write','records:finance:write','records:crew:write','members:read']),
   member:new Set(['records:read','records:write']),
   viewer:new Set(['records:read'])
 });

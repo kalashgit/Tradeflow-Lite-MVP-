@@ -51,3 +51,7 @@ test('network write carries the pinned actor for authoritative server comparison
  const f=fixture(),q=f.make();await q.enqueue(change);const write=f.transport.write;
  f.transport.write=async(type,id,body)=>{assert.deepEqual(body.expectedActor,{issuer:'verified.example',subject:'owner_001'});return write(type,id,body)};await q.drain();assert.equal(f.writes(),1);
 });
+test('member role cannot drain crew-roster work even with misleading display roles',async()=>{
+ const f=fixture(),q=f.make();await q.enqueue({...change,type:'crew',record:{id:'c1',role:'owner'}});f.role('member');
+ assert.equal((await q.drain()).status,'authorization_required');assert.equal(f.writes(),0);assert.notEqual((await q.list())[0].status,'applied');
+});

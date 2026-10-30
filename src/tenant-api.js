@@ -1,3 +1,4 @@
+import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
 import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
 import {planTenantRestore} from './tenant-restore-plan.js';
@@ -74,7 +75,7 @@ export async function tenantApi(request,env,options={}){
   if(!match)return json({error:'Not found'},404);
   const businessId=requireBusinessId(match[1]);
   if(!RECORD_TYPES.includes(match[2])||!LEGACY_RECORD_TYPES.includes(match[2])&&!(await schemaCapabilities(env)).recordTypes.includes(match[2]))return json({error:'Record type is unavailable in the current server schema'},400);
-  const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:request.method==='PUT'?(FINANCIAL_RECORD_TYPES.includes(match[2])?'records:finance:write':'records:write'):'records:read'});
+  const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:request.method==='PUT'?recordWritePermission(match[2]):'records:read'});
   if(request.method==='PUT'){
    if(!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''))return json({error:'JSON required'},415);
    if(!request.body)return json({error:'JSON body required'},400);
