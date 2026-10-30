@@ -21,6 +21,46 @@ async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),stores=clear?[...db.objectStoreNames]:Object.keys(data),tx=db.transaction(stores,'readwrite');
  for(const store of stores){tx.objectStore(store).clear();for(const row of data[store]||[])tx.objectStore(store).put(row)}await new Promise(r=>tx.oncomplete=r);db.close();
 },{data,clear})}
+async function verifyInvoiceFollowupJourney(page,result){
+ const decisions=[];
+ page.on('dialog',async dialog=>{
+  decisions.push(dialog.message());
+  await dialog.accept();
+ });
+ const button=page.locator('[data-revenue-action="followup"][data-id="i1"]');
+ await button.waitFor({timeout:15000});
+ await button.click();
+ await page.waitForFunction(async()=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9);
+  const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+  try{
+   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);
+   return d.tasks.some(t=>t.invoiceId==='i1'&&t.status==='Open')&&
+    d.commandLog.some(c=>c.kind==='pilot.command'&&c.commandId==='invoice.followup.schedule'&&c.status==='succeeded');
+  }finally{db.close()}
+ },null,{timeout:15000});
+ const evidence=await page.evaluate(async()=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return d;
+ });
+ const tasks=evidence.tasks.filter(t=>t.invoiceId==='i1');
+ assert.equal(tasks.length,1);
+ assert.equal(tasks[0].status,'Open');
+ assert.equal(tasks[0].customerId,'c1');
+ assert.equal(evidence.commandLog.filter(c=>c.kind==='invoice.followup.schedule').length,1);
+ assert.ok(decisions.some(m=>m.includes('No email or payment request will be sent')));
+ result.invoiceOwnerReviewedTask=true;
+ result.externalInvoiceMessageSent=false;
+ await page.reload();
+ await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ const after=await page.evaluate(async()=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return d;
+ });
+ assert.equal(after.tasks.filter(t=>t.invoiceId==='i1').length,1);
+ assert.ok(after.commandLog.some(c=>c.kind==='invoice.followup.schedule'));
+ result.invoiceReloadPersistence=true;
+}
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
@@ -166,6 +206,13 @@ async function verifyQuoteFollowupJourney(page,result){
     await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'.png')});await notification.click();result.navigationClicked=true;
     if(item.id==='TF-P01'){
      await verifyQuoteFollowupJourney(page,result);
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
+    }else if(item.id==='TF-P02'){
+     await verifyInvoiceFollowupJourney(page,result);
+     // Reconcile the recorded balance using synthetic payment data; this does not assert bank settlement.
+     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
      result.notificationCleared=true;
