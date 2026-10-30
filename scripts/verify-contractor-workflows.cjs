@@ -21,6 +21,64 @@ async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),stores=clear?[...db.objectStoreNames]:Object.keys(data),tx=db.transaction(stores,'readwrite');
  for(const store of stores){tx.objectStore(store).clear();for(const row of data[store]||[])tx.objectStore(store).put(row)}await new Promise(r=>tx.oncomplete=r);db.close();
 },{data,clear})}
+async function verifyQuoteFollowupJourney(page,result){
+ const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ const snapshot=()=>page.evaluate(async()=>{
+  const req=indexedDB.open('tradeflow-lite-v1',9);
+  const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+  const data=await window.TradeFlowLocalRecovery.readStores(db,['quotes','customers','tasks','events','commandLog']);
+  db.close();return data;
+ });
+ const review=page.locator('[data-action="tfQuoteFollowupReview"][data-id="q1"]');
+ await review.waitFor();await review.click();
+ let state=await snapshot();
+ const linked=state.tasks.filter(t=>t.quoteId==='q1'&&t.taskKind==='quotation_follow_up');
+ assert.equal(linked.length,1,'Owner review must create exactly one internal follow-up');
+ assert.equal(linked[0].status,'Open');
+ assert.equal(state.commandLog.filter(x=>x.kind==='quotation.followup.schedule').length,1);
+ assert.ok(dialogs.some(x=>x.includes('does not contact the customer')));
+ result.ownerApprovalCreatedTask=true;
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ await page.evaluate(async()=>{
+  const commands=window.TradeFlowPilot.commands;
+  const p=await commands.prepare({commandId:'record.open',params:{ref:{store:'quotes',id:'q1'}}});
+  const out=await commands.execute(p.id);if(out.status!=='succeeded')throw Error('Cannot open quotation after reload');
+ });
+ await page.locator('[data-action="tfQuoteContactOutcome"][data-id="q1"]').click();
+ const form=page.locator('#tfContactLogForm');await form.waitFor();
+ assert.equal(await form.locator('[name="quoteId"]').inputValue(),'q1','Quote must be preselected');
+ await form.locator('[name="method"]').selectOption('Phone');
+ await form.locator('[name="outcome"]').selectOption('attempted');
+ await form.locator('[name="notes"]').fill('Called and left no message; customer did not answer');
+ await form.locator('button[type="submit"]').click();
+ await page.getByText('Contact attempt recorded.',{exact:false}).waitFor();
+ state=await snapshot();
+ assert.equal(state.tasks.filter(t=>t.quoteId==='q1'&&t.status==='Open').length,1);
+ assert.equal(state.events.filter(x=>x.quoteId==='q1'&&x.outcome==='attempted').length,1);
+ assert.equal(state.quotes.find(x=>x.id==='q1').lastContactAt,undefined);
+ await page.locator('#tfContactLogForm [name="quoteId"]').selectOption('q1');
+ await page.locator('#tfContactLogForm [name="outcome"]').selectOption('reached');
+ await page.locator('#tfContactLogForm [name="notes"]').fill('Spoke directly with the customer and confirmed the estimate discussion');
+ await page.locator('#tfContactLogForm button[type="submit"]').click();
+ await page.getByText('Owner-attested customer contact recorded',{exact:false}).waitFor();
+ state=await snapshot();
+ const task=state.tasks.find(x=>x.id===linked[0].id);
+ const quote=state.quotes.find(x=>x.id==='q1');
+ const reached=state.events.find(x=>x.quoteId==='q1'&&x.outcome==='reached');
+ assert.equal(task.status,'Done');assert.equal(task.contactEventId,reached.id);
+ assert.equal(quote.followupResolution.contactEventId,reached.id);
+ assert.equal(quote.followupResolution.providerVerified,false);
+ assert.equal(state.events.filter(x=>x.quoteId==='q1').length,2);
+ assert.equal(state.commandLog.filter(x=>x.kind==='domain.event'&&x.type==='task.completed').length,1);
+ result.ownerAttestedResolutionPersisted=true;
+ result.providerDeliveryVerified=false;
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ const persistent=await snapshot();
+ assert.equal(persistent.tasks.find(x=>x.id===task.id).status,'Done');
+ assert.equal(persistent.quotes.find(x=>x.id==='q1').followupResolution.contactEventId,reached.id);
+ result.recoveryAfterReload=true;
+ result.quoteNotificationMustNotBeClaimedResolvedByTaskOnly=true;
+}
 (async()=>{
  await new Promise(r=>server.listen(4193,'127.0.0.1',r));const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
  try{for(const viewport of [{width:390,height:844},{width:1280,height:900}])for(const item of cases){
@@ -33,8 +91,15 @@ async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
    if(item.title){
     await page.locator('[data-notif-action="toggle"]').click();const notification=page.locator('.tf-notif-item').filter({hasText:item.title});await notification.waitFor();result.notificationShown=true;
     await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'.png')});await notification.click();result.navigationClicked=true;
-    // Controlled record corrections validate resolution detection; not a claim of field authorization.
-    await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);await page.locator('[data-notif-action="toggle"]').click();assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);result.notificationCleared=true;
+    if(item.id==='TF-P01'){
+     await verifyQuoteFollowupJourney(page,result);
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
+    }else{
+     // Controlled record corrections validate resolution detection; not a claim of field authorization.
+     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);await page.locator('[data-notif-action="toggle"]').click();assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);result.notificationCleared=true;
+    }
    }else{
     await page.evaluate(async type=>{const c=window.TradeFlowPilot.commands,p=await c.prepare({commandId:'record.open',params:{ref:{store:type,id:type==='quotes'?'q1':'c1'}}});const r=await c.execute(p.id);if(r.status!=='succeeded')throw Error('Record navigation failed')},item.id==='TF-P09'?'quotes':'customers');
     if(item.id==='TF-P09'){
