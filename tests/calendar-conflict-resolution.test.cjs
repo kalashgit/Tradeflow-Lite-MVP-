@@ -32,7 +32,8 @@ test('approved standalone conflict move writes revised booking, command receipt,
  assert.equal(after.commandLog.filter(x=>x.kind==='domain.event'&&x.type==='calendar.updated').length,1);
 });
 test('same approved key idempotent; fresh approvals do not reschedule a non-conflicting event',async()=>{
- const f=fixture();const first=await f.operate(),again=await f.operate();
+ const f=fixture(),approvedGuard=await f.guard();
+ const first=await f.operate({recordGuard:approvedGuard}),again=await f.operate({recordGuard:approvedGuard});
  assert.equal(again.id,first.id);assert.equal(again.reused,true);
  assert.equal((await snapshot(f.db)).calendarAudit.length,1);
  const current=await snapshot(f.db),resolved=commands.resolve(f.input,current,f.context);
