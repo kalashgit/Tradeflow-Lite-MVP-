@@ -80,6 +80,7 @@ async function verifyChangeOrderReviewJourney(page,result){
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();
   return d.tasks.some(t=>t.changeOrderId==='co1')&&d.commandLog.some(x=>x.commandId==='job.change_order.review.schedule'&&x.status==='succeeded');
  },null,{timeout:15000});
+ await page.getByText('Internal authorization-review task verified.',{exact:false}).waitFor({timeout:15000});
  result.stage='change order: verify first commit';
  let data=await read();const tasks=data.tasks.filter(x=>x.changeOrderId==='co1');
  assert.equal(tasks.length,1,'Task persistence: '+JSON.stringify(data.tasks));assert.equal(tasks[0].customerAuthorizationStatus,'unverified');
