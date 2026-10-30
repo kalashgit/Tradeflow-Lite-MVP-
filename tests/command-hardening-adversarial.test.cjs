@@ -106,3 +106,17 @@ test('request-key binding rejects changed source revision instead of replacing p
  assert.equal(records.commandLog.filter(x=>x.id===p.id).length,1);
  assert.equal(records.quotes.length,1);
 });
+
+for(const failingPut of [2,3]){
+ test('transaction rolls back staged quote and audit when write #'+failingPut+' fails',async()=>{
+  const f=fixture(),resolved=cmd.resolve(request,await snapshot(f.db),{actor:'local-owner',businessId});
+  f.db.failPutAt=failingPut;
+  await assert.rejects(core.execute({db:f.db,kind:'quotation.reuse.create',
+   payload:{sourceQuoteId:'q1',title:source.title,category:source.category,amount:1250},
+   requestKey:'operation:mid-write-'+failingPut,actor:'local-owner',businessId,approved:true,
+   recordGuard:resolved.guard,uid:()=> 'mid-write-draft'}));
+  const state=await snapshot(f.db);
+  assert.equal(state.quotes.length,1,'Draft must not survive aborted transaction');
+  assert.equal(state.commandLog.length,0,'Domain audit and receipt must both roll back');
+ });
+}
