@@ -926,6 +926,7 @@ function tfRecordDetailView(d,record,type){
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfChangeOrderReview" data-id="'+esc(record.id)+'" data-change-id="'+esc(change.id)+'">Review proposed change: '+esc(String(change.description||change.id).slice(0,100))+'</button>';
   }
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
+  if(type==='jobs')sections+='<section class="tf-record-dossier-box"><h3>Operational reasoning</h3><button type="button" class="tf-record-dossier-primary" data-action="tfDecisionExplain" data-id="'+esc(record.id)+'">Explain recorded job exceptions</button><div data-decision-job="'+esc(record.id)+'">'+(window.TradeFlowPilot?.decisions?.view(record.id)||'')+'</div></section>';
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
   if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.type==='estimate'))
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobCostReview" data-id="'+esc(record.id)+'">Review recorded job cost overrun</button>';
@@ -1223,6 +1224,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   if(result?.status==='succeeded'){await render();notify('Internal authorization-review task verified. Customer approval is still unverified.');}
   return;
  }
+ if(el.dataset.action==='tfDecisionExplain'){await window.TradeFlowPilot?.decisions?.open(el.dataset.id);return;}
  if(el.dataset.action==='tfJobCostReview'){
   const job=await get('jobs',el.dataset.id);
   const result=job?await tfReviewJobCost(job):null;
@@ -2167,7 +2169,15 @@ function tfInitializePilot(){
   return {status:'unsupported'};
  }
  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
-  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
+  let decisionController=null,decisionLoading=null;
+  const decisions=Object.freeze({view:id=>decisionController?.view(id)||'',open:async id=>{
+   if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
+    decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
+     readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope)});
+   })().catch(error=>{decisionLoading=null;throw error});
+   try{await decisionLoading;await decisionController.open(id)}catch(error){notify('Explanation unavailable: '+error.message)}
+  }});
+  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
 async function tfPilotNavigateCommand(workspace){

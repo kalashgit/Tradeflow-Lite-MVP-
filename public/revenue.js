@@ -338,7 +338,7 @@ async function onSubmit(event){
    const category=trim(fd.get('category'),80),rawHours=String(fd.get('laborHours')||'').trim();
    const laborHours=rawHours===''?null:Number(rawHours);
    if(rawHours!==''&&(category!=='Labor'||!Number.isFinite(laborHours)||laborHours<0.25||laborHours>10000||Math.abs(laborHours*4-Math.round(laborHours*4))>1e-6))throw Error('Labor hours require Labor category and quarter-hour increments.');
-   await api.put('jobCosts',{id:api.uid(),jobId:job.id,title,amount:Math.round(amount*100)/100,
+   await api.put('jobCosts',{id:api.uid(),jobId:job.id,title,currency:'USD',amount:Math.round(amount*100)/100,
       type,category,...(laborHours!==null?{laborHours}:{}),createdAt:new Date().toISOString()});
    costFormOpen=false;api.notify('Job cost saved');
   }

@@ -42,6 +42,8 @@ jobs:
           node --check public/cloud-intelligence.js
           node --check public/intelligence-evidence.js
           node --check public/master-intelligence.js
+          node --check public/decision-ui.js
+          node --check scripts/verify-decision-journey.cjs
           node --check scripts/verify-intelligence-context.cjs
           node --check scripts/verify-two-device-sync.cjs
           node --check public/sync-queue.js
@@ -78,7 +80,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs tests/calendar-conflict-resolution.test.cjs 2>&1 | tee artifacts/focused-node.log
+          node --test tests/master-intelligence.test.cjs tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs tests/calendar-conflict-resolution.test.cjs 2>&1 | tee artifacts/focused-node.log
       - name: Full Node regression
         shell: bash
         run: |

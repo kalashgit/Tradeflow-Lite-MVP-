@@ -467,6 +467,7 @@ function createLedger(database){
 function createRuntime(options){
  const {snapshot,context,ports={},ledger,uid,now=()=>new Date().toISOString(),can=()=>false,hash=digest}=options||{};
  const inFlight=new Map();
+ const pendingRows=(data,c,commandId,ref)=>rows(data,'commandLog').filter(r=>r.kind==='pilot.command'&&r.status==='executing'&&r.commandId===commandId&&r.actor===c.actor&&r.businessId===c.businessId&&r.params?.ref?.store===ref?.store&&r.params?.ref?.id===ref?.id);
  const ctx=async()=>({actor:'local-owner',businessId:'local-business',...await context()});
  const publicPlan=row=>{const {binding,kind,events,...view}=row;return clone(view)};
  const bound=async(r,c)=>hash({commandId:r.commandId,params:r.params,effect:r.effect,actor:c.actor,businessId:c.businessId,guard:r.guard,defaults:r.effect==='draft'?r.result:null});
@@ -475,7 +476,11 @@ function createRuntime(options){
  async function prepare(input,{requestKey}={}){
   const c=await ctx(),parsed=parse(input);if(parsed.status!=='parsed')return parsed;
   const def=definition(parsed.commandId);if(!await can(def.permission,c))return {status:'denied',error:{code:'PERMISSION_DENIED',message:'This actor cannot use that command.'}};
-  const data=await snapshot(),resolved=resolve(parsed.status==='parsed'?{commandId:parsed.commandId,params:parsed.params}:input,data,c);
+  const data=await snapshot(),latest=await ctx();
+  if(c.actor!==latest.actor||c.businessId!==latest.businessId||!await can(def.permission,latest))return {status:'denied',error:{code:'PERMISSION_DENIED',message:'Context changed during preparation.'}};
+  const prior=def.effect==='modification'&&parsed.params?.ref?pendingRows(data,c,def.id,parsed.params.ref).filter(r=>typeof requestKey!=='string'||r.id!=='pilot:command:'+requestKey):[];
+  if(prior.length)return {status:'indeterminate',pendingIds:prior.map(r=>r.id),error:{code:'PRIOR_COMMAND_UNVERIFIED',message:'Inspect the earlier command receipt before preparing another action.'}};
+  const resolved=resolve(parsed.status==='parsed'?{commandId:parsed.commandId,params:parsed.params}:input,data,c);
   if(!['ready','needs_review'].includes(resolved.status))return resolved;
   const key=requestKey||uid();if(!/^[A-Za-z0-9._:-]{1,160}$/.test(key))return problem('INVALID_REQUEST_KEY','Use a valid unique request key.');
   const {guard,...summary}=resolved,binding=await bound(resolved,c);
@@ -874,10 +879,18 @@ function createRuntime(options){
    {id,status:'indeterminate',error:{code:'RECOVERY_RACE',message:'Command state changed during reconciliation.'}};
   return outcome;
  }
+ async function pending({commandId,ref}={}){
+  const c=await ctx(),def=definition(commandId);
+  if(!def||def.effect!=='modification'||!ref||typeof ref.store!=='string'||typeof ref.id!=='string')throw Error('Known modification and record reference required');
+  if(!await can(def.permission,c))return problem('PERMISSION_DENIED','Cannot inspect this command.');
+  const data=await snapshot(),latest=await ctx();
+  if(c.actor!==latest.actor||c.businessId!==latest.businessId||!await can(def.permission,latest))return problem('PERMISSION_DENIED','Context changed during command inspection.');
+  return pendingRows(data,c,commandId,ref).map(r=>({id:r.id,status:r.status,commandId:r.commandId}));
+ }
  async function reject(id){const c=await ctx(),row=await ledger.get(id);if(!row||row.actor!==c.actor||row.businessId!==c.businessId)return problem('UNKNOWN_REQUEST','Request is not available.');const result=await ledger.transition(id,['ready','needs_review','approved'],event('rejected',c),{status:'rejected'});return publicPlan(result.row)}
  async function history(id){const c=await ctx(),row=await ledger.get(id);return row?.kind==='pilot.command'&&row.actor===c.actor&&row.businessId===c.businessId?clone(row.events):[]}
  const guarded=fn=>async(...args)=>{try{return await fn(...args)}catch(error){return {status:'failed',error:{code:'COMMAND_UNAVAILABLE',message:String(error.message||error)}}}};
- return Object.freeze({prepare:guarded(prepare),approve:guarded(approve),execute,reconcile:guarded(reconcile),reject:guarded(reject),parse,definitions,history,get:async id=>{const c=await ctx(),row=await ledger.get(id);return row?.kind==='pilot.command'&&row.actor===c.actor&&row.businessId===c.businessId?publicPlan(row):null}});
+ return Object.freeze({prepare:guarded(prepare),pending:guarded(pending),approve:guarded(approve),execute,reconcile:guarded(reconcile),reject:guarded(reject),parse,definitions,history,get:async id=>{const c=await ctx(),row=await ledger.get(id);return row?.kind==='pilot.command'&&row.actor===c.actor&&row.businessId===c.businessId?publicPlan(row):null}});
 }
 return Object.freeze({version:VERSION,definitions,parse,resolve,validateReferences,prepareDraft,validateDraft,filterRecords,staleQuote,findRecords,createRuntime,createLedger,canonical,isDate,dateText,terminal});
 });

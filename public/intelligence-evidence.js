@@ -25,6 +25,7 @@ export function projectEvidenceRecord(type,record){
 }
 export function evidenceLinks(records){
  const byKey=new Map(records.map(r=>[r.type+':'+r.id,r])),missing=[],warnings=[],edges=[];
+ for(const r of records)if(r.type==='expenses'&&r.record.relatedId&&!r.record.jobId)warnings.push({from:{type:r.type,id:r.id},field:'relatedId',code:'legacy_expense_link_needs_review'});
  for(const r of records)for(const [field,type]of linksForRecord(r.record)){
   const target=byKey.get(type+':'+r.record[field]);edges.push({from:{type:r.type,id:r.id},field,to:{type,id:r.record[field]},available:!!target});
   if(!target)missing.push({from:{type:r.type,id:r.id},field,status:'withheld_or_unavailable'});
@@ -35,17 +36,15 @@ export function evidenceLinks(records){
 // Explicit device-local compatibility, never an authenticated company identity.
 export async function localEvidence(snapshot,scope){
  if(scope?.mode!=='local'||scope.actor!=='local-owner'||scope.businessId!=='local-business')throw Error('Explicit device-local owner scope required');
- let records=[];for(const type of evidenceTypes('owner'))for(const raw of snapshot[type]||[]){
-  if(raw.businessId&&raw.businessId!==scope.businessId)continue;
-  recordIdentity({businessId:scope.businessId,type,id:raw.id,record:raw});
-  const {photoData,...source}=raw,record=projectEvidenceRecord(type,raw);
-  records.push({type,id:raw.id,revision:null,contentHash:await digest(source),evidenceHash:await digest(record),provenance:'local_device_record',record});
- }
- if(records.length>200)throw Error('Decision evidence exceeds 200 records; no partial summary');
- if(scope.jobId){const included=new Set(['jobs:'+scope.jobId]),map=new Map(records.map(r=>[r.type+':'+r.id,r]));if(!map.has('jobs:'+scope.jobId))throw Error('Job unavailable in this scope');
-  for(const r of records)if(r.record.jobId===scope.jobId)included.add(r.type+':'+r.id);
+ let selected=[];for(const type of evidenceTypes('owner'))for(const raw of snapshot[type]||[]){if(raw.businessId&&raw.businessId!==scope.businessId)continue;selected.push({type,id:raw.id,record:raw})}
+ if(scope.jobId){const included=new Set(['jobs:'+scope.jobId]),map=new Map(selected.map(r=>[r.type+':'+r.id,r]));if(!map.has('jobs:'+scope.jobId))throw Error('Job unavailable in this scope');
+  for(const r of selected)if(r.record.jobId===scope.jobId||r.type==='expenses'&&r.record.relatedId===scope.jobId)included.add(r.type+':'+r.id);
   let count=-1;while(count!==included.size){count=included.size;for(const key of [...included])for(const [field,type]of linksForRecord(map.get(key).record)){const ref=type+':'+map.get(key).record[field];if(map.has(ref))included.add(ref)}}
-  records=records.filter(r=>included.has(r.type+':'+r.id));
+  selected=selected.filter(r=>included.has(r.type+':'+r.id));
+ }
+ if(selected.length>200)throw Error('Decision evidence exceeds 200 records; no partial summary');
+ const records=[];for(const entry of selected){const {type,id,record:raw}=entry;recordIdentity({businessId:scope.businessId,type,id,record:raw});const {photoData,...source}=raw,record=projectEvidenceRecord(type,raw);if(new TextEncoder().encode(canonical(source)).byteLength>30000)throw Error('Source record exceeds bounded decision evidence');
+  records.push({type,id,revision:null,contentHash:await digest(source),evidenceHash:await digest(record),provenance:'local_device_record',record});
  }
  return {kind:'tradeflow.intelligence.local-context.v1',businessId:scope.businessId,identity:{actor:scope.actor},authentication:'device_local_only',scope:scope.jobId?{jobId:scope.jobId}:{company:true},readOnly:true,executionAuthority:false,records};
 }
