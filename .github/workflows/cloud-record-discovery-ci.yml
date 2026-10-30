@@ -43,7 +43,9 @@ jobs:
           node --check public/migration-ui.js
           node --check public/core-integration.js
           node --check public/command-registry.js
+          node --check public/operational-intelligence.js
           node --check public/app.js
+          node --check tests/change-order-review-execution.test.cjs
           node --check tests/quotation-followup-execution.test.cjs
           node --check tests/quotation-legacy-followup-policy.test.cjs
           node --check tests/quotation-contact-recording.test.cjs

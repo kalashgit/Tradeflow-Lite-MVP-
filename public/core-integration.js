@@ -647,11 +647,80 @@
    }
   });
  }
+ // TF-P04: internal review only. Never marks a change order customer-approved.
+ function executeChangeOrderReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||!approved||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   !payload.jobId||typeof payload.changeOrderId!=='string'||!payload.changeOrderId.trim()||
+   !validDate(payload.due)||Object.keys(payload).some(k=>!['jobId','changeOrderId','due'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   recordGuard.some(g=>g?.ref&&!['jobs','customers','quotes','opportunities'].includes(g.ref.store)))
+   return Promise.reject(Error('Approved, revision-bound internal change-order review required'));
+  const stable=v=>JSON.stringify(stableOrder(v)),key='change-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Change-order review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.change_order.review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Operation receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.jobId===payload.jobId&&t.changeOrderId===payload.changeOrderId&&t.businessId===businessId);
+      if(!task)throw Error('Previous task receipt requires manual reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const job=data.jobs.find(x=>x.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job is missing or outside this business');
+     for(const guard of recordGuard){
+      if(!guard.ref)continue;
+      const matches=data[guard.ref.store].filter(x=>x.id===guard.ref.id);
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Job or change order changed after approval');
+     }
+     const taskGuard=recordGuard.find(g=>Array.isArray(g.changeOrderOpenReviews));
+     if(!taskGuard)throw Error('Open review task snapshot is missing');
+     const currentOpen=data.tasks.filter(t=>t.jobId===job.id&&t.changeOrderId===payload.changeOrderId&&t.taskKind==='change_order_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(stable(currentOpen)!==stable(taskGuard.changeOrderOpenReviews))throw Error('Linked change-order reviews changed after approval');
+     const changes=Array.isArray(job.changeOrders)?job.changeOrders:[];
+     const matches=changes.filter(x=>x&&x.id===payload.changeOrderId);
+     if(matches.length!==1||matches[0].status!=='proposed'||!Number.isFinite(matches[0].amount)||matches[0].amount<0)
+      throw Error('Proposed change order needs fresh review');
+     const existing=data.tasks.filter(t=>t.jobId===job.id&&t.changeOrderId===payload.changeOrderId&&t.taskKind==='change_order_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(existing.length>1||existing.some(t=>t.businessId!==businessId))throw Error('Ambiguous linked review tasks require owner inspection');
+     const when=new Date().toISOString();let id,kind;
+     if(existing.length){id=existing[0].id;kind='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Review task ID collision');
+      const task={id,jobId:job.id,changeOrderId:payload.changeOrderId,customerId:job.customerId||'',businessId,
+       taskKind:'change_order_review',title:'Verify customer authorization for change: '+String(matches[0].description||payload.changeOrderId).slice(0,100),
+       status:'Open',due:payload.due,customerAuthorizationStatus:'unverified',createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      kind='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'job.change_order.review.schedule',requestPayload:stable(payload),
+      resultId:id,actor,businessId,jobId:job.id,changeOrderId:payload.changeOrderId,createdAt:when,result:kind});
+     outcome={id,reused:kind!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){
+    const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()};
+   }
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
   if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
+  if(kind==='job.change_order.review.schedule')return executeChangeOrderReview(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);

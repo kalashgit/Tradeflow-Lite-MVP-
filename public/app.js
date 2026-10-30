@@ -919,6 +919,10 @@ function tfRecordDetailView(d,record,type){
    sections+='<p>Owner-attested customer reached. Linked internal follow-up tasks resolved. Provider delivery remains unverified.</p>';
   if(type==='quotes'&&record.status==='Accepted'&&!d.jobs.some(j=>j.quoteId===record.id))
    sections+='<button type="button" class="tf-record-dossier-primary" data-convert="'+esc(record.id)+'">Create job from accepted quote</button>';
+  if(type==='jobs'&&Array.isArray(record.changeOrders))for(const change of record.changeOrders){
+   if(change?.status!=='proposed'||typeof change.id!=='string'||!change.id.trim()||record.changeOrders.filter(x=>x?.id===change.id).length!==1)continue;
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfChangeOrderReview" data-id="'+esc(record.id)+'" data-change-id="'+esc(change.id)+'">Review proposed change: '+esc(String(change.description||change.id).slice(0,100))+'</button>';
+  }
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
  }
@@ -1205,6 +1209,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
    await render();
    notify(result.result?.reused?'Existing open follow-up task confirmed':'Follow-up task saved. Customer contact is still outstanding.');
   }
+  return;
+ }
+ if(el.dataset.action==='tfChangeOrderReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobChangeOrder(job,el.dataset.changeId):null;
+  if(result?.status==='succeeded'){await render();notify('Internal authorization-review task verified. Customer approval is still unverified.');}
   return;
  }
  if(el.dataset.action==='tfQuoteReuse'){
@@ -1946,7 +1956,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2166,6 +2176,36 @@ async function tfReviewQuotationFollowup(quote){
  if(approved.status!=='approved'){notify(approved.error?.message||'Quotation changed; review again.');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Follow-up task outcome requires review.');
+ return result;
+}
+async function tfReviewJobChangeOrder(job,changeOrderId){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Authorized command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='job.change_order.review.schedule'&&x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&
+  x.params?.ref?.id===job.id&&x.params.changeOrderId===changeOrderId);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Prior change-order review has uncertain execution. Inspect the task and audit before retrying.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const change=job.changeOrders?.find(x=>x?.id===changeOrderId&&x.status==='proposed');
+ if(!change){notify('Proposed change order unavailable');return null}
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.change_order.review.schedule',
+  params:{ref:{store:'jobs',id:job.id},changeOrderId,due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Change order requires a fresh review');return null}
+ if(!confirm('Create an internal task to verify CUSTOMER authorization for “'+String(change.description||changeOrderId).slice(0,100)+'”? Owner approval creates a task only; it does not authorize the extra work or contact the customer.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Change-order review result requires inspection');
  return result;
 }
 async function tfReviewQuotationHandoff(quote){

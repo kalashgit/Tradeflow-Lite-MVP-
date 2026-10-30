@@ -64,6 +64,36 @@ async function verifyInvoiceFollowupJourney(page,result){
  assert.ok(after.commandLog.some(c=>c.kind==='invoice.followup.schedule'));
  result.invoiceReloadPersistence=true;
 }
+async function verifyChangeOrderReviewJourney(page,result){
+ const dialogs=[];
+ page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ const button=page.locator('[data-action="tfChangeOrderReview"][data-id="j1"][data-change-id="co1"]');
+ await button.waitFor({timeout:15000});
+ await button.click();
+ const read=()=>page.evaluate(async()=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const data=await window.TradeFlowLocalRecovery.readStores(db,['jobs','tasks','commandLog']);db.close();return data;
+ });
+ await page.waitForFunction(async()=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();
+  return d.tasks.some(t=>t.changeOrderId==='co1')&&d.commandLog.some(x=>x.commandId==='job.change_order.review.schedule'&&x.status==='succeeded');
+ },null,{timeout:15000});
+ let data=await read();const tasks=data.tasks.filter(x=>x.changeOrderId==='co1');
+ assert.equal(tasks.length,1);assert.equal(tasks[0].customerAuthorizationStatus,'unverified');
+ assert.equal(data.jobs[0].changeOrders[0].status,'proposed');
+ assert.equal(data.commandLog.filter(x=>x.kind==='job.change_order.review.schedule').length,1);
+ assert.ok(dialogs.some(x=>x.includes('does not authorize the extra work')));
+ result.internalOwnerReviewCreatedTask=true;
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ data=await read();assert.equal(data.tasks.filter(x=>x.changeOrderId==='co1').length,1);
+ result.reloadPreservedReview=true;
+ await page.locator('[data-notif-action="toggle"]').click();
+ await page.locator('.tf-notif-item').filter({hasText:'Proposed extra work needs approval'}).click();
+ await button.click();
+ data=await read();assert.equal(data.tasks.filter(x=>x.changeOrderId==='co1').length,1);
+ result.duplicateReviewReusedTask=true;
+}
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
@@ -311,6 +341,13 @@ async function verifyCalendarConflictJourney(page,result){
      result.notificationCleared=true;
     }else if(item.id==='TF-P03'){
      await verifyCalendarConflictJourney(page,result);
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
+    }else if(item.id==='TF-P04'){
+     await verifyChangeOrderReviewJourney(page,result);
+     // Synthetic source correction only; no simulated customer approval is asserted.
+     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
      result.notificationCleared=true;

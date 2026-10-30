@@ -50,7 +50,13 @@
       "test": "tests/change-order-intelligence.test.cjs",
       "pattern": "proposed work prompts review",
       "feature": "Existing job dossier / notifications",
-      "originalRegisterRef": 9
+      "originalRegisterRef": 9,
+      "executionTest": "tests/change-order-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved persistent internal change-order authorization-review task; never marks customer approval or authorizes extra work",
+      "resolutionCriterion": "a recorded customer authorization with verifiable evidence is still required before extra work is treated as approved; this task only prompts that review",
+      "mappingScope": "partial: internal review and auditable task creation do not yet verify customer approval or prevent field work",
+      "verification": "focused local Node regression passed; exact-head CI and Chromium scenario pending"
     },
     {
       "id": "TF-P05",
