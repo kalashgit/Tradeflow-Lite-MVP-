@@ -172,3 +172,18 @@ test('financial conflict review aborts on owner-to-member role downgrade during 
  await assert.rejects(f.queue.resolve(row.id,{id:'cost_02',amount:175},async()=>{f.setRole('member');return true}),/Authorized session changed/);
  assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
 });
+
+test('another principal cannot obtain a misleading approved state for the original actors conflict',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});await f.queue.drain();const row=(await f.queue.list())[0];f.setSubject('another_owner');let asked=0;
+ await assert.rejects(f.queue.resolve(row.id,change.record,()=>{asked++;return true}),/Original reviewing actor/);assert.equal(asked,0);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('actor switch during final remote conflict check cannot stage an approved replacement',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});await f.queue.drain();const row=(await f.queue.list())[0],read=f.transport.read;let reads=0;
+ f.transport.read=async(...args)=>{const result=await read(...args);if(++reads===2)f.setSubject('another_owner');return result};
+ await assert.rejects(f.queue.resolve(row.id,change.record,()=>true),/session changed during final/);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('financial downgrade during final remote conflict check cannot stage an approved replacement',async()=>{
+ const f=fixture(),financial={...change,type:'jobCosts'};await f.queue.enqueue(financial);f.remote.set('jobCostsc1',{businessId,type:'jobCosts',id:'c1',revision:2,record:{id:'c1',name:'External'}});await f.queue.drain();const row=(await f.queue.list())[0],read=f.transport.read;let reads=0;
+ f.transport.read=async(...args)=>{const result=await read(...args);if(++reads===2)f.setRole('member');return result};
+ await assert.rejects(f.queue.resolve(row.id,change.record,()=>true),/session changed during final/);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});

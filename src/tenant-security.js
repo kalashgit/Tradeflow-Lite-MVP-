@@ -48,3 +48,14 @@ export function tenantRecordQuery({authorization,table,recordId}){
   return {sql:'SELECT payload, revision, updated_at, deleted_at FROM tenant_records WHERE business_id = ? AND record_type = ? AND id = ? LIMIT 1',
     params:[authorization.businessId,table,recordId]};
 }
+
+// Keep permission verification in the record read itself, not only in the
+// earlier API preflight. The legacy query remains for internal link validation.
+export const TENANT_READ_GUARD_SQL =`AND EXISTS (SELECT 1 FROM business_memberships m
+ WHERE m.business_id=tenant_records.business_id AND m.business_id=? AND m.issuer=? AND m.subject=? AND m.status='active'
+ AND m.role IN ('owner','admin','member','viewer'))`;
+export function authorizedTenantReadQuery({authorization,table,recordId}){
+ if(!authorization?.issuer||!authorization?.subject)throw new AuthorizationError('Verified read membership required',403);
+ const query=tenantRecordQuery({authorization,table,recordId});
+ return {sql:query.sql.replace(' LIMIT 1',' '+TENANT_READ_GUARD_SQL+' LIMIT 1'),params:[...query.params,authorization.businessId,authorization.issuer,authorization.subject]};
+}

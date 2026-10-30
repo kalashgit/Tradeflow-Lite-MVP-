@@ -6,7 +6,7 @@ import {planTenantRestore} from './tenant-restore-plan.js';
 import {exportTenantSnapshot} from './tenant-export.js';
 import {writeTenantRecord} from './tenant-record-store.js';
 import {verifyBearerToken} from './oidc-verifier.js';
-import {authorizeBusiness,tenantRecordQuery,AuthorizationError,requireBusinessId} from './tenant-security.js';
+import {authorizeBusiness,authorizedTenantReadQuery,TENANT_READ_GUARD_SQL,AuthorizationError,requireBusinessId} from './tenant-security.js';
 const json=(payload,status=200)=>Response.json(payload,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Authorization'}});
 export async function tenantApi(request,env,options={}){
  const url=new URL(request.url);
@@ -71,8 +71,9 @@ export async function tenantApi(request,env,options={}){
    if(cursor&&!/^[A-Za-z0-9_-]{1,100}$/.test(cursor))return json({error:'Invalid record cursor'},400);
    if([...url.searchParams.keys()].some(key=>key!=='after'))return json({error:'Unsupported catalogue parameter'},400);
    const page=await env.TF_DB.prepare(
-    'SELECT id,revision,updated_at,payload FROM tenant_records WHERE business_id=? AND record_type=? AND id>? AND deleted_at IS NULL ORDER BY id LIMIT 51'
-   ).bind(authorization.businessId,type,cursor).all();
+    'SELECT id,revision,updated_at,payload FROM tenant_records WHERE business_id=? AND record_type=? AND id>? AND deleted_at IS NULL '+TENANT_READ_GUARD_SQL+' ORDER BY id LIMIT 51'
+   ).bind(authorization.businessId,type,cursor,authorization.businessId,authorization.issuer,authorization.subject).all();
+   await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
    const rows=page.results||[];
    if(!Array.isArray(rows)||rows.length>51)return json({error:'Invalid record catalogue result'},503);
    const items=rows.slice(0,50).map(row=>({id:row.id,revision:row.revision,updatedAt:row.updated_at,record:JSON.parse(row.payload)}));
@@ -92,8 +93,9 @@ export async function tenantApi(request,env,options={}){
    const saved=await writeTenantRecord(env.TF_DB,authorization,match[2],match[3],body);
    return json({id:match[3],type:match[2],...saved},saved.revision===1?201:200);
   }
-  const query=tenantRecordQuery({authorization,table:match[2],recordId:match[3]});
+  const query=authorizedTenantReadQuery({authorization,table:match[2],recordId:match[3]});
   const item=await env.TF_DB.prepare(query.sql).bind(...query.params).first();
+  await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
   if(!item||item.deleted_at)return json({error:'Not found'},404);
   return json({id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:JSON.parse(item.payload)});
  }catch(error){

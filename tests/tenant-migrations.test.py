@@ -106,3 +106,16 @@ assert len(db.execute(context_sql,(business,business,'issuer.example','user_001'
 db.execute("UPDATE business_memberships SET status='suspended' WHERE business_id=?",(business,))
 assert db.execute(context_sql,(business,business,'issuer.example','user_001','member','jobs')).fetchall()==[]
 print('PASS: intelligence reads filter tenant, role, type and revocation inside SQL')
+
+security_source=(root / 'src' / 'tenant-security.js').read_text()
+read_guard=re.search(r"export const TENANT_READ_GUARD_SQL =`(.*?)`;",security_source,re.S).group(1)
+read_sql='SELECT payload FROM tenant_records WHERE business_id=? AND record_type=? AND id=? '+read_guard+' LIMIT 1'
+read_args=(business,'jobs','assignment_job',business,'issuer.example','user_001')
+assert db.execute(read_sql,read_args).fetchone() is None
+db.execute("UPDATE business_memberships SET status='active',role='viewer' WHERE business_id=?",(business,))
+assert db.execute(read_sql,read_args).fetchone() is not None
+assert db.execute(read_sql,(business,'jobs','assignment_job',business,'issuer.example','another_user')).fetchone() is None
+assert db.execute(read_sql,('business_001','jobs','assignment_job',business,'issuer.example','user_001')).fetchone() is None
+print('PASS: single-record read guards deny revoked and foreign identities in actual SQL')
+
+assert db.execute(read_sql,('business_001','jobs','job_001',business,'issuer.example','user_001')).fetchone() is None

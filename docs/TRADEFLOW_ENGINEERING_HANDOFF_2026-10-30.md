@@ -1,5 +1,7 @@
 # TradeFlow — Master Engineering Handoff (2026-10-30)
 
+**Current continuation:** the initial checkpoint below is historical. Read the appended continuous-session milestones and `TRADEFLOW_ENGINEERING_TASK_LEDGER.md` for the current source and evidence.
+
 **START HERE FOR THE NEXT ENGINEER.** This is a source-grounded continuity checkpoint, NOT a release approval. GitHub exact code/CI overrides statements in this document.
 
 ## Current remote state at handoff creation
@@ -126,3 +128,13 @@ Implemented `src/intelligence-context.js` / GET `/api/v1/businesses/:id/intellig
 Seeded inquiry→quote→job→crew/labor/material costs→invoice→recorded payment graph and existing detector compatibility are tested in `tests/contractor-operating-flow.test.cjs` with a synthetic fixture. Payment and labor evidence remain unverified; alternative scope/estimate and missing-import explanations are preserved, not asserted causes. Local focused **27/27**, full Node **476/476**, SQL/ten detectors, **24/24** named Chromium scenarios plus recovery and reviewed transfer passed. A synthetic signed-JWT localhost host invokes actual API authorization and browser shared commands; it is not live D1/user acceptance. The updated CI summary requires the new context scenarios and fails on missing/partial evidence. An initial TF-P07 child-process timeout was retained and reproduced; isolated and serialized reruns pass without increasing the timeout.
 
 Reproduction and integration details: `docs/TRADEFLOW_V1_1_PRODUCT_EVIDENCE.md`; execution statuses: `docs/TRADEFLOW_ENGINEERING_TASK_LEDGER.md`. Remaining foundations include field-account/job-scoped authorization/invitations, actual signed-in two-device tests and physical/contractor acceptance. No deployment, live access change, provider/financial operation or 62-point retirement occurred.
+
+## Final conflict-review and cloud-read revocation increment
+
+H04/FLOW source `c80cfd9352f9879db267a0474181e375ad988006` exact-head runs 41109616847 / 41109605869 report SUCCESS. Detailed remote job steps/logs remain unavailable; local counts are independently recorded, not inferred from the badges.
+
+Closed final-await conflict-review gaps: a different principal cannot enter the original actor's approval flow; actor/financial role is revalidated after the final remote consistency read. Added actual membership guards to ordinary single-record and catalogue SELECTs, correlated to the outer tenant, plus fresh authorization before returning data. Revocation cannot return private records or an empty-success catalogue. Existing company-role read policy is preserved; no job-specific field-user access is claimed. No schema migration or live ownership change.
+
+Local focused **53/53**, full Node **480/480**, storage, **10/10** detector regressions, **24/24** named Chromium scenarios plus recovery/offline/reviewed transfer pass. A prior overlapping browser run had three localhost load/reload timeouts (17/20); serialized rerun passed without raising thresholds or weakening assertions. Keep the negative artifacts. Evidence root remains `/workspace/artifacts/tradeflow-continuous-2026-10-30/`, final raw logs use `final-revocation-*`.
+
+Remaining work is explicitly open: job-scoped field-account grants/invitations and local account-data isolation; deliberate app host binding for cloud intelligence; scalable retrieval beyond bounded context; actual authenticated two-device, physical-device and contractor acceptance; provider/model integrations and external receipts. Do not reinterpret queued/local/manual records as external completion. No production/environment/access/provider/financial operation was performed. The failed external production-linked Cloudflare build check was not changed or treated as a passing regression. PR #16 remains draft/unmerged/undeployed; 0/62 retired.

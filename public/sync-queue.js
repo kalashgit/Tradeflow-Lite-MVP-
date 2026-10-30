@@ -115,6 +115,8 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   if(!canReview(reviewedSession,null))throw Error('Authorized session required');
   const row=(await list()).find(r=>r.id===id);if(!row||!['conflict','failed'].includes(row.status))throw Error('No reviewable conflict');
   if(!canReview(reviewedSession,row.change?.type))throw Error('Financial or crew record review requires owner or admin');
+  const boundActor=row.approvedBy||row.actor;
+  if(boundActor&&!samePrincipal(boundActor,principal(reviewedSession)))throw Error('Original reviewing actor required; prepare a fresh intent');
   const remote=await remoteRecord(row);
   if(!remote||remote.deletedAt)throw Error('Missing/deleted remote record requires manual recovery');
   // Snapshot and validate the exact proposed record before awaiting approval.
@@ -135,6 +137,8 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   if(!latest||latest.deletedAt||latest.revision!==remote.revision||
     canonical(latest.record)!==canonical(remote.record))
    throw Error('Remote record changed during conflict review; restart review');
+  const finalSession=await session();
+  if(!canReview(finalSession,row.change.type)||!samePrincipal(principal(finalSession),principal(reviewedSession)))throw Error('Authorized session changed during final conflict read');
   return mutate((rows,store)=>{
    const current=rows.find(r=>r.id===id);if(!current||canonical(current)!==canonical(row))throw Error('Conflict changed during review');
    const next={...current,status:'pending',change:{...current.change,baseRevision:remote.revision,record:reviewedProposal},attempts:0,nextAttemptAt:0,history:history(current,'conflict_reviewed')};store.put(next);return next;

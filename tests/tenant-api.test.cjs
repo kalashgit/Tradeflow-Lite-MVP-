@@ -17,7 +17,7 @@ const jwksResponse=async()=>new Response(JSON.stringify({keys:[jwk]}));
 const db=(role='viewer',recordBusiness=business)=>({prepare(sql){return {bind(...params){return {
  async first(){
   if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
-  if(sql.includes('FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
+  if(sql.startsWith('SELECT role FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
   if(sql.includes('FROM tenant_records'))return params[0]===recordBusiness?{payload:'{"name":"Private test job"}',revision:3,updated_at:'2026-10-29',deleted_at:null}:null;
   throw Error('Unexpected SQL');
  },async all(){return {results:[{business_id:business,business_name:'Test Contractor',role}]}}
@@ -118,7 +118,7 @@ test('cloud catalogue is tenant-authorized, bounded, cursor-paged and read-only'
   prepare(sql){return {bind(...params){return {
    async first(){
     if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
-    if(sql.includes('FROM business_memberships'))return params[0]===business?{role:'viewer'}:null;
+    if(sql.startsWith('SELECT role FROM business_memberships'))return params[0]===business?{role:'viewer'}:null;
     throw Error('Unexpected first query');
    },
    async all(){
@@ -159,4 +159,15 @@ test('read-only context route verifies identity and rejects client role/tool/sco
  assert.equal((await api(req(path.replace(business,'business_999'),signed),env,options)).status,403);
  for(const suffix of ['?role=owner','?businessId=foreign','?tools=send','?jobId=job_123&jobId=other'])assert.equal((await api(req(path+suffix,signed),env,options)).status,400);
  assert.equal((await api(req(path,signed,'POST'),env,options)).status,405);
+});
+
+test('record and catalogue reads deny revocation during retrieval instead of returning private data or an empty success',async()=>{
+ const signed=await token();for(const catalogue of [false,true]){
+  let revoked=false;
+  const scopedDb={prepare(sql){return {bind(...args){return {
+   first:async()=>{if(sql.startsWith('SELECT role FROM business_memberships'))return revoked?null:{role:'owner'};assert.match(sql,/EXISTS \(SELECT 1 FROM business_memberships m/);revoked=true;return {payload:'{"name":"Must not expose"}',revision:1,updated_at:'2026-10-30'}},
+   all:async()=>{assert.match(sql,/EXISTS \(SELECT 1 FROM business_memberships m/);assert.deepEqual(args.slice(-3),[business,issuer,'user_123']);revoked=true;return {results:[{id:'private_01',revision:1,updated_at:'2026-10-30',payload:'{"name":"Must not expose"}'}]}}
+  }}}}};
+  const path='/api/v1/businesses/'+business+'/records/jobs'+(catalogue?'':'/private_01'),res=await api(req(path,signed),{...envBase,TF_DB:scopedDb},{fetchJwks:jwksResponse});assert.equal(res.status,403);assert.ok(!(await res.text()).includes('Must not expose'));
+ }
 });
