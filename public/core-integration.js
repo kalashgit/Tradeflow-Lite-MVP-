@@ -383,7 +383,20 @@
       const previous=data.events.find(e=>e.id===prior.resultId&&e.kind==='customer_contact'&&
        e.customerId===customerId&&e.quoteId===quoteId&&e.outcome===outcome);
       if(!previous)throw Error('Previous contact record requires recovery review');
-      result={id:prior.resultId,reused:true,commandKey:key};return;
+      if(!Array.isArray(prior.resolvedTaskIds)||prior.resolvedTasks!==prior.resolvedTaskIds.length||
+       prior.outcome!==outcome||prior.providerVerified!==false)
+       throw Error('Previous contact receipt requires recovery review');
+      if(quoteId){
+       const quote=data.quotes.find(q=>q.id===quoteId&&q.customerId===customerId);
+       if(!quote||outcome==='reached'&&quote.followupResolution?.contactEventId!==prior.resultId)
+        throw Error('Previous quotation resolution requires recovery review');
+      }
+      if(prior.resolvedTaskIds.some(taskId=>!data.tasks.some(t=>t.id===taskId&&
+       t.quoteId===quoteId&&t.customerId===customerId&&
+       t.contactEventId===prior.resultId&&t.completedReason==='owner_attested_customer_reached'&&
+       ['done','completed'].includes(String(t.status||'').toLowerCase()))))
+       throw Error('Previous follow-up task resolution requires recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key,outcome,resolvedTasks:prior.resolvedTasks};return;
      }
      for(const guard of recordGuard){
       if(guard.quoteOpenFollowups!==undefined)continue;
