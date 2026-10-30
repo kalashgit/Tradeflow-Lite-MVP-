@@ -84,7 +84,14 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   const row=(await list()).find(r=>r.id===id);if(!row||!['conflict','failed'].includes(row.status))throw Error('No reviewable conflict');
   const remote=await remoteRecord(row);
   if(!remote||remote.deletedAt)throw Error('Missing/deleted remote record requires manual recovery');
+  // The reviewed snapshot must be the one committed. An async approval may
+  // outlive membership revocation or a competing cloud edit.
   if(!await approve({local:clone(row.change.record),remote:clone(remote),proposed:clone(propose)}))return {status:'cancelled'};
+  if(!await authorized())throw Error('Authorized session changed during conflict review');
+  const latest=await remoteRecord(row);
+  if(!latest||latest.deletedAt||latest.revision!==remote.revision||
+    canonical(latest.record)!==canonical(remote.record))
+   throw Error('Remote record changed during conflict review; restart review');
   return mutate((rows,store)=>{
    const current=rows.find(r=>r.id===id);if(!current||canonical(current)!==canonical(row))throw Error('Conflict changed during review');
    if(!propose||typeof propose!=='object'||Array.isArray(propose)||propose.id&&propose.id!==row.change.id||propose.businessId&&propose.businessId!==businessId)throw Error('Invalid resolution');

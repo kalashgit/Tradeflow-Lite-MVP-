@@ -89,3 +89,34 @@ test('optional undefined fields do not crash canonical queue idempotency and rem
  assert.equal(f.writes(),1);
  assert.equal((await f.queue.list())[0].status,'applied');
 });
+
+test('conflict review fails closed when membership is revoked during approval',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Another device'}});
+ await f.queue.drain();
+ const row=(await f.queue.list())[0];assert.equal(row.status,'conflict');
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Approved'},async()=>{f.deny();return true}),/Authorized session changed/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('conflict review refuses stale remote revision changed while owner considers proposal',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Remote original'}});
+ await f.queue.drain();
+ const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Approved'},async()=>{
+  f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:3,record:{id:'c1',name:'Remote updated'}});
+  return true;
+ }),/Remote record changed during conflict review/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('conflict review refuses same-revision remote changes without evidence of consistency',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Original'}});
+ await f.queue.drain();
+ const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Approved'},async()=>{
+  f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Tampered'}});
+  return true;
+ }),/Remote record changed during conflict review/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
