@@ -248,7 +248,7 @@ function resolve(input,data={},context={}){
    if(params.ref.store!=='quotes')return problem('INVALID_RECORD_TYPE','Choose a sent quotation.');
    if(!isDate(params.due))return problem('INVALID_DUE_DATE','Choose a valid task due date.');
    const q=lookup(data,params.ref,context);
-   if(normalize(q.status)!=='sent'||!q.customerId)return problem('PRECONDITION_FAILED','Only sent quotations with a customer can be followed up.');
+   if(normalize(q.status)!=='sent'||!q.customerId||q.followupResolution?.status==='owner_attested_reached')return problem('PRECONDITION_FAILED','Only unresolved sent quotations with a customer can be followed up.');
    const customer=rows(data,'customers').find(x=>x.id===q.customerId);
    if(!customer||customer.businessId&&customer.businessId!==(context.businessId||'local-business'))
     return problem('CUSTOMER_UNAVAILABLE','The quotation customer must be in the current business.');
