@@ -25,7 +25,7 @@ async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
  page.on('console',message=>{if(message.type()==='error')browserErrors.push('console: '+message.text())});
- page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+
  const snapshot=()=>page.evaluate(async()=>{
   const req=indexedDB.open('tradeflow-lite-v1',9);
   const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
@@ -33,7 +33,12 @@ async function verifyQuoteFollowupJourney(page,result){
   db.close();return data;
  });
  const review=page.locator('[data-action="tfQuoteFollowupReview"][data-id="q1"]');
- await review.waitFor();await review.click();
+ await review.waitFor();
+ const ownerConfirmation=page.waitForEvent('dialog',{timeout:15000}).then(async dialog=>{
+  dialogs.push(dialog.message());await dialog.accept();
+ });
+ await review.click();
+ await ownerConfirmation;
  // Playwright click waits for dispatch, not completion of an async document listener.
  // Wait for the actual IndexedDB commit, not a guessed rendering delay.
  await page.waitForFunction(async()=>{
