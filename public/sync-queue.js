@@ -119,6 +119,31 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
  }
  return Object.freeze({enqueue,list,drain,resolve,stageMigration});
 }
+// Pure read-only projection: never equate local queue persistence with remote commit.
+export function summarizeSyncIntents(rows,businessId){
+ if(!Array.isArray(rows)||typeof businessId!=='string'||!/^[-_A-Za-z0-9]{8,80}$/.test(businessId))
+  throw Error('Explicit business and queue snapshot required');
+ const states=Object.freeze({
+  pending:'queued_local',sending:'syncing_unverified',conflict:'conflict_needs_review',
+  failed:'failed_needs_review',applied:'committed_verified'
+ });
+ const items=rows.filter(r=>r?.kind==='sync.change'&&r.businessId===businessId).map(row=>{
+  let state=states[row.status]||'indeterminate';
+  if(state==='committed_verified'&&!['already_current','verified_write'].includes(row.result))state='indeterminate';
+  const ref=row.change&&typeof row.change==='object'?{
+   type:row.change.type,id:row.change.id,operationId:row.change.operationId}:null;
+  return Object.freeze({id:row.id,...ref,state,remoteRevision:Number.isSafeInteger(row.remoteRevision)?row.remoteRevision:null,
+   requiresOwnerReview:['conflict_needs_review','failed_needs_review','indeterminate'].includes(state),
+   externalCommitted:state==='committed_verified'});
+ });
+ const counts={queued_local:0,syncing_unverified:0,conflict_needs_review:0,failed_needs_review:0,
+  committed_verified:0,indeterminate:0};
+ for(const item of items)counts[item.state]++;
+ return Object.freeze({businessId,items:Object.freeze(items),counts:Object.freeze(counts),
+  pendingOrUnverified:items.length-counts.committed_verified,
+  allRemotelyVerified:items.length>0&&counts.committed_verified===items.length});
+}
+
 // Same-origin transport never follows an Access redirect into an HTML login response.
 export function createTenantTransport(businessId,fetcher=fetch){
  if(!/^[A-Za-z0-9_-]{8,80}$/.test(businessId))throw Error('Invalid business');
