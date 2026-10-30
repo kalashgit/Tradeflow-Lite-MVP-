@@ -356,6 +356,61 @@ function createRuntime(options){
   if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
    return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
+  if(row.commandId==='customer.contact.record'){
+   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
+   if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'Only interrupted execution can be reconciled.'}};
+   if(row.approvedBy!==c.actor||!row.events?.some(e=>e.type==='approved'))
+    return {id,status:'indeterminate',error:{code:'APPROVAL_UNVERIFIED',message:'Cannot prove owner approval.'}};
+   const data=await snapshot(),receiptId='contact:operation:'+id;
+   const matches=(data.commandLog||[]).filter(x=>x.id===receiptId);
+   if(matches.length!==1)return {id,status:'indeterminate',error:{code:'RECEIPT_MISSING',message:'Contact operation receipt is missing; do not repeat automatically.'}};
+   const receipt=matches[0],p=row.params;
+   const payload={customerId:p.ref.id,quoteId:p.quoteId||'',method:p.method,notes:p.notes,outcome:p.outcome};
+   if(receipt.kind!=='customer.contact.record'||receipt.requestPayload!==canonical(payload)||
+    receipt.actor!==row.actor||receipt.businessId!==row.businessId||
+    receipt.outcome!==p.outcome||!Array.isArray(receipt.resolvedTaskIds))
+    return {id,status:'indeterminate',error:{code:'RECEIPT_MISMATCH',message:'Contact receipt does not match approval.'}};
+   const contacts=(data.events||[]).filter(e=>e.id===receipt.resultId&&e.kind==='customer_contact'&&
+    e.customerId===p.ref.id&&e.quoteId===(p.quoteId||'')&&e.outcome===p.outcome&&
+    e.actor===row.actor&&e.businessId===row.businessId&&e.providerVerified===false);
+   if(contacts.length!==1)
+    return {id,status:'indeterminate',error:{code:'CONTACT_UNVERIFIED',message:'Matching contact record could not be verified.'}};
+   if(p.quoteId){
+    const quote=(data.quotes||[]).find(q=>q.id===p.quoteId&&q.customerId===p.ref.id&&
+     (!q.businessId||q.businessId===row.businessId));
+    if(!quote)return {id,status:'indeterminate',error:{code:'QUOTE_UNVERIFIED',message:'Related quotation could not be verified.'}};
+    const quotationAudit=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&
+     e.correlationId===receiptId&&e.type==='quotation.updated'&&e.ref?.id===p.quoteId&&
+     e.businessId===row.businessId);
+    if(quotationAudit.length!==1)
+     return {id,status:'indeterminate',error:{code:'AUDIT_UNVERIFIED',message:'Related quotation audit missing.'}};
+    if(p.outcome==='reached'&&quote.followupResolution?.contactEventId!==receipt.resultId)
+     return {id,status:'indeterminate',error:{code:'RESOLUTION_UNVERIFIED',message:'Owner-attested quotation resolution is not linked to contact.'}};
+    if(p.outcome==='attempted'&&receipt.resolvedTaskIds.length)
+     return {id,status:'indeterminate',error:{code:'RESOLUTION_MISMATCH',message:'Attempted contact cannot resolve tasks.'}};
+   }else if(receipt.resolvedTaskIds.length)
+    return {id,status:'indeterminate',error:{code:'RESOLUTION_MISMATCH',message:'Customer-only contact cannot resolve quote tasks.'}};
+   if(receipt.resolvedTasks!==receipt.resolvedTaskIds.length)
+    return {id,status:'indeterminate',error:{code:'RESOLUTION_MISMATCH',message:'Task closure count differs from saved evidence.'}};
+   for(const taskId of receipt.resolvedTaskIds){
+    const task=(data.tasks||[]).find(t=>t.id===taskId&&t.quoteId===p.quoteId&&
+     t.customerId===p.ref.id&&t.contactEventId===receipt.resultId&&
+     t.completedReason==='owner_attested_customer_reached'&&
+     (!t.businessId||t.businessId===row.businessId));
+    const audit=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&
+     e.correlationId===receiptId&&e.type==='task.completed'&&e.ref?.store==='tasks'&&
+     e.ref.id===taskId&&e.businessId===row.businessId);
+    if(!task||audit.length!==1)
+     return {id,status:'indeterminate',error:{code:'TASK_UNVERIFIED',message:'Completed follow-up task or matching audit is missing.'}};
+   }
+   const outcome={id,status:'succeeded',effect:row.effect,result:{
+    id:receipt.resultId,reused:true,commandKey:receiptId,reconciled:true,
+    outcome:p.outcome,resolvedTasks:receipt.resolvedTasks,providerVerified:false}};
+   const changed=await ledger.transition(id,['executing'],event('reconciled',c,{receiptId}),{status:'succeeded',outcome});
+   if(!changed.claimed)return changed.row.status==='succeeded'?{...clone(changed.row.outcome),reused:true}:
+    {id,status:'indeterminate',error:{code:'RECOVERY_RACE',message:'Contact command changed during reconciliation.'}};
+   return outcome;
+  }
   if(row.commandId==='calendar.conflict.reschedule'){
    if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
    if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'Only interrupted execution can be reconciled.'}};
