@@ -1,7 +1,7 @@
 import {RECORD_TYPES,linksForRecord} from './record-model.js';
 import {previewLocalMigration} from './migration-preview.js';
 import {previewCloudRetrieval} from './cloud-retrieval.js';
-import {createSyncQueue,createTenantTransport} from './sync-queue.js';
+import {createSyncQueue,createTenantTransport,summarizeSyncIntents} from './sync-queue.js';
 const escape=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const canonical=x=>JSON.stringify(x,(key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,value[k]])):value);
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -86,8 +86,16 @@ export function createMigrationController(host){
    if(staged.status==='cancelled'){status='Transfer cancelled. Nothing was sent.';return}
    const operationIds=staged.operationIds;
    for(let pass=0;pass<Math.ceil(operationIds.length/10);pass++){const outcome=await queue.drain({limit:10,operationIds});if(outcome.status!=='drained'||outcome.processed===0)break}
-   const selected=(await queue.list()).filter(r=>operationIds.includes(r.change.operationId)),applied=selected.filter(r=>r.status==='applied').length;
-   status=applied===operationIds.length?applied+' reviewed record(s) are confirmed in the selected cloud business. Automatic sync is off.':applied+' of '+operationIds.length+' reviewed record(s) confirmed. Remaining work is retained for a new review/resume; no automatic overwrite.';
+   const selected=(await queue.list()).filter(r=>operationIds.includes(r.change.operationId));
+   const progress=summarizeSyncIntents(selected,active.businessId);
+   const confirmed=progress.counts.committed_verified;
+   const unresolved=progress.pendingOrUnverified;
+   const reviewCount=progress.counts.conflict_needs_review+progress.counts.failed_needs_review+progress.counts.indeterminate;
+   status=progress.allRemotelyVerified&&confirmed===operationIds.length?
+    confirmed+' reviewed record(s) verified in the selected cloud business. Automatic sync is off.':
+    confirmed+' of '+operationIds.length+' remotely verified; '+unresolved+' queued, in flight, conflicting or unverified.'+
+    (reviewCount?' '+reviewCount+' require manual review or recovery.':'')+
+    ' Unverified local intentions are not completed cloud transactions. Automatic sync is off.';
    const now=await globalThis.TradeFlowLocalRecovery.readStores(host.db(),RECORD_TYPES);if(canonical(now)!==canonical(active.expectedStores))status+=' New local edits were not part of this transfer.';
    if(generation!==token)return;
   }catch(error){status=error.message}finally{if(generation===token){busy=false;paint()}}

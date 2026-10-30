@@ -129,7 +129,12 @@ export function summarizeSyncIntents(rows,businessId){
  });
  const items=rows.filter(r=>r?.kind==='sync.change'&&r.businessId===businessId).map(row=>{
   let state=states[row.status]||'indeterminate';
-  if(state==='committed_verified'&&!['already_current','verified_write'].includes(row.result))state='indeterminate';
+  let validEnvelope=true;
+  try{recordIdentity({businessId,type:row.change?.type,id:row.change?.id,record:row.change?.record})}
+  catch{validEnvelope=false}
+  if(!validEnvelope||row.change?.operationId==null)state='indeterminate';
+  if(state==='committed_verified'&&(!['already_current','verified_write'].includes(row.result)||
+    !Number.isSafeInteger(row.remoteRevision)||row.remoteRevision<1))state='indeterminate';
   const ref=row.change&&typeof row.change==='object'?{
    type:row.change.type,id:row.change.id,operationId:row.change.operationId}:null;
   return Object.freeze({id:row.id,...ref,state,remoteRevision:Number.isSafeInteger(row.remoteRevision)?row.remoteRevision:null,

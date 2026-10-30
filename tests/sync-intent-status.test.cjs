@@ -36,3 +36,16 @@ test('empty snapshot reports no verified sync instead of suggesting everything c
  const s=summarizeSyncIntents([],businessId);
  assert.equal(s.allRemotelyVerified,false);assert.equal(s.pendingOrUnverified,0);
 });
+
+test('applied rows without a positive read-back revision cannot claim remote confirmation',()=>{
+ const s=summarizeSyncIntents([entry('no-revision','applied',{result:'verified_write'}),
+  entry('zero-revision','applied',{result:'already_current',remoteRevision:0})],businessId);
+ assert.equal(s.allRemotelyVerified,false);assert.equal(s.counts.indeterminate,2);
+});
+test('migration UI uses verified queue projection instead of trusting raw applied flags',()=>{
+ const fs=require('node:fs');
+ const ui=fs.readFileSync('public/migration-ui.js','utf8');
+ assert.ok(ui.includes('summarizeSyncIntents(selected,active.businessId)'));
+ assert.ok(ui.includes('Unverified local intentions are not completed cloud transactions'));
+ assert.ok(!ui.includes("selected.filter(r=>r.status==='applied')"));
+});
