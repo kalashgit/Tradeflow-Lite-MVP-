@@ -1,0 +1,17 @@
+# Authoritative engineering task ledger
+
+Source of priority: Master Development Roadmap v1.1, read 2026-10-30. This is execution tracking, not a replacement roadmap. All tasks owned by Codex on `feature/cloud-record-discovery`, draft PR #16. No merge/deploy or live access changes authorized in this session. Historical milestone evidence remains in the dated handoff and verification ledger.
+
+| Task / dependency | Status | Implementation and acceptance | Commit / CI | Remaining risk / next dependency |
+| --- | --- | --- | --- | --- |
+| P0 reconcile / latest PR head | verified locally; CI detail limited | Fetched exact remote 534b7a8; clean isolated worktree. Local baseline Node 443/443, storage and TF-P01–10 pass. Two GitHub checks report SUCCESS. | 534b7a8; runs 41102600819 / 41102594103 | Jobs API returned empty steps and log download returned zero bytes; artifact download denied by storage endpoint. Do not infer detailed counts from green badges. Separate external Workers production-build check reports FAILURE; no production inspection/change/deploy executed. |
+| H03-01 actor binding / H02 | verified locally; CI pending | Pin reviewing/first-draining principal; do not inherit queued work across identity switches; revalidate role after reads and before execution/receipt. | Current increment | Actual server JWT/membership remains authoritative. Legacy test sessions without identity do not prove real-user identity. |
+| H03-02 interruption and lease recovery / H03-01 | verified locally; CI pending | Fence expired/replaced leases before write/receipt; recover with read-before-CAS; persist write uncertainty before request; bound writes; record readback receipt and never equate queued/uncertain with committed. | Current increment | Cannot cancel a network request already in flight; server CAS remains required. Equivalent remote state is convergence evidence, not proof this operation originated it. |
+| H03-03 immutable review / H01 | verified locally; CI pending | Snapshot transfer inputs across approval awaits; conflict approval requires literal true. | Current increment | Real-device and signed-in cloud acceptance remain open. |
+| R01-01 crew and assignment authority / H03 | pending | Preserve existing roles; enforce crew/assignment control beneath GUI and at SQL commit. | — | No live provisioning or new roles authorized. |
+| FLOW-01 reproducible contractor graph / R01/H02 | pending | Shared inquiry→quote→job→crew/labor/cost→invoice evidence with missing collection proof and alternatives. | — | Manual payment is never bank settlement. |
+| H04-01 read-only authorized context / R01/H03 | pending | Server permission-filtered context, revisions/provenance, deterministic limits; no alternative writer. | — | No model/provider rollout before secure context. |
+
+No original pain points retired: **0/62**. Browser fixtures are synthetic, not contractor or physical-device acceptance.
+
+H03 milestone local evidence: focused **55/55**, full Node **453/453**, storage and **10/10** contractor detectors; browser recovery, **2/2** two-tab command contention, **20/20** contractor scenarios, and phone/desktop reviewed transfer passed. The queued write now includes expected actor for server-side comparison to verified authorization. New adversarial tests are in `tests/sync-recovery-adversarial.test.cjs`; immutable transfer and actor-enforcement tests extend existing suites. Logs: `/workspace/artifacts/tradeflow-continuous-2026-10-30/h03-*`. No deployment or real-cloud acceptance implied.

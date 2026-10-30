@@ -112,3 +112,10 @@ test('Settings comparison refuses expired owner session after remote scan withou
  assert.doesNotMatch(root.innerHTML,/Read-only cloud comparison complete/);
  assert.deepEqual(db.dump(),before);
 });
+
+test('transfer stages only the immutable reviewed snapshot despite mutation inside approval',async()=>{
+ const f=fixture(),plan=await f.prepare(true),original=structuredClone(plan.changes),q=f.queue();
+ await f.stage(q,plan,{approve:()=>{plan.changes[0].record.name='Unreviewed mutation';plan.changes.reverse();plan.expectedStores.customers[0].name='Changed expectation';return true}});
+ const rows=await q.list();for(const c of original)assert.deepEqual(rows.find(r=>r.change.operationId===c.operationId).change,c);
+ assert.notEqual(f.db.dump().customers[0].name,'Unreviewed mutation');assert.equal(f.written.length,0);
+});

@@ -14,7 +14,10 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
  })}
  async function list(){return new Promise((resolve,reject)=>{const tx=db.transaction('commandLog'),req=tx.objectStore('commandLog').getAll();tx.oncomplete=()=>resolve(req.result.filter(r=>r.kind==='sync.change'&&r.businessId===businessId));tx.onabort=tx.onerror=()=>reject(tx.error)})}
  function history(row,event){return [...(row.history||[]).slice(-39),{event,at:now()}]}
- async function authorized(){const current=await session();return current?.status==='signed_in'&&current.businesses?.some(b=>b.business_id===businessId&&['owner','admin','member'].includes(b.role))}
+ const principal=s=>s?.identity?.issuer&&s?.identity?.subject?{issuer:s.identity.issuer,subject:s.identity.subject}:null;
+ const samePrincipal=(a,b)=>canonical(a)===canonical(b);
+ function permitted(s,type){return s?.status==='signed_in'&&s.businesses?.some(b=>b.business_id===businessId&&(FINANCIAL_RECORD_TYPES.includes(type)?['owner','admin']:['owner','admin','member']).includes(b.role))}
+ async function authorized(){return permitted(await session())}
  function enqueue(change){
   if(!change||!types.includes(change.type)||!validId(change.id)||!validId(change.operationId)||!Number.isSafeInteger(change.baseRevision)||change.baseRevision<0||change.baseRevision>2147483646||!change.record||typeof change.record!=='object'||Array.isArray(change.record))throw Error('Invalid queued record');
   if(change.dependsOn!==undefined&&(!Array.isArray(change.dependsOn)||change.dependsOn.some(id=>!validId(id)||id===change.operationId)||new Set(change.dependsOn).size!==change.dependsOn.length))throw Error('Invalid operation dependencies');
@@ -28,12 +31,13 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
    const row={sequence:Math.max(0,...rows.map(r=>r.sequence||0))+1,id,kind:'sync.change',businessId,change:input,status:'pending',attempts:0,nextAttemptAt:0,createdAt:now(),history:[{event:'queued',at:now()}]};store.put(row);return row;
   });
  }
- async function claim(operationIds){return mutate((rows,store)=>{
+ async function claim(operationIds,actor){return mutate((rows,store)=>{
   const row=rows.filter(r=>(!operationIds||operationIds.includes(r.change.operationId))&&(r.change.dependsOn||[]).every(id=>rows.some(p=>p.change.operationId===id&&p.status==='applied'))&&(r.status==='pending'||r.status==='sending'&&r.leaseUntil<=now())&&r.nextAttemptAt<=now()).sort((a,b)=>a.createdAt-b.createdAt||(a.sequence||0)-(b.sequence||0))[0];if(!row)return null;
-  const next={...row,status:'sending',lease:uid(),leaseUntil:now()+30000,attempts:row.attempts+1,history:history(row,'attempt')};store.put(next);return next;
+  if((row.approvedBy||row.actor)&&!samePrincipal(row.approvedBy||row.actor,actor))return {authorizationRequired:true};
+  const next={...row,actor:row.actor||actor,status:'sending',lease:uid(),leaseUntil:now()+30000,attempts:row.attempts+1,history:history(row,'attempt')};store.put(next);return next;
  })}
  async function update(row,changes){return mutate((rows,store)=>{
-  const active=rows.find(r=>r.id===row.id);if(!active||active.lease!==row.lease)return null;
+  const active=rows.find(r=>r.id===row.id);if(!active||active.lease!==row.lease||active.leaseUntil<=now())return null;
   const next={...active,...changes,lease:null,leaseUntil:0,history:history(active,changes.status)};store.put(next);return next;
  })}
  async function remoteRecord(row){
@@ -47,29 +51,39 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
  async function drain({limit=10,operationIds}={}){
   if(operationIds!==undefined&&(!Array.isArray(operationIds)||operationIds.length>200||operationIds.some(id=>!validId(id))))throw Error('Invalid approved operation selection');
   if(!Number.isInteger(limit)||limit<1||limit>20)throw Error('Drain limit must be 1–20');
-  if(!await authorized())return {status:'authorization_required',processed:0};
+  const started=await session(),actor=principal(started);
+  if(!permitted(started))return {status:'authorization_required',processed:0};
+  const stillAuthorized=async type=>{const current=await session();return permitted(current,type)&&samePrincipal(principal(current),actor)};
   let processed=0;
   while(processed<limit){
    // Session and business permission checked anew for each operation; API is authoritative at write.
-   if(!await authorized())return {status:'authorization_required',processed};
-   const row=await claim(operationIds);if(!row)break;processed++;
+   if(!await stillAuthorized())return {status:'authorization_required',processed};
+   const row=await claim(operationIds,actor);if(!row)break;if(row.authorizationRequired)return {status:'authorization_required',processed};processed++;
    try{
     const current=await session(),supported=Array.isArray(current?.capabilities?.recordTypes)?current.capabilities.recordTypes:LEGACY_RECORD_TYPES;
+    if(!permitted(current,row.change.type)||!samePrincipal(principal(current),actor)){await update(row,{status:'pending',reason:'Session changed after queue claim'});return {status:'authorization_required',processed}}
     if(!supported.includes(row.change.type)){await update(row,{status:'pending',reason:'Server schema upgrade required',nextAttemptAt:now()+60000});return {status:'server_schema_required',processed}}
     if(FINANCIAL_RECORD_TYPES.includes(row.change.type)&&!current.businesses.some(b=>b.business_id===businessId&&['owner','admin'].includes(b.role))){await update(row,{status:'pending',reason:'Financial record permission required',nextAttemptAt:now()+60000});return {status:'authorization_required',processed}}
     const remote=await remoteRecord(row),change={...row.change,businessId};
     const same=remote&&!remote.deletedAt&&remote.revision>change.baseRevision&&canonical(remote.record)===canonical(change.record);
-    if(same){await update(row,{status:'applied',result:'already_current',remoteRevision:remote.revision});continue}
+    if(!await stillAuthorized(row.change.type)){await update(row,{status:'pending',reason:'Session changed during synchronization'});return {status:'authorization_required',processed}}
+    const receipt=revision=>({remoteRevision:revision,verifiedAt:now(),verifiedBy:actor,verification:'record_readback',writeUncertain:false});
+    if(same){if(!await update(row,{status:'applied',result:'already_current',...receipt(remote.revision)}))return {status:'lease_lost',processed};continue}
     const decision=classifyOfflineChange(change,remote);
     if(decision.status!=='ready'){await update(row,{status:decision.status==='conflict'?'conflict':'failed',reason:decision.reason||'Invalid remote state',remoteRevision:remote?.revision||null});continue}
-    if(!await authorized()){await update(row,{status:'pending',reason:'Session changed before execution'});return {status:'authorization_required',processed}}
-    const response=await transport.write(change.type,change.id,{revision:change.baseRevision,record:change.record});
-    if(response.status===409){await update(row,{status:'conflict',reason:'Record changed before write'});continue}
+    if(!await stillAuthorized(row.change.type)){await update(row,{status:'pending',reason:'Session changed before execution'});return {status:'authorization_required',processed}}
+    if(row.attempts>5){await update(row,{status:'failed',reason:'Retry limit reached; explicit review required'});return {status:'retry_exhausted',processed}}
+    // Persist uncertainty before crossing the network. A crash cannot become a false receipt.
+    const reserved=await mutate((rows,store)=>{const active=rows.find(r=>r.id===row.id);if(!active||active.lease!==row.lease||active.leaseUntil<=now())return false;store.put({...active,writeUncertain:true,leaseUntil:now()+30000});return true});
+    if(!reserved)return {status:'lease_lost',processed};
+    const response=await transport.write(change.type,change.id,{revision:change.baseRevision,record:change.record,...(actor?{expectedActor:actor}:{})});
+    if(response.status===409){await update(row,{status:'conflict',writeUncertain:false,reason:'Record changed before write'});continue}
     if(![200,201].includes(response.status)){const error=Error('Remote write failed');error.status=response.status;throw error}
     // A successful HTTP response alone is insufficient: read back the committed record.
     const verified=await remoteRecord(row);
     if(!verified||verified.deletedAt||verified.revision!==change.baseRevision+1||canonical(verified.record)!==canonical(change.record))throw Error('Write result could not be verified');
-    await update(row,{status:'applied',result:'verified_write',remoteRevision:verified.revision});
+    if(!await stillAuthorized(row.change.type)){await update(row,{status:'pending',reason:'Session changed before verification receipt'});return {status:'authorization_required',processed}}
+    if(!await update(row,{status:'applied',result:'verified_write',...receipt(verified.revision)}))return {status:'lease_lost',processed};
    }catch(error){
     const auth=[401,403].includes(error.status),terminal=row.attempts>=5;
     await update(row,{status:terminal?'failed':'pending',reason:auth?'Authentication or business permission required':String(error.message).slice(0,200),nextAttemptAt:now()+Math.min(60000,1000*2**Math.min(6,row.attempts))});
@@ -95,7 +109,7 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   recordIdentity({businessId,type:row.change.type,id:row.change.id,record:reviewedProposal});
   if(new TextEncoder().encode(JSON.stringify(reviewedProposal)).byteLength>30000)throw Error('Resolution too large');
   // An async review may outlive revocation or a competing cloud edit.
-  if(!await approve({local:clone(row.change.record),remote:clone(remote),proposed:clone(reviewedProposal)}))return {status:'cancelled'};
+  if(await approve({local:clone(row.change.record),remote:clone(remote),proposed:clone(reviewedProposal)})!==true)return {status:'cancelled'};
   const currentSession=await session();
   if(!canReview(currentSession,row.change.type))throw Error('Authorized session changed during conflict review');
   // Where identity is supplied, a different signed-in principal cannot inherit a review.
@@ -112,6 +126,8 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   });
  }
  async function stageMigration({changes,expectedStores,expectedIdentity,approve,backupConfirmed,backupChecksum}){
+  // Hold the exact review inputs, not caller-owned objects across approval awaits.
+  ({changes,expectedStores,expectedIdentity}=clone({changes,expectedStores,expectedIdentity}));
   if(backupConfirmed!==true||!/^[a-f0-9]{64}$/.test(backupChecksum||'')||typeof approve!=='function')throw Error('Saved backup confirmation and explicit approval required');
   if(!Array.isArray(changes)||changes.length>200||changes.length===0||Object.keys(expectedStores||{}).sort().join(',')!==types.slice().sort().join(','))throw Error('Invalid migration batch');
   const current=await session(),sameOwner=s=>s?.status==='signed_in'&&s.identity?.issuer===expectedIdentity?.issuer&&s.identity?.subject===expectedIdentity?.subject&&s.businesses?.some(b=>b.business_id===businessId&&b.role==='owner');
@@ -151,7 +167,7 @@ export function summarizeSyncIntents(rows,businessId){
   let validEnvelope=true;
   try{recordIdentity({businessId,type:row.change?.type,id:row.change?.id,record:row.change?.record})}
   catch{validEnvelope=false}
-  if(!validEnvelope||row.change?.operationId==null)state='indeterminate';
+  if(!validEnvelope||row.change?.operationId==null||row.writeUncertain===true&&['pending','failed'].includes(row.status))state='indeterminate';
   if(state==='committed_verified'&&(!['already_current','verified_write'].includes(row.result)||
     !Number.isSafeInteger(row.remoteRevision)||row.remoteRevision<1))state='indeterminate';
   const ref=row.change&&typeof row.change==='object'?{

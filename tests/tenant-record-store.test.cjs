@@ -56,3 +56,11 @@ test('linked records must exist in the same business and share one customer; rev
  assert.match(sqlUsed,/AND revision=\? AND deleted_at IS NULL/);assert.match(sqlUsed,/business_memberships/);
  delete links.quotes;await assert.rejects(save(db,auth,'jobs','job_01',{revision:0,record:{quoteId:'q1'}}),{status:400});
 });
+
+test('server rejects a queued request intended for a different authenticated actor before reading or writing',async()=>{
+ const db={prepare(){throw Error('Actor mismatch must fail before database access')}};
+ for(const expectedActor of [null,{issuer:auth.issuer,subject:'other_actor'},{issuer:'other_issuer',subject:auth.subject}]){
+  await assert.rejects(save(db,auth,'jobs','job_01',{revision:0,record:{name:'Stale actor request'},expectedActor}),{status:403});
+ }
+ const result=await save(mockDb({revision:1,updated_at:'now'}),auth,'jobs','job_01',{revision:0,record:{name:'Correct actor'},expectedActor:{issuer:auth.issuer,subject:auth.subject}});assert.equal(result.revision,1);
+});

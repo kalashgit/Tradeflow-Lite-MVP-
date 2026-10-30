@@ -33,6 +33,8 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
    throw new AuthorizationError('Authenticated membership required',403);
  const financial=FINANCIAL_RECORD_TYPES.includes(recordType);
  if(financial&&!['owner','admin'].includes(authorization.role))throw new AuthorizationError('Financial record permission required',403);
+ if(body?.expectedActor!==undefined&&(!body.expectedActor||body.expectedActor.issuer!==authorization.issuer||body.expectedActor.subject!==authorization.subject))
+  throw new AuthorizationError('Request actor changed; review again',403);
  const {expectedRevision,payload}=validateRecordWrite(body);
  if(body.record.id!==undefined&&body.record.id!==recordId||body.record.businessId!==undefined&&body.record.businessId!==authorization.businessId)
   throw new AuthorizationError('Record identity does not match request',400);
