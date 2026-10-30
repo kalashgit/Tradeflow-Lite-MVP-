@@ -262,3 +262,21 @@ test('recovery refuses mismatched operation receipt without changing existing ta
  assert.equal((await snapshot(db)).tasks.length,1);
  assert.equal((await runtime.execute(plan.id)).status,'in_progress');
 });
+
+test('approved registry quote and customer snapshots execute through atomic core, and stale customer blocks',async()=>{
+ const commands=require('../public/command-registry.js');
+ const {db,args}=fixture();
+ const command={commandId:'quotation.followup.schedule',params:{ref:{store:'quotes',id:'q1'},due:'2026-10-30'}};
+ const context={actor:'local-owner',businessId,today:'2026-10-29'};
+ const prepared=commands.resolve(command,await snapshot(db),context);
+ assert.equal(prepared.status,'needs_review');
+ assert.equal(prepared.guard.length,2,'Quote and linked customer must both be covered');
+ const done=await core.execute({...args,requestKey:'registry-guarded-quote',
+  recordGuard:prepared.guard});
+ assert.equal(done.reused,false);assert.equal((await snapshot(db)).tasks.length,1);
+ const another=fixture(),guarded=commands.resolve(command,await snapshot(another.db),context);
+ await put(another.db,'customers',{id:'c1',name:'Changed after approval',businessId});
+ await assert.rejects(core.execute({...another.args,requestKey:'changed-customer',
+  recordGuard:guarded.guard}),/linked customer changed since approval/);
+ assert.equal((await snapshot(another.db)).tasks.length,0);
+});
