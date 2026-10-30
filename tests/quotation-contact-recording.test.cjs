@@ -152,7 +152,7 @@ test('approved contact recording refuses changed customer or quote before commit
  const guarded=commands.resolve(intent,await snapshot(db),
   {actor:'local-owner',businessId:'local-business'});
  assert.equal(guarded.status,'needs_review');
- assert.equal(guarded.guard.length,2);
+ assert.equal(guarded.guard.length,3,'Owner review includes customer, quote, and open follow-up task snapshot');
  await put(db,'customers',{id:'c1',name:'Another customer name',businessId:'local-business'});
  await assert.rejects(core.execute({db,kind:'customer.contact.record',
   uid:()=> 'failed',requestKey:'stale-contact',actor:'local-owner',businessId:'local-business',
@@ -246,4 +246,23 @@ test('existing quote dossier opens preselected linked customer outcome form and 
  assert.match(app,/await commands\.execute\(plan\.id\)/);
  assert.match(app,/commands\.reconcile\(previous\.id\)/);
  assert.match(app,/Provider delivery remains unverified/);
+});
+
+test('a newly added follow-up task after approval invalidates reached-contact resolution',async()=>{
+ const {db,request}=setup();
+ await put(db,'tasks',{id:'followup-old',quoteId:'q1',customerId:'c1',
+  taskKind:'quotation_follow_up',status:'Open',businessId:'local-business'});
+ const plan=commands.resolve({commandId:'customer.contact.record',params:{
+  ref:{store:'customers',id:'c1'},quoteId:'q1',method:'Phone',
+  notes:'Confirmed actual conversation',outcome:'reached'}},
+  await snapshot(db),{actor:'local-owner',businessId:'local-business'});
+ assert.equal(plan.status,'needs_review');
+ assert.equal(plan.guard.find(g=>Array.isArray(g.quoteOpenFollowups)).quoteOpenFollowups.length,1);
+ await put(db,'tasks',{id:'followup-new',quoteId:'q1',customerId:'c1',
+  taskKind:'quotation_follow_up',status:'Open',businessId:'local-business'});
+ const before=await snapshot(db);
+ await assert.rejects(core.execute({...request,payload:{
+  customerId:'c1',quoteId:'q1',method:'Phone',notes:'Confirmed actual conversation',outcome:'reached'},
+  requestKey:'stale-followup-list',recordGuard:plan.guard}),/Linked follow-up tasks changed/);
+ assert.deepEqual(await snapshot(db),before);
 });
