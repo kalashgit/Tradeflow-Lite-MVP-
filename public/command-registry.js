@@ -238,7 +238,8 @@ function resolve(input,data={},context={}){
    if(params.quoteId){
     const quote=lookup(data,{store:'quotes',id:params.quoteId},context);
     if(quote.customerId!==customer.id)return problem('CUSTOMER_MISMATCH','The quote belongs to another customer.');
-    guard.push(...validateReferences(data,[{store:'quotes',id:quote.id}],context));
+    for(const checked of validateReferences(data,[{store:'quotes',id:quote.id}],context))
+     if(!guard.some(g=>g.ref?.store===checked.ref.store&&g.ref.id===checked.ref.id))guard.push(checked);
    }
    result={customerId:customer.id,quoteId:params.quoteId,method:params.method,
     outcome:params.outcome,operatorReported:true,providerVerified:false};
