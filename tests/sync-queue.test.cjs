@@ -4,8 +4,8 @@ let createSyncQueue,createTenantTransport;
 require('node:test').before(async()=>({createSyncQueue,createTenantTransport}=await import('../public/sync-queue.js')));
 const businessId='business_001',change={type:'customers',id:'c1',operationId:'request_1',baseRevision:0,record:{id:'c1',name:'Test customer'}};
 function fixture(){
- const db=createDB(),remote=new Map();let writes=0,time=100000,status='signed_in',failure=0,lost=false;
- const session=async()=>({status,businesses:[{business_id:businessId,role:'owner'}]});
+ const db=createDB(),remote=new Map();let writes=0,time=100000,status='signed_in',failure=0,lost=false,role='owner',subject='owner_001';
+ const session=async()=>({status,identity:{issuer:'synthetic-issuer',subject},businesses:[{business_id:businessId,role}],capabilities:{recordTypes:['customers','jobs','quotes','invoices','jobCosts','payments','expenses']}});
  const transport={read:async(type,id)=>remote.has(type+id)?{status:200,record:structuredClone(remote.get(type+id))}:{status:404},write:async(type,id,body)=>{
   if(failure)return {status:failure};const key=type+id,old=remote.get(key);
   if((old?.revision||0)!==body.revision)return {status:409};
@@ -13,7 +13,7 @@ function fixture(){
   if(lost){lost=false;throw Error('Acknowledgment lost')}return {status:201};
  }};
  const make=()=>createSyncQueue({db,businessId,session,transport,now:()=>time});
- return {db,remote,make,transport,queue:make(),writes:()=>writes,advance:()=>time+=61000,deny:()=>status='signed_out',allow:()=>status='signed_in',failure:n=>failure=n,loseAck:()=>lost=true};
+ return {db,remote,make,transport,queue:make(),writes:()=>writes,advance:()=>time+=61000,deny:()=>status='signed_out',allow:()=>status='signed_in',failure:n=>failure=n,loseAck:()=>lost=true,setRole:value=>role=value,setSubject:value=>subject=value};
 }
 test('queue survives runtime recreation, serializes duplicate requests and verifies persisted result',async()=>{
  const f=fixture();await Promise.all([f.queue.enqueue(change),f.queue.enqueue(change)]);assert.equal((await f.make().list()).length,1);
@@ -146,4 +146,29 @@ test('foreign-business or changed record identity is rejected before requesting 
   await assert.rejects(f.queue.resolve(row.id,proposed,async()=>{approvalCalls++;return true}),/identity/);
  }
  assert.equal(approvalCalls,0);assert.equal((await f.queue.list())[0].status,'conflict');
+});
+
+test('conflict approval cannot transfer to another signed-in principal with same company role',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Changed'}});
+ await f.queue.drain();const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Reviewed'},async()=>{f.setSubject('another_user');return true}),/Reviewing principal changed/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('financial conflict review rejects member role before owner approval',async()=>{
+ const f=fixture(),financial={type:'jobCosts',id:'cost_01',operationId:'financial_01',baseRevision:0,record:{id:'cost_01',amount:150}};
+ await f.queue.enqueue(financial);
+ f.remote.set('jobCostscost_01',{businessId,type:'jobCosts',id:'cost_01',revision:2,record:{id:'cost_01',amount:175}});
+ await f.queue.drain();const row=(await f.queue.list())[0];assert.equal(row.status,'conflict');
+ f.setRole('member');let approvals=0;
+ await assert.rejects(f.queue.resolve(row.id,{id:'cost_01',amount:175},async()=>{approvals++;return true}),/owner or admin/);
+ assert.equal(approvals,0);assert.equal((await f.queue.list())[0].status,'conflict');
+});
+test('financial conflict review aborts on owner-to-member role downgrade during approval',async()=>{
+ const f=fixture(),financial={type:'jobCosts',id:'cost_02',operationId:'financial_02',baseRevision:0,record:{id:'cost_02',amount:150}};
+ await f.queue.enqueue(financial);
+ f.remote.set('jobCostscost_02',{businessId,type:'jobCosts',id:'cost_02',revision:2,record:{id:'cost_02',amount:175}});
+ await f.queue.drain();const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'cost_02',amount:175},async()=>{f.setRole('member');return true}),/Authorized session changed/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
 });

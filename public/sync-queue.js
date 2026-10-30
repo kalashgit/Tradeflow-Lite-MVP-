@@ -80,8 +80,12 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   return {status:'drained',processed};
  }
  async function resolve(id,propose,approve){
-  if(!await authorized())throw Error('Authorized session required');
+  const reviewedSession=await session();
+  const canReview=(s,type)=>s?.status==='signed_in'&&s.businesses?.some(b=>b.business_id===businessId&&
+   (FINANCIAL_RECORD_TYPES.includes(type)?['owner','admin']:['owner','admin','member']).includes(b.role));
+  if(!canReview(reviewedSession,null))throw Error('Authorized session required');
   const row=(await list()).find(r=>r.id===id);if(!row||!['conflict','failed'].includes(row.status))throw Error('No reviewable conflict');
+  if(!canReview(reviewedSession,row.change?.type))throw Error('Financial record review requires owner or admin');
   const remote=await remoteRecord(row);
   if(!remote||remote.deletedAt)throw Error('Missing/deleted remote record requires manual recovery');
   // Snapshot and validate the exact proposed record before awaiting approval.
@@ -92,7 +96,12 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   if(new TextEncoder().encode(JSON.stringify(reviewedProposal)).byteLength>30000)throw Error('Resolution too large');
   // An async review may outlive revocation or a competing cloud edit.
   if(!await approve({local:clone(row.change.record),remote:clone(remote),proposed:clone(reviewedProposal)}))return {status:'cancelled'};
-  if(!await authorized())throw Error('Authorized session changed during conflict review');
+  const currentSession=await session();
+  if(!canReview(currentSession,row.change.type))throw Error('Authorized session changed during conflict review');
+  // Where identity is supplied, a different signed-in principal cannot inherit a review.
+  const ownerId=s=>s?.identity?.issuer&&s?.identity?.subject?
+   s.identity.issuer+':'+s.identity.subject:null;
+  if(ownerId(reviewedSession)!==ownerId(currentSession))throw Error('Reviewing principal changed during conflict review');
   const latest=await remoteRecord(row);
   if(!latest||latest.deletedAt||latest.revision!==remote.revision||
     canonical(latest.record)!==canonical(remote.record))
