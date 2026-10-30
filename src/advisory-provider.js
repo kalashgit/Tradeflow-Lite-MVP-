@@ -2,6 +2,7 @@
 // not wired to an HTTP endpoint or a production provider.
 const IDENTIFIER=/^[A-Za-z0-9_-]{1,100}$/;
 const MAX_INPUT_BYTES=16000;
+const MAX_EVIDENCE_RECORDS=200;
 
 export class AdvisoryProviderError extends Error {
  constructor(message,code='advisory_unavailable'){super(message);this.name='AdvisoryProviderError';this.code=code}
@@ -17,16 +18,22 @@ export function prepareAdvisoryRequest({context,question,enabled=false}={}){
   throw new AdvisoryProviderError('Invalid advisory question','invalid_question');
  if(context.scope?.jobId!==undefined&&!IDENTIFIER.test(context.scope.jobId))
   throw new AdvisoryProviderError('Invalid advisory scope','invalid_context');
+ if(context.records.length>MAX_EVIDENCE_RECORDS)
+  throw new AdvisoryProviderError('Too many evidence references','input_too_large');
+ const unique=new Set();
  // Explicit allowlist: never forward the entire tenant snapshot, bearer token,
  // customer details, provider credentials, free-form record text, or PII.
  const evidence=context.records.map(item=>{
-  if(!IDENTIFIER.test(item.type||'')||!IDENTIFIER.test(item.id||'')||!Number.isSafeInteger(item.revision)||item.revision<1)
+  if(!item||!IDENTIFIER.test(item.type||'')||!IDENTIFIER.test(item.id||'')||!Number.isSafeInteger(item.revision)||item.revision<1)
    throw new AdvisoryProviderError('Invalid evidence provenance','invalid_context');
+  const key=`${item.type}:${item.id}`;
+  if(unique.has(key))throw new AdvisoryProviderError('Ambiguous duplicate evidence','invalid_context');
+  unique.add(key);
   return {type:item.type,id:item.id,revision:item.revision};
  });
  const payload={protocol:'tradeflow.advisory.v1',scope:context.scope?.jobId?{jobId:context.scope.jobId}:{company:true},
   question:question.trim(),evidence,limitations:['Evidence identifiers only; no record contents supplied.','Advisory output is untrusted and cannot authorize or execute commands.']};
- if(JSON.stringify(payload).length>MAX_INPUT_BYTES)throw new AdvisoryProviderError('Advisory input exceeds limit','input_too_large');
+ if(new TextEncoder().encode(JSON.stringify(payload)).length>MAX_INPUT_BYTES)throw new AdvisoryProviderError('Advisory input exceeds limit','input_too_large');
  return Object.freeze(payload);
 }
 
@@ -35,7 +42,7 @@ export async function requestAdvisory({context,question,enabled=false,transport}
  if(typeof transport!=='function')throw new AdvisoryProviderError('No server advisory transport configured');
  let response;
  try{response=await transport(payload)}catch{throw new AdvisoryProviderError('Advisory transport unavailable')}
- if(!response||typeof response.text!=='string'||response.text.length>4000)
+ if(!response||typeof response.text!=='string'||new TextEncoder().encode(response.text).length>4000)
   throw new AdvisoryProviderError('Invalid advisory response','invalid_response');
  return {kind:'tradeflow.advisory.untrusted.v1',text:response.text,readOnly:true,executionAuthority:false,
   requiresHumanReview:true,verifiedBusinessOutcome:false};
