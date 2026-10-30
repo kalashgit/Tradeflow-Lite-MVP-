@@ -39,6 +39,9 @@ jobs:
         run: |
           node --check src/tenant-api.js
           node --check public/sync-queue.js
+          node --check public/record-model.js
+          node --check public/offline-conflicts.js
+          node --check tests/record-identity-contract.test.cjs
           node --check public/cloud-retrieval.js
           node --check public/migration-ui.js
           node --check public/core-integration.js

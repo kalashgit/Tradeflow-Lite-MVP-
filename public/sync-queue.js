@@ -1,4 +1,4 @@
-import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES} from './record-model.js';
+import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES,recordIdentity} from './record-model.js';
 import {classifyOfflineChange} from './offline-conflicts.js';
 // Opt-in prerequisite only: the application does not enqueue or drain automatically.
 const canonical=x=>JSON.stringify(x,(key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,value[k]])):value);
@@ -18,7 +18,7 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
  function enqueue(change){
   if(!change||!types.includes(change.type)||!validId(change.id)||!validId(change.operationId)||!Number.isSafeInteger(change.baseRevision)||change.baseRevision<0||change.baseRevision>2147483646||!change.record||typeof change.record!=='object'||Array.isArray(change.record))throw Error('Invalid queued record');
   if(change.dependsOn!==undefined&&(!Array.isArray(change.dependsOn)||change.dependsOn.some(id=>!validId(id)||id===change.operationId)||new Set(change.dependsOn).size!==change.dependsOn.length))throw Error('Invalid operation dependencies');
-  if(change.record.id&&change.record.id!==change.id||change.record.businessId&&change.record.businessId!==businessId)throw Error('Record identity mismatch');
+  recordIdentity({businessId,type:change.type,id:change.id,record:change.record});
   if(new TextEncoder().encode(JSON.stringify(change.record)).byteLength>30000)throw Error('Record too large');
   const input=clone(change),id='sync:'+businessId+':'+input.operationId;
   return mutate((rows,store)=>{
