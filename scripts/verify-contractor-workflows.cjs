@@ -22,7 +22,10 @@ async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
  for(const store of stores){tx.objectStore(store).clear();for(const row of data[store]||[])tx.objectStore(store).put(row)}await new Promise(r=>tx.oncomplete=r);db.close();
 },{data,clear})}
 async function verifyQuoteFollowupJourney(page,result){
- const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ const dialogs=[],browserErrors=[];
+ page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
+ page.on('console',message=>{if(message.type()==='error')browserErrors.push('console: '+message.text())});
+ page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
  const snapshot=()=>page.evaluate(async()=>{
   const req=indexedDB.open('tradeflow-lite-v1',9);
   const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
@@ -65,7 +68,7 @@ async function verifyQuoteFollowupJourney(page,result){
     error:x.error,lastEvent:x.events?.at(-1),result:x.result})).slice(-8);
   const visible=await page.locator('body').innerText();
   throw Error('Owner review did not persist one internal follow-up: '+
-   JSON.stringify({count:linked.length,recent,dialogs,
+   JSON.stringify({count:linked.length,recent,dialogs,browserErrors,
     runtimeTrace:await page.evaluate(()=>window.__tfP01Trace||[]),
     visibleTail:visible.slice(-1200)}));
  }
