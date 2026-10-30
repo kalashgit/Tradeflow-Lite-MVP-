@@ -55,3 +55,15 @@ test('member role cannot drain crew-roster work even with misleading display rol
  const f=fixture(),q=f.make();await q.enqueue({...change,type:'crew',record:{id:'c1',role:'owner'}});f.role('member');
  assert.equal((await q.drain()).status,'authorization_required');assert.equal(f.writes(),0);assert.notEqual((await q.list())[0].status,'applied');
 });
+test('exhausted uncertain write can be explicitly read-back reconciled without another write',async()=>{
+ const f=fixture(),q=f.make();await q.enqueue(change);const read=f.transport.read,write=f.transport.write;let shouldFail=false;
+ f.transport.read=async(...args)=>{if(shouldFail)throw Error('Readback unavailable');return read(...args)};
+ f.transport.write=async(...args)=>{await write(...args);shouldFail=true;throw Error('Acknowledgment lost')};
+ for(let n=0;n<5;n++){await q.drain();f.advance()}
+ const row=(await q.list())[0];assert.equal(row.status,'failed');assert.equal(row.writeUncertain,true);assert.equal(f.writes(),1);
+ shouldFail=false;assert.equal((await f.make().reconcile(row.id)).status,'committed_verified');assert.equal(f.writes(),1);assert.equal((await q.list())[0].writeUncertain,false);
+});
+test('reconciliation does not write or confirm a divergent record or changed actor',async()=>{
+ const f=fixture(),q=f.make();await q.enqueue(change);await f.transport.write('customers','c1',{revision:0,record:{id:'c1',name:'Other device'}});await q.drain();const row=(await q.list())[0];
+ assert.equal((await q.reconcile(row.id)).status,'review_required');assert.equal((await q.list())[0].status,'conflict');f.actor('someone_else');await assert.rejects(q.reconcile(row.id),/original actor/);assert.equal(f.writes(),1);
+});

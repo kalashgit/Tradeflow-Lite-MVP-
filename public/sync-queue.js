@@ -94,6 +94,20 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   }
   return {status:'drained',processed};
  }
+ async function reconcile(id){
+  const started=await session(),actor=principal(started),row=(await list()).find(r=>r.id===id);
+  if(!row)throw Error('Unknown queued operation');
+  if(!permitted(started,row.change.type)||(row.approvedBy||row.actor)&&!samePrincipal(row.approvedBy||row.actor,actor))throw Error('Authorized original actor required for reconciliation');
+  if(row.status==='sending'&&row.leaseUntil>now())return {status:'in_progress',verified:false};
+  const remote=await remoteRecord(row),latest=await session();
+  if(!permitted(latest,row.change.type)||!samePrincipal(principal(latest),actor))throw Error('Session changed during reconciliation');
+  if(!remote||remote.deletedAt||remote.revision<=row.change.baseRevision||canonical(remote.record)!==canonical(row.change.record))return {status:'review_required',verified:false};
+  return mutate((rows,store)=>{
+   const active=rows.find(r=>r.id===id);if(!active||canonical(active)!==canonical(row))throw Error('Operation changed during reconciliation');
+   store.put({...active,status:'applied',result:'already_current',writeUncertain:false,remoteRevision:remote.revision,verifiedAt:now(),verifiedBy:actor,verification:'record_readback',lease:null,leaseUntil:0,history:history(active,'readback_reconciled')});
+   return {status:'committed_verified',verified:true,remoteRevision:remote.revision};
+  });
+ }
  async function resolve(id,propose,approve){
   const reviewedSession=await session();
   const canReview=(s,type)=>s?.status==='signed_in'&&s.businesses?.some(b=>b.business_id===businessId&&
@@ -153,7 +167,7 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
    return {status:'staged',reviewId,operationIds:staged.map(r=>r.change.operationId)};
   },types);
  }
- return Object.freeze({enqueue,list,drain,resolve,stageMigration});
+ return Object.freeze({enqueue,list,drain,reconcile,resolve,stageMigration});
 }
 // Pure read-only projection: never equate local queue persistence with remote commit.
 export function summarizeSyncIntents(rows,businessId){

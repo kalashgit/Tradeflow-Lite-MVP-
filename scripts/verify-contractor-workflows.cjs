@@ -411,11 +411,15 @@ async function verifyCalendarConflictJourney(page,result){
  const dialogs=(async()=>{
   const date=await page.waitForEvent('dialog',{timeout:15000});
   assert.equal(date.type(),'prompt');assert.match(date.message(),/New date/);
+  // Subscribe before accepting: the next synchronous prompt can otherwise
+  // fire between accept() resolving and waitForEvent registering.
+  const nextStart=page.waitForEvent('dialog',{timeout:15000});
   await date.accept('2026-11-05');
-  const start=await page.waitForEvent('dialog',{timeout:15000});
+  const start=await nextStart;
   assert.equal(start.type(),'prompt');assert.match(start.message(),/New start time/);
+  const nextConfirm=page.waitForEvent('dialog',{timeout:15000});
   await start.accept('13:00');
-  const confirm=await page.waitForEvent('dialog',{timeout:15000});
+  const confirm=await nextConfirm;
   assert.equal(confirm.type(),'confirm');assert.match(confirm.message(),/standalone event/);
   await confirm.accept();
  })();
