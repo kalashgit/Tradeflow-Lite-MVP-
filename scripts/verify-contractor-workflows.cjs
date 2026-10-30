@@ -1,7 +1,7 @@
 // Synthetic Chromium product scenarios, not contractor acceptance or provider outcomes.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict'),cp=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const out=process.env.OUTPUT_DIR||'/tmp/tradeflow-contractor-scenarios';fs.mkdirSync(out,{recursive:true});
+const out=process.env.OUTPUT_DIR||'artifacts/contractor-workflows';fs.mkdirSync(out,{recursive:true});
 const root=path.resolve('public'),types={'.js':'application/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'};
 const server=http.createServer((req,res)=>{const pathname=new URL(req.url,'http://local').pathname,p=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!p.startsWith(root+'/')){res.writeHead(403);res.end();return}fs.readFile(p,(e,b)=>{if(e){res.writeHead(404);res.end();return}res.setHeader('Content-Type',types[path.extname(p)]||'application/octet-stream');res.end(b)})});
 const customer={id:'c1',name:'Scenario customer',phone:'+15125550198'},job={id:'j1',title:'Scenario job',customerId:'c1',status:'In Progress'},invoice={id:'i1',customerId:'c1',status:'Issued',dueDate:'2026-10-01',currency:'USD',lines:[{qty:1,unitPrice:100}],taxRate:0};
