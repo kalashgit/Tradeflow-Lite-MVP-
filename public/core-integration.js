@@ -346,21 +346,22 @@
  // Customer contact and quotation's lastContactAt are atomic with the command receipt.
  function executeContactRecord(args){
   const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business'}=args||{};
-  const {customerId,quoteId='',method,notes}=payload||{};
+  const {customerId,quoteId='',method,notes,outcome='attempted'}=payload||{};
   if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||
    typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
    typeof customerId!=='string'||!customerId||typeof quoteId!=='string'||
    !['Phone','Email','Meeting','Site visit','Other'].includes(method)||
+   !['attempted','reached'].includes(outcome)||
    typeof notes!=='string'||notes.trim().length<3||notes.length>1000||
-   Object.keys(payload).some(k=>!['customerId','quoteId','method','notes'].includes(k)))
+   Object.keys(payload).some(k=>!['customerId','quoteId','method','notes','outcome'].includes(k)))
    return Promise.reject(Error('Valid manually recorded customer contact required'));
   const key='contact:'+requestKey.trim();
-  const normalized={customerId,quoteId,method,notes:notes.trim()};
+  const normalized={customerId,quoteId,method,notes:notes.trim(),outcome};
   const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
    Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
   return new Promise((resolve,reject)=>{
-   let tx,error,result,remaining=4,prior=null;const data={};
-   try{tx=db.transaction(['commandLog','events','customers','quotes'],'readwrite')}catch(e){reject(e);return}
+   let tx,error,result,remaining=5,prior=null;const data={};
+   try{tx=db.transaction(['commandLog','events','customers','quotes','tasks'],'readwrite')}catch(e){reject(e);return}
    const abort=e=>{error=e;tx.abort()};
    tx.oncomplete=()=>resolve(result);
    tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Contact transaction failed'));
@@ -372,7 +373,7 @@
        prior.actor!==actor||prior.businessId!==businessId)
        throw Error('Contact operation key is bound to different details or actor');
       const previous=data.events.find(e=>e.id===prior.resultId&&e.kind==='customer_contact'&&
-       e.customerId===customerId&&e.quoteId===quoteId);
+       e.customerId===customerId&&e.quoteId===quoteId&&e.outcome===outcome);
       if(!previous)throw Error('Previous contact record requires recovery review');
       result={id:prior.resultId,reused:true,commandKey:key};return;
      }
@@ -386,24 +387,43 @@
      const id=String(uid()),when=new Date().toISOString();
      if(!id||data.events.some(e=>e.id===id))throw Error('Contact record identifier collision');
      const event={id,kind:'customer_contact',text:'Manually recorded customer contact',
-      customerId,quoteId,method,notes:normalized.notes,date:when,
-      actor,businessId,evidence:'operator_reported',providerVerified:false};
+      customerId,quoteId,method,notes:normalized.notes,outcome,date:when,
+      actor,businessId,evidence:'operator_reported',providerVerified:false,customerReached:outcome==='reached'};
      tx.objectStore('events').put(event);
+     let resolvedTasks=0;
      if(quote){
-      const last=String(quote.lastContactAt||'');
-      const updated={...quote,lastContactAt:last>when?last:when,updatedAt:when};
+      const lastField=outcome==='reached'?'lastContactAt':'lastFollowUpAt';
+      const last=String(quote[lastField]||'');
+      const updated={...quote,[lastField]:last>when?last:when,updatedAt:when,
+       ...(outcome==='reached'?{followupResolution:{status:'owner_attested_reached',
+        contactEventId:id,recordedAt:when,actor,providerVerified:false}}:{})};
       tx.objectStore('quotes').put(updated);
       domainEvents?.recordCommitted(tx,'quotes',updated,key,{actor,businessId},quote);
+      if(outcome==='reached'){
+       const open=(data.tasks||[]).filter(t=>t.quoteId===quote.id&&t.customerId===customerId&&
+        (t.taskKind==='quotation_follow_up'||t.followupAuto===true||
+         String(t.title||'').startsWith('Follow up quote: '))&&
+        (!t.businessId||t.businessId===businessId)&&
+        !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+       for(const task of open){
+        const completed={...task,status:'Done',completedAt:when,
+         completedReason:'owner_attested_customer_reached',contactEventId:id,updatedAt:when};
+        tx.objectStore('tasks').put(completed);
+        domainEvents?.recordCommitted(tx,'tasks',completed,key,{actor,businessId},task);
+        resolvedTasks++;
+       }
+      }
      }
      tx.objectStore('commandLog').put({id:key,kind:'customer.contact.record',
       requestPayload:stable(normalized),resultId:id,actor,businessId,quoteId,
-      createdAt:when,result:'manual_contact_recorded',providerVerified:false});
-     result={id,reused:false,commandKey:key,providerVerified:false};
+      createdAt:when,result:outcome==='reached'?'owner_attested_reached':'manual_attempt_recorded',
+      outcome,resolvedTasks,providerVerified:false});
+     result={id,reused:false,commandKey:key,providerVerified:false,outcome,resolvedTasks};
     }catch(e){abort(e)}
    }
    const receipt=tx.objectStore('commandLog').get(key);
    receipt.onsuccess=()=>{prior=receipt.result;ready()};
-   for(const name of ['events','customers','quotes']){
+   for(const name of ['events','customers','quotes','tasks']){
     const req=tx.objectStore(name).getAll();
     req.onsuccess=()=>{data[name]=req.result;ready()};
    }
