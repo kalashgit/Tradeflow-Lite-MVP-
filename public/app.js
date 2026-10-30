@@ -925,6 +925,8 @@ function tfRecordDetailView(d,record,type){
   }
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
+  if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.type==='estimate'))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobCostReview" data-id="'+esc(record.id)+'">Review recorded job cost overrun</button>';
  }
  if(type==='jobs'&&record.status==='Completed'&&!(d.invoices||[]).some(i=>i.jobId===record.id&&i.status!=='Void'))sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobInvoiceDraft" data-id="'+esc(record.id)+'">Prepare invoice draft for completed job</button>';
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
@@ -1215,6 +1217,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   const job=await get('jobs',el.dataset.id);
   const result=job?await tfReviewJobChangeOrder(job,el.dataset.changeId):null;
   if(result?.status==='succeeded'){await render();notify('Internal authorization-review task verified. Customer approval is still unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfJobCostReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobCost(job):null;
+  if(result?.status==='succeeded'){await render();notify('Internal job-cost reconciliation task saved. Profit and settlement remain unverified.');}
   return;
  }
  if(el.dataset.action==='tfQuoteReuse'){
@@ -1961,7 +1969,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2211,6 +2219,35 @@ async function tfReviewJobChangeOrder(job,changeOrderId){
  if(approval.status!=='approved'){notify(approval.error?.message||'Records changed; review again');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Change-order review result requires inspection');
+ return result;
+}
+async function tfReviewJobCost(job){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='job.cost_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===job.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier job cost review has uncertain execution. Inspect the task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.cost_review.schedule',params:{ref:{store:'jobs',id:job.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'No reliable recorded overrun to review');return null}
+ const data=plan.result;
+ if(!confirm('Create an internal task to reconcile “'+String(job.title||job.id).slice(0,100)+'”? Local budget $'+data.budget.toFixed(2)+
+  ', recorded costs $'+data.recordedCosts.toFixed(2)+'. Costs may overlap or be incomplete. This is NOT verified profit, bank settlement or accounting reconciliation.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Job financial records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Job cost review requires inspection');
  return result;
 }
 async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){

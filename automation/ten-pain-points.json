@@ -65,7 +65,11 @@
       "pattern": "budget overrun uses recorded costs",
       "feature": "Existing job costing / notifications",
       "originalRegisterRef": 12,
-      "mappingScope": "partial: recorded overrun detection does not prove complete job profitability"
+      "mappingScope": "partial: recorded overrun detection and owner-approved cost reconciliation task do not prove complete job profitability, external accounting reconciliation or settled cash",
+      "executionTest": "tests/job-cost-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-reviewed, revision-bound local budget-overrun reconciliation task with cost/expense provenance, idempotent task receipt and nonreplaying recovery",
+      "verification": "focused local Node tests passed; exact-head CI and real Chromium pending"
     },
     {
       "id": "TF-P06",

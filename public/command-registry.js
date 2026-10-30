@@ -35,6 +35,7 @@ const definitions=freeze([
  {id:'quotation.followup.schedule',intent:'Schedule a reviewed internal follow-up task for a sent quotation',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:quotation.followup.schedule',approval:'explicit'},
  {id:'job.change_order.review.schedule',intent:'Schedule internal review of a proposed job change; customer authorization remains separate',aliases:[],required:['ref','changeOrderId','due'],parameters:['ref','changeOrderId','due'],effect:'modification',permission:'modify:job.change_order.review.schedule',approval:'explicit'},
  {id:'job.change_order.authorization.record',intent:'Record owner-attested customer change-order consent evidence and resolve reviewed task',aliases:[],required:['ref','changeOrderId','evidence'],parameters:['ref','changeOrderId','evidence'],effect:'modification',permission:'modify:job.change_order.authorization.record',approval:'explicit'},
+ {id:'job.cost_review.schedule',intent:'Create an approved internal task to reconcile job budget and recorded costs',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:job.cost_review.schedule',approval:'explicit'},
  {id:'quotation.convert',intent:'Create a linked job from an accepted quotation',aliases:['convert quote to job'],required:['ref or context.record'],parameters:['ref'],effect:'modification',permission:'modify:quotation.convert',approval:'explicit'}
 ]);
 const definition=id=>definitions.find(x=>x.id===id);
@@ -151,7 +152,7 @@ function resolve(input,data={},context={}){
    if(def.id==='record.find')result={matches};
    else {const exact=matches.filter(x=>x.exact),choices=exact.length?exact:matches;if(choices.length!==1)return {status:choices.length?'ambiguous':'not_found',commandId:def.id,choices,error:{code:choices.length?'AMBIGUOUS_RECORD':'RECORD_NOT_FOUND',message:choices.length?'Choose a specific record.':'No matching local record.'}};params.ref=choices[0].ref;delete params.query;delete params.store}
   }
-  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.followup.schedule'||def.id==='job.change_order.review.schedule'||def.id==='job.change_order.authorization.record'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'||def.id==='customer.contact.record'){
+  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.followup.schedule'||def.id==='job.change_order.review.schedule'||def.id==='job.change_order.authorization.record'||def.id==='job.cost_review.schedule'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'||def.id==='customer.contact.record'){
    if(!params.ref)params.ref=context.record?clone(context.record):null;
    if(!params.ref)return problem('MISSING_RECORD','Select or specify an existing record.');refs.push(params.ref);
   }
@@ -301,6 +302,25 @@ function resolve(input,data={},context={}){
    result={jobId:job.id,changeOrderId:params.changeOrderId,reviewTaskId:tasks[0].id,
     evidenceReference:params.evidence,ownerAttested:true,providerVerified:false,externalCommunication:false};
   }
+  if(def.id==='job.cost_review.schedule'){
+   if(params.ref.store!=='jobs'||!isDate(params.due))return problem('INVALID_JOB_REVIEW','Choose an existing job and valid review date.');
+   const job=lookup(data,params.ref,context);
+   if(['cancelled','canceled'].includes(normalize(job.status)))return problem('JOB_CANCELLED','Cancelled jobs require manual historical review.');
+   const costs=rows(data,'jobCosts').filter(x=>x.jobId===job.id),expenses=rows(data,'expenses').filter(x=>x.jobId===job.id||x.relatedId===job.id);
+   const valid=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0&&(!x.businessId||x.businessId===(context.businessId||'local-business'));
+   if(!costs.some(x=>x.type==='estimate')||[...costs,...expenses].some(x=>!valid(x)))
+    return problem('COST_EVIDENCE_INCOMPLETE','Job costs need valid, same-business budget and recorded cost entries.');
+   const budget=costs.filter(x=>x.type==='estimate').reduce((n,x)=>n+Math.round(x.amount*100),0),
+    recorded=[...costs.filter(x=>x.type==='actual'),...expenses].reduce((n,x)=>n+Math.round(x.amount*100),0);
+   if(budget<=0||recorded<=budget)return problem('NO_RECORDED_OVERRUN','No recorded cost overrun exists under the saved estimates.');
+   const tasks=rows(data,'tasks').filter(t=>t.jobId===job.id&&t.taskKind==='job_cost_reconciliation'&&!terminal(t));
+   if(tasks.some(t=>t.businessId&&t.businessId!==(context.businessId||'local-business')))
+    return problem('CROSS_BUSINESS_TASK','Existing cost-review task requires inspection.');
+   guard.push({jobCostsSnapshot:clone(costs),jobExpensesSnapshot:clone(expenses),costReviewTasks:clone(tasks)});
+   result={jobId:job.id,budget:budget/100,recordedCosts:recorded/100,overrun:(recorded-budget)/100,
+    sourceCostIds:costs.map(x=>x.id),sourceExpenseIds:expenses.map(x=>x.id),currency:'USD',
+    accountingVerified:false,settlementVerified:false,possibleDuplicateExpenses:true,profitVerified:false};
+  }
   if(def.id==='quotation.convert'){
    if(params.ref.store!=='quotes')return problem('INVALID_RECORD_TYPE','Select an accepted quotation.');
    const q=lookup(data,params.ref,context);
@@ -389,6 +409,7 @@ function createRuntime(options){
    else if(row.commandId==='quotation.followup.schedule')result=await ports.operation('quotation.followup.schedule',{quoteId:row.params.ref.id,due:row.params.due},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='job.change_order.review.schedule')result=await ports.operation('job.change_order.review.schedule',{jobId:row.params.ref.id,changeOrderId:row.params.changeOrderId,due:row.params.due},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='job.change_order.authorization.record')result=await ports.operation('job.change_order.authorization.record',{jobId:row.params.ref.id,changeOrderId:row.params.changeOrderId,evidence:row.params.evidence},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
+   else if(row.commandId==='job.cost_review.schedule')result=await ports.operation('job.cost_review.schedule',{jobId:row.params.ref.id,due:row.params.due,budget:fresh.result.budget,recordedCosts:fresh.result.recordedCosts},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.convert')result=await ports.operation('quotation.convert',{quoteId:row.params.ref.id},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard)});
    else if(row.commandId==='customer.create')result=await ports.operation('customer.create',clone(row.params),{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
    else if(row.commandId==='customer.source.delete')result=await ports.operation('customer.source.delete',{customerId:row.params.ref.id},{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
@@ -406,6 +427,29 @@ function createRuntime(options){
   if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
    return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
+  if(row.commandId==='job.cost_review.schedule'){
+   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
+   if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'No interrupted job cost review.'}};
+   if(row.approvedBy!==c.actor||!row.events?.some(e=>e.type==='approved'))
+    return {id,status:'indeterminate',error:{code:'APPROVAL_UNVERIFIED',message:'Original approval cannot be verified.'}};
+   const data=await snapshot(),p=row.params,receiptId='job-cost-review:operation:'+id;
+   const receipts=(data.commandLog||[]).filter(x=>x.id===receiptId);
+   if(receipts.length!==1)return {id,status:'indeterminate',error:{code:'RECEIPT_MISSING',message:'Review receipt missing; no replay.'}};
+   const receipt=receipts[0],expected=canonical({jobId:p.ref.id,due:p.due,budget:row.result.budget,recordedCosts:row.result.recordedCosts});
+   if(receipt.kind!==row.commandId||receipt.requestPayload!==expected||receipt.actor!==row.actor||receipt.businessId!==row.businessId||
+    !['task_created','existing_open_task'].includes(receipt.result))
+    return {id,status:'indeterminate',error:{code:'RECEIPT_MISMATCH',message:'Cost review receipt differs from the approval.'}};
+   const tasks=(data.tasks||[]).filter(t=>t.id===receipt.resultId&&t.jobId===p.ref.id&&t.taskKind==='job_cost_reconciliation'&&
+    t.businessId===row.businessId&&t.financialEvidence?.profitVerified===false&&t.financialEvidence?.externalAccountingVerified===false);
+   if(tasks.length!==1)return {id,status:'indeterminate',error:{code:'TASK_UNVERIFIED',message:'Reviewed task or evidence is missing.'}};
+   if(receipt.result==='task_created'&&!(data.commandLog||[]).some(e=>e.kind==='domain.event'&&e.correlationId===receiptId&&
+    e.type==='task.created'&&e.ref?.id===receipt.resultId&&e.businessId===row.businessId))
+    return {id,status:'indeterminate',error:{code:'AUDIT_UNVERIFIED',message:'Task audit missing.'}};
+   const outcome={id,status:'succeeded',effect:row.effect,result:{id:receipt.resultId,reused:receipt.result!=='task_created',reconciled:true,commandKey:receiptId}};
+   const changed=await ledger.transition(id,['executing'],event('reconciled',c,{receiptId}),{status:'succeeded',outcome});
+   return changed.claimed?outcome:changed.row.status==='succeeded'?{...clone(changed.row.outcome),reused:true}:
+    {id,status:'indeterminate',error:{code:'RECOVERY_RACE',message:'Review changed during reconciliation.'}};
+  }
   if(row.commandId==='job.change_order.authorization.record'){
    if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
    if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'No interrupted authorization to reconcile.'}};

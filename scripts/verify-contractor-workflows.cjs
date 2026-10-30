@@ -117,6 +117,30 @@ async function verifyChangeOrderReviewJourney(page,result){
  assert.equal(data.tasks.filter(t=>t.changeOrderId==='co1'&&t.status==='Done').length,1);
  result.ownerAttestationSurvivedReload=true;
 }
+async function verifyJobCostReviewJourney(page,result){
+ result.stage='job cost review: owner confirmation';
+ const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ const button=page.locator('[data-action="tfJobCostReview"][data-id="j1"]');
+ await button.waitFor({timeout:15000});await button.click();
+ await page.getByText('Internal job-cost reconciliation task saved.',{exact:false}).waitFor({timeout:15000});
+ const read=()=>page.evaluate(async()=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return data;
+ });
+ result.stage='job cost review: persisted evidence';
+ let data=await read(),tasks=data.tasks.filter(t=>t.taskKind==='job_cost_reconciliation');
+ assert.equal(tasks.length,1);assert.equal(tasks[0].financialEvidence.budget,1000);
+ assert.equal(tasks[0].financialEvidence.recordedCosts,1200);
+ assert.equal(tasks[0].financialEvidence.profitVerified,false);
+ assert.equal(tasks[0].financialEvidence.externalAccountingVerified,false);
+ assert.equal(data.commandLog.filter(x=>x.kind==='job.cost_review.schedule').length,1);
+ assert.ok(dialogs.some(x=>x.includes('NOT verified profit')));
+ result.ownerApprovedRecordedCostReview=true;
+ result.stage='job cost review: reload';
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ data=await read();assert.equal(data.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1);
+ result.reviewPersistedAfterReload=true;
+}
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
@@ -370,6 +394,13 @@ async function verifyCalendarConflictJourney(page,result){
     }else if(item.id==='TF-P04'){
      await verifyChangeOrderReviewJourney(page,result);
      result.stage='change order: cleared detection after recorded owner attestation';
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
+    }else if(item.id==='TF-P05'){
+     await verifyJobCostReviewJourney(page,result);
+     // Synthetic correction removes the overrun detector; the review task remains as an auditable record.
+     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
      result.notificationCleared=true;

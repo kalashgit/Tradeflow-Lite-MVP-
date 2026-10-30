@@ -783,6 +783,75 @@
     req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
   });
  }
+ // TF-P05: reviewed reconciliation task using local costs; never claims final job profit.
+ function executeJobCostReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.jobId!=='string'||!payload.jobId||!validDate(payload.due)||
+   !Number.isFinite(payload.budget)||!Number.isFinite(payload.recordedCosts)||payload.recordedCosts<=payload.budget||
+   Object.keys(payload).some(k=>!['jobId','due','budget','recordedCosts'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.jobCostsSnapshot)&&Array.isArray(g.jobExpensesSnapshot)&&Array.isArray(g.costReviewTasks)))
+   return Promise.reject(Error('Explicit approved cost-review snapshot is required'));
+  const key='job-cost-review:'+requestKey.trim(),stable=v=>JSON.stringify(stableOrder(v));
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','jobCosts','expenses','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Job cost review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.cost_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Cost review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.jobId===payload.jobId&&t.taskKind==='job_cost_reconciliation'&&t.businessId===businessId);
+      if(!task)throw Error('Previous review task needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const job=data.jobs.find(j=>j.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job outside authorized business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Job or customer changed after approval');
+     }
+     const financial=recordGuard.find(g=>Array.isArray(g.jobCostsSnapshot)&&Array.isArray(g.jobExpensesSnapshot)&&Array.isArray(g.costReviewTasks));
+     const costs=data.jobCosts.filter(x=>x.jobId===job.id),expenses=data.expenses.filter(x=>x.jobId===job.id||x.relatedId===job.id),
+      tasks=data.tasks.filter(t=>t.jobId===job.id&&t.taskKind==='job_cost_reconciliation'&&
+       !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(stable(costs)!==stable(financial.jobCostsSnapshot)||stable(expenses)!==stable(financial.jobExpensesSnapshot)||
+      stable(tasks)!==stable(financial.costReviewTasks))throw Error('Job cost evidence or reviews changed after approval');
+     const valid=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0&&(!x.businessId||x.businessId===businessId);
+     if(!costs.some(x=>x.type==='estimate')||[...costs,...expenses].some(x=>!valid(x)))throw Error('Recorded cost evidence incomplete');
+     const budget=costs.filter(x=>x.type==='estimate').reduce((n,x)=>n+Math.round(x.amount*100),0),
+      spent=[...costs.filter(x=>x.type==='actual'),...expenses].reduce((n,x)=>n+Math.round(x.amount*100),0);
+     if(budget<=0||spent<=budget||budget/100!==payload.budget||spent/100!==payload.recordedCosts)
+      throw Error('Current cost totals differ from approved summary');
+     if(tasks.length>1||tasks.some(t=>t.businessId!==businessId))throw Error('Ambiguous cost-review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Cost review task ID collision');
+      const task={id,jobId:job.id,customerId:job.customerId||'',businessId,taskKind:'job_cost_reconciliation',status:'Open',
+       title:'Reconcile job cost overrun: '+String(job.title||job.id).slice(0,100),due:payload.due,
+       financialEvidence:{budget:budget/100,recordedCosts:spent/100,currency:'USD',costIds:costs.map(x=>x.id),expenseIds:expenses.map(x=>x.id),
+        possibleOverlap:true,externalAccountingVerified:false,settlementVerified:false,profitVerified:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'job.cost_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,jobId:job.id,createdAt:when,result});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
@@ -790,6 +859,7 @@
   if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
   if(kind==='job.change_order.review.schedule')return executeChangeOrderReview(args);
   if(kind==='job.change_order.authorization.record')return executeChangeOrderAuthorization(args);
+  if(kind==='job.cost_review.schedule')return executeJobCostReview(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);

@@ -47,6 +47,7 @@ jobs:
           node --check public/change-orders.js
           node --check public/app.js
           node --check tests/change-order-review-execution.test.cjs
+          node --check tests/job-cost-review-execution.test.cjs
           node --check tests/quotation-followup-execution.test.cjs
           node --check tests/quotation-legacy-followup-policy.test.cjs
           node --check tests/quotation-contact-recording.test.cjs
