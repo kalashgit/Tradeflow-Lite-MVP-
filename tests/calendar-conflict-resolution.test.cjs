@@ -175,3 +175,28 @@ test('calendar GUI checks occupied replacement before starting owner approval',a
  await assert.rejects(bridge(e1,'2026-11-05','10:45'),/Replacement slot overlaps/);
  assert.equal(prepared,0);
 });
+
+test('calendar owner review names conflicting booking and executes only after explicit approval',async()=>{
+ const fs=require('node:fs'),app=fs.readFileSync('public/app.js','utf8');
+ const start=app.indexOf(' resolveConflict:async(event,date,time)=>{');
+ const end=app.indexOf(' commitScheduleProposal:',start);
+ const handler=app.slice(start,end).trim().replace(/,$/,'');
+ const source={...e1},other={...e2},calls=[],conflict={a:{key:'event:e1',title:source.title},b:{key:'event:e2',title:other.title}};
+ const commands={
+  prepare:async input=>{calls.push('prepare');assert.equal(input.commandId,'calendar.conflict.reschedule');return {id:'p1',status:'needs_review'}},
+  approve:async id=>{calls.push('approve');assert.equal(id,'p1');return {status:'approved'}},
+  execute:async id=>{calls.push('execute');return {status:'succeeded',result:{id:'e1'}}},
+  reject:async()=>{calls.push('reject');return {status:'rejected'}}
+ };
+ const window={TradeFlowPilot:{commands},TradeFlowCalendar:{conflicts:(_data,range)=>range.from==='2026-11-05'&&
+  _data.calendarEntries.find(x=>x.id==='e1')?.time==='10:00'?[conflict]:[]}};
+ const bridge=new Function('window','tfPilotSnapshot','confirm','return ({'+handler+'}).resolveConflict')(
+  window,async()=>({commandLog:[],calendarEntries:[source,other],tasks:[],jobs:[]}),message=>{
+   assert.match(message,/Second site visit/);
+   assert.match(message,/no notifications are sent/);
+   calls.push('confirm');return true;
+  });
+ const result=await bridge(source,'2026-11-05','13:00');
+ assert.equal(result.status,'succeeded');
+ assert.deepEqual(calls,['prepare','confirm','approve','execute']);
+});
