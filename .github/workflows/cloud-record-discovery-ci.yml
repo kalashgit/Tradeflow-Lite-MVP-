@@ -44,6 +44,7 @@ jobs:
           node --check public/core-integration.js
           node --check public/command-registry.js
           node --check public/operational-intelligence.js
+          node --check public/change-orders.js
           node --check public/app.js
           node --check tests/change-order-review-execution.test.cjs
           node --check tests/quotation-followup-execution.test.cjs

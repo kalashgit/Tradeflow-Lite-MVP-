@@ -53,10 +53,10 @@
       "originalRegisterRef": 9,
       "executionTest": "tests/change-order-review-execution.test.cjs",
       "browserTest": "scripts/verify-contractor-workflows.cjs",
-      "executionScope": "owner-approved persistent internal change-order authorization-review task; never marks customer approval or authorizes extra work",
-      "resolutionCriterion": "a recorded customer authorization with verifiable evidence is still required before extra work is treated as approved; this task only prompts that review",
-      "mappingScope": "partial: internal review and auditable task creation do not yet verify customer approval or prevent field work",
-      "verification": "focused local Node regression passed; exact-head CI and Chromium scenario pending"
+      "executionScope": "reviewed internal task followed by separately owner-attested customer consent reference, guarded job change-order update, task closure and atomic domain audit; no external verification or contract amendment",
+      "resolutionCriterion": "recorded owner attestation must retain customer evidence reference, linked review receipt and task closure; independent customer authorization and field-work enforcement require operational verification",
+      "mappingScope": "partial: evidence record and task resolution do not independently verify customer consent or stop unauthorized field work",
+      "verification": "focused local Node tests passed; exact-head CI and Chromium scenario pending"
     },
     {
       "id": "TF-P05",

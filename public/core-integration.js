@@ -715,12 +715,81 @@
    }
   });
  }
+ // Owner-attested consent reference, not a signature or independently verified customer response.
+ // The job update, task closure, domain audits and receipt commit in one transaction.
+ function executeChangeOrderAuthorization(args){
+  const {db,payload={},requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.jobId!=='string'||!payload.jobId||typeof payload.changeOrderId!=='string'||!payload.changeOrderId||
+   typeof payload.evidence!=='string'||payload.evidence.trim().length<10||payload.evidence.length>300||
+   Object.keys(payload).some(k=>!['jobId','changeOrderId','evidence'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.changeOrderOpenReviews))||
+   recordGuard.some(g=>g?.ref&&!['jobs','customers','quotes','opportunities'].includes(g.ref.store)))
+   return Promise.reject(Error('Verified owner approval, job revision, review task and evidence reference required'));
+  const key='change-authorization:'+requestKey.trim(),stable=v=>JSON.stringify(stableOrder(v));
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Authorization transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.change_order.authorization.record'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)throw Error('Authorization receipt belongs to another operation');
+      const job=data.jobs.find(j=>j.id===payload.jobId),change=job?.changeOrders?.find(x=>x?.id===payload.changeOrderId);
+      const task=data.tasks.find(t=>t.id===prior.reviewTaskId&&t.jobId===payload.jobId&&t.status==='Done'&&t.authorizationReceiptId===key);
+      if(!task||change?.authorizationReceiptId!==key)throw Error('Previous authorization outcome requires manual recovery review');
+      outcome={id:job.id,reviewTaskId:task.id,reused:true,commandKey:key,providerVerified:false};return;
+     }
+     const job=data.jobs.find(x=>x.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job missing or outside this business');
+     for(const guard of recordGuard){
+      if(!guard.ref)continue;
+      const matches=data[guard.ref.store].filter(x=>x.id===guard.ref.id);
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Linked record changed after owner approval');
+     }
+     const guard=recordGuard.find(g=>Array.isArray(g.changeOrderOpenReviews));
+     const reviews=data.tasks.filter(t=>t.jobId===job.id&&t.changeOrderId===payload.changeOrderId&&
+      t.taskKind==='change_order_review'&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(reviews.length!==1||reviews[0].businessId!==businessId||stable(reviews)!==stable(guard.changeOrderOpenReviews))
+      throw Error('Review task changed since approval');
+     const changeOrders=Array.isArray(job.changeOrders)?job.changeOrders:[];
+     const matches=changeOrders.filter(x=>x?.id===payload.changeOrderId);
+     if(matches.length!==1||matches[0].status!=='proposed'||!Number.isFinite(matches[0].amount)||matches[0].amount<=0)
+      throw Error('Proposed change changed or requires review');
+     const when=new Date().toISOString(),updated={...job,changeOrders:changeOrders.map(x=>({...x}))};
+     const current=updated.changeOrders.find(x=>x.id===payload.changeOrderId);
+     current.status='approved_recorded';current.approvalEvidence=payload.evidence;current.approvedAt=when;
+     current.customerAuthorization={kind:'owner_attested_documented',reference:payload.evidence,recordedBy:actor,recordedAt:when,providerVerified:false};
+     current.authorizationReceiptId=key;updated.changeOrdersUpdatedAt=when;
+     const task={...reviews[0],status:'Done',completedAt:when,updatedAt:when,
+      completedReason:'owner_attested_documented_customer_authorization',authorizationReceiptId:key,
+      customerAuthorizationStatus:'owner_attested_documented'};
+     tx.objectStore('jobs').put(updated);tx.objectStore('tasks').put(task);
+     domainEvents?.recordCommitted(tx,'jobs',updated,key,{actor,businessId},job);
+     domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},reviews[0]);
+     tx.objectStore('commandLog').put({id:key,kind:'job.change_order.authorization.record',requestPayload:stable(payload),
+      resultId:job.id,reviewTaskId:task.id,actor,businessId,changeOrderId:payload.changeOrderId,
+      createdAt:when,result:'owner_attested_documented',providerVerified:false});
+     outcome={id:job.id,reviewTaskId:task.id,reused:false,commandKey:key,providerVerified:false};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
   if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
   if(kind==='job.change_order.review.schedule')return executeChangeOrderReview(args);
+  if(kind==='job.change_order.authorization.record')return executeChangeOrderAuthorization(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);

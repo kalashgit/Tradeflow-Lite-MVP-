@@ -67,7 +67,9 @@ async function verifyInvoiceFollowupJourney(page,result){
 async function verifyChangeOrderReviewJourney(page,result){
  result.stage='change order: open reviewed action';
  const dialogs=[];
- page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ page.on('dialog',async dialog=>{dialogs.push(dialog.message());
+  await (dialog.type()==='prompt'?dialog.accept('Signed customer change authorization #TF-042'):dialog.accept());
+ });
  const button=page.locator('[data-action="tfChangeOrderReview"][data-id="j1"][data-change-id="co1"]');
  await button.waitFor({timeout:15000});
  await button.click();
@@ -98,6 +100,22 @@ async function verifyChangeOrderReviewJourney(page,result){
  await button.click();
  data=await read();assert.equal(data.tasks.filter(x=>x.changeOrderId==='co1').length,1,'Duplicate task state: '+JSON.stringify(data.tasks));
  result.duplicateReviewReusedTask=true;
+ result.stage='change order: record separately attested customer evidence';
+ const approve=page.locator('[data-tf-change-action="approve"][data-job="j1"][data-id="co1"]');
+ await approve.waitFor();await approve.click();
+ await page.getByText('Owner-attested customer approval reference recorded.',{exact:false}).waitFor({timeout:15000});
+ data=await read();
+ assert.equal(data.jobs[0].changeOrders[0].status,'approved_recorded');
+ assert.equal(data.jobs[0].changeOrders[0].customerAuthorization.providerVerified,false);
+ assert.equal(data.tasks.filter(t=>t.changeOrderId==='co1'&&t.status==='Done').length,1);
+ assert.equal(data.commandLog.filter(x=>x.kind==='job.change_order.authorization.record').length,1);
+ assert.ok(dialogs.some(x=>x.includes('OWNER ATTESTATION')));
+ result.customerEvidenceOwnerAttestedAndAudited=true;
+ result.stage='change order: reload recorded authorization';
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ data=await read();
+ assert.equal(data.tasks.filter(t=>t.changeOrderId==='co1'&&t.status==='Done').length,1);
+ result.ownerAttestationSurvivedReload=true;
 }
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
@@ -351,9 +369,7 @@ async function verifyCalendarConflictJourney(page,result){
      result.notificationCleared=true;
     }else if(item.id==='TF-P04'){
      await verifyChangeOrderReviewJourney(page,result);
-     // Synthetic source correction only; no simulated customer approval is asserted.
-     result.stage='change order: cleared detection after fixture correction';
-     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+     result.stage='change order: cleared detection after recorded owner attestation';
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
      result.notificationCleared=true;

@@ -1825,7 +1825,12 @@ ${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article clas
 }
 
 window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,resolveLocations:tfResolveSupplyLocations,navigate:async function(next,options={}){if(next==='map'&&options.network)tfMapNetworkFocus=true;tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
-window.TradeFlowJobForms?.configure({get,put,render,uid});
+window.TradeFlowJobForms?.configure({get,put,render,uid,
+ recordCustomerApproval:async(jobId,changeOrderId,evidence)=>{
+  const job=await get('jobs',jobId);
+  if(!job)throw Error('Job no longer exists');
+  return tfRecordChangeOrderAuthorization(job,changeOrderId,evidence);
+ }});
 
 /* Atomic local calendar approval: recompute from authoritative records while
  * the IndexedDB write transaction holds the scheduling stores. */
@@ -1956,7 +1961,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2206,6 +2211,31 @@ async function tfReviewJobChangeOrder(job,changeOrderId){
  if(approval.status!=='approved'){notify(approval.error?.message||'Records changed; review again');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Change-order review result requires inspection');
+ return result;
+}
+async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands)throw Error('Authorized command runtime unavailable');
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='job.change_order.authorization.record'&&x.status==='executing'&&
+  x.params?.ref?.id===job.id&&x.params.changeOrderId===changeOrderId&&x.actor==='local-owner'&&x.businessId==='local-business');
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded')throw Error('An earlier customer-authorization record has uncertain execution. Inspect the job, task and audit; no automatic replay.');
+ }
+ if(interrupted.length){await render();return {status:'reconciled'}};
+ const plan=await commands.prepare({commandId:'job.change_order.authorization.record',
+  params:{ref:{store:'jobs',id:job.id},changeOrderId,evidence}});
+ if(plan.status!=='needs_review')throw Error(plan.error?.message||'Change-order review is not ready');
+ if(!confirm('OWNER ATTESTATION: You separately verified actual customer consent and the reference “'+String(evidence).slice(0,100)+'”. Record that evidence and close the internal review task? This does not send a message, sign a contract, or independently verify consent.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved')throw Error(approval.error?.message||'Change order changed; review again');
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')throw Error(result.error?.message||'Authorization record requires manual review');
+ await render();notify('Owner-attested customer approval reference recorded. Independent customer verification remains outstanding.');
  return result;
 }
 async function tfReviewQuotationHandoff(quote){

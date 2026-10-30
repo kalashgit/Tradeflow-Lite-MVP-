@@ -7,10 +7,11 @@ function boot(){
  const alerts=[];
  vm.runInNewContext(changeSrc,{window,document,FormData,alert:msg=>alerts.push(String(msg)),Date,Number,Object,Array,console}, {timeout:3000});
  vm.runInNewContext(formsSrc,{window,document,FormData,alert:msg=>alerts.push(String(msg)),Date,Number,Object,Array,console,confirm:()=>true}, {timeout:3000});
- let job={id:'j1',title:'Service upgrade'},writes=0;
+ let job={id:'j1',title:'Service upgrade'},writes=0,authorizationCalls=[];
  window.TradeFlowJobForms.configure({get:async(store,id)=>{assert.equal(store,'jobs');assert.equal(id,'j1');return job},
-  put:async(store,row)=>{assert.equal(store,'jobs');job=row;writes++},render:async()=>{},uid:()=>('co-'+(writes+1))});
- return {window,events,alerts,get job(){return job},get writes(){return writes},
+  put:async(store,row)=>{assert.equal(store,'jobs');job=row;writes++},render:async()=>{},uid:()=>('co-'+(writes+1)),
+  recordCustomerApproval:async(jobId,id,evidence)=>{authorizationCalls.push({jobId,id,evidence})}});
+ return {window,events,alerts,get job(){return job},get writes(){return writes},get authorizationCalls(){return authorizationCalls},
   submit:async fields=>events.submit[0]({target:{id:'tfChangeOrderForm',dataset:{job:'j1'},fields},preventDefault(){}}),
   approve:async id=>events.click[0]({target:{closest:()=>({dataset:{tfChangeAction:'approve',id,job:'j1'}})},preventDefault(){}})};
 }
@@ -27,18 +28,17 @@ test('proposed change orders persist locally, without invoicing or assuming cust
  assert.match(b.window.TradeFlowJobForms.panel(b.job),/Proposed, not approved/);
  assert.equal(b.job.invoices,undefined);
 });
-test('approval is blocked without separate evidence and owner confirmation',async()=>{
+test('record approval delegates to authorized command bridge, never directly overwrites job',async()=>{
  const b=boot();
  await b.submit({description:'Add switch',amount:'50.00'});
  const id=b.job.changeOrders[0].id;
  await b.approve(id);assert.equal(b.job.changeOrders[0].status,'proposed');
  b.window.prompt=()=> 'Approved by email 2026-10-28';
  await b.approve(id);assert.equal(b.job.changeOrders[0].status,'proposed');
- b.window.confirm=()=>true;
- await b.approve(id);
- assert.equal(b.job.changeOrders[0].status,'approved_recorded');
- assert.equal(b.job.changeOrders[0].approvalEvidence,'Approved by email 2026-10-28');
- await b.approve(id);assert.equal(b.writes,2,'approved order cannot be approved twice');
+ assert.equal(b.job.changeOrders[0].status,'proposed');
+ assert.equal(b.writes,1,'UI must not directly update customer-approval state');
+ assert.equal(b.authorizationCalls.length,1);
+ assert.equal(b.authorizationCalls[0].evidence,'Approved by email 2026-10-28');
 });
 test('rejects invalid and unreasonably large amounts without writing',async()=>{
  const b=boot();
