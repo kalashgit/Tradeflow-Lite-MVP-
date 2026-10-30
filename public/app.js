@@ -930,8 +930,6 @@ function tfRecordDetailView(d,record,type){
   if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.category==='Labor'&&c.type==='estimate'))
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobLaborReview" data-id="'+esc(record.id)+'">Review recorded labor-hour variance</button>';
  }
- if(type==='invoices'&&record.status==='Issued'&&(d.payments||[]).some(p=>p.invoiceId===record.id))
-  sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfInvoicePaymentReview" data-id="'+esc(record.id)+'">Review recorded invoice payment discrepancy</button>';
  if(type==='jobs'&&record.status==='Completed'&&!(d.invoices||[]).some(i=>i.jobId===record.id&&i.status!=='Void'))sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobInvoiceDraft" data-id="'+esc(record.id)+'">Prepare invoice draft for completed job</button>';
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
  sections+=tfRecordPhotoSection(record,type);if(!tfSafeImage(record.photoData))sections+='<button type="button" class="tf-record-attach-btn" data-action="tfPhotoStart" data-target="'+type+'" data-id="'+esc(record.id)+'">'+tfRecordIcon('camera',19)+' Add photo from camera or gallery</button>';
@@ -1233,12 +1231,6 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   const job=await get('jobs',el.dataset.id);
   const result=job?await tfReviewJobLabor(job):null;
   if(result?.status==='succeeded'){await render();notify('Internal labor-hour variance review saved. Timesheets and payroll remain unverified.');}
-  return;
- }
- if(el.dataset.action==='tfInvoicePaymentReview'){
-  const invoice=await get('invoices',el.dataset.id);
-  const result=invoice?await tfReviewInvoicePayments(invoice):null;
-  if(result?.status==='succeeded'){await render();notify('Internal invoice payment reconciliation task saved. Bank settlement and accounting remain unverified.');}
   return;
  }
  if(el.dataset.action==='tfQuoteReuse'){
@@ -2435,6 +2427,7 @@ window.TradeFlowMapExperience?.configure({
 window.TradeFlowResearch?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowMarketing?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,
+ reviewInvoicePayments:tfReviewInvoicePayments,
  scheduleInvoiceFollowup:async(invoice,due)=>{
   const commands=window.TradeFlowPilot?.commands;
   if(!commands)throw Error('Authorized command runtime is unavailable.');

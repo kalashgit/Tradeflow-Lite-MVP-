@@ -56,6 +56,8 @@ test('recovery requires matching receipt and task; later approvals reuse the ope
  assert.equal((await snapshot(db)).tasks.length,1);
 });
 test('invoice UI exposes a permissioned review and labels unverified settlement',()=>{
- const app=fs.readFileSync('public/app.js','utf8');assert.match(app,/data-action="tfInvoicePaymentReview"/);
+ const app=fs.readFileSync('public/app.js','utf8'),revenue=fs.readFileSync('public/revenue.js','utf8');
+ assert.match(revenue,/data-revenue-action="payment-review"/);
+ assert.match(app,/reviewInvoicePayments:tfReviewInvoicePayments/);
  assert.match(app,/commandId:'invoice.payment_review.schedule'/);assert.match(app,/NOT verified bank settlements/);
 });

@@ -168,7 +168,7 @@ async function verifyJobLaborReviewJourney(page,result){
 async function verifyInvoicePaymentReviewJourney(page,result){
  result.stage='payment discrepancy: owner approval';
  const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
- const button=page.locator('[data-action="tfInvoicePaymentReview"][data-id="i1"]');
+ const button=page.locator('[data-revenue-action="payment-review"][data-id="i1"]');
  await button.waitFor({timeout:15000});await button.click();
  await page.getByText('Internal invoice payment reconciliation task saved.',{exact:false}).waitFor({timeout:15000});
  const read=()=>page.evaluate(async()=>{

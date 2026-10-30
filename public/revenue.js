@@ -143,6 +143,7 @@ function dossier(d,inv){
  '<div class="tf-revenue-actions">'+
  (inv.status==='Draft'?'<button type="button" class="tf-revenue-secondary" data-revenue-action="edit" data-id="'+esc(inv.id)+'">Edit draft</button><button type="button" class="tf-revenue-primary" data-revenue-action="issue" data-id="'+esc(inv.id)+'">Mark as issued</button>':'')+
  (canRecord?'<button type="button" class="tf-revenue-primary" data-revenue-action="record" data-id="'+esc(inv.id)+'">Record received payment</button>':'')+
+ (inv.status==='Issued'&&entries.length?'<button type="button" class="tf-revenue-secondary" data-revenue-action="payment-review" data-id="'+esc(inv.id)+'">Review recorded payment discrepancy</button>':'')+
  (canRecord&&invoiceDisplayState(inv,d.payments)==='Overdue'&&!pendingFollowUp?'<button type="button" class="tf-revenue-secondary" data-revenue-action="followup" data-id="'+esc(inv.id)+'">Review overdue invoice follow-up</button>':pendingFollowUp?'<span class="tf-revenue-warning">An open follow-up task already exists for this invoice.</span>':'')+
  (safeEmail?'<a class="tf-revenue-secondary" href="mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+'">Prepare email ↗</a>':'')+
  '<button type="button" class="tf-revenue-secondary" data-revenue-action="print">Print / Save PDF</button>'+
@@ -372,6 +373,13 @@ async function onClick(event){
   const inv=await api.get('invoices',id);if(!inv||collected(inv,await api.all('payments'))>0)return;
   if(!confirm('Void this invoice? The record will remain for your audit trail.'))return;
   inv.status='Void';inv.voidedAt=new Date().toISOString();await api.put('invoices',inv);api.notify('Invoice voided');return;
+ }
+ if(a==='payment-review'){
+  const inv=await api.get('invoices',id);
+  if(!inv||inv.status!=='Issued'||typeof api.reviewInvoicePayments!=='function')throw Error('Authorized payment review unavailable');
+  const result=await api.reviewInvoicePayments(inv);
+  if(result?.status==='succeeded'){api.notify('Internal invoice payment reconciliation task saved. Bank settlement and accounting remain unverified.');await api.render()}
+  return;
  }
  if(a==='followup'){
   const inv=await api.get('invoices',id);
