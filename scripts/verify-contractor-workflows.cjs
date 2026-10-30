@@ -141,6 +141,30 @@ async function verifyJobCostReviewJourney(page,result){
  data=await read();assert.equal(data.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1);
  result.reviewPersistedAfterReload=true;
 }
+async function verifyJobLaborReviewJourney(page,result){
+ result.stage='labor variance: owner approval';
+ const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ const button=page.locator('[data-action="tfJobLaborReview"][data-id="j1"]');
+ await button.waitFor({timeout:15000});await button.click();
+ await page.getByText('Internal labor-hour variance review saved.',{exact:false}).waitFor({timeout:15000});
+ const read=()=>page.evaluate(async()=>{
+  const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+  const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return data;
+ });
+ result.stage='labor variance: persisted evidence';
+ let data=await read(),tasks=data.tasks.filter(t=>t.taskKind==='job_labor_variance_review');
+ assert.equal(tasks.length,1);assert.equal(tasks[0].laborEvidence.estimatedLaborHours,20);
+ assert.equal(tasks[0].laborEvidence.recordedLaborHours,25);
+ assert.equal(tasks[0].laborEvidence.timesheetVerified,false);
+ assert.equal(tasks[0].laborEvidence.payrollVerified,false);
+ assert.equal(data.commandLog.filter(x=>x.kind==='job.labor_review.schedule').length,1);
+ assert.ok(dialogs.some(x=>x.includes('NOT verified timesheets')));
+ result.ownerApprovedManualLaborReview=true;
+ result.stage='labor variance: reload';
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ data=await read();assert.equal(data.tasks.filter(t=>t.taskKind==='job_labor_variance_review').length,1);
+ result.laborReviewPersistedAfterReload=true;
+}
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
@@ -400,6 +424,12 @@ async function verifyCalendarConflictJourney(page,result){
     }else if(item.id==='TF-P05'){
      await verifyJobCostReviewJourney(page,result);
      // Synthetic correction removes the overrun detector; the review task remains as an auditable record.
+     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
+    }else if(item.id==='TF-P06'){
+     await verifyJobLaborReviewJourney(page,result);
      await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);

@@ -77,7 +77,12 @@
       "test": "tests/optimization-labor-hours.test.cjs",
       "pattern": "labor-hour variance is based",
       "feature": "Existing job costing / notifications",
-      "originalRegisterRef": 7
+      "originalRegisterRef": 7,
+      "mappingScope": "partial: manually entered estimated and actual hours are not independently verified timesheets, payroll, schedule forecasts or job-level productivity outcomes",
+      "executionTest": "tests/job-labor-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved internal labor-hour variance task with source cost IDs, revision-bound execution, audit receipt, duplicate prevention and nonreplaying interruption reconciliation",
+      "verification": "local focused tests passed; exact-head CI and real Chromium pending"
     },
     {
       "id": "TF-P07",
