@@ -9,8 +9,8 @@ const cases=[
  {id:'TF-P01',title:'Quotation follow-up review',data:{quotes:[{id:'q1',title:'Scenario quote',customerId:'c1',status:'Sent',sentDate:'2026-09-01'}]},resolved:{quotes:[{id:'q1',title:'Scenario quote',customerId:'c1',status:'Declined'}]}},
  {id:'TF-P02',title:'Overdue invoice',data:{invoices:[invoice],payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:30}]},resolved:{payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:100}]}},
  {id:'TF-P03',title:'Scheduling conflict',data:{calendarEntries:[
-  {id:'event-a',title:'Synthetic site visit A',date:'2026-10-29',time:'09:00',durationMinutes:60,assignedTo:'owner',status:'Scheduled',businessId:'local-business'},
-  {id:'event-b',title:'Synthetic site visit B',date:'2026-10-29',time:'09:30',durationMinutes:60,assignedTo:'owner',status:'Scheduled',businessId:'local-business'}
+  {id:'event-a',title:'Synthetic site visit A',date:'2026-11-05',time:'09:00',durationMinutes:60,assignedTo:'owner',status:'Scheduled',businessId:'local-business'},
+  {id:'event-b',title:'Synthetic site visit B',date:'2026-11-05',time:'09:30',durationMinutes:60,assignedTo:'owner',status:'Scheduled',businessId:'local-business'}
  ]}},
  {id:'TF-P04',title:'Proposed extra work needs approval',data:{jobs:[{...job,changeOrders:[{id:'co1',description:'Synthetic additional work',amount:200,status:'proposed'}]}]},resolved:{jobs:[{...job,changeOrders:[{id:'co1',description:'Synthetic additional work',amount:200,status:'approved_recorded',approvalEvidence:'Synthetic fixture only, no real customer approval'}]}]}},
  {id:'TF-P05',title:'Job spending exceeds recorded budget',data:{jobs:[job],jobCosts:[{id:'e1',jobId:'j1',type:'estimate',amount:1000},{id:'a1',jobId:'j1',type:'actual',amount:1200}]},resolved:{jobCosts:[{id:'e1',jobId:'j1',type:'estimate',amount:1000},{id:'a1',jobId:'j1',type:'actual',amount:900}]}},
@@ -253,7 +253,7 @@ async function verifyCalendarConflictJourney(page,result){
  const dialogs=(async()=>{
   const date=await page.waitForEvent('dialog',{timeout:15000});
   assert.equal(date.type(),'prompt');assert.match(date.message(),/New date/);
-  await date.accept('2026-10-29');
+  await date.accept('2026-11-05');
   const start=await page.waitForEvent('dialog',{timeout:15000});
   assert.equal(start.type(),'prompt');assert.match(start.message(),/New start time/);
   await start.accept('13:00');
