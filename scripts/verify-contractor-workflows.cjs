@@ -21,6 +21,16 @@ async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),stores=clear?[...db.objectStoreNames]:Object.keys(data),tx=db.transaction(stores,'readwrite');
  for(const store of stores){tx.objectStore(store).clear();for(const row of data[store]||[])tx.objectStore(store).put(row)}await new Promise(r=>tx.oncomplete=r);db.close();
 },{data,clear})}
+async function waitForPersistedQuoteContact(page,expectedOutcome){
+ await page.waitForFunction(async outcome=>{
+  const req=indexedDB.open('tradeflow-lite-v1',9);
+  const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+  try{
+   const rows=await window.TradeFlowLocalRecovery.readStores(db,['events']);
+   return rows.events.some(e=>e.quoteId==='q1'&&e.outcome===outcome);
+  }finally{db.close()}
+ },expectedOutcome,{timeout:15000});
+}
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
@@ -95,7 +105,7 @@ async function verifyQuoteFollowupJourney(page,result){
  await form.locator('[name="outcome"]').selectOption('attempted');
  await form.locator('[name="notes"]').fill('Called and left no message; customer did not answer');
  await form.locator('button[type="submit"]').click();
- await page.getByText('Contact attempt recorded.',{exact:false}).waitFor();
+ await waitForPersistedQuoteContact(page,'attempted');
  state=await snapshot();
  assert.equal(state.tasks.filter(t=>t.quoteId==='q1'&&t.status==='Open').length,1);
  assert.equal(state.events.filter(x=>x.quoteId==='q1'&&x.outcome==='attempted').length,1);
@@ -105,7 +115,7 @@ async function verifyQuoteFollowupJourney(page,result){
  await page.locator('#tfContactLogForm [name="outcome"]').selectOption('reached');
  await page.locator('#tfContactLogForm [name="notes"]').fill('Spoke directly with the customer and confirmed the estimate discussion');
  await page.locator('#tfContactLogForm button[type="submit"]').click();
- await page.getByText('Owner-attested customer contact recorded',{exact:false}).waitFor();
+ await waitForPersistedQuoteContact(page,'reached');
  state=await snapshot();
  const task=state.tasks.find(x=>x.id===linked[0].id);
  const quote=state.quotes.find(x=>x.id==='q1');
