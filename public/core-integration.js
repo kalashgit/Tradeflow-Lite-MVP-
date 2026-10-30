@@ -401,7 +401,7 @@
       customerId,quoteId,method,notes:normalized.notes,outcome,date:when,
       actor,businessId,evidence:'operator_reported',providerVerified:false,customerReached:outcome==='reached'};
      tx.objectStore('events').put(event);
-     let resolvedTasks=0;
+     let resolvedTasks=0;const resolvedTaskIds=[];
      if(quote){
       const lastField=outcome==='reached'?'lastContactAt':'lastFollowUpAt';
       const last=String(quote[lastField]||'');
@@ -421,14 +421,14 @@
          completedReason:'owner_attested_customer_reached',contactEventId:id,updatedAt:when};
         tx.objectStore('tasks').put(completed);
         domainEvents?.recordCommitted(tx,'tasks',completed,key,{actor,businessId},task);
-        resolvedTasks++;
+        resolvedTasks++;resolvedTaskIds.push(task.id);
        }
       }
      }
      tx.objectStore('commandLog').put({id:key,kind:'customer.contact.record',
       requestPayload:stable(normalized),resultId:id,actor,businessId,quoteId,
       createdAt:when,result:outcome==='reached'?'owner_attested_reached':'manual_attempt_recorded',
-      outcome,resolvedTasks,providerVerified:false});
+      outcome,resolvedTasks,resolvedTaskIds,providerVerified:false});
      result={id,reused:false,commandKey:key,providerVerified:false,outcome,resolvedTasks};
     }catch(e){abort(e)}
    }
