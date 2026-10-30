@@ -44,6 +44,8 @@ jobs:
           node --check public/core-integration.js
           node --check public/command-registry.js
           node --check scripts/verify-command-cross-tab.cjs
+          node --check scripts/summarize-ci-evidence.cjs
+          node --check tests/ci-evidence-summary.test.cjs
           node --check tests/command-hardening-adversarial.test.cjs
           node --check public/operational-intelligence.js
           node --check public/change-orders.js
@@ -87,6 +89,8 @@ jobs:
         run: |
           set -o pipefail
           npm run test:browser 2>&1 | tee artifacts/browser.log
+      - name: Summarize exact-head regression evidence
+        run: node scripts/summarize-ci-evidence.cjs
       - name: Upload regression evidence
         if: always()
         uses: actions/upload-artifact@v4

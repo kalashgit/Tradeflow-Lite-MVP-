@@ -35,3 +35,10 @@ Include customer.create, customer.source.delete, calendar.conflict.reschedule, i
 
 ## Next implementation
 Begin with a focused concurrency/idempotency regression against the existing shared command engine. Fix observed failures in the engine, not by bypassing it in GUI code. Follow with stale linked-evidence tests and a complete contract inventory.
+
+## Implemented engineering increments (2026-10-30)
+- `471373afe5146047c6004966462438dd340a3057`: seven Node adversarial tests and execution-time owner approval evidence enforcement. CI run #224 success.
+- `ab776a84a6cb7588527fe72913f58a173cebf028`: three further Node tests and capability checks at approval and reconciliation. CI run #226 success.
+- `24fef213a6300705b8556ea27114b55dded98608`: true two-tab Chromium verification on mobile/desktop synthetic viewports. CI run #228 success.
+- Subsequent exact-head CI summaries must include Node and browser counts and reject skipped/partial coverage.
+- Engineering code gates do **not** satisfy physical iPhone, tenant security penetration, contractor workflow operations or original-register outcome gates. All 62 remain open.
