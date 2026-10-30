@@ -47,6 +47,7 @@ jobs:
           node --check scripts/summarize-ci-evidence.cjs
           node --check tests/ci-evidence-summary.test.cjs
           node --check tests/command-hardening-adversarial.test.cjs
+          node --check tests/helpers/local-db.cjs
           node --check public/operational-intelligence.js
           node --check public/change-orders.js
           node --check public/app.js
