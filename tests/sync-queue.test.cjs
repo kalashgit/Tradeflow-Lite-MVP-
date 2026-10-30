@@ -120,3 +120,30 @@ test('conflict review refuses same-revision remote changes without evidence of c
  }),/Remote record changed during conflict review/);
  assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
 });
+
+test('conflict review persists original approved proposal despite callback mutation',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});
+ await f.queue.drain();const row=(await f.queue.list())[0];
+ const proposal={id:'c1',name:'Reviewed',details:{category:'electrical'}};
+ await f.queue.resolve(row.id,proposal,async evidence=>{
+  assert.equal(evidence.proposed.name,'Reviewed');
+  proposal.name='Unreviewed';proposal.details.category='other';
+  evidence.proposed.name='Modified evidence';
+  return true;
+ });
+ const retained=(await f.queue.list())[0];
+ assert.equal(retained.change.record.name,'Reviewed');
+ assert.equal(retained.change.record.details.category,'electrical');
+ assert.equal(retained.status,'pending');
+ assert.equal(f.writes(),0);
+});
+test('foreign-business or changed record identity is rejected before requesting conflict approval',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});
+ await f.queue.drain();const row=(await f.queue.list())[0];let approvalCalls=0;
+ for(const proposed of [{id:'other',name:'Wrong'},{id:'c1',businessId:'business_999',name:'Foreign'}]){
+  await assert.rejects(f.queue.resolve(row.id,proposed,async()=>{approvalCalls++;return true}),/identity/);
+ }
+ assert.equal(approvalCalls,0);assert.equal((await f.queue.list())[0].status,'conflict');
+});

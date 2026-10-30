@@ -84,9 +84,14 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   const row=(await list()).find(r=>r.id===id);if(!row||!['conflict','failed'].includes(row.status))throw Error('No reviewable conflict');
   const remote=await remoteRecord(row);
   if(!remote||remote.deletedAt)throw Error('Missing/deleted remote record requires manual recovery');
-  // The reviewed snapshot must be the one committed. An async approval may
-  // outlive membership revocation or a competing cloud edit.
-  if(!await approve({local:clone(row.change.record),remote:clone(remote),proposed:clone(propose)}))return {status:'cancelled'};
+  // Snapshot and validate the exact proposed record before awaiting approval.
+  // A caller may mutate its original object while a modal is open.
+  if(!propose||typeof propose!=='object'||Array.isArray(propose))throw Error('Invalid resolution');
+  const reviewedProposal=clone(propose);
+  recordIdentity({businessId,type:row.change.type,id:row.change.id,record:reviewedProposal});
+  if(new TextEncoder().encode(JSON.stringify(reviewedProposal)).byteLength>30000)throw Error('Resolution too large');
+  // An async review may outlive revocation or a competing cloud edit.
+  if(!await approve({local:clone(row.change.record),remote:clone(remote),proposed:clone(reviewedProposal)}))return {status:'cancelled'};
   if(!await authorized())throw Error('Authorized session changed during conflict review');
   const latest=await remoteRecord(row);
   if(!latest||latest.deletedAt||latest.revision!==remote.revision||
@@ -94,9 +99,7 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
    throw Error('Remote record changed during conflict review; restart review');
   return mutate((rows,store)=>{
    const current=rows.find(r=>r.id===id);if(!current||canonical(current)!==canonical(row))throw Error('Conflict changed during review');
-   if(!propose||typeof propose!=='object'||Array.isArray(propose)||propose.id&&propose.id!==row.change.id||propose.businessId&&propose.businessId!==businessId)throw Error('Invalid resolution');
-   if(new TextEncoder().encode(JSON.stringify(propose)).byteLength>30000)throw Error('Resolution too large');
-   const next={...current,status:'pending',change:{...current.change,baseRevision:remote.revision,record:clone(propose)},attempts:0,nextAttemptAt:0,history:history(current,'conflict_reviewed')};store.put(next);return next;
+   const next={...current,status:'pending',change:{...current.change,baseRevision:remote.revision,record:reviewedProposal},attempts:0,nextAttemptAt:0,history:history(current,'conflict_reviewed')};store.put(next);return next;
   });
  }
  async function stageMigration({changes,expectedStores,expectedIdentity,approve,backupConfirmed,backupChecksum}){
