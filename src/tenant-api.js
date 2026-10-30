@@ -1,6 +1,7 @@
+import {readIntelligenceContext} from './intelligence-context.js';
 import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
-import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
+import {RECORD_TYPES,LEGACY_RECORD_TYPES} from '../public/record-model.js';
 import {planTenantRestore} from './tenant-restore-plan.js';
 import {exportTenantSnapshot} from './tenant-export.js';
 import {writeTenantRecord} from './tenant-record-store.js';
@@ -29,6 +30,12 @@ export async function tenantApi(request,env,options={}){
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
    return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[],capabilities:await schemaCapabilities(env)});
+  }
+  const contextRoute=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/context$/.exec(url.pathname);
+  if(contextRoute){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   if([...url.searchParams.keys()].some(key=>key!=='jobId')||url.searchParams.getAll('jobId').length>1)return json({error:'Unsupported context parameter'},400);
+   return json(await readIntelligenceContext({db:env.TF_DB,principal,businessId:requireBusinessId(contextRoute[1]),...(url.searchParams.has('jobId')?{jobId:url.searchParams.get('jobId')}:{})}));
   }
   const preview=/^\/api\/v1\/businesses\/([^/]+)\/backup\/dry-run$/.exec(url.pathname);
   if(preview){

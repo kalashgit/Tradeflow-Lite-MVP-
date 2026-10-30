@@ -91,3 +91,18 @@ db.execute("UPDATE business_memberships SET role='admin' WHERE business_id=?",(b
 assert db.execute(roster_sql,roster_args).fetchone()[0]==1
 assert assigned_job(2,'{"title":"Authorized reassignment","crewId":"crew_002"}')[0]==3
 print("PASS: roster and assignment authority enforced atomically; member note edits preserved")
+
+# Read-only intelligence retrieval filters tenant, exact live role and permitted
+# record types in SQL before any data can be provided to an intelligence caller.
+context_source=(root / 'src' / 'intelligence-context.js').read_text()
+context_sql=re.search(r"export const CONTEXT_READ_SQL =`(.*?)`;",context_source,re.S).group(1).replace('/* permitted-types */','?')
+args=(business,business,'issuer.example','user_001','admin','jobs')
+assert len(db.execute(context_sql,args).fetchall())>0
+assert all(row[0]=='jobs' for row in db.execute(context_sql,args).fetchall())
+assert db.execute(context_sql,('business_001','business_001','issuer.example','user_001','admin','jobs')).fetchall()==[]
+db.execute("UPDATE business_memberships SET role='member' WHERE business_id=?",(business,))
+assert db.execute(context_sql,args).fetchall()==[]
+assert len(db.execute(context_sql,(business,business,'issuer.example','user_001','member','jobs')).fetchall())>0
+db.execute("UPDATE business_memberships SET status='suspended' WHERE business_id=?",(business,))
+assert db.execute(context_sql,(business,business,'issuer.example','user_001','member','jobs')).fetchall()==[]
+print('PASS: intelligence reads filter tenant, role, type and revocation inside SQL')

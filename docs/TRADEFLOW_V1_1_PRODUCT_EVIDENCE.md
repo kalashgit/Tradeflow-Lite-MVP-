@@ -32,3 +32,26 @@ On the matching commit, `npm ci` and `npm run test:browser`. Inspect `artifacts/
 
 ## Release constraints
 PR #16 remains draft/unmerged/undeployed. Existing TF-P01–P10 and H01 are not replaced. No production tenant migration, customer communication, payment, secrets or permission change.
+
+## 2026-10-30 continuous execution — authorized context and seeded operating flow
+
+**Internal-only**, no main-dashboard redesign and no live deployment. `GET /api/v1/businesses/:businessId/intelligence/context` (optional `jobId`) verifies the existing JWT/membership, filters permitted record types in SQL, returns source revisions, and rechecks membership before returning. Member/viewer contexts omit quotes, invoices, costs and payments; contact details/notes and arbitrary provider claims are excluded for all roles. Crew display role remains data, never authority. Oversized snapshots/critical fields fail explicitly; no silent invoice-line truncation or invented settlement. Contradictory customer links are review warnings, not auto-resolved.
+
+The optional `createCloudReviewPort` in `public/cloud-intelligence.js` plugs into **existing** `createRuntime({ports:{review}})` / `intelligence.review`. It pins business/actor/role across the request, rejects redirect/expiry/offline/mismatched context, passes context to an ephemeral authorized callback and records only a minimal read summary. It does not silently replace the current app's local review port. No new AI writer, model invocation, persistent cloud company memory or automatic business operation was created.
+
+Reproduce:
+
+```sh
+npm ci
+node --test tests/sync-recovery-adversarial.test.cjs
+npm run test:storage
+node --test tests/intelligence-context.test.cjs tests/cloud-intelligence.test.cjs tests/contractor-operating-flow.test.cjs
+node scripts/verify-intelligence-context.cjs
+npm run test:browser
+```
+
+Browser context script starts a localhost-only host, signs a synthetic JWT, invokes actual server authorization/context code over HTTP and the existing browser command registry; its database is an explicitly synthetic read-only fixture. At 390×844 / 1280×900 it checks owner context, member withholding, mid-read downgrade, offline failure and zero API writes. Results: `artifacts/intelligence-context/results.json`. It is not evidence of a live Cloudflare session, real D1 synchronization or physical iPhone acceptance.
+
+Seed: `tests/fixtures/contractor-operating-flow-v1.json`. Inquiry→customer→accepted quote→assigned job→recorded labor/material costs→invoice→manually recorded payment retains shared IDs, revisions and source timestamps. The existing detectors flag recorded cost/labor overruns. The recorded payment covers the invoice, while bank/provider collection remains unknown. Rival explanations include unimported confirmation and scope/estimate variation; no cause or profit is asserted. The fixture deliberately includes an unsupported settlement claim to prove it is not promoted to verification. No seeded business data is installed in the real app.
+
+Limits: 200 permitted source records, 100 invoice lines and bounded scalar fields; larger datasets fail closed, not partial summaries. Existing four membership roles only; no job-scoped field-account grants or invitations. Future provider/model and financial-action orchestration remain behind authorization and real acceptance gates. **0/62 pain points retired.**

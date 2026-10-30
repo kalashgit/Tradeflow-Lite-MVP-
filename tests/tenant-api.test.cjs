@@ -150,3 +150,13 @@ test('API rejects crew administration by members despite owner-like fields in th
  const request=new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{name:'Display only',role:'owner',permissions:['members:manage']}})});
  const res=await api(request,{...envBase,TF_DB:db('member'),TF_EXTENDED_RECORDS_ENABLED:'true'},{fetchJwks:jwksResponse});assert.equal(res.status,403);
 });
+
+test('read-only context route verifies identity and rejects client role/tool/scope overrides',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/intelligence/context';
+ const contextDb={prepare(sql){return {bind(...args){return {first:async()=>args[0]===business?{role:'member'}:null,all:async()=>({results:[{record_type:'jobs',id:'job_123',revision:2,updated_at:'2026-10-30',payload:JSON.stringify({id:'job_123',businessId:business,title:'Authorized job'})}]})}}}}};
+ const env={...envBase,TF_DB:contextDb},options={fetchJwks:jwksResponse};const good=await api(req(path,signed),env,options);assert.equal(good.status,200);const data=await good.json();assert.equal(data.readOnly,true);assert.equal(data.executionAuthority,false);assert.equal(data.records[0].id,'job_123');assert.equal(data.permission.role,'member');
+ assert.equal((await api(req(path),env,options)).status,401);
+ assert.equal((await api(req(path.replace(business,'business_999'),signed),env,options)).status,403);
+ for(const suffix of ['?role=owner','?businessId=foreign','?tools=send','?jobId=job_123&jobId=other'])assert.equal((await api(req(path+suffix,signed),env,options)).status,400);
+ assert.equal((await api(req(path,signed,'POST'),env,options)).status,405);
+});

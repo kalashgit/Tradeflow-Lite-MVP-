@@ -1,0 +1,21 @@
+{
+ "fixtureId":"contractor-operating-flow-v1","synthetic":true,"businessId":"business_001","asOf":"2026-10-30T12:00:00Z",
+ "purpose":"Shared inquiry-to-recorded-collection graph; deliberately no independent settlement evidence",
+ "records":[
+  {"type":"opportunities","id":"inquiry_01","revision":1,"record":{"title":"Synthetic panel replacement inquiry","status":"Qualified","category":"Electrical"}},
+  {"type":"customers","id":"customer_01","revision":2,"record":{"name":"Synthetic facility customer"}},
+  {"type":"quotes","id":"quote_01","revision":3,"record":{"title":"Panel replacement estimate","status":"Accepted","customerId":"customer_01","opportunityId":"inquiry_01","amount":3000,"currency":"USD"}},
+  {"type":"crew","id":"crew_01","revision":1,"record":{"name":"Synthetic electrician","role":"Electrician","status":"Available"}},
+  {"type":"jobs","id":"job_01","revision":4,"record":{"title":"Synthetic panel replacement","status":"Completed","customerId":"customer_01","quoteId":"quote_01","opportunityId":"inquiry_01","crewId":"crew_01"}},
+  {"type":"jobCosts","id":"estimate_labor","revision":1,"record":{"jobId":"job_01","type":"estimate","category":"Labor","amount":640,"laborHours":8,"currency":"USD"}},
+  {"type":"jobCosts","id":"actual_labor","revision":2,"record":{"jobId":"job_01","type":"actual","category":"Labor","amount":960,"laborHours":12,"currency":"USD"}},
+  {"type":"jobCosts","id":"estimate_materials","revision":1,"record":{"jobId":"job_01","type":"estimate","category":"Materials","amount":660,"currency":"USD"}},
+  {"type":"jobCosts","id":"actual_materials","revision":1,"record":{"jobId":"job_01","type":"actual","category":"Materials","amount":800,"currency":"USD"}},
+  {"type":"invoices","id":"invoice_01","revision":2,"record":{"number":"SYN-001","status":"Issued","jobId":"job_01","customerId":"customer_01","quoteId":"quote_01","dueDate":"2026-10-20","currency":"USD","lines":[{"qty":1,"unitPrice":3000}],"taxRate":0}},
+  {"type":"payments","id":"payment_01","revision":1,"record":{"invoiceId":"invoice_01","jobId":"job_01","customerId":"customer_01","amount":3000,"currency":"USD","date":"2026-10-29","settlementVerified":true,"provider":"unsupported caller claim"}}
+ ],
+ "unknowns":["Bank/provider settlement evidence absent","Hours are recorded, not independently verified timesheets/payroll","Cause of labor variance is not established"],
+ "alternativeExplanations":["Recorded payment may be correct but independent confirmation has not been imported","Labor variance may reflect scope change or inaccurate estimate, not proven low productivity"],
+ "permittedNextStep":"Read-only review, followed by separately authorized existing commands if the owner chooses",
+ "verifiedCollection":false
+}
