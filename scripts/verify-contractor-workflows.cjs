@@ -287,6 +287,11 @@ async function verifyCalendarConflictJourney(page,result){
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
      result.notificationCleared=true;
+    }else if(item.id==='TF-P03'){
+     await verifyCalendarConflictJourney(page,result);
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
     }else{
      // Controlled record corrections validate resolution detection; not a claim of field authorization.
      await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);await page.locator('[data-notif-action="toggle"]').click();assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);result.notificationCleared=true;
