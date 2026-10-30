@@ -353,7 +353,8 @@
   const {customerId,quoteId='',method,notes,outcome='attempted'}=payload||{};
   if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
    !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='customers'&&g.ref.id===customerId&&g.record)||
-   recordGuard.some(g=>!g.ref||!['customers','quotes'].includes(g.ref.store)||!g.record)||
+   recordGuard.some(g=>g.quoteOpenFollowups!==undefined?!Array.isArray(g.quoteOpenFollowups):
+    !g.ref||!['customers','quotes'].includes(g.ref.store)||!g.record)||
    (quoteId&&!recordGuard.some(g=>g.ref.store==='quotes'&&g.ref.id===quoteId))||
    typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
    typeof customerId!=='string'||!customerId||typeof quoteId!=='string'||
@@ -385,6 +386,7 @@
       result={id:prior.resultId,reused:true,commandKey:key};return;
      }
      for(const guard of recordGuard){
+      if(guard.quoteOpenFollowups!==undefined)continue;
       const collection=data[guard.ref.store]||[];
       if(collection.filter(x=>x.id===guard.ref.id).length!==1||
        stable(collection.find(x=>x.id===guard.ref.id))!==stable(guard.record))
@@ -393,7 +395,7 @@
      const customer=data.customers.find(c=>c.id===customerId);
      if(!customer||customer.businessId&&customer.businessId!==businessId)
       throw Error('Contact customer unavailable in this business');
-     if(recordGuard.some(g=>g.ref.store==='quotes'&&g.ref.id!==quoteId))
+     if(recordGuard.some(g=>g.ref?.store==='quotes'&&g.ref.id!==quoteId))
       throw Error('Approval references a different quotation');
      const quote=quoteId?data.quotes.find(q=>q.id===quoteId):null;
      if(quoteId&&(!quote||quote.customerId!==customerId||
@@ -420,6 +422,9 @@
          String(t.title||'').startsWith('Follow up quote: '))&&
         (!t.businessId||t.businessId===businessId)&&
         !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+       const reviewed=recordGuard.find(g=>g.quoteOpenFollowups!==undefined);
+       if(reviewed&&stable(reviewed.quoteOpenFollowups)!==stable(open))
+        throw Error('Linked follow-up tasks changed since owner approval; review again');
        for(const task of open){
         const completed={...task,status:'Done',completedAt:when,
          completedReason:'owner_attested_customer_reached',contactEventId:id,updatedAt:when};
