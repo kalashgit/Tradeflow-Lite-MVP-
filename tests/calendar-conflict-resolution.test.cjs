@@ -37,8 +37,9 @@ test('same approved key idempotent; fresh approvals do not reschedule a non-conf
  assert.equal(again.id,first.id);assert.equal(again.reused,true);
  assert.equal((await snapshot(f.db)).calendarAudit.length,1);
  const current=await snapshot(f.db),resolved=commands.resolve(f.input,current,f.context);
- assert.equal(resolved.status,'needs_review');
- await assert.rejects(f.operate({requestKey:'different-approval',recordGuard:resolved.guard}),/no longer has a recorded conflict/);
+ assert.equal(resolved.status,'invalid');
+ assert.equal(resolved.error.code,'UNCHANGED_SLOT');
+ await assert.rejects(f.operate({requestKey:'different-approval',recordGuard:approvedGuard}),/Calendar record changed since approval|Calendar commitments changed since approval/);
  assert.equal((await snapshot(f.db)).calendarAudit.length,1);
 });
 test('same-resource collision, stale unrelated booking, denied approval and wrong business fail closed',async()=>{
