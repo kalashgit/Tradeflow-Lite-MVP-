@@ -31,6 +31,7 @@ const definitions=freeze([
  {id:'customer.source.delete',intent:'Remove locally retained original wording',aliases:[],required:['ref'],parameters:['ref'],effect:'modification',permission:'modify:customer.create',approval:'explicit'},
  {id:'calendar.conflict.reschedule',intent:'Reschedule a standalone conflicting calendar event after owner review',aliases:[],required:['ref','date','time'],parameters:['ref','date','time'],effect:'modification',permission:'modify:calendar.conflict.reschedule',approval:'explicit'},
  {id:'invoice.followup.schedule',intent:'Schedule an approved internal overdue invoice follow-up',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:invoice.followup.schedule',approval:'explicit'},
+ {id:'customer.contact.record',intent:'Record owner-attested or attempted customer contact with review',aliases:[],required:['ref','method','notes','outcome'],parameters:['ref','quoteId','method','notes','outcome'],effect:'modification',permission:'modify:customer.contact.record',approval:'explicit'},
  {id:'quotation.followup.schedule',intent:'Schedule a reviewed internal follow-up task for a sent quotation',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:quotation.followup.schedule',approval:'explicit'},
  {id:'quotation.convert',intent:'Create a linked job from an accepted quotation',aliases:['convert quote to job'],required:['ref or context.record'],parameters:['ref'],effect:'modification',permission:'modify:quotation.convert',approval:'explicit'}
 ]);
@@ -148,7 +149,7 @@ function resolve(input,data={},context={}){
    if(def.id==='record.find')result={matches};
    else {const exact=matches.filter(x=>x.exact),choices=exact.length?exact:matches;if(choices.length!==1)return {status:choices.length?'ambiguous':'not_found',commandId:def.id,choices,error:{code:choices.length?'AMBIGUOUS_RECORD':'RECORD_NOT_FOUND',message:choices.length?'Choose a specific record.':'No matching local record.'}};params.ref=choices[0].ref;delete params.query;delete params.store}
   }
-  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.followup.schedule'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'){
+  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.followup.schedule'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'||def.id==='customer.contact.record'){
    if(!params.ref)params.ref=context.record?clone(context.record):null;
    if(!params.ref)return problem('MISSING_RECORD','Select or specify an existing record.');refs.push(params.ref);
   }
@@ -222,6 +223,25 @@ function resolve(input,data={},context={}){
    if(total-paid<=0)return problem('NO_BALANCE','No recorded outstanding balance exists.');
    guard.push({invoicePayments:payments.map(p=>clone(p))});
    result={invoiceId:invoice.id,customerId:invoice.customerId,due:params.due,recordedOutstanding:(total-paid)/100,providerVerified:false};
+  }
+  if(def.id==='customer.contact.record'){
+   if(params.ref.store!=='customers')return problem('INVALID_RECORD_TYPE','Choose the customer whose contact was recorded.');
+   if(!['Phone','Email','Meeting','Site visit','Other'].includes(params.method)||
+    !['attempted','reached'].includes(params.outcome)||
+    typeof params.notes!=='string'||params.notes.trim().length<3||params.notes.length>1000)
+    return problem('INVALID_CONTACT','Provide contact method, outcome and concise factual notes.');
+   if(params.quoteId!==undefined&&(typeof params.quoteId!=='string'||params.quoteId.length>160))
+    return problem('INVALID_QUOTE','Choose a valid optional linked quotation.');
+   const customer=lookup(data,params.ref,context);
+   params.notes=params.notes.trim();
+   params.quoteId=params.quoteId||'';
+   if(params.quoteId){
+    const quote=lookup(data,{store:'quotes',id:params.quoteId},context);
+    if(quote.customerId!==customer.id)return problem('CUSTOMER_MISMATCH','The quote belongs to another customer.');
+    guard.push(...validateReferences(data,[{store:'quotes',id:quote.id}],context));
+   }
+   result={customerId:customer.id,quoteId:params.quoteId,method:params.method,
+    outcome:params.outcome,operatorReported:true,providerVerified:false};
   }
   if(def.id==='quotation.followup.schedule'){
    if(params.ref.store!=='quotes')return problem('INVALID_RECORD_TYPE','Choose a sent quotation.');
@@ -314,6 +334,10 @@ function createRuntime(options){
    else if(row.commandId==='draft.prepare')result=await ports.prepareDraft(clone(fresh.result));
    else if(row.commandId==='calendar.conflict.reschedule')result=await ports.operation('calendar.conflict.reschedule',{eventId:row.params.ref.id,date:row.params.date,time:row.params.time},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='invoice.followup.schedule')result=await ports.operation('invoice.followup.schedule',{invoiceId:row.params.ref.id,due:row.params.due},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
+   else if(row.commandId==='customer.contact.record')result=await ports.operation('customer.contact.record',
+    {customerId:row.params.ref.id,quoteId:row.params.quoteId||'',method:row.params.method,
+     notes:row.params.notes,outcome:row.params.outcome},
+    {requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.followup.schedule')result=await ports.operation('quotation.followup.schedule',{quoteId:row.params.ref.id,due:row.params.due},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.convert')result=await ports.operation('quotation.convert',{quoteId:row.params.ref.id},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard)});
    else if(row.commandId==='customer.create')result=await ports.operation('customer.create',clone(row.params),{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
