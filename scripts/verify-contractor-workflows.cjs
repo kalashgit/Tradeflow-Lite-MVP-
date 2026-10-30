@@ -239,7 +239,10 @@ async function verifyCalendarConflictJourney(page,result){
  await page.locator('[data-tab="calendar"]:visible').first().click();
  await page.locator('.tf-cal-page').waitFor();
  const review=page.locator('[data-calendar-action="conflicts"]');
- if(await review.count())await review.click();
+ await review.waitFor({timeout:15000});
+ await review.click();
+ // The document click handler renders conflict review asynchronously.
+ await page.locator('.tf-cal-review').waitFor({timeout:15000});
  const button=page.locator('[data-calendar-action="resolve-conflict"][data-id="event-a"]');
  if(!await button.count()){
   const screen=await page.locator('body').innerText();
