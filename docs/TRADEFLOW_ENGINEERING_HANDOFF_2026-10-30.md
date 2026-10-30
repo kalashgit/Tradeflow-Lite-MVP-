@@ -98,6 +98,10 @@ UI acceptance: Settings > reviewed transfer; prepare synthetic backup, review re
 **Code:** historical green through #240; later H03 exact-head checks pending. **Product:** synthetic Chromium is not physical iPhone/user acceptance. **Operations:** no verified actual contractor end-to-end use. **Outcome:** no measured contractor impact. **Original research:** 0/62 formally retired.
 **No merge, deploy, migration, user messaging, payment, credential/storage secret change, live tenant access change or production side effect.**
 
+## Continuation checkpoint — H04-04 advisory boundary
+
+Refer to the final H04-04 section of `docs/TRADEFLOW_ENGINEERING_TASK_LEDGER.md`. This increment adds only a disabled server-side advisory contract and mock tests, not a live model integration or a second writer. Baseline source `390b5715fd7a727282116fe674d55269765b040d` passed exact-source Actions #282. New local tests: 4 focused, 506 full Node, six storage groups, TF-P01–P10 green. Chromium binary download was blocked by malformed CDN downloads; verify the new commit through exact-commit Actions before claiming browser acceptance. PR #16 must remain draft/unmerged/undeployed. R01-02 role grants still await founder approval; physical-device/contractor outcomes remain unverified.
+
 ## Copy/paste successor prompt
 > Continue TradeFlow from the actual GitHub HEAD of **draft PR #16**. Read `docs/TRADEFLOW_ENGINEERING_HANDOFF_2026-10-30.md`, the authoritative v1.1 Google Doc and existing architecture/evidence docs. Verify exact SHA and CI (including the formerly queued #252), inspect real code/tests, then continue H03 server-authorized, revocation-safe, conflict-safe offline synchronization without duplicating existing systems. Maintain TF-P01–P10, run complete tests, commit small safe increments, report verified evidence and blockers, keep the PR draft/unmerged/undeployed and do not claim the 62 pain points solved.
 
