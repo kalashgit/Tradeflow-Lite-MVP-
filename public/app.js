@@ -905,6 +905,8 @@ function tfRecordDetailView(d,record,type){
   sections+='<section class="tf-record-dossier-box"><h3>Linked records</h3><div class="tf-record-related-grid">'+related.map(([key,name,count])=>'<button type="button" data-action="tfRecordRelated" data-type="'+key+'" data-id="'+esc(record.id)+'">'+tfRecordIcon(key==='payments'?'cash':key,19)+'<span>'+name+'<small>'+count+' records</small></span>'+tfRecordIcon('arrow',17)+'</button>').join('')+'</div></section>';
   sections+=tfCustomerRelationshipHistory(d,record.id);
   sections+=tfCustomerRecordedEconomics(d,record.id);
+  if((d.jobs||[]).some(j=>j.customerId===record.id))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfCustomerEconomicsReview" data-id="'+esc(record.id)+'">Review recorded customer contribution</button>';
   sections+=tfCustomerContactForm(d,record.id);
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
@@ -1237,6 +1239,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   const opportunity=await get('opportunities',el.dataset.id);
   const result=opportunity?await tfReviewBidQualification(opportunity):null;
   if(result?.status==='succeeded'){await render();notify('Internal bid qualification task saved. No bid was submitted or customer commitment created.');}
+  return;
+ }
+ if(el.dataset.action==='tfCustomerEconomicsReview'){
+  const customer=await get('customers',el.dataset.id);
+  const result=customer?await tfReviewCustomerEconomics(customer):null;
+  if(result?.status==='succeeded'){await render();notify('Internal customer economics review saved. Final profit and bank settlement remain unverified.');}
   return;
  }
  if(el.dataset.action==='tfQuoteReuse'){
@@ -1984,7 +1992,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.reuse.create','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.reuse.create','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:customer.economics_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2377,6 +2385,34 @@ async function tfCreateQuoteReuseDraft(source){
  if(approval.status!=='approved'){notify(approval.error?.message||'Source quote changed; review again');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Quote reuse requires inspection');
+ return result;
+}
+async function tfReviewCustomerEconomics(customer){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='customer.economics_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===customer.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier customer review has uncertain execution. Inspect task and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'customer.economics_review.schedule',params:{ref:{store:'customers',id:customer.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Recorded customer evidence requires reconciliation');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal customer contribution review for “'+String(customer.name||customer.id).slice(0,100)+'”? Recorded receipts $'+
+  evidence.received.toFixed(2)+', linked recorded costs $'+evidence.recordedCosts.toFixed(2)+'. This is NOT verified customer profit, bank settlement or lifetime value. Costs and expenses may overlap.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Customer economics records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Customer review requires inspection');
  return result;
 }
 async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){

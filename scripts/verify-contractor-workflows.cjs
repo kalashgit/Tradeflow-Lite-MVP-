@@ -519,6 +519,29 @@ async function verifyCalendarConflictJourney(page,result){
      assert.equal(after.quotes.filter(q=>q.id===draft.id).length,1);result.draftSurvivedReload=true;
     }else{
      const box=page.locator('.tf-record-dossier-box').filter({hasText:'Recorded customer economics'});await box.waitFor();const text=await box.innerText();for(const value of ['$750.00','$400.00','$350.00','not verified bank receipts'])assert.ok(text.includes(value));result.recordedEconomicsRendered=true;
+     result.stage='customer economics: owner approval';
+     const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.message());await d.accept()});
+     const button=page.locator('[data-action="tfCustomerEconomicsReview"][data-id="c1"]');
+     await button.waitFor({timeout:15000});await button.click();
+     await page.getByText('Internal customer economics review saved.',{exact:false}).waitFor({timeout:15000});
+     const read=()=>page.evaluate(async()=>{
+      const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+      const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','payments']);db.close();return data;
+     });
+     result.stage='customer economics: saved evidence';
+     let check=await read(),tasks=check.tasks.filter(t=>t.taskKind==='customer_economics_review');
+     assert.equal(tasks.length,1);assert.equal(tasks[0].economicsEvidence.received,750);
+     assert.equal(tasks[0].economicsEvidence.recordedCosts,400);
+     assert.equal(tasks[0].economicsEvidence.recordedContribution,350);
+     assert.equal(tasks[0].economicsEvidence.profitVerified,false);
+     assert.equal(tasks[0].economicsEvidence.bankSettlementVerified,false);
+     assert.equal(check.payments.find(p=>p.id==='p1').amount,750);
+     assert.equal(check.commandLog.filter(x=>x.kind==='customer.economics_review.schedule').length,1);
+     assert.ok(dialogs.some(x=>x.includes('NOT verified customer profit')));
+     result.ownerApprovedAccountReview=true;
+     result.stage='customer economics: reload';await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+     check=await read();assert.equal(check.tasks.filter(t=>t.taskKind==='customer_economics_review').length,1);
+     result.accountReviewPersistedAfterReload=true;
     }
     await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'.png')});
    }

@@ -1128,6 +1128,87 @@
     req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
   });
  }
+ // TF-P10: local account contribution review; excludes any promise of actual profitability.
+ function executeCustomerEconomicsReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.customerId!=='string'||!payload.customerId||!payload.due||!validDate(payload.due)||
+   !Number.isFinite(payload.received)||payload.received<0||!Number.isFinite(payload.recordedCosts)||payload.recordedCosts<0||
+   Object.keys(payload).some(k=>!['customerId','due','received','recordedCosts'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='customers'&&g.ref.id===payload.customerId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.economicsJobs)&&Array.isArray(g.economicsInvoices)&&Array.isArray(g.economicsPayments)&&
+    Array.isArray(g.economicsCosts)&&Array.isArray(g.economicsExpenses)&&Array.isArray(g.economicsTasks)))
+   return Promise.reject(Error('Approved customer economics snapshot required'));
+  const key='customer-economics-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['customers','jobs','invoices','payments','jobCosts','expenses','tasks','commandLog','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Customer review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='customer.economics_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Customer review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.customerId===payload.customerId&&t.taskKind==='customer_economics_review'&&t.businessId===businessId);
+      if(!task)throw Error('Previous customer review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const customer=data.customers.find(x=>x.id===payload.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)throw Error('Customer unavailable in business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Linked customer record changed after approval');
+     }
+     const jobs=data.jobs.filter(x=>x.customerId===customer.id),ids=new Set(jobs.map(x=>x.id));
+     const invoices=data.invoices.filter(x=>x.customerId===customer.id&&String(x.status||'').toLowerCase()!=='void');
+     const invoiceIds=new Set(invoices.map(x=>x.id));
+     const payments=data.payments.filter(x=>x.invoiceId?invoiceIds.has(x.invoiceId):x.customerId===customer.id||ids.has(x.jobId||x.relatedId));
+     const costs=data.jobCosts.filter(x=>ids.has(x.jobId)&&x.type==='actual');
+     const expenses=data.expenses.filter(x=>ids.has(x.jobId||x.relatedId));
+     const tasks=data.tasks.filter(x=>x.customerId===customer.id&&x.taskKind==='customer_economics_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(x.status||'').toLowerCase()));
+     const snapshot=recordGuard.find(g=>Array.isArray(g.economicsJobs)&&Array.isArray(g.economicsInvoices));
+     for(const [key,actual] of [['economicsJobs',jobs],['economicsInvoices',invoices],['economicsPayments',payments],
+      ['economicsCosts',costs],['economicsExpenses',expenses],['economicsTasks',tasks]])
+      if(stable(actual)!==stable(snapshot[key]))throw Error('Customer economics evidence changed after approval');
+     const valid=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0&&(!x.currency||x.currency==='USD')&&
+      (!x.businessId||x.businessId===businessId);
+     if(!jobs.length||!payments.length||!costs.length&&!expenses.length||[...payments,...costs,...expenses].some(x=>!valid(x))||
+      payments.some(x=>x.customerId&&x.customerId!==customer.id||x.invoiceId&&invoices.filter(i=>i.id===x.invoiceId).length!==1)||
+      data.payments.some(x=>x.customerId===customer.id&&x.invoiceId&&!invoiceIds.has(x.invoiceId))||
+      jobs.some(j=>!costs.some(x=>x.jobId===j.id)&&!expenses.some(x=>x.jobId===j.id||x.relatedId===j.id)))
+      throw Error('Customer economics records incomplete');
+     const cents=list=>list.reduce((n,x)=>n+Math.round(x.amount*100),0);
+     const received=cents(payments),spent=cents(costs)+cents(expenses);
+     if(received/100!==payload.received||spent/100!==payload.recordedCosts)throw Error('Customer contribution differs from approved totals');
+     if(tasks.length>1||tasks.some(x=>x.businessId!==businessId))throw Error('Ambiguous customer review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Customer review task ID collision');
+      const task={id,customerId:customer.id,businessId,taskKind:'customer_economics_review',status:'Open',due:payload.due,
+       title:'Review recorded account economics: '+String(customer.name||customer.id).slice(0,100),
+       economicsEvidence:{received:received/100,recordedCosts:spent/100,recordedContribution:(received-spent)/100,
+        currency:'USD',jobIds:jobs.map(x=>x.id),invoiceIds:invoices.map(x=>x.id),paymentIds:payments.map(x=>x.id),
+        costIds:costs.map(x=>x.id),expenseIds:expenses.map(x=>x.id),possibleOverlap:true,
+        profitVerified:false,bankSettlementVerified:false,externalAccountingVerified:false,customerLifetimeValueVerified:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'customer.economics_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,customerId:customer.id,createdAt:when,result,profitVerified:false,externalAccountingVerified:false});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
@@ -1140,6 +1221,7 @@
   if(kind==='invoice.payment_review.schedule')return executeInvoicePaymentReview(args);
   if(kind==='opportunity.bid_review.schedule')return executeBidQualificationReview(args);
   if(kind==='quotation.reuse.create')return executeQuoteReuse(args);
+  if(kind==='customer.economics_review.schedule')return executeCustomerEconomicsReview(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);

@@ -40,6 +40,7 @@ const definitions=freeze([
  {id:'invoice.payment_review.schedule',intent:'Schedule owner-approved review of local invoice overpayments; no settlement claim',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:invoice.payment_review.schedule',approval:'explicit'},
  {id:'opportunity.bid_review.schedule',intent:'Schedule an internal bid qualification check before committing estimating effort',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:opportunity.bid_review.schedule',approval:'explicit'},
  {id:'quotation.reuse.create',intent:'Create a reviewed unsent quotation draft using safe fields from a saved estimate',aliases:[],required:['ref'],parameters:['ref'],effect:'modification',permission:'modify:quotation.reuse.create',approval:'explicit'},
+ {id:'customer.economics_review.schedule',intent:'Schedule owner-approved review of locally recorded customer cash contribution',aliases:[],required:['ref','due'],parameters:['ref','due'],effect:'modification',permission:'modify:customer.economics_review.schedule',approval:'explicit'},
  {id:'quotation.convert',intent:'Create a linked job from an accepted quotation',aliases:['convert quote to job'],required:['ref or context.record'],parameters:['ref'],effect:'modification',permission:'modify:quotation.convert',approval:'explicit'}
 ]);
 const definition=id=>definitions.find(x=>x.id===id);
@@ -156,7 +157,7 @@ function resolve(input,data={},context={}){
    if(def.id==='record.find')result={matches};
    else {const exact=matches.filter(x=>x.exact),choices=exact.length?exact:matches;if(choices.length!==1)return {status:choices.length?'ambiguous':'not_found',commandId:def.id,choices,error:{code:choices.length?'AMBIGUOUS_RECORD':'RECORD_NOT_FOUND',message:choices.length?'Choose a specific record.':'No matching local record.'}};params.ref=choices[0].ref;delete params.query;delete params.store}
   }
-  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.reuse.create'||def.id==='quotation.followup.schedule'||def.id==='job.change_order.review.schedule'||def.id==='job.change_order.authorization.record'||def.id==='job.cost_review.schedule'||def.id==='job.labor_review.schedule'||def.id==='invoice.payment_review.schedule'||def.id==='opportunity.bid_review.schedule'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'||def.id==='customer.contact.record'){
+  if(def.id==='record.open'||def.id==='quotation.convert'||def.id==='quotation.reuse.create'||def.id==='quotation.followup.schedule'||def.id==='job.change_order.review.schedule'||def.id==='job.change_order.authorization.record'||def.id==='job.cost_review.schedule'||def.id==='job.labor_review.schedule'||def.id==='invoice.payment_review.schedule'||def.id==='opportunity.bid_review.schedule'||def.id==='customer.economics_review.schedule'||def.id==='invoice.followup.schedule'||def.id==='calendar.conflict.reschedule'||def.id==='customer.contact.record'){
    if(!params.ref)params.ref=context.record?clone(context.record):null;
    if(!params.ref)return problem('MISSING_RECORD','Select or specify an existing record.');refs.push(params.ref);
   }
@@ -292,6 +293,33 @@ function resolve(input,data={},context={}){
    result={sourceQuoteId:source.id,title:source.title.slice(0,160),category:String(source.category||'').slice(0,90),
     amount,customerId:'',status:'Draft',reusedFields:['title','category','amount'],
     excludes:['customer','acceptance','signature','sent date','contact history','authorization'],pricingReverified:false};
+  }
+  if(def.id==='customer.economics_review.schedule'){
+   if(params.ref.store!=='customers'||!isDate(params.due))return problem('INVALID_CUSTOMER_REVIEW','Choose a customer and valid review date.');
+   const customer=lookup(data,params.ref,context),jobs=rows(data,'jobs').filter(x=>x.customerId===customer.id);
+   const ids=new Set(jobs.map(x=>x.id)),invoices=rows(data,'invoices').filter(x=>x.customerId===customer.id&&normalize(x.status)!=='void');
+   const invoiceIds=new Set(invoices.map(x=>x.id));
+   const payments=rows(data,'payments').filter(x=>x.invoiceId?invoiceIds.has(x.invoiceId):x.customerId===customer.id||ids.has(x.jobId||x.relatedId));
+   const costs=rows(data,'jobCosts').filter(x=>ids.has(x.jobId)&&x.type==='actual');
+   const expenses=rows(data,'expenses').filter(x=>ids.has(x.jobId||x.relatedId));
+   const valid=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0&&(!x.currency||x.currency==='USD')&&
+    (!x.businessId||x.businessId===(context.businessId||'local-business'));
+   if(!jobs.length||!payments.length||!costs.length&&!expenses.length||[...payments,...costs,...expenses].some(x=>!valid(x))||
+    payments.some(x=>x.customerId&&x.customerId!==customer.id||x.invoiceId&&invoices.filter(i=>i.id===x.invoiceId).length!==1)||
+    rows(data,'payments').some(x=>x.customerId===customer.id&&x.invoiceId&&!invoiceIds.has(x.invoiceId))||
+    jobs.some(j=>!costs.some(x=>x.jobId===j.id)&&!expenses.some(x=>x.jobId===j.id||x.relatedId===j.id)))
+    return problem('ECONOMICS_EVIDENCE_INCOMPLETE','Review missing, inconsistent or foreign accounting entries before recording contribution.');
+   const cents=list=>list.reduce((n,x)=>n+Math.round(x.amount*100),0);
+   const received=cents(payments),spent=cents(costs)+cents(expenses);
+   const tasks=rows(data,'tasks').filter(t=>t.customerId===customer.id&&t.taskKind==='customer_economics_review'&&!terminal(t));
+   if(tasks.some(t=>t.businessId!==(context.businessId||'local-business')))
+    return problem('CROSS_BUSINESS_TASK','Existing customer review needs inspection.');
+   guard.push({economicsJobs:clone(jobs),economicsInvoices:clone(invoices),economicsPayments:clone(payments),
+    economicsCosts:clone(costs),economicsExpenses:clone(expenses),economicsTasks:clone(tasks)});
+   result={customerId:customer.id,received:received/100,recordedCosts:spent/100,recordedContribution:(received-spent)/100,
+    jobIds:jobs.map(x=>x.id),invoiceIds:invoices.map(x=>x.id),paymentIds:payments.map(x=>x.id),costIds:costs.map(x=>x.id),
+    expenseIds:expenses.map(x=>x.id),currency:'USD',profitVerified:false,settlementVerified:false,
+    overlapPossible:true};
   }
   if(def.id==='customer.contact.record'){
    if(params.ref.store!=='customers')return problem('INVALID_RECORD_TYPE','Choose the customer whose contact was recorded.');
@@ -496,6 +524,7 @@ function createRuntime(options){
    else if(row.commandId==='invoice.payment_review.schedule')result=await ports.operation('invoice.payment_review.schedule',{invoiceId:row.params.ref.id,due:row.params.due,invoiceTotal:fresh.result.invoiceTotal,recordedPayments:fresh.result.recordedPayments},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='opportunity.bid_review.schedule')result=await ports.operation('opportunity.bid_review.schedule',{opportunityId:row.params.ref.id,due:row.params.due,invitation:fresh.result.invitation,scope:fresh.result.scope,capacity:fresh.result.capacity},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.reuse.create')result=await ports.operation('quotation.reuse.create',{sourceQuoteId:row.params.ref.id,title:fresh.result.title,category:fresh.result.category,amount:fresh.result.amount},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
+   else if(row.commandId==='customer.economics_review.schedule')result=await ports.operation('customer.economics_review.schedule',{customerId:row.params.ref.id,due:row.params.due,received:fresh.result.received,recordedCosts:fresh.result.recordedCosts},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard),actor:c.actor,businessId:c.businessId,approved:true});
    else if(row.commandId==='quotation.convert')result=await ports.operation('quotation.convert',{quoteId:row.params.ref.id},{requestKey:'operation:'+id,recordGuard:clone(fresh.guard)});
    else if(row.commandId==='customer.create')result=await ports.operation('customer.create',clone(row.params),{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
    else if(row.commandId==='customer.source.delete')result=await ports.operation('customer.source.delete',{customerId:row.params.ref.id},{requestKey:'operation:'+id,requestId:id,actor:c.actor,businessId:c.businessId,recordGuard:clone(fresh.guard)});
@@ -513,6 +542,30 @@ function createRuntime(options){
   if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
    return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
+  if(row.commandId==='customer.economics_review.schedule'){
+   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
+   if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'No interrupted customer economics review.'}};
+   if(row.approvedBy!==c.actor||!row.events?.some(e=>e.type==='approved'))
+    return {id,status:'indeterminate',error:{code:'APPROVAL_UNVERIFIED',message:'Original customer review approval missing.'}};
+   const data=await snapshot(),p=row.params,receiptId='customer-economics-review:operation:'+id;
+   const receipts=(data.commandLog||[]).filter(x=>x.id===receiptId);
+   if(receipts.length!==1)return {id,status:'indeterminate',error:{code:'RECEIPT_MISSING',message:'Customer review receipt missing; no replay.'}};
+   const receipt=receipts[0],expected=canonical({customerId:p.ref.id,due:p.due,
+    received:row.result.received,recordedCosts:row.result.recordedCosts});
+   if(receipt.kind!==row.commandId||receipt.requestPayload!==expected||receipt.actor!==row.actor||receipt.businessId!==row.businessId||
+    !['task_created','existing_open_task'].includes(receipt.result)||receipt.profitVerified!==false||receipt.externalAccountingVerified!==false)
+    return {id,status:'indeterminate',error:{code:'RECEIPT_MISMATCH',message:'Customer review receipt mismatch.'}};
+   const tasks=(data.tasks||[]).filter(t=>t.id===receipt.resultId&&t.customerId===p.ref.id&&t.taskKind==='customer_economics_review'&&
+    t.businessId===row.businessId&&t.economicsEvidence?.profitVerified===false&&t.economicsEvidence?.bankSettlementVerified===false);
+   if(tasks.length!==1)return {id,status:'indeterminate',error:{code:'TASK_UNVERIFIED',message:'Customer review task evidence missing.'}};
+   if(receipt.result==='task_created'&&!(data.commandLog||[]).some(e=>e.kind==='domain.event'&&
+    e.correlationId===receiptId&&e.type==='task.created'&&e.ref?.id===receipt.resultId&&e.businessId===row.businessId))
+    return {id,status:'indeterminate',error:{code:'AUDIT_UNVERIFIED',message:'Customer review audit missing.'}};
+   const outcome={id,status:'succeeded',effect:row.effect,result:{id:receipt.resultId,reused:receipt.result!=='task_created',reconciled:true,commandKey:receiptId}};
+   const changed=await ledger.transition(id,['executing'],event('reconciled',c,{receiptId}),{status:'succeeded',outcome});
+   return changed.claimed?outcome:changed.row.status==='succeeded'?{...clone(changed.row.outcome),reused:true}:
+    {id,status:'indeterminate',error:{code:'RECOVERY_RACE',message:'Customer review changed during recovery.'}};
+  }
   if(row.commandId==='quotation.reuse.create'){
    if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
    if(row.status!=='executing')return {id,status:row.status,error:{code:'RECOVERY_NOT_REQUIRED',message:'No interrupted quote reuse.'}};

@@ -129,7 +129,12 @@
       "test": "tests/optimization-account-economics.test.cjs",
       "pattern": "customer account economics sums local receipts",
       "feature": "Existing customer dossier",
-      "originalRegisterRef": 61
+      "originalRegisterRef": 61,
+      "mappingScope": "partial: internally recorded cash contribution is not verified lifetime customer profitability, settled receipts, or complete cost allocation",
+      "executionTest": "tests/customer-economics-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved internal customer economics review with linked job, invoice, payment, cost and expense snapshots, provenance, audit receipt and nonreplaying recovery",
+      "verification": "focused local Node tests passed; exact-head CI and Chromium pending"
     }
   ],
   "researchRegister": {
