@@ -707,6 +707,7 @@ return tfRecordHubView(d)}
 
 /* Compact record command cards and context panels, shared across the four record types. */
 let tfRecordDetailId=null;
+let tfContactQuotePrefill='';
 let tfCalendarLinkedReturn=false;
 /* Keep the list exactly where the user left it when viewing a record.
    The record ID and on-screen offset provide a fallback if the list changes. */
@@ -794,7 +795,7 @@ function tfCustomerContactForm(d,customerId){
  '<form id="tfContactLogForm" data-customer-id="'+esc(customerId)+'">'+
  '<label>Contact method<select name="method" required>'+['Phone','Email','Meeting','Site visit','Other'].map(x=>'<option value="'+x+'">'+x+'</option>').join('')+'</select></label>'+
  '<label>Related quotation (optional)<select name="quoteId"><option value="">Customer-level contact</option>'+
- quotes.map(q=>'<option value="'+esc(q.id)+'">'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ quotes.map(q=>'<option value="'+esc(q.id)+'"'+(tfContactQuotePrefill===q.id?' selected':'')+'>'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
  '<label>Outcome<select name="outcome" required><option value="attempted">Attempted — customer not reached</option><option value="reached">Customer reached — owner attests actual conversation or reply</option></select></label>'+
  '<label>Outcome / notes<textarea name="notes" required maxlength="1000" rows="2" placeholder="What happened and what is the agreed next step?"></textarea></label>'+
  '<button type="submit" class="tf-record-dossier-primary">Save contact log</button>'+
@@ -910,8 +911,12 @@ function tfRecordDetailView(d,record,type){
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
   if(type==='quotes')sections+=tfQuotationRecordedHistory(d,record);
   if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
-  if(type==='quotes'&&record.status==='Sent')
+  if(type==='quotes'&&record.status==='Sent'&&record.followupResolution?.status!=='owner_attested_reached')
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteFollowupReview" data-id="'+esc(record.id)+'">Review follow-up task</button>';
+  if(type==='quotes'&&record.status==='Sent'&&record.customerId)
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteContactOutcome" data-id="'+esc(record.id)+'">Record actual contact outcome</button>';
+  if(type==='quotes'&&record.followupResolution?.status==='owner_attested_reached')
+   sections+='<p>Owner-attested customer reached. Linked internal follow-up tasks resolved. Provider delivery remains unverified.</p>';
   if(type==='quotes'&&record.status==='Accepted'&&!d.jobs.some(j=>j.quoteId===record.id))
    sections+='<button type="button" class="tf-record-dossier-primary" data-convert="'+esc(record.id)+'">Create job from accepted quote</button>';
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
@@ -1028,6 +1033,7 @@ document.addEventListener('submit',async function(e){
    payload:{customerId,quoteId,method,notes,outcome:contactOutcome},uid,requestKey:uid(),
    actor:'local-owner',businessId:'local-business'});
   if(!outcome?.id)throw Error('Contact operation was not confirmed');
+  tfContactQuotePrefill='';
   await notify(outcome.outcome==='reached'?
    'Owner-attested customer contact recorded; linked open follow-up tasks resolved. Provider delivery remains unverified.':
    'Contact attempt recorded. Customer was not marked reached; follow-up tasks remain open.');
@@ -1156,6 +1162,15 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
+ if(el.dataset.action==='tfQuoteContactOutcome'){
+  const quote=await get('quotes',el.dataset.id);
+  if(!quote?.customerId){notify('Quotation has no linked customer.');return}
+  const customer=await get('customers',quote.customerId);
+  if(!customer){notify('Linked customer is unavailable.');return}
+  tfContactQuotePrefill=quote.id;
+  tfResetWorkspace('customers');tfRecordDetailId=customer.id;
+  await render();return;
+ }
  if(el.dataset.action==='tfQuoteFollowupReview'){
   const quote=await get('quotes',el.dataset.id);
   if(quote?.status!=='Sent'){notify('Only sent quotations can schedule follow-ups.');return}
