@@ -233,6 +233,9 @@ async function verifyInvoiceFollowupJourney(page,result){
 }
 async function verifyCalendarConflictJourney(page,result){
  result.stage='review standalone calendar overlap';
+ // Notifications navigate to Calendar; the review action belongs to its existing conflict panel.
+ const review=page.locator('[data-calendar-action="conflicts"]');
+ if(await review.count())await review.click();
  const button=page.locator('[data-calendar-action="resolve-conflict"][data-id="event-a"]');
  await button.waitFor();
  const dialogs=(async()=>{
