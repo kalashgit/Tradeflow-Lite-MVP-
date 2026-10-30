@@ -494,6 +494,14 @@ function createRuntime(options){
  async function executeOnce(id){
   const c=await ctx(),row=await ledger.get(id);if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Only a prepared command request can execute.');
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))return {status:'denied',error:{code:'PERMISSION_DENIED',message:'Command is outside this actor or business capability.'}};
+  // A persisted status label is not proof of owner authorization.
+  const contract=definition(row.commandId);
+  if(!contract||row.effect!==contract.effect||row.permission!==contract.permission||row.approval!==contract.approval)
+   return {id,status:'denied',error:{code:'COMMAND_CONTRACT_MISMATCH',message:'Saved command does not match the registered capability.'}};
+  if(contract.approval==='explicit'&&(row.status==='ready'||['approved','succeeded'].includes(row.status)&&
+    (row.approvedBy!==c.actor||typeof row.approvedAt!=='string'||!row.approvedAt||
+     !Array.isArray(row.events)||!row.events.some(e=>e.type==='approved'&&e.actor===c.actor))))
+   return {id,status:'denied',error:{code:'APPROVAL_EVIDENCE_REQUIRED',message:'Explicit owner approval evidence is missing.'}};
   if(row.status==='succeeded')return {...clone(row.outcome),reused:true};
   if(row.status==='needs_review')return {id,status:'needs_review',error:{code:'APPROVAL_REQUIRED',message:'Explicit review and approval are required.'}};
   if(row.status==='executing')return {id,status:'in_progress',error:{code:'EXECUTION_IN_PROGRESS',message:'Already executing or interrupted; inspect the audit and linked record before recovery.'}};
