@@ -1029,12 +1029,23 @@ document.addEventListener('submit',async function(e){
  const quote=quoteId?await get('quotes',quoteId):null;
  if(quoteId&&(!quote||quote.customerId!==customerId)){alert('Related quotation no longer matches this customer.');return}
  try{
-  const outcome=await window.TradeFlowCore.execute({db,kind:'customer.contact.record',
-   payload:{customerId,quoteId,method,notes,outcome:contactOutcome},uid,requestKey:uid(),
-   actor:'local-owner',businessId:'local-business'});
-  if(!outcome?.id)throw Error('Contact operation was not confirmed');
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime unavailable');
+  const plan=await commands.prepare({commandId:'customer.contact.record',
+   params:{ref:{store:'customers',id:customerId},quoteId,method,notes,outcome:contactOutcome}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Contact record requires fresh review');
+  const confirmation=contactOutcome==='reached'?
+   'Confirm you actually reached this customer? This is a manual owner attestation, NOT verified provider delivery. Linked quotation follow-up tasks will be marked complete.':
+   'Record an attempted contact without claiming the customer was reached? Linked quotation follow-up tasks stay open.';
+  if(!confirm(confirmation)){await commands.reject(plan.id);return}
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Contact relationships changed; review again');
+  const outcome=await commands.execute(plan.id);
+  if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Contact record outcome requires recovery review');
+  const saved=outcome.result;
+  if(!saved?.id)throw Error('Contact operation did not confirm persistence');
   tfContactQuotePrefill='';
-  await notify(outcome.outcome==='reached'?
+  await notify(saved.outcome==='reached'?
    'Owner-attested customer contact recorded; linked open follow-up tasks resolved. Provider delivery remains unverified.':
    'Contact attempt recorded. Customer was not marked reached; follow-up tasks remain open.');
  }catch(error){
@@ -1920,7 +1931,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
