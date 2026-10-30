@@ -1,7 +1,7 @@
 // Real browser/IndexedDB recovery and offline reload; isolated synthetic test data only.
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const out=process.env.OUTPUT_DIR||'/tmp/tradeflow-recovery';fs.mkdirSync(out,{recursive:true});
+const out=process.env.OUTPUT_DIR||'artifacts/local-recovery';fs.mkdirSync(out,{recursive:true});
 const root=path.resolve('public'),types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json'};
 const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://local'),p=path.resolve(root,'.'+(url.pathname==='/'?'/index.html':url.pathname));if(!p.startsWith(root+'/')){res.writeHead(403);res.end();return}fs.readFile(p,(error,body)=>{if(error){res.writeHead(404);res.end();return}res.setHeader('Content-Type',types[path.extname(p)]||'application/octet-stream');res.end(body)})});
 (async()=>{
