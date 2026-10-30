@@ -354,3 +354,8 @@ The product owner approved creating the proposed single empty TradeFlow Pilot wo
 - Added two source-backed GUI adapter regression cases to `tests/calendar-conflict-resolution.test.cjs`: interrupted move is reconciled without starting a new approval, and occupied destination blocks command preparation.
 - Executed the two adapter cases against the **exact fetched `public/app.js` source** using an isolated scripted JavaScript host: **2/2 passed**. Checked recovery invoked once, no second approval/prepare, no premature conflict re-evaluation; occupied target rejected before prepare. This is not the complete repository test suite or real browser acceptance.
 - No branch merge, production deploy or crew/customer notification. Formal contractor closures remain **0/62**.
+
+### 2026-10-30 — Positive calendar owner review regression
+- Added explicit test that the existing calendar adapter shows the conflicting booking title before confirmation, then calls prepare → confirm → approve → execute in that order. It never creates a second interface.
+- Directly evaluated the handler extracted from the exact GitHub `public/app.js` source using an isolated JavaScript host; **1/1 positive owner-review check passed**. Along with the earlier two isolated recovery/preflight checks, **3/3 owner adapter cases** passed directly. Committed Node test definitions are not yet independently run by Node or Playwright.
+- This review does not imply field crew were notified, a real device was tested, or an actual contractor conflict was resolved. Retired **0/62**.
