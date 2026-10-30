@@ -22,6 +22,14 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Confirm exact head and initialize evidence
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD | tee artifacts/exact-head-sha.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
+          node --version | tee artifacts/node-version.txt
       - name: Syntax checks
         run: |
           node --check src/tenant-api.js
@@ -42,17 +50,32 @@ jobs:
           node --check tests/tenant-api.test.cjs
           node --check tests/sync-queue.test.cjs
       - name: Focused authorization and offline queue regression
-        run: node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs tests/calendar-conflict-resolution.test.cjs
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs tests/calendar-conflict-resolution.test.cjs 2>&1 | tee artifacts/focused-node.log
       - name: Full Node regression
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/full-node.log
       - name: Storage migration regression
-        run: npm run test:storage
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:storage 2>&1 | tee artifacts/storage.log
       - name: Contractor pain-point regression
-        run: npm run test:contractors
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:contractors 2>&1 | tee artifacts/contractor-regression.log
       - name: Browser prerequisites
         run: npx playwright install --with-deps chromium
       - name: Desktop and mobile browser regression
-        run: npm run test:browser
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:browser 2>&1 | tee artifacts/browser.log
       - name: Upload regression evidence
         if: always()
         uses: actions/upload-artifact@v4
