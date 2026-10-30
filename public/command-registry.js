@@ -241,6 +241,14 @@ function resolve(input,data={},context={}){
     for(const checked of validateReferences(data,[{store:'quotes',id:quote.id}],context))
      if(!guard.some(g=>g.ref?.store===checked.ref.store&&g.ref.id===checked.ref.id))guard.push(checked);
    }
+   if(params.quoteId&&params.outcome==='reached'){
+    const open=rows(data,'tasks').filter(t=>t.quoteId===params.quoteId&&
+     t.customerId===customer.id&&(t.taskKind==='quotation_follow_up'||t.followupAuto===true||
+      String(t.title||'').startsWith('Follow up quote: '))&&
+     (!t.businessId||t.businessId===(context.businessId||'local-business'))&&
+     !['done','completed','cancelled','canceled'].includes(normalize(t.status)));
+    guard.push({quoteOpenFollowups:clone(open)});
+   }
    result={customerId:customer.id,quoteId:params.quoteId,method:params.method,
     outcome:params.outcome,operatorReported:true,providerVerified:false};
   }
