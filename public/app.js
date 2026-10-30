@@ -2143,6 +2143,21 @@ window.TradeFlowCalendar?.configure({
   const commands=window.TradeFlowPilot?.commands;
   if(!commands)throw Error('Authorized command runtime unavailable');
   const snapshot=await tfPilotSnapshot();
+  const cal=window.TradeFlowCalendar;
+  if(!cal?.conflicts)throw Error('Calendar conflict verification is unavailable');
+  const scope={...snapshot};
+  for(const store of ['tasks','jobs','calendarEntries'])scope[store]=(snapshot[store]||[]).map(x=>({
+   ...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'
+  }));
+  const involves=issue=>issue.a?.key==='event:'+event.id||issue.b?.key==='event:'+event.id;
+  const current=cal.conflicts(scope,{from:event.date,until:event.date}).filter(involves);
+  if(!current.length)throw Error('This event is no longer in a recorded scheduling conflict');
+  const proposed={...scope,calendarEntries:scope.calendarEntries.map(x=>
+   x.id===event.id?{...x,date,time}:x)};
+  if(cal.conflicts(proposed,{from:date,until:date}).some(involves))
+   throw Error('Replacement slot overlaps another recorded commitment. Choose a different time.');
+  const against=current.map(c=>c.a.key==='event:'+event.id?c.b:c.a);
+  const conflictNames=[...new Set(against.map(x=>String(x.title||'Other booking').slice(0,80)))].slice(0,3);
   const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
    x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
    x.actor==='local-owner'&&x.businessId==='local-business');
@@ -2160,7 +2175,7 @@ window.TradeFlowCalendar?.configure({
   if(plan.status!=='needs_review')throw Error(plan.error?.message||'Calendar event is not eligible for reschedule');
   if(!confirm('Move standalone event “'+String(event.title||event.id).slice(0,110)+
    '” from '+String(event.date)+' '+String(event.time)+' to '+date+' '+time+
-   '? This changes a local calendar booking. Linked jobs and tasks are not rescheduled; no notifications are sent.')){
+   '? Current conflict with: '+conflictNames.join('; ')+'. This changes a local calendar booking. Linked jobs and tasks are not rescheduled; no notifications are sent.')){
    await commands.reject(plan.id);return {status:'rejected'};
   }
   const approval=await commands.approve(plan.id);
