@@ -91,7 +91,11 @@
       "pattern": "payment overrecording is flagged",
       "feature": "Existing invoice / notifications",
       "originalRegisterRef": 22,
-      "mappingScope": "adjacent: payment discrepancy alerts do not integrate accounting and operations systems"
+      "mappingScope": "adjacent: local overpayment review and audited internal tasks do not integrate external accounting, verify settlement, or resolve malformed payment entries",
+      "executionTest": "tests/invoice-payment-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved internal reconciliation task for validated locally recorded payment totals above invoice balance; guarded, idempotent and recoverable with zero payment mutations",
+      "verification": "focused local Node tests passed; exact-commit CI and Chromium pending"
     },
     {
       "id": "TF-P08",

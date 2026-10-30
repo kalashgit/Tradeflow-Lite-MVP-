@@ -921,6 +921,83 @@
     req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
   });
  }
+ // TF-P07: internal reconciliation of manually recorded overpayments; no external finance writes.
+ function executeInvoicePaymentReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.invoiceId!=='string'||!payload.invoiceId||!payload.due||!validDate(payload.due)||
+   !Number.isFinite(payload.invoiceTotal)||payload.invoiceTotal<0||
+   !Number.isFinite(payload.recordedPayments)||payload.recordedPayments<=payload.invoiceTotal||
+   Object.keys(payload).some(k=>!['invoiceId','due','invoiceTotal','recordedPayments'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='invoices'&&g.ref.id===payload.invoiceId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.paymentReviewPayments)&&Array.isArray(g.paymentReviewTasks)))
+   return Promise.reject(Error('Approved payment reconciliation evidence required'));
+  const key='invoice-payment-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['invoices','payments','customers','tasks','commandLog','jobs','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Payment review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='invoice.payment_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Payment review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.invoiceId===payload.invoiceId&&t.taskKind==='invoice_payment_reconciliation'&&t.businessId===businessId);
+      if(!task)throw Error('Previous payment review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const invoice=data.invoices.find(i=>i.id===payload.invoiceId);
+     if(!invoice||invoice.businessId&&invoice.businessId!==businessId||String(invoice.status||'').toLowerCase()!=='issued')
+      throw Error('Issued invoice unavailable in this business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Invoice or linked record changed after approval');
+     }
+     const evidence=recordGuard.find(g=>Array.isArray(g.paymentReviewPayments)&&Array.isArray(g.paymentReviewTasks));
+     const payments=data.payments.filter(x=>x.invoiceId===invoice.id),tasks=data.tasks.filter(x=>x.invoiceId===invoice.id&&
+      x.taskKind==='invoice_payment_reconciliation'&&!['done','completed','cancelled','canceled'].includes(String(x.status||'').toLowerCase()));
+     if(stable(payments)!==stable(evidence.paymentReviewPayments)||stable(tasks)!==stable(evidence.paymentReviewTasks))
+      throw Error('Payment records or review tasks changed after approval');
+     const customer=data.customers.find(x=>x.id===invoice.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)throw Error('Invoice customer unavailable in business');
+     if(!Array.isArray(invoice.lines)||!invoice.lines.length||invoice.currency&&invoice.currency!=='USD'||
+      invoice.lines.some(x=>!Number.isFinite(Number(x.qty))||Number(x.qty)<=0||!Number.isFinite(Number(x.unitPrice))||Number(x.unitPrice)<0)||
+      !Number.isFinite(Number(invoice.taxRate||0))||Number(invoice.taxRate||0)<0||Number(invoice.taxRate||0)>100)
+      throw Error('Invoice terms incomplete');
+     if(!payments.length||payments.some(x=>typeof x.amount!=='number'||!Number.isFinite(x.amount)||x.amount<0||
+      x.businessId&&x.businessId!==businessId||x.customerId&&x.customerId!==invoice.customerId||x.currency&&x.currency!=='USD'))
+      throw Error('Payment entries cannot be reconciled');
+     const subtotal=invoice.lines.reduce((n,x)=>n+Math.round(Number(x.qty)*Math.round(Number(x.unitPrice)*100)),0);
+     const total=subtotal+Math.round(subtotal*Number(invoice.taxRate||0)/100);
+     const paid=payments.reduce((n,x)=>n+Math.round(x.amount*100),0);
+     if(paid<=total||total/100!==payload.invoiceTotal||paid/100!==payload.recordedPayments)
+      throw Error('Recorded overpayment differs from approved evidence');
+     if(tasks.length>1||tasks.some(x=>x.businessId!==businessId))throw Error('Ambiguous payment review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Payment review task ID collision');
+      const task={id,invoiceId:invoice.id,customerId:invoice.customerId,jobId:invoice.jobId||'',businessId,
+       taskKind:'invoice_payment_reconciliation',title:'Reconcile recorded invoice payments: '+String(invoice.reference||invoice.id).slice(0,90),
+       due:payload.due,status:'Open',paymentEvidence:{invoiceTotal:total/100,recordedPayments:paid/100,
+        discrepancy:(paid-total)/100,paymentIds:payments.map(x=>x.id),currency:'USD',manualEntries:true,
+        externalAccountingVerified:false,settlementVerified:false},createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'invoice.payment_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,invoiceId:invoice.id,createdAt:when,result,externalAccountingVerified:false,settlementVerified:false});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
@@ -930,6 +1007,7 @@
   if(kind==='job.change_order.authorization.record')return executeChangeOrderAuthorization(args);
   if(kind==='job.cost_review.schedule')return executeJobCostReview(args);
   if(kind==='job.labor_review.schedule')return executeJobLaborReview(args);
+  if(kind==='invoice.payment_review.schedule')return executeInvoicePaymentReview(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);

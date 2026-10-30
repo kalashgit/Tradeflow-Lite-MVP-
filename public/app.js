@@ -930,6 +930,8 @@ function tfRecordDetailView(d,record,type){
   if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.category==='Labor'&&c.type==='estimate'))
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobLaborReview" data-id="'+esc(record.id)+'">Review recorded labor-hour variance</button>';
  }
+ if(type==='invoices'&&record.status==='Issued'&&(d.payments||[]).some(p=>p.invoiceId===record.id))
+  sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfInvoicePaymentReview" data-id="'+esc(record.id)+'">Review recorded invoice payment discrepancy</button>';
  if(type==='jobs'&&record.status==='Completed'&&!(d.invoices||[]).some(i=>i.jobId===record.id&&i.status!=='Void'))sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobInvoiceDraft" data-id="'+esc(record.id)+'">Prepare invoice draft for completed job</button>';
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
  sections+=tfRecordPhotoSection(record,type);if(!tfSafeImage(record.photoData))sections+='<button type="button" class="tf-record-attach-btn" data-action="tfPhotoStart" data-target="'+type+'" data-id="'+esc(record.id)+'">'+tfRecordIcon('camera',19)+' Add photo from camera or gallery</button>';
@@ -1231,6 +1233,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   const job=await get('jobs',el.dataset.id);
   const result=job?await tfReviewJobLabor(job):null;
   if(result?.status==='succeeded'){await render();notify('Internal labor-hour variance review saved. Timesheets and payroll remain unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfInvoicePaymentReview'){
+  const invoice=await get('invoices',el.dataset.id);
+  const result=invoice?await tfReviewInvoicePayments(invoice):null;
+  if(result?.status==='succeeded'){await render();notify('Internal invoice payment reconciliation task saved. Bank settlement and accounting remain unverified.');}
   return;
  }
  if(el.dataset.action==='tfQuoteReuse'){
@@ -1977,7 +1985,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2285,6 +2293,36 @@ async function tfReviewJobLabor(job){
  if(approval.status!=='approved'){notify(approval.error?.message||'Labor evidence changed; review again');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Labor review requires inspection');
+ return result;
+}
+async function tfReviewInvoicePayments(invoice){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='invoice.payment_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===invoice.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier payment review has uncertain execution. Inspect task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'invoice.payment_review.schedule',params:{ref:{store:'invoices',id:invoice.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Payment records require manual verification');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal reconciliation for invoice “'+String(invoice.reference||invoice.id).slice(0,100)+'”? Invoice $'+
+  evidence.invoiceTotal.toFixed(2)+', manually recorded payments $'+evidence.recordedPayments.toFixed(2)+
+  '. These are NOT verified bank settlements or synchronized accounting records. No payments will be changed.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Payment evidence changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Payment review requires inspection');
  return result;
 }
 async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){

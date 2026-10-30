@@ -165,6 +165,31 @@ async function verifyJobLaborReviewJourney(page,result){
  data=await read();assert.equal(data.tasks.filter(t=>t.taskKind==='job_labor_variance_review').length,1);
  result.laborReviewPersistedAfterReload=true;
 }
+async function verifyInvoicePaymentReviewJourney(page,result){
+ result.stage='payment discrepancy: owner approval';
+ const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+ const button=page.locator('[data-action="tfInvoicePaymentReview"][data-id="i1"]');
+ await button.waitFor({timeout:15000});await button.click();
+ await page.getByText('Internal invoice payment reconciliation task saved.',{exact:false}).waitFor({timeout:15000});
+ const read=()=>page.evaluate(async()=>{
+  const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+  const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','payments','commandLog']);db.close();return data;
+ });
+ result.stage='payment discrepancy: persisted evidence';
+ let data=await read(),tasks=data.tasks.filter(t=>t.taskKind==='invoice_payment_reconciliation');
+ assert.equal(tasks.length,1);assert.equal(tasks[0].paymentEvidence.invoiceTotal,100);
+ assert.equal(tasks[0].paymentEvidence.recordedPayments,150);
+ assert.equal(tasks[0].paymentEvidence.externalAccountingVerified,false);
+ assert.equal(tasks[0].paymentEvidence.settlementVerified,false);
+ assert.equal(data.payments.find(p=>p.id==='p1').amount,150);
+ assert.equal(data.commandLog.filter(x=>x.kind==='invoice.payment_review.schedule').length,1);
+ assert.ok(dialogs.some(x=>x.includes('NOT verified bank settlements')));
+ result.ownerApprovedPaymentReview=true;
+ result.stage='payment discrepancy: reload';
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ data=await read();assert.equal(data.tasks.filter(t=>t.taskKind==='invoice_payment_reconciliation').length,1);
+ result.paymentReviewPersistedAfterReload=true;
+}
 async function verifyQuoteFollowupJourney(page,result){
  const dialogs=[],browserErrors=[];
  page.on('pageerror',error=>browserErrors.push('pageerror: '+error.message));
@@ -430,6 +455,12 @@ async function verifyCalendarConflictJourney(page,result){
      result.notificationCleared=true;
     }else if(item.id==='TF-P06'){
      await verifyJobLaborReviewJourney(page,result);
+     await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+     await page.locator('[data-notif-action="toggle"]').click();
+     assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
+     result.notificationCleared=true;
+    }else if(item.id==='TF-P07'){
+     await verifyInvoicePaymentReviewJourney(page,result);
      await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
