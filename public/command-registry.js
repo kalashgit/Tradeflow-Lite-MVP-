@@ -485,6 +485,8 @@ function createRuntime(options){
  }
  async function approve(id){
   const c=await ctx(),row=await ledger.get(id);if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Prepare the command before approval.');
+  if(!definition(row.commandId)||row.permission!==definition(row.commandId).permission||row.effect!==definition(row.commandId).effect||row.approval!==definition(row.commandId).approval)
+   return {id,status:'denied',error:{code:'COMMAND_CONTRACT_MISMATCH',message:'Saved command cannot be approved under a different capability.'}};
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))return {status:'denied',error:{code:'PERMISSION_DENIED',message:'Approval requires the same authorized actor and business.'}};
   if(row.status!=='needs_review')return publicPlan(row);
   const fresh=resolve({commandId:row.commandId,params:row.params},await snapshot(),c);
@@ -548,6 +550,8 @@ function createRuntime(options){
  async function reconcile(id){
   const c=await ctx(),row=await ledger.get(id);
   if(!row||row.kind!=='pilot.command')return problem('UNKNOWN_REQUEST','Command request not found.');
+  if(!definition(row.commandId)||row.permission!==definition(row.commandId).permission||row.effect!==definition(row.commandId).effect||row.approval!==definition(row.commandId).approval)
+   return {id,status:'denied',error:{code:'COMMAND_CONTRACT_MISMATCH',message:'Recovery requires a registered unmodified command capability.'}};
   if(row.actor!==c.actor||row.businessId!==c.businessId||!await can(row.permission,c))
    return {id,status:'denied',error:{code:'PERMISSION_DENIED',message:'Recovery requires the original authorized actor and business.'}};
   if(row.commandId==='customer.economics_review.schedule'){

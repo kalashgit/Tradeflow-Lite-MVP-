@@ -81,3 +81,28 @@ test('read-only operational review never calls the modification port',async()=>{
  assert.equal(result.status,'succeeded');assert.equal(result.result.readOnly,true);
  assert.equal(f.calls(),0);assert.equal((await snapshot(f.db)).quotes.length,1);
 });
+
+test('altered stored permission cannot approve a modification with read-only capability',async()=>{
+ const f=fixture(),a=f.runtime(),p=await a.prepare(request);
+ await f.ledger.transition(p.id,['needs_review'],{type:'corrupted',actor:'unknown'},{permission:'read'});
+ const result=await a.approve(p.id);
+ assert.equal(result.status,'denied');assert.equal(result.error.code,'COMMAND_CONTRACT_MISMATCH');
+ assert.equal(f.calls(),0);assert.equal((await snapshot(f.db)).quotes.length,1);
+});
+test('interrupted command with altered permission contract cannot be reconciled',async()=>{
+ const f=fixture(),a=f.runtime(),p=await a.prepare(request);await a.approve(p.id);
+ await f.ledger.transition(p.id,['approved'],{type:'executing',actor:'local-owner'},{status:'executing',permission:'read'});
+ const result=await a.reconcile(p.id);
+ assert.equal(result.status,'denied');assert.equal(result.error.code,'COMMAND_CONTRACT_MISMATCH');
+ assert.equal(f.calls(),0);
+});
+test('request-key binding rejects changed source revision instead of replacing prior review',async()=>{
+ const f=fixture(),a=f.runtime(),p=await a.prepare(request,{requestKey:'bound-key'});
+ assert.equal(p.status,'needs_review');
+ await put(f.db,'quotes',{...source,amount:'1300'});
+ const changed=await a.prepare(request,{requestKey:'bound-key'});
+ assert.equal(changed.status,'invalid');assert.equal(changed.error.code,'AUDIT_OR_KEY_ERROR');
+ const records=await snapshot(f.db);
+ assert.equal(records.commandLog.filter(x=>x.id===p.id).length,1);
+ assert.equal(records.quotes.length,1);
+});
