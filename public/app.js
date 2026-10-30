@@ -1031,6 +1031,21 @@ document.addEventListener('submit',async function(e){
  try{
   const commands=window.TradeFlowPilot?.commands;
   if(!commands)throw Error('Authorized command runtime unavailable');
+  const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(row=>row.kind==='pilot.command'&&
+   row.commandId==='customer.contact.record'&&row.status==='executing'&&
+   row.params?.ref?.store==='customers'&&row.params.ref.id===customerId&&
+   (row.params.quoteId||'')===quoteId&&row.actor==='local-owner'&&
+   row.businessId==='local-business');
+  if(interrupted.length){
+   for(const previous of interrupted){
+    const verified=await commands.reconcile(previous.id);
+    if(verified.status!=='succeeded')
+     throw Error('Earlier customer contact is unresolved. Review the contact and audit history before retrying.');
+   }
+   await notify('Earlier contact outcome verified after interruption. No duplicate contact was recorded.');
+   return;
+  }
   const plan=await commands.prepare({commandId:'customer.contact.record',
    params:{ref:{store:'customers',id:customerId},quoteId,method,notes,outcome:contactOutcome}});
   if(plan.status!=='needs_review')throw Error(plan.error?.message||'Contact record requires fresh review');
