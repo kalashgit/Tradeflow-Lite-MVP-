@@ -51,7 +51,7 @@ test('foreign customer, mismatched quote and invalid form data never write conta
  await assert.rejects(core.execute({...x.request,payload:{...x.request.payload,method:'SMS'}}),/Valid manually/);
  await assert.rejects(core.execute({...x.request,payload:{...x.request.payload,notes:'x'}}),/Valid manually/);
  await put(x.db,'quotes',{id:'q1',customerId:'another',status:'Sent',businessId:'local-business'});
- await assert.rejects(core.execute(x.request),/no longer belongs/);
+ await assert.rejects(core.execute(x.request),/approval is stale|no longer belongs/);
  const state=await snapshot(x.db);
  assert.equal(state.events.length,0);
  assert.equal(state.commandLog.length,0);
