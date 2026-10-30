@@ -307,7 +307,8 @@
      if(!quote)throw Error('Quotation changed since approval; review again');
      if(quote.businessId&&quote.businessId!==businessId)
       throw Error('Quotation belongs to another business');
-     if(String(quote.status||'').toLowerCase()!=='sent'||!quote.customerId)
+     if(String(quote.status||'').toLowerCase()!=='sent'||!quote.customerId||
+      quote.followupResolution?.status==='owner_attested_reached')
       throw Error('Only sent quotations with customers can be followed up');
      if(recordGuard.some(g=>g.ref.store==='customers'&&g.ref.id!==quote.customerId))
       throw Error('Approved customer guard does not match the quotation customer');
@@ -316,6 +317,9 @@
       throw Error('Quotation customer unavailable in this business');
      const existing=data.tasks.filter(t=>t.quoteId===quote.id&&(t.taskKind==='quotation_follow_up'||t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '))&&
       !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(existing.length>1||existing.some(t=>t.customerId!==quote.customerId||
+      t.businessId&&t.businessId!==businessId))
+      throw Error('Ambiguous or cross-business quotation follow-up requires owner review');
      if(existing.length){
       result={id:existing[0].id,reused:true,commandKey:key};
       tx.objectStore('commandLog').put({id:key,kind:'quotation.followup.schedule',
@@ -327,7 +331,7 @@
      if(!id||data.tasks.some(t=>t.id===id))throw Error('Follow-up task identifier collision');
      const title='Follow up quotation: '+String(quote.title||quote.id).slice(0,120);
      const task={id,title,due:payload.due,quoteId:quote.id,customerId:quote.customerId,
-      taskKind:'quotation_follow_up',status:'Open',businessId,updatedAt:when};
+      taskKind:'quotation_follow_up',status:'Open',businessId,createdAt:when,updatedAt:when};
      tx.objectStore('tasks').put(task);
      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
      tx.objectStore('commandLog').put({id:key,kind:'quotation.followup.schedule',
