@@ -18,13 +18,18 @@ export function advisoryServerConfig(env={}){
  return Object.freeze({enabled:true,provider:'mock'});
 }
 
-export async function requestServerAdvisory({env,context,principal,intent,transport}={}){
+export async function requestServerAdvisory({env,context,principal,intent,transport,authorize}={}){
  const config=advisoryServerConfig(env);
  if(!config.enabled)throw new AdvisoryProviderError('External advisory is disabled');
  if(typeof intent!=='string'||!Object.hasOwn(INTENTS,intent))
   throw new AdvisoryProviderError('Unsupported advisory intent','invalid_intent');
  if(!principal||context?.identity?.issuer!==principal.issuer||context?.identity?.subject!==principal.subject)
   throw new AdvisoryProviderError('Advisory principal mismatch','invalid_context');
- // A mock-only request is still evidence-only and carries no execution rights.
- return requestAdvisory({context,question:INTENTS[intent],enabled:true,transport});
+ if(typeof authorize!=='function') throw new AdvisoryProviderError('Server authorization required','authorization_required');
+ const requestInfo=Object.freeze({businessId:context.businessId,principal:Object.freeze({issuer:principal.issuer,subject:principal.subject}),scope:Object.freeze(context.scope?.jobId?{jobId:context.scope.jobId}:{company:true}),purpose:'read_only_advisory'});
+ const ensureAuthorized=async()=>{let ok=false;try{ok=await authorize(requestInfo)}catch{}if(ok!==true)throw new AdvisoryProviderError('Advisory authorization unavailable','authorization_denied')};
+ await ensureAuthorized();
+ const result=await requestAdvisory({context,question:INTENTS[intent],enabled:true,transport});
+ await ensureAuthorized();
+ return result;
 }
