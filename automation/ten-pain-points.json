@@ -103,7 +103,12 @@
       "test": "tests/optimization-bid-readiness.test.cjs",
       "pattern": "pursued bids require explicit",
       "feature": "Existing opportunity dossier",
-      "originalRegisterRef": 4
+      "originalRegisterRef": 4,
+      "mappingScope": "partial: operator-recorded invitation, scope and capacity checks plus internal review do not independently qualify bids or predict win rates",
+      "executionTest": "tests/bid-qualification-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-reviewed internal bid qualification task bound to opportunity revision and open-task snapshot; audit receipt, no submission, duplicate prevention and nonreplaying recovery",
+      "verification": "local focused tests passed; exact-commit CI and Chromium pending"
     },
     {
       "id": "TF-P09",

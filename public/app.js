@@ -1233,6 +1233,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   if(result?.status==='succeeded'){await render();notify('Internal labor-hour variance review saved. Timesheets and payroll remain unverified.');}
   return;
  }
+ if(el.dataset.action==='tfBidQualificationReview'){
+  const opportunity=await get('opportunities',el.dataset.id);
+  const result=opportunity?await tfReviewBidQualification(opportunity):null;
+  if(result?.status==='succeeded'){await render();notify('Internal bid qualification task saved. No bid was submitted or customer commitment created.');}
+  return;
+ }
  if(el.dataset.action==='tfQuoteReuse'){
    const source=await get('quotes',el.dataset.id);
    if(!source)return;
@@ -1977,7 +1983,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2315,6 +2321,35 @@ async function tfReviewInvoicePayments(invoice){
  if(approval.status!=='approved'){notify(approval.error?.message||'Payment evidence changed; review again');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Payment review requires inspection');
+ return result;
+}
+async function tfReviewBidQualification(opportunity){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='opportunity.bid_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===opportunity.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier bid review has uncertain execution. Inspect task and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'opportunity.bid_review.schedule',params:{ref:{store:'opportunities',id:opportunity.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Bid readiness requires a new review');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal bid-qualification review for “'+String(opportunity.project_name||opportunity.id).slice(0,100)+'”? Invitation: '+
+  evidence.invitation+'; scope: '+evidence.scope+'; crew capacity: '+evidence.capacity+
+  '. Entries are operator-reported and NOT independently verified. No bid is submitted or external message sent.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Opportunity changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Bid review requires inspection');
  return result;
 }
 async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){

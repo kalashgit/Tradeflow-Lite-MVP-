@@ -998,6 +998,74 @@
     req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
   });
  }
+ // TF-P08: schedule deterministic internal qualification, not a bid or customer commitment.
+ function executeBidQualificationReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.opportunityId!=='string'||!payload.opportunityId||!payload.due||!validDate(payload.due)||
+   Object.keys(payload).some(k=>!['opportunityId','due','invitation','scope','capacity'].includes(k))||
+   ['invitation','scope','capacity'].some(k=>!['Yes','No','Unknown',''].includes(payload[k]))||
+   !['invitation','scope','capacity'].some(k=>payload[k]!=='Yes')||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='opportunities'&&g.ref.id===payload.opportunityId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.bidReviewTasks)))
+   return Promise.reject(Error('Explicit approved bid qualification review required'));
+  const key='bid-qualification-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['opportunities','tasks','commandLog','customers','jobs','quotes'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Bid review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='opportunity.bid_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Bid review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.opportunityId===payload.opportunityId&&t.taskKind==='bid_qualification_review'&&t.businessId===businessId);
+      if(!task)throw Error('Previous bid review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const opportunity=data.opportunities.find(x=>x.id===payload.opportunityId);
+     if(!opportunity||opportunity.businessId&&opportunity.businessId!==businessId||
+      String(opportunity.bid_decision||'').toLowerCase()!=='pursue'||
+      ['won','lost','closed','declined'].includes(String(opportunity.status||'').toLowerCase()))
+      throw Error('Pursued opportunity unavailable in business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Opportunity or linked record changed after approval');
+     }
+     const checks=['bidInvitationVerified','bidScopeReviewed','bidCapacityChecked'];
+     if(checks.some((k,i)=>String(opportunity[k]||'Unknown')!==payload[['invitation','scope','capacity'][i]]))
+      throw Error('Bid readiness evidence changed');
+     const tasks=data.tasks.filter(t=>t.opportunityId===opportunity.id&&t.taskKind==='bid_qualification_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     const guard=recordGuard.find(g=>Array.isArray(g.bidReviewTasks));
+     if(stable(tasks)!==stable(guard.bidReviewTasks)||tasks.length>1||tasks.some(t=>t.businessId!==businessId))
+      throw Error('Bid review tasks changed or ambiguous');
+     if(checks.every(k=>String(opportunity[k]||'').toLowerCase()==='yes'))throw Error('Bid readiness checks are already complete');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Bid review task ID collision');
+      const task={id,opportunityId:opportunity.id,businessId,taskKind:'bid_qualification_review',status:'Open',
+       title:'Qualify pursued bid: '+String(opportunity.project_name||opportunity.organization_name||opportunity.id).slice(0,100),due:payload.due,
+       qualificationEvidence:{invitation:payload.invitation,scope:payload.scope,capacity:payload.capacity,
+        operatorRecorded:true,independentlyVerified:false,bidSubmitted:false,customerCommitmentCreated:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'opportunity.bid_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,opportunityId:opportunity.id,createdAt:when,result,bidSubmitted:false});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
@@ -1008,6 +1076,7 @@
   if(kind==='job.cost_review.schedule')return executeJobCostReview(args);
   if(kind==='job.labor_review.schedule')return executeJobLaborReview(args);
   if(kind==='invoice.payment_review.schedule')return executeInvoicePaymentReview(args);
+  if(kind==='opportunity.bid_review.schedule')return executeBidQualificationReview(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);
