@@ -8,7 +8,19 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "completion, future dates, invalid dates and confirmed handoffs",
       "feature": "Existing operational intelligence / notifications",
-      "originalRegisterRef": 2
+      "originalRegisterRef": 2,
+      "executionTest": "tests/quotation-followup-execution.test.cjs",
+      "contactResolutionTest": "tests/quotation-contact-recording.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "Owner-reviewed quote follow-up task and contact attempt/reached outcome; quote-linked task closure and audit commit; no external send",
+      "resolutionCriterion": "Only an owner-attested reached contact with linked evidence closes open follow-up tasks; attempted contact records activity but does not close tasks; provider delivery remains unverified",
+      "verification": "33/33 exact-GitHub-source tests passed in an isolated JavaScript host with Node API shims; full Node, real IndexedDB, Playwright and real contractor outcome remain unverified",
+      "gates": {
+        "code": "pending_exact_head_Node_and_browser_CI",
+        "product": "pending_actual_GUI_acceptance",
+        "operations": "pending_owner_auth_and_recovery_on_real_device",
+        "outcome": "pending_contractor_evidence"
+      }
     },
     {
       "id": "TF-P02",
