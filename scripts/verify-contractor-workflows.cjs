@@ -50,6 +50,7 @@ async function verifyQuoteFollowupJourney(page,result){
   }
   window.TradeFlowPilot={...old,commands:wrapped};
  });
+ result.stage='owner-reviewed quotation follow-up';
  const review=page.locator('[data-action="tfQuoteFollowupReview"][data-id="q1"]');
  await review.waitFor();
  const ownerConfirmation=page.waitForEvent('dialog',{timeout:15000}).then(async dialog=>{
@@ -78,15 +79,18 @@ async function verifyQuoteFollowupJourney(page,result){
  assert.equal(state.commandLog.filter(x=>x.kind==='quotation.followup.schedule').length,1);
  assert.ok(dialogs.some(x=>x.includes('does not contact the customer')));
  result.ownerApprovalCreatedTask=true;
+ result.stage='reload and reopen quotation';
  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
  await page.evaluate(async()=>{
   const commands=window.TradeFlowPilot.commands;
   const p=await commands.prepare({commandId:'record.open',params:{ref:{store:'quotes',id:'q1'}}});
   const out=await commands.execute(p.id);if(out.status!=='succeeded')throw Error('Cannot open quotation after reload');
  });
+ result.stage='open linked customer contact form';
  await page.locator('[data-action="tfQuoteContactOutcome"][data-id="q1"]').click();
  const form=page.locator('#tfContactLogForm');await form.waitFor();
  assert.equal(await form.locator('[name="quoteId"]').inputValue(),'q1','Quote must be preselected');
+ result.stage='save attempted customer contact';
  await form.locator('[name="method"]').selectOption('Phone');
  await form.locator('[name="outcome"]').selectOption('attempted');
  await form.locator('[name="notes"]').fill('Called and left no message; customer did not answer');
@@ -96,6 +100,7 @@ async function verifyQuoteFollowupJourney(page,result){
  assert.equal(state.tasks.filter(t=>t.quoteId==='q1'&&t.status==='Open').length,1);
  assert.equal(state.events.filter(x=>x.quoteId==='q1'&&x.outcome==='attempted').length,1);
  assert.equal(state.quotes.find(x=>x.id==='q1').lastContactAt,undefined);
+ result.stage='save owner-attested reached contact';
  await page.locator('#tfContactLogForm [name="quoteId"]').selectOption('q1');
  await page.locator('#tfContactLogForm [name="outcome"]').selectOption('reached');
  await page.locator('#tfContactLogForm [name="notes"]').fill('Spoke directly with the customer and confirmed the estimate discussion');
@@ -112,6 +117,7 @@ async function verifyQuoteFollowupJourney(page,result){
  assert.equal(state.commandLog.filter(x=>x.kind==='domain.event'&&x.type==='task.completed').length,1);
  result.ownerAttestedResolutionPersisted=true;
  result.providerDeliveryVerified=false;
+ result.stage='reload resolved quotation and task';
  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
  const persistent=await snapshot();
  assert.equal(persistent.tasks.find(x=>x.id===task.id).status,'Done');
@@ -154,7 +160,7 @@ async function verifyQuoteFollowupJourney(page,result){
     await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'.png')});
    }
    result.status='pass';
-  }catch(error){result.status='fail';result.error=error.message;await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'-failure.png')}).catch(()=>{})}
+  }catch(error){result.status='fail';result.error=(result.stage||'scenario setup')+': '+error.message;await page.screenshot({path:path.join(out,item.id+'-'+viewport.width+'-failure.png')}).catch(()=>{})}
   finally{results.push(result);await context.close();fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({commit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),kind:'synthetic-browser-product-check',dirty:!!cp.execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim(),results,painPointsRetired:0},null,2))}
  }}finally{await browser.close();await new Promise(r=>server.close(r))}
  const failed=results.filter(r=>r.status==='fail');for(const row of failed)console.error(row.id+' '+row.viewport.width+': '+row.error);console.log(results.length-failed.length+'/'+results.length+' Chromium workflow scenarios passed; contractor outcomes unverified.');if(failed.length)process.exitCode=1;
