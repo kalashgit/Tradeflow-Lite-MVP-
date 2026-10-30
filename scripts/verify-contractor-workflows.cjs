@@ -32,6 +32,24 @@ async function verifyQuoteFollowupJourney(page,result){
   const data=await window.TradeFlowLocalRecovery.readStores(db,['quotes','customers','tasks','events','commandLog']);
   db.close();return data;
  });
+ await page.evaluate(()=>{
+  window.__tfP01Trace=[];
+  const old=window.TradeFlowPilot,real=old.commands,wrapped={...real};
+  for(const key of ['prepare','approve','execute','reject','reconcile']){
+   const fn=real[key];if(typeof fn!=='function')continue;
+   wrapped[key]=async(...args)=>{
+    window.__tfP01Trace.push({method:key,phase:'start',id:typeof args[0]==='string'?args[0]:undefined});
+    try{const result=await fn(...args);
+     window.__tfP01Trace.push({method:key,phase:'result',status:result?.status,
+      code:result?.error?.code,message:result?.error?.message});
+     return result
+    }catch(error){
+     window.__tfP01Trace.push({method:key,phase:'throw',error:String(error)});throw error;
+    }
+   };
+  }
+  window.TradeFlowPilot={...old,commands:wrapped};
+ });
  const review=page.locator('[data-action="tfQuoteFollowupReview"][data-id="q1"]');
  await review.waitFor();
  const ownerConfirmation=page.waitForEvent('dialog',{timeout:15000}).then(async dialog=>{
@@ -51,7 +69,7 @@ async function verifyQuoteFollowupJourney(page,result){
     error:x.error,lastEvent:x.events?.at(-1),result:x.result})).slice(-8);
   const visible=await page.locator('body').innerText();
   throw Error('Owner review did not persist one internal follow-up: '+
-   JSON.stringify({count:linked.length,recent,dialogs,browserErrors,
+   JSON.stringify({count:linked.length,recent,dialogs,browserErrors,trace:await page.evaluate(()=>window.__tfP01Trace||[]),
     
     visibleTail:visible.slice(-1200)}));
  }
