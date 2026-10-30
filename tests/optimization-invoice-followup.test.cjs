@@ -30,7 +30,7 @@ test('overdue invoice action routes to owner-reviewed command adapter, never wri
  await b.click();
  assert.equal(b.reviewCalls.length,1);
  assert.equal(b.reviewCalls[0].invoiceId,'i1');
- assert.match(b.reviewCalls[0].due,/^\\d{4}-\\d{2}-\\d{2}$/);
+ assert.match(b.reviewCalls[0].due,/^\d{4}-\d{2}-\d{2}$/);
  assert.equal(b.all.tasks.length,0,'Only approved transactional core may create a task');
  assert.equal(b.writes,0);
  assert.match(b.notifications.join(' '),/No message was sent/);
