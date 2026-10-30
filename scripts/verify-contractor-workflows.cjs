@@ -195,6 +195,74 @@ async function verifyQuoteFollowupJourney(page,result){
  result.recoveryAfterReload=true;
  result.quoteNotificationMustNotBeClaimedResolvedByTaskOnly=true;
 }
+
+async function committed(page,stores){
+ return page.evaluate(async names=>{
+  const q=indexedDB.open('tradeflow-lite-v1',9);
+  const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+  try{return await window.TradeFlowLocalRecovery.readStores(db,names)}
+  finally{db.close()}
+ },stores);
+}
+async function verifyInvoiceFollowupJourney(page,result){
+ result.stage='review actual overdue invoice follow-up';
+ const button=page.locator('[data-revenue-action="followup"][data-id="i1"]');
+ await button.waitFor();
+ const approval=page.waitForEvent('dialog',{timeout:15000}).then(async dialog=>{
+  assert.match(dialog.message(),/internal task for overdue invoice/);
+  assert.match(dialog.message(),/No email or payment request/);
+  await dialog.accept();
+ });
+ await button.click();await approval;
+ await page.getByText('Internal invoice follow-up task recorded',{exact:false}).waitFor({timeout:20000});
+ const data=await committed(page,['invoices','payments','tasks','commandLog']);
+ const related=data.tasks.filter(t=>t.invoiceId==='i1'&&t.taskKind==='invoice_follow_up');
+ assert.equal(related.length,1,'One approved overdue invoice follow-up task required');
+ assert.equal(related[0].status,'Open');
+ assert.equal(data.payments.length,1);assert.equal(data.payments[0].amount,30);
+ assert.equal(data.commandLog.filter(x=>x.kind==='invoice.followup.schedule').length,1);
+ assert.equal(data.commandLog.filter(x=>x.kind==='domain.event'&&x.type==='task.created'&&
+  x.ref.id===related[0].id).length,1);
+ result.invoiceOwnerApprovedTask=true;
+ result.externalPaymentOrEmailSent=false;
+ result.stage='reload approved invoice follow-up';
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ const after=await committed(page,['tasks','invoices','payments']);
+ assert.equal(after.tasks.filter(t=>t.invoiceId==='i1'&&t.taskKind==='invoice_follow_up').length,1);
+ result.invoiceFollowupRecoveredAfterReload=true;
+}
+async function verifyCalendarConflictJourney(page,result){
+ result.stage='review standalone calendar overlap';
+ const button=page.locator('[data-calendar-action="resolve-conflict"][data-id="event-a"]');
+ await button.waitFor();
+ const dialogs=(async()=>{
+  const date=await page.waitForEvent('dialog',{timeout:15000});
+  assert.equal(date.type(),'prompt');assert.match(date.message(),/New date/);
+  await date.accept('2026-10-29');
+  const start=await page.waitForEvent('dialog',{timeout:15000});
+  assert.equal(start.type(),'prompt');assert.match(start.message(),/New start time/);
+  await start.accept('13:00');
+  const confirm=await page.waitForEvent('dialog',{timeout:15000});
+  assert.equal(confirm.type(),'confirm');assert.match(confirm.message(),/standalone event/);
+  await confirm.accept();
+ })();
+ await button.click();await dialogs;
+ await page.getByText('Calendar reschedule verified and recorded',{exact:false}).waitFor({timeout:20000});
+ const state=await committed(page,['calendarEntries','calendarAudit','commandLog','tasks','jobs']);
+ assert.equal(state.calendarEntries.find(x=>x.id==='event-a').time,'13:00');
+ assert.equal(state.calendarEntries.find(x=>x.id==='event-b').time,'09:30');
+ assert.equal(state.calendarAudit.filter(x=>x.kind==='calendar.conflict.rescheduled').length,1);
+ assert.equal(state.commandLog.filter(x=>x.kind==='calendar.conflict.reschedule').length,1);
+ assert.equal(state.commandLog.filter(x=>x.kind==='domain.event'&&x.type==='calendar.updated').length,1);
+ assert.equal(state.tasks.length,0,'No crew or linked task may be silently rescheduled');
+ result.standaloneEventRescheduledWithApproval=true;
+ result.stage='reload verified calendar move';
+ await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+ const after=await committed(page,['calendarEntries']);
+ assert.equal(after.calendarEntries.find(x=>x.id==='event-a').time,'13:00');
+ result.calendarMoveRecoveredAfterReload=true;
+}
+
 (async()=>{
  await new Promise(r=>server.listen(4193,'127.0.0.1',r));const browser=await chromium.launch({args:['--no-sandbox']}),results=[];
  try{for(const viewport of [{width:390,height:844},{width:1280,height:900}])for(const item of cases){
