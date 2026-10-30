@@ -11,7 +11,7 @@ function fixture(){
  const state={role:'owner',active:true,job:true,revision:2,deleted:false,reads:0,jobReads:0,fail:false};
  const db={prepare(sql){assert.match(sql,/^SELECT/);return {bind(...args){return {async first(){
   if(state.fail)throw Error('SECRET DATABASE CONNECTION');
-  if(sql.includes('FROM business_memberships')){
+  if(sql.startsWith('SELECT role FROM business_memberships')){
    state.reads++;assert.deepEqual(args,['business_001','issuer.example','owner_001','active']);
    return state.active?{role:state.role}:null;
   }
