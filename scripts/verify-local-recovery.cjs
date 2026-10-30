@@ -51,11 +51,12 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   });
   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery);
   const queueResult=await page.evaluate(async()=>{
-   const {createSyncQueue}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const {createSyncQueue,summarizeSyncIntents}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
    const queue=createSyncQueue({db,businessId:'business_001',session:async()=>({status:'signed_out'}),transport:{read:async()=>{throw Error('Must not send')},write:async()=>{throw Error('Must not send')}}});
-   const rows=await queue.list(),drained=await queue.drain();db.close();return {rows:rows.length,status:drained.status};
+   const rows=await queue.list(),drained=await queue.drain(),projection=summarizeSyncIntents(rows,'business_001');db.close();
+   return {rows:rows.length,status:drained.status,projected:projection.items.map(r=>r.state),externalCommitted:projection.items.some(r=>r.externalCommitted)};
   });
-  assert.equal(queueResult.rows,1);assert.equal(queueResult.status,'authorization_required');
+  assert.equal(queueResult.rows,1);assert.equal(queueResult.status,'authorization_required');assert.deepEqual(queueResult.projected,['queued_local']);assert.equal(queueResult.externalCommitted,false,'Offline action is not externally committed');
   await page.screenshot({path:path.join(out,'offline-'+viewport.width+'.png')});
   await page.evaluate(async()=>{const c=window.TradeFlowPilot.commands,p=await c.prepare('open settings');const r=await c.execute(p.id);if(r.status!=='succeeded')throw Error('Settings failed')});
   const account=page.locator('[data-action="settingsPanel"][data-panel="account"]');
@@ -63,7 +64,7 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   await account.click();await page.waitForFunction(()=>{const el=document.querySelector('[data-account-status]');return el&&!el.textContent.includes('Checking')});
   assert.equal(await page.locator('a[href="/api/v1/session/login"]').count(),1);
   await page.screenshot({path:path.join(out,'account-offline-'+viewport.width+'.png')});
-  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,accountLabelLayout:true,offlineAccountStatus:true,dialogs},null,2));
+  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,offlineSyncState:'queued_local',cloudCommitVerified:false,accountLabelLayout:true,offlineAccountStatus:true,dialogs},null,2));
   await context.close();
  }}finally{await browser.close();await new Promise(r=>server.close(r))}
  console.log('PASS: mobile and desktop real UI restore, recovery after reload, linked records and offline reload');
