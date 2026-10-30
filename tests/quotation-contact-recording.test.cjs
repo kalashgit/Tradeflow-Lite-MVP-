@@ -160,3 +160,77 @@ test('approved contact recording refuses changed customer or quote before commit
   payload:{customerId:'c1',quoteId:'q1',method:'Phone',notes:'Spoke to owner',outcome:'reached'}}),/approval is stale/);
  assert.equal((await snapshot(db)).events.length,0);
 });
+
+test('TF-P01 full lifecycle: approved quote task, attempted contact, reached contact, audit and no post-resolution task',async()=>{
+ const {db}=setup(),ctx={actor:'local-owner',businessId:'local-business',today:'2026-10-29'};
+ let n=0;
+ const runtime=()=>commands.createRuntime({snapshot:()=>snapshot(db),context:()=>ctx,
+  uid:()=> 'lifecycle-command-'+(++n),ledger:commands.createLedger(db),
+  can:p=>['modify:quotation.followup.schedule','modify:customer.contact.record'].includes(p),
+  ports:{operation:async(kind,payload,proof)=>core.execute({db,kind,payload,
+   uid:()=> 'lifecycle-record-'+(++n),requestKey:proof.requestKey,
+   actor:proof.actor,businessId:proof.businessId,approved:proof.approved,recordGuard:proof.recordGuard})}});
+ const cmd=runtime();
+ const taskPlan=await cmd.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:'q1'},due:'2026-11-02'}});
+ assert.equal(taskPlan.status,'needs_review');
+ assert.equal((await cmd.approve(taskPlan.id)).status,'approved');
+ const saved=await cmd.execute(taskPlan.id);
+ assert.equal(saved.status,'succeeded');
+ const taskId=saved.result.id;
+ const attempt=await cmd.prepare({commandId:'customer.contact.record',
+  params:{ref:{store:'customers',id:'c1'},quoteId:'q1',method:'Phone',
+   notes:'Called customer, nobody answered',outcome:'attempted'}});
+ assert.equal(attempt.status,'needs_review');await cmd.approve(attempt.id);
+ assert.equal((await cmd.execute(attempt.id)).status,'succeeded');
+ let state=await snapshot(db);
+ assert.equal(state.tasks.find(t=>t.id===taskId).status,'Open');
+ assert.equal(state.quotes[0].lastContactAt,undefined);
+ assert.ok(state.quotes[0].lastFollowUpAt);
+ const reached=await runtime().prepare({commandId:'customer.contact.record',
+  params:{ref:{store:'customers',id:'c1'},quoteId:'q1',method:'Phone',
+   notes:'Spoke to customer and confirmed estimate discussion',outcome:'reached'}});
+ assert.equal(reached.status,'needs_review');await runtime().approve(reached.id);
+ const resolved=await runtime().execute(reached.id);
+ assert.equal(resolved.status,'succeeded');
+ assert.equal(resolved.result.resolvedTasks,1);
+ state=await snapshot(db);
+ assert.equal(state.tasks.find(t=>t.id===taskId).status,'Done');
+ assert.equal(state.tasks.find(t=>t.id===taskId).contactEventId,resolved.result.id);
+ assert.equal(state.quotes[0].followupResolution.contactEventId,resolved.result.id);
+ assert.equal(state.quotes[0].followupResolution.providerVerified,false);
+ assert.equal(state.events.length,2);
+ assert.equal(state.commandLog.filter(e=>e.kind==='domain.event'&&e.type==='task.completed').length,1);
+ const additional=await runtime().prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:'q1'},due:'2026-11-03'}});
+ assert.equal(additional.status,'invalid');
+ assert.equal((await snapshot(db)).tasks.length,1);
+});
+test('interrupted approved reached contact reconciles from event, quote, task and journal without replay',async()=>{
+ const {db}=setup();await put(db,'tasks',{id:'t1',quoteId:'q1',customerId:'c1',taskKind:'quotation_follow_up',
+  status:'Open',businessId:'local-business'});
+ let sequence=0,actualOperations=0;
+ const runtime=()=>commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId:'local-business',today:'2026-10-29'}),
+  uid:()=> 'recover-'+(++sequence),ledger:commands.createLedger(db),
+  can:p=>p==='modify:customer.contact.record',
+  ports:{operation:()=>{actualOperations++;throw Error('Must not replay an already committed contact')}}});
+ const first=runtime(),params={ref:{store:'customers',id:'c1'},quoteId:'q1',
+  method:'Phone',notes:'Spoke to customer and agreed next step',outcome:'reached'};
+ const plan=await first.prepare({commandId:'customer.contact.record',params});
+ assert.equal(plan.status,'needs_review');assert.equal((await first.approve(plan.id)).status,'approved');
+ await commands.createLedger(db).transition(plan.id,['approved'],{type:'executing'},{status:'executing'});
+ const guard=commands.resolve({commandId:'customer.contact.record',params},
+  await snapshot(db),{actor:'local-owner',businessId:'local-business'}).guard;
+ const persisted=await core.execute({db,kind:'customer.contact.record',payload:{
+  customerId:'c1',quoteId:'q1',method:params.method,notes:params.notes,outcome:'reached'},
+  uid:()=> 'recovered-contact',requestKey:'operation:'+plan.id,
+  actor:'local-owner',businessId:'local-business',approved:true,recordGuard:guard});
+ assert.equal(persisted.resolvedTasks,1);
+ const afterReload=runtime(),recovered=await afterReload.reconcile(plan.id);
+ assert.equal(recovered.status,'succeeded');assert.equal(recovered.result.reconciled,true);
+ assert.equal((await afterReload.execute(plan.id)).reused,true);
+ assert.equal(actualOperations,0);
+ const state=await snapshot(db);
+ assert.equal(state.events.length,1);assert.equal(state.tasks.find(t=>t.id==='t1').status,'Done');
+});
