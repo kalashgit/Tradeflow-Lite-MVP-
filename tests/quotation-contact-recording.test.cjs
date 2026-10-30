@@ -234,3 +234,16 @@ test('interrupted approved reached contact reconciles from event, quote, task an
  const state=await snapshot(db);
  assert.equal(state.events.length,1);assert.equal(state.tasks.find(t=>t.id==='t1').status,'Done');
 });
+
+test('existing quote dossier opens preselected linked customer outcome form and honors reviewed command lifecycle',()=>{
+ const fs=require('node:fs'),app=fs.readFileSync('public/app.js','utf8');
+ assert.match(app,/data-action="tfQuoteContactOutcome"/);
+ assert.match(app,/tfContactQuotePrefill=quote\.id/);
+ assert.match(app,/tfContactQuotePrefill===q\.id\?' selected'/);
+ assert.match(app,/name="outcome"/);
+ assert.match(app,/commandId:'customer\.contact\.record'/);
+ assert.match(app,/await commands\.approve\(plan\.id\)/);
+ assert.match(app,/await commands\.execute\(plan\.id\)/);
+ assert.match(app,/commands\.reconcile\(previous\.id\)/);
+ assert.match(app,/Provider delivery remains unverified/);
+});
