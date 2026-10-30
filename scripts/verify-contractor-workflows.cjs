@@ -237,6 +237,18 @@ async function verifyCalendarConflictJourney(page,result){
  const review=page.locator('[data-calendar-action="conflicts"]');
  if(await review.count())await review.click();
  const button=page.locator('[data-calendar-action="resolve-conflict"][data-id="event-a"]');
+ if(!await button.count()){
+  const screen=await page.locator('body').innerText();
+  const diagnostics=await page.evaluate(async()=>{
+   const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+   const data=await window.TradeFlowLocalRecovery.readStores(db,['calendarEntries','calendarPreferences','jobs','tasks']);db.close();
+   return {calendarEntries:data.calendarEntries,detected:window.TradeFlowCalendar?.conflicts?.(data)||[],
+    panel:!!document.querySelector('.tf-cal-review'),calendar:!!document.querySelector('.tf-cal-page'),
+    conflictButton:!!document.querySelector('[data-calendar-action="conflicts"]')};
+  });
+  throw Error('Calendar conflict review control not available: '+JSON.stringify({
+   screen:screen.slice(-1100),diagnostics}));
+ }
  await button.waitFor();
  const dialogs=(async()=>{
   const date=await page.waitForEvent('dialog',{timeout:15000});
