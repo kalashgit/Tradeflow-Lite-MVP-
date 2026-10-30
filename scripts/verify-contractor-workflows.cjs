@@ -29,6 +29,22 @@ async function verifyQuoteFollowupJourney(page,result){
   const data=await window.TradeFlowLocalRecovery.readStores(db,['quotes','customers','tasks','events','commandLog']);
   db.close();return data;
  });
+ await page.evaluate(()=>{
+  window.__tfP01Trace=[];
+  const existing=window.TradeFlowPilot,real=existing.commands;
+  window.TradeFlowPilot={...existing,commands:new Proxy(real,{get(target,key){
+   const fn=target[key];if(typeof fn!=='function'||!['prepare','approve','execute','reject','reconcile'].includes(key))return fn;
+   return async function(...args){
+    window.__tfP01Trace.push({step:String(key)+':begin',id:typeof args[0]==='string'?args[0]:undefined});
+    try{
+     const outcome=await fn.apply(target,args);
+     window.__tfP01Trace.push({step:String(key)+':end',status:outcome?.status,
+      code:outcome?.error?.code,message:outcome?.error?.message});
+     return outcome;
+    }catch(error){window.__tfP01Trace.push({step:String(key)+':error',message:String(error)});throw error}
+   };
+  }})};
+ });
  const review=page.locator('[data-action="tfQuoteFollowupReview"][data-id="q1"]');
  await review.waitFor();await review.click();
  // Playwright click waits for dispatch, not completion of an async document listener.
@@ -50,6 +66,7 @@ async function verifyQuoteFollowupJourney(page,result){
   const visible=await page.locator('body').innerText();
   throw Error('Owner review did not persist one internal follow-up: '+
    JSON.stringify({count:linked.length,recent,dialogs,
+    runtimeTrace:await page.evaluate(()=>window.__tfP01Trace||[]),
     visibleTail:visible.slice(-1200)}));
  }
  assert.equal(linked.length,1,'Owner review must create exactly one internal follow-up');
