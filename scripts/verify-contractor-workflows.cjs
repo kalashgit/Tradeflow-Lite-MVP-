@@ -65,6 +65,7 @@ async function verifyInvoiceFollowupJourney(page,result){
  result.invoiceReloadPersistence=true;
 }
 async function verifyChangeOrderReviewJourney(page,result){
+ result.stage='change order: open reviewed action';
  const dialogs=[];
  page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
  const button=page.locator('[data-action="tfChangeOrderReview"][data-id="j1"][data-change-id="co1"]');
@@ -79,19 +80,22 @@ async function verifyChangeOrderReviewJourney(page,result){
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();
   return d.tasks.some(t=>t.changeOrderId==='co1')&&d.commandLog.some(x=>x.commandId==='job.change_order.review.schedule'&&x.status==='succeeded');
  },null,{timeout:15000});
+ result.stage='change order: verify first commit';
  let data=await read();const tasks=data.tasks.filter(x=>x.changeOrderId==='co1');
- assert.equal(tasks.length,1);assert.equal(tasks[0].customerAuthorizationStatus,'unverified');
+ assert.equal(tasks.length,1,'Task persistence: '+JSON.stringify(data.tasks));assert.equal(tasks[0].customerAuthorizationStatus,'unverified');
  assert.equal(data.jobs[0].changeOrders[0].status,'proposed');
- assert.equal(data.commandLog.filter(x=>x.kind==='job.change_order.review.schedule').length,1);
+ assert.equal(data.commandLog.filter(x=>x.kind==='job.change_order.review.schedule').length,1,'Core receipts: '+JSON.stringify(data.commandLog.filter(x=>x.kind!=='domain.event')));
  assert.ok(dialogs.some(x=>x.includes('does not authorize the extra work')));
  result.internalOwnerReviewCreatedTask=true;
+ result.stage='change order: verify reload';
  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
  data=await read();assert.equal(data.tasks.filter(x=>x.changeOrderId==='co1').length,1);
  result.reloadPreservedReview=true;
+ result.stage='change order: reopen and reject duplicate';
  await page.locator('[data-notif-action="toggle"]').click();
  await page.locator('.tf-notif-item').filter({hasText:'Proposed extra work needs approval'}).click();
  await button.click();
- data=await read();assert.equal(data.tasks.filter(x=>x.changeOrderId==='co1').length,1);
+ data=await read();assert.equal(data.tasks.filter(x=>x.changeOrderId==='co1').length,1,'Duplicate task state: '+JSON.stringify(data.tasks));
  result.duplicateReviewReusedTask=true;
 }
 async function verifyQuoteFollowupJourney(page,result){
@@ -347,6 +351,7 @@ async function verifyCalendarConflictJourney(page,result){
     }else if(item.id==='TF-P04'){
      await verifyChangeOrderReviewJourney(page,result);
      // Synthetic source correction only; no simulated customer approval is asserted.
+     result.stage='change order: cleared detection after fixture correction';
      await seed(page,item.resolved,false);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
      await page.locator('[data-notif-action="toggle"]').click();
      assert.equal(await page.locator('.tf-notif-item').filter({hasText:item.title}).count(),0);
