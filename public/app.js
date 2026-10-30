@@ -2143,6 +2143,18 @@ window.TradeFlowCalendar?.configure({
   const commands=window.TradeFlowPilot?.commands;
   if(!commands)throw Error('Authorized command runtime unavailable');
   const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(interrupted.length){
+   for(const pending of interrupted){
+    const recovery=await commands.reconcile(pending.id);
+    if(recovery.status!=='succeeded')
+     return {status:'indeterminate',error:{code:'RECOVERY_UNVERIFIED',
+      message:'Earlier calendar change cannot be verified. Review the audit before another change.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
   const cal=window.TradeFlowCalendar;
   if(!cal?.conflicts)throw Error('Calendar conflict verification is unavailable');
   const scope={...snapshot};
@@ -2158,18 +2170,6 @@ window.TradeFlowCalendar?.configure({
    throw Error('Replacement slot overlaps another recorded commitment. Choose a different time.');
   const against=current.map(c=>c.a.key==='event:'+event.id?c.b:c.a);
   const conflictNames=[...new Set(against.map(x=>String(x.title||'Other booking').slice(0,80)))].slice(0,3);
-  const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
-   x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
-   x.actor==='local-owner'&&x.businessId==='local-business');
-  if(interrupted.length){
-   for(const pending of interrupted){
-    const recovery=await commands.reconcile(pending.id);
-    if(recovery.status!=='succeeded')
-     return {status:'indeterminate',error:{code:'RECOVERY_UNVERIFIED',
-      message:'Earlier calendar change cannot be verified. Review the audit before another change.'}};
-   }
-   return {status:'succeeded',result:{reused:true,reconciled:true}};
-  }
   const plan=await commands.prepare({commandId:'calendar.conflict.reschedule',
    params:{ref:{store:'calendarEntries',id:event.id},date,time}});
   if(plan.status!=='needs_review')throw Error(plan.error?.message||'Calendar event is not eligible for reschedule');
