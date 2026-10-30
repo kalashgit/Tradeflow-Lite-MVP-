@@ -272,14 +272,14 @@
   if(!db||typeof db.transaction!=='function'||approved!==true||typeof requestKey!=='string'||!requestKey.trim()||
    typeof uid!=='function'||typeof actor!=='string'||!actor.trim()||
    !payload||typeof payload.quoteId!=='string'||!payload.quoteId||
-   !Array.isArray(recordGuard)||recordGuard.length!==1||recordGuard[0]?.ref?.store!=='quotes'||
-   recordGuard[0].ref.id!==payload.quoteId||!recordGuard[0].record)
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='quotes'&&g.ref.id===payload.quoteId&&g.record)||
+   recordGuard.some(g=>!g?.ref||!['quotes','customers'].includes(g.ref.store)||!g.record))
    return Promise.reject(Error('Explicit approved quote, guard and operation key required'));
   if(Object.keys(payload).some(k=>!['quoteId','due'].includes(k))||!validDate(payload.due)||!payload.due)
    return Promise.reject(Error('Valid follow-up due date required'));
   const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
    Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
-  const key='quote-followup:'+requestKey.trim(),expected=recordGuard[0].record;
+  const key='quote-followup:'+requestKey.trim();
   return new Promise((resolve,reject)=>{
    let tx,error,result,remaining=4,prior=null;const data={};
    try{tx=db.transaction(['commandLog','quotes','customers','tasks'],'readwrite')}catch(e){reject(e);return}
@@ -298,8 +298,13 @@
        throw Error('Previous follow-up task needs recovery review');
       result={id:prior.resultId,reused:true,commandKey:key};return;
      }
-     if(!quote||stable(quote)!==stable(expected))
-      throw Error('Quotation changed since approval; review again');
+     for(const guard of recordGuard){
+      const source=data[guard.ref.store]||[];
+      if(source.filter(x=>x.id===guard.ref.id).length!==1||
+       stable(source.find(x=>x.id===guard.ref.id))!==stable(guard.record))
+       throw Error('Quotation or linked customer changed since approval; review again');
+     }
+     if(!quote)throw Error('Quotation changed since approval; review again');
      if(quote.businessId&&quote.businessId!==businessId)
       throw Error('Quotation belongs to another business');
      if(String(quote.status||'').toLowerCase()!=='sent'||!quote.customerId)
