@@ -3,6 +3,8 @@
 const IDENTIFIER=/^[A-Za-z0-9_-]{1,100}$/;
 const MAX_INPUT_BYTES=16000;
 const MAX_EVIDENCE_RECORDS=200;
+const DEFAULT_TIMEOUT_MS=5000;
+const MAX_TIMEOUT_MS=10000;
 
 export class AdvisoryProviderError extends Error {
  constructor(message,code='advisory_unavailable'){super(message);this.name='AdvisoryProviderError';this.code=code}
@@ -37,11 +39,27 @@ export function prepareAdvisoryRequest({context,question,enabled=false}={}){
  return Object.freeze(payload);
 }
 
-export async function requestAdvisory({context,question,enabled=false,transport}={}){
+export async function requestAdvisory({context,question,enabled=false,transport,timeoutMs=DEFAULT_TIMEOUT_MS}={}){
  const payload=prepareAdvisoryRequest({context,question,enabled});
  if(typeof transport!=='function')throw new AdvisoryProviderError('No server advisory transport configured');
+ if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>MAX_TIMEOUT_MS)
+  throw new AdvisoryProviderError('Invalid advisory timeout','invalid_timeout');
+ const controller=new AbortController();
+ let timer;
  let response;
- try{response=await transport(payload)}catch{throw new AdvisoryProviderError('Advisory transport unavailable')}
+ try{
+  response=await Promise.race([
+   Promise.resolve().then(()=>transport(payload,{signal:controller.signal})),
+   new Promise((_,reject)=>{
+    timer=setTimeout(()=>{controller.abort();reject(new AdvisoryProviderError('Advisory timed out','advisory_timeout'))},timeoutMs);
+   })
+  ]);
+ }catch(error){
+  if(error instanceof AdvisoryProviderError&&error.code==='advisory_timeout')throw error;
+  throw new AdvisoryProviderError('Advisory transport unavailable');
+ }finally{
+  clearTimeout(timer);
+ }
  if(!response||typeof response.text!=='string'||new TextEncoder().encode(response.text).length>4000)
   throw new AdvisoryProviderError('Invalid advisory response','invalid_response');
  return {kind:'tradeflow.advisory.untrusted.v1',text:response.text,readOnly:true,executionAuthority:false,
