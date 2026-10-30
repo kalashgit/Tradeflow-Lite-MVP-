@@ -12,6 +12,8 @@ permissions:
 jobs:
   discovery-regression:
     runs-on: ubuntu-latest
+    env:
+      TRADEFLOW_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact candidate commit
         uses: actions/checkout@v4
