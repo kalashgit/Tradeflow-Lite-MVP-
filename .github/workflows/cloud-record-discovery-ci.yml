@@ -40,6 +40,8 @@ jobs:
           node --check src/tenant-api.js
           node --check src/intelligence-context.js
           node --check public/cloud-intelligence.js
+          node --check public/intelligence-evidence.js
+          node --check public/master-intelligence.js
           node --check scripts/verify-intelligence-context.cjs
           node --check scripts/verify-two-device-sync.cjs
           node --check public/sync-queue.js
