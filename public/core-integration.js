@@ -309,6 +309,8 @@
       throw Error('Quotation belongs to another business');
      if(String(quote.status||'').toLowerCase()!=='sent'||!quote.customerId)
       throw Error('Only sent quotations with customers can be followed up');
+     if(recordGuard.some(g=>g.ref.store==='customers'&&g.ref.id!==quote.customerId))
+      throw Error('Approved customer guard does not match the quotation customer');
      const customer=data.customers.find(c=>c.id===quote.customerId);
      if(!customer||customer.businessId&&customer.businessId!==businessId)
       throw Error('Quotation customer unavailable in this business');
