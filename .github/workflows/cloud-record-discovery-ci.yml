@@ -25,10 +25,10 @@ jobs:
       - name: Confirm exact head and initialize evidence
         shell: bash
         run: |
-          mkdir -p artifacts
-          git rev-parse HEAD | tee artifacts/exact-head-sha.txt
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain)"
+          mkdir -p artifacts
+          git rev-parse HEAD | tee artifacts/exact-head-sha.txt
           node --version | tee artifacts/node-version.txt
       - name: Syntax checks
         run: |
