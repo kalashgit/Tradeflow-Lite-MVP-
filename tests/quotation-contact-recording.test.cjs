@@ -8,7 +8,9 @@ function setup(){
  quotes:[{id:'q1',customerId:'c1',status:'Sent',sentDate:'2026-10-01',title:'Panel work',businessId:'local-business'}]});
  let n=0;
  const request={db,kind:'customer.contact.record',payload:{customerId:'c1',quoteId:'q1',method:'Phone',notes:'Discussed electrical panel scope',outcome:'reached'},
-  uid:()=> 'contact-'+(++n),requestKey:'manual-contact-001',actor:'local-owner',businessId:'local-business'};
+  uid:()=> 'contact-'+(++n),requestKey:'manual-contact-001',actor:'local-owner',businessId:'local-business',
+  approved:true,recordGuard:[{ref:{store:'customers',id:'c1'},record:{id:'c1',name:'Electrical customer',businessId:'local-business'}},
+   {ref:{store:'quotes',id:'q1'},record:{id:'q1',customerId:'c1',status:'Sent',sentDate:'2026-10-01',title:'Panel work',businessId:'local-business'}}]};
  return {db,request};
 }
 test('manual quote contact and quotation contact timestamp are atomic, logged and distinguishable from delivery',async()=>{
@@ -62,7 +64,7 @@ test('storage fault rolls back manual contact, quotation update and audit as one
 });
 test('customer UI routes one manual contact through existing core operation',()=>{
  const app=require('node:fs').readFileSync('public/app.js','utf8');
- assert.match(app,/kind:'customer.contact.record'/);
+ assert.match(app,/commandId:'customer.contact.record'/);
  assert.match(app,/Provider delivery remains unverified/);
  assert.match(app,/name="outcome"/);
  assert.doesNotMatch(app,/await put\('events',\{id:uid\(\),kind:'customer_contact'/);
@@ -117,4 +119,44 @@ test('invalid contact outcome refuses to save before transaction',async()=>{
  const {db,request}=setup(),before=await snapshot(db);
  await assert.rejects(core.execute({...request,payload:{...request.payload,outcome:'delivered'}}),/Valid manually/);
  assert.deepEqual(await snapshot(db),before);
+});
+
+test('shared command runtime authorizes owner-reached contact and closes linked follow-up only once',async()=>{
+ const {db}=setup();const commands=require('../public/command-registry.js');
+ await put(db,'tasks',{id:'followup-1',quoteId:'q1',customerId:'c1',taskKind:'quotation_follow_up',
+  status:'Open',businessId:'local-business'});
+ let n=0;const runtime=()=>commands.createRuntime({
+  snapshot:()=>snapshot(db),context:()=>({actor:'local-owner',businessId:'local-business',today:'2026-10-29'}),
+  uid:()=> 'contact-command-'+(++n),ledger:commands.createLedger(db),
+  can:permission=>permission==='modify:customer.contact.record',
+  ports:{operation:async(kind,payload,proof)=>core.execute({db,kind,payload,uid:()=> 'interaction-1',
+   requestKey:proof.requestKey,actor:proof.actor,businessId:proof.businessId,
+   approved:proof.approved,recordGuard:proof.recordGuard})}
+ });
+ const cmd={commandId:'customer.contact.record',params:{ref:{store:'customers',id:'c1'},quoteId:'q1',
+  method:'Phone',notes:'Spoke directly to owner and confirmed estimate review',outcome:'reached'}};
+ const first=runtime(),review=await first.prepare(cmd);
+ assert.equal(review.status,'needs_review');
+ assert.equal((await first.execute(review.id)).error.code,'APPROVAL_REQUIRED');
+ assert.equal((await first.approve(review.id)).status,'approved');
+ const completed=await first.execute(review.id);
+ assert.equal(completed.status,'succeeded');assert.equal(completed.result.resolvedTasks,1);
+ assert.equal((await snapshot(db)).tasks[0].status,'Done');
+ assert.equal((await runtime().execute(review.id)).reused,true);
+ assert.equal((await snapshot(db)).events.length,1);
+});
+test('approved contact recording refuses changed customer or quote before commit',async()=>{
+ const {db}=setup();const commands=require('../public/command-registry.js');
+ const intent={commandId:'customer.contact.record',params:{ref:{store:'customers',id:'c1'},
+  quoteId:'q1',method:'Phone',notes:'Spoke to owner',outcome:'reached'}};
+ const guarded=commands.resolve(intent,await snapshot(db),
+  {actor:'local-owner',businessId:'local-business'});
+ assert.equal(guarded.status,'needs_review');
+ assert.equal(guarded.guard.length,2);
+ await put(db,'customers',{id:'c1',name:'Another customer name',businessId:'local-business'});
+ await assert.rejects(core.execute({db,kind:'customer.contact.record',
+  uid:()=> 'failed',requestKey:'stale-contact',actor:'local-owner',businessId:'local-business',
+  approved:true,recordGuard:guarded.guard,
+  payload:{customerId:'c1',quoteId:'q1',method:'Phone',notes:'Spoke to owner',outcome:'reached'}}),/approval is stale/);
+ assert.equal((await snapshot(db)).events.length,0);
 });
