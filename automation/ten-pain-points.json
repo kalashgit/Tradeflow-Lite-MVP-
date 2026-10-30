@@ -116,7 +116,12 @@
       "test": "tests/optimization-quote-reuse.test.cjs",
       "pattern": "copying an accepted quotation",
       "feature": "Existing quote dossier",
-      "originalRegisterRef": 38
+      "originalRegisterRef": 38,
+      "mappingScope": "partial: source quote reuse copies safe estimate summary fields; detailed takeoffs, material pricing and estimator-system synchronization remain unverified",
+      "executionTest": "tests/quotation-reuse-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved unsent quote draft with immutable source provenance, source revision guard, idempotent receipt and nonreplaying recovery; no copied customer authority or send state",
+      "verification": "focused local Node tests passed; exact-head CI and Chromium pending"
     },
     {
       "id": "TF-P10",

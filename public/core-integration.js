@@ -1066,6 +1066,68 @@
     req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
   });
  }
+ // TF-P09: a fresh, unsent estimate draft with guarded source provenance.
+ function executeQuoteReuse(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.sourceQuoteId!=='string'||!payload.sourceQuoteId||typeof payload.title!=='string'||!payload.title.trim()||payload.title.length>160||
+   typeof payload.category!=='string'||payload.category.length>90||!Number.isFinite(payload.amount)||payload.amount<0||payload.amount>100000000||
+   Object.keys(payload).some(k=>!['sourceQuoteId','title','category','amount'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='quotes'&&g.ref.id===payload.sourceQuoteId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.quoteReuseDrafts)))return Promise.reject(Error('Approved source quotation snapshot required'));
+  const key='quote-reuse:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['quotes','commandLog','customers','jobs','tasks','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Quote reuse transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='quotation.reuse.create'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Reuse receipt belongs to another approval');
+      const priorDraft=data.quotes.find(q=>q.id===prior.resultId&&q.sourceQuoteId===payload.sourceQuoteId&&q.businessId===businessId&&q.reuseReceiptId===key);
+      if(!priorDraft)throw Error('Previous draft requires manual reconciliation');
+      outcome={id:priorDraft.id,reused:true,commandKey:key};return;
+     }
+     const source=data.quotes.find(q=>q.id===payload.sourceQuoteId);
+     if(!source||source.businessId&&source.businessId!==businessId||!['accepted','sent','draft'].includes(String(source.status||'').toLowerCase()))
+      throw Error('Quotation source unavailable in business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Source or linked record changed after approval');
+     }
+     const existing=data.quotes.filter(q=>q.sourceQuoteId===source.id&&String(q.status||'').toLowerCase()==='draft'&&q.id!==source.id);
+     const checked=recordGuard.find(g=>Array.isArray(g.quoteReuseDrafts));
+     if(stable(existing)!==stable(checked.quoteReuseDrafts)||existing.some(q=>q.businessId!==businessId))
+      throw Error('Existing reused drafts changed after approval');
+     if(String(source.title||'').slice(0,160)!==payload.title||String(source.category||'').slice(0,90)!==payload.category||
+      source.amount===''||Number(source.amount)!==payload.amount)throw Error('Source quotation fields changed');
+     const when=new Date().toISOString();let id,result;
+     if(existing.length>1)throw Error('Ambiguous active reused drafts');
+     if(existing.length){id=existing[0].id;result='existing_open_draft'}
+     else{
+      id=String(uid());if(!id||data.quotes.some(x=>x.id===id))throw Error('Quote draft ID collision');
+      const draft={id,businessId,title:payload.title,category:payload.category,amount:String(payload.amount),
+       customerId:'',status:'Draft',sentDate:'',followup_date:'',sourceQuoteId:source.id,
+       reuseReceiptId:key,reuseEvidence:{sourceQuoteId:source.id,createdBy:actor,sourceStatusAtReuse:source.status,
+        copiedFields:['title','category','amount'],pricingReverified:false,customerAuthorizationCopied:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('quotes').put(draft);domainEvents?.recordCommitted(tx,'quotes',draft,key,{actor,businessId},null,true);
+      result='draft_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'quotation.reuse.create',resultId:id,requestPayload:stable(payload),
+      actor,businessId,sourceQuoteId:source.id,createdAt:when,result,customerAuthorizationCopied:false});
+     outcome={id,reused:result!=='draft_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
@@ -1077,6 +1139,7 @@
   if(kind==='job.labor_review.schedule')return executeJobLaborReview(args);
   if(kind==='invoice.payment_review.schedule')return executeInvoicePaymentReview(args);
   if(kind==='opportunity.bid_review.schedule')return executeBidQualificationReview(args);
+  if(kind==='quotation.reuse.create')return executeQuoteReuse(args);
   if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
   if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
   if(kind==='customer.contact.record')return executeContactRecord(args);

@@ -910,7 +910,7 @@ function tfRecordDetailView(d,record,type){
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
   if(type==='quotes')sections+=tfQuotationRecordedHistory(d,record);
-  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
+  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Create reviewed draft from this quote</button>';
   if(type==='quotes'&&record.status==='Sent'&&record.followupResolution?.status!=='owner_attested_reached')
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteFollowupReview" data-id="'+esc(record.id)+'">Review follow-up task</button>';
   if(type==='quotes'&&record.status==='Sent'&&record.customerId)
@@ -1242,10 +1242,11 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfQuoteReuse'){
    const source=await get('quotes',el.dataset.id);
    if(!source)return;
-   tfResetWorkspace('quotes');
-   modal={draftDefaults:tfReusableQuoteFields(source)};
-   await render();
-   notify('New draft prepared. Choose the customer and recheck scope and pricing before saving.');
+   const outcome=await tfCreateQuoteReuseDraft(source);
+   if(outcome?.status==='succeeded'){
+    tfResetWorkspace('quotes');tfRecordDetailId=outcome.result.id;
+    await render();notify('Unsent draft saved. Choose a customer and recheck scope and pricing before sending.');
+   }
    return;
  }
  if(el.dataset.action==='tfJobInvoiceDraft'){
@@ -1983,7 +1984,7 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.reuse.create','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
    operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
@@ -2350,6 +2351,32 @@ async function tfReviewBidQualification(opportunity){
  if(approval.status!=='approved'){notify(approval.error?.message||'Opportunity changed; review again');return null}
  const result=await commands.execute(plan.id);
  if(result.status!=='succeeded')notify(result.error?.message||'Bid review requires inspection');
+ return result;
+}
+async function tfCreateQuoteReuseDraft(source){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='quotation.reuse.create'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===source.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier reuse has uncertain execution. Inspect draft and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+  if(recovered.result?.id)return recovered;
+ }
+ const plan=await commands.prepare({commandId:'quotation.reuse.create',params:{ref:{store:'quotes',id:source.id}}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Source quotation requires review');return null}
+ const fields=plan.result;
+ if(!confirm('Create an UNSENT, owner-reviewed draft from “'+String(source.title||source.id).slice(0,100)+'” for $'+
+  fields.amount.toFixed(2)+'? Only title, trade category and recorded amount are reused. Customer, acceptance, signature and contact history are NOT copied. Recheck scope and pricing before sending.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Source quote changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Quote reuse requires inspection');
  return result;
 }
 async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){

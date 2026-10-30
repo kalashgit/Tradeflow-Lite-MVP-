@@ -503,11 +503,20 @@ async function verifyCalendarConflictJourney(page,result){
    }else{
     await page.evaluate(async type=>{const c=window.TradeFlowPilot.commands,p=await c.prepare({commandId:'record.open',params:{ref:{store:type,id:type==='quotes'?'q1':'c1'}}});const r=await c.execute(p.id);if(r.status!=='succeeded')throw Error('Record navigation failed')},item.id==='TF-P09'?'quotes':'customers');
     if(item.id==='TF-P09'){
-     await page.locator('[data-action="tfQuoteReuse"]').click();const form=page.locator('#recordForm');await form.waitFor();assert.equal(await form.locator('[name="customerId"]').inputValue(),'');assert.equal(await form.locator('[name="status"]').inputValue(),'Draft');
-     await form.locator('[name="customerId"]').selectOption('c1');await form.locator('[type="submit"]').click();await page.getByText('Record saved',{exact:true}).waitFor();
+     const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.message());await d.accept()});
+     await page.locator('[data-action="tfQuoteReuse"]').click();
+     await page.getByText('Unsent draft saved.',{exact:false}).waitFor({timeout:15000});
      const check=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes','commandLog']);db.close();return rows});
-     assert.equal(check.quotes.length,2);const draft=check.quotes.find(q=>q.id!=='q1');assert.equal(draft.status,'Draft');assert.equal(draft.sentDate,'');assert.equal(draft.signature,undefined);assert.equal(draft.approvedBy,undefined);
-     assert.ok(check.commandLog.some(r=>r.kind==='domain.event'&&r.ref.id===draft.id&&r.status==='processed'));result.safeDraftPersisted=true;result.transactionalReviewProcessed=true;
+     assert.equal(check.quotes.length,2);const draft=check.quotes.find(q=>q.id!=='q1');assert.equal(draft.status,'Draft');assert.equal(draft.customerId,'');
+     assert.equal(draft.sentDate,'');assert.equal(draft.signature,undefined);assert.equal(draft.approvedBy,undefined);
+     assert.equal(draft.sourceQuoteId,'q1');assert.equal(draft.reuseEvidence.customerAuthorizationCopied,false);
+     assert.equal(check.commandLog.filter(x=>x.kind==='quotation.reuse.create').length,1);
+     assert.ok(check.commandLog.some(r=>r.kind==='domain.event'&&r.type==='quotation.created'&&r.ref.id===draft.id));
+     assert.ok(dialogs.some(x=>x.includes('Customer, acceptance, signature and contact history are NOT copied')));
+     result.safeDraftPersisted=true;result.transactionalReviewProcessed=true;
+     result.stage='quote reuse reload';await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+     const after=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes']);db.close();return rows});
+     assert.equal(after.quotes.filter(q=>q.id===draft.id).length,1);result.draftSurvivedReload=true;
     }else{
      const box=page.locator('.tf-record-dossier-box').filter({hasText:'Recorded customer economics'});await box.waitFor();const text=await box.innerText();for(const value of ['$750.00','$400.00','$350.00','not verified bank receipts'])assert.ok(text.includes(value));result.recordedEconomicsRendered=true;
     }
