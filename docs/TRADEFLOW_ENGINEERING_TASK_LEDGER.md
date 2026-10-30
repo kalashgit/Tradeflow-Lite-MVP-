@@ -69,3 +69,24 @@ Main changed areas across this session: `public/sync-queue.js`, `public/record-p
 ### External build failure diagnosed without changing production
 
 Documentation head `a0ba09c0706cf6b4580421bbaa5774e4705175f4` passed both regression runs 41113255846 / 41113248698. A separate **read-only** Cloudflare GET inspected the failed external build `bd46c29d-c59b-433f-bb0e-431dbaaa0639` (47 log lines, untruncated). Its configured command is `npx wrangler preview`; Wrangler reports this is open beta and errors because the configuration has no `previews` block, then exits with deploy-command failure. This is not a failed TradeFlow regression assertion. No build configuration, production Worker or deployment was changed. Do not add a preview block merely to make a production-linked check green under this undeployed-PR directive. The earlier no-production-inspection statements were historical pre-diagnosis checkpoints; this final diagnostic was read-only. R01 contract question remains pending, with no permissions inferred from silence.
+
+## Next-phase worker claim — Codex
+
+Fetched actual PR #16 head 7748b094b3445e3caceb00fab43786a7076e0f19, clean worktree. Reconciled run **#274 / 41113749206**, job **124262499235**, via actual GitHub connector job log: **118/118 focused**, **481/481 full**, **26/26 Chromium**, zero failures, storage and TF-P01–10 gates passed. H03-05/06, R01 crew policy, FLOW-01 and H04 context already exist; no duplicate implementation. Production-linked beta-preview failure remains separate and untouched.
+
+**H04-02 deterministic decision protocol: in progress, owned by Codex, feature/cloud-record-discovery / PR #16.** Reuse existing detectors and shared commands; evidence, hypotheses, alternatives/no-action, typed proposals, receipt evaluation. No direct writer, AI provider dependency or invented authority.
+
+**H04-03 intelligence contractor journey: pending H04-02, owned by Codex.** Reuse the job dossier and TF-P05/P06 reviewed internal task actions; add reproducible synthetic phone/desktop journey, explicit approval, stale/revoked evidence rejection and confirmed local receipt. No new navigation or assistant panel.
+
+### R01-02 proposed contract — NOT APPROVED / NOT IMPLEMENTED
+
+Repository/docs and authoritative roadmap contain the high-level role direction but no approved job-scoped field/office matrix. Proposed boundary for founder review (not a grant):
+
+| Account function | Proposed visibility | Proposed action boundary |
+| --- | --- | --- |
+| Field | Only explicitly assigned jobs and minimum necessary operational details; no company-wide/customer finance | Offline notes, hours and photos are drafts/submissions; no authoritative schedule, cost, invoice or customer authorization changes |
+| Project review | Explicitly delegated jobs and field submissions | Review/return submissions; propose changes through existing commands; cannot grant memberships, issue money operations or manufacture customer approval |
+| Office | Preserve current approved company-role behavior; additional delegation must be explicit | Existing command permissions/approvals, not a new automatic execution path |
+| Owner/admin | Preserve current implemented roles; owner retains membership management | Server-owned, revocable, tenant-scoped grants with current revision; offline work never bypasses revoked access |
+
+Unresolved founder decisions: project-review financial visibility; necessary field customer/contact details; who may delegate jobs; submission retention/visibility after reassignment. Default deny until approved. This block does **not** block independent H04 decision/journey work, and does not provision roles or live access.
