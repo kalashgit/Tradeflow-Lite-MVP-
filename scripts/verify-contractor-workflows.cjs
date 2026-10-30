@@ -33,6 +33,15 @@ async function verifyQuoteFollowupJourney(page,result){
  await review.waitFor();await review.click();
  let state=await snapshot();
  const linked=state.tasks.filter(t=>t.quoteId==='q1'&&t.taskKind==='quotation_follow_up');
+ if(linked.length!==1){
+  const recent=state.commandLog.filter(x=>x.kind==='pilot.command'||x.kind==='quotation.followup.schedule')
+   .map(x=>({id:x.id,kind:x.kind,commandId:x.commandId,status:x.status,
+    error:x.error,lastEvent:x.events?.at(-1),result:x.result})).slice(-8);
+  const visible=await page.locator('body').innerText();
+  throw Error('Owner review did not persist one internal follow-up: '+
+   JSON.stringify({count:linked.length,recent,dialogs,
+    visibleTail:visible.slice(-1200)}));
+ }
  assert.equal(linked.length,1,'Owner review must create exactly one internal follow-up');
  assert.equal(linked[0].status,'Open');
  assert.equal(state.commandLog.filter(x=>x.kind==='quotation.followup.schedule').length,1);
