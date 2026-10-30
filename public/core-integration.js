@@ -345,9 +345,12 @@
  // Manual contact evidence: a local operator report, never provider-confirmed delivery.
  // Customer contact and quotation's lastContactAt are atomic with the command receipt.
  function executeContactRecord(args){
-  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business'}=args||{};
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
   const {customerId,quoteId='',method,notes,outcome='attempted'}=payload||{};
-  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='customers'&&g.ref.id===customerId&&g.record)||
+   recordGuard.some(g=>!g.ref||!['customers','quotes'].includes(g.ref.store)||!g.record)||
+   (quoteId&&!recordGuard.some(g=>g.ref.store==='quotes'&&g.ref.id===quoteId))||
    typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
    typeof customerId!=='string'||!customerId||typeof quoteId!=='string'||
    !['Phone','Email','Meeting','Site visit','Other'].includes(method)||
@@ -377,9 +380,17 @@
       if(!previous)throw Error('Previous contact record requires recovery review');
       result={id:prior.resultId,reused:true,commandKey:key};return;
      }
+     for(const guard of recordGuard){
+      const collection=data[guard.ref.store]||[];
+      if(collection.filter(x=>x.id===guard.ref.id).length!==1||
+       stable(collection.find(x=>x.id===guard.ref.id))!==stable(guard.record))
+       throw Error('Customer contact approval is stale; review changed records');
+     }
      const customer=data.customers.find(c=>c.id===customerId);
      if(!customer||customer.businessId&&customer.businessId!==businessId)
       throw Error('Contact customer unavailable in this business');
+     if(recordGuard.some(g=>g.ref.store==='quotes'&&g.ref.id!==quoteId))
+      throw Error('Approval references a different quotation');
      const quote=quoteId?data.quotes.find(q=>q.id===quoteId):null;
      if(quoteId&&(!quote||quote.customerId!==customerId||
        quote.businessId&&quote.businessId!==businessId))
