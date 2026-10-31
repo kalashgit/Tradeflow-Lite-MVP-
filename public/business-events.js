@@ -37,7 +37,41 @@ function transition(db,id,fn){return new Promise((resolve,reject)=>{
  req.onsuccess=()=>{try{const decision=fn(req.result);result=decision?.result;if(decision?.row)store.put(decision.row)}catch(e){error=e;tx.abort()}};
 })}
 // Observation metadata only. Business writes remain in the existing approved command engine.
-function laborFindingSummaries(findings){
+// Stable, bounded LOCAL source binding. Not a cryptographic authentication token,
+// not approval and never a replacement for the shared command's execution guard.
+function laborCostBinding(records,jobId,businessId='local-business'){
+ if(!Array.isArray(records)||typeof jobId!=='string'||!jobId||typeof businessId!=='string'||!businessId)return null;
+ const relevant=records.filter(c=>c?.jobId===jobId&&c.category==='Labor'&&['estimate','actual'].includes(c.type)&&c.laborHours!=null);
+ if(!relevant.length||relevant.length>40)return null;
+ const seen=new Set(),entries=[];
+ for(const c of relevant){
+  if(typeof c.id!=='string'||!c.id||c.id.length>128||seen.has(c.id)||
+   c.businessId&&c.businessId!==businessId||!Number.isFinite(c.laborHours)||c.laborHours<=0)return null;
+  seen.add(c.id);
+  const scalar=value=>value==null?null:
+   typeof value==='number'&&Number.isFinite(value)?value:
+   typeof value==='string'&&value.length<=128?value:undefined;
+  const amount=scalar(c.amount),currency=scalar(c.currency),revision=scalar(c.revision),updatedAt=scalar(c.updatedAt);
+  if([amount,currency,revision,updatedAt].some(x=>x===undefined))return null;
+  entries.push([c.id,c.type,c.laborHours,amount,currency,revision,updatedAt,c.businessId||businessId]);
+ }
+ entries.sort((a,b)=>a[0].localeCompare(b[0])||a[1].localeCompare(b[1]));
+ const proof=JSON.stringify(entries);
+ if(proof.length>4096)return null;
+ const estimated=relevant.filter(c=>c.type==='estimate').reduce((sum,c)=>sum+c.laborHours,0);
+ const recorded=relevant.filter(c=>c.type==='actual').reduce((sum,c)=>sum+c.laborHours,0);
+ if(!Number.isFinite(estimated)||!Number.isFinite(recorded))return null;
+ return {proof,estimated,recorded,count:entries.length};
+}
+function readLaborCosts(db){
+ return new Promise((resolve,reject)=>{
+  let tx,request;
+  try{tx=db.transaction('jobCosts','readonly');request=tx.objectStore('jobCosts').getAll()}catch(error){reject(error);return}
+  tx.oncomplete=()=>resolve(request.result||[]);
+  tx.onerror=tx.onabort=()=>reject(tx.error||Error('Read-only job-cost snapshot unavailable'));
+ });
+}
+function laborFindingSummaries(findings,costRecords=null,businessId='local-business'){
  const eligible=[];
  for(const finding of findings){
   if(finding?.detectorId!=='job.labor_hours_variance_review'||finding.status!=='ready_for_review')continue;
@@ -46,8 +80,11 @@ function laborFindingSummaries(findings){
   const planned=finding.evidence?.estimatedLaborHours,recorded=finding.evidence?.recordedLaborHours;
   if(jobs.length!==1||!Number.isFinite(planned)||!Number.isFinite(recorded)||planned<=0||recorded<=planned)continue;
   if(typeof finding.id!=='string'||finding.id.length>160)continue;
+  const binding=Array.isArray(costRecords)?laborCostBinding(costRecords,jobs[0].id,businessId):null;
+  if(Array.isArray(costRecords)&&(!binding||Math.abs(binding.estimated-planned)>0.000001||Math.abs(binding.recorded-recorded)>0.000001))continue;
   eligible.push({
    id:finding.id,jobId:jobs[0].id,detectorId:'job.labor_hours_variance_review',
+   sourceCostBinding:binding?.proof||null,sourceCostCount:binding?.count||0,
    estimatedLaborHours:planned,recordedLaborHours:recorded,varianceHours:recorded-planned,
    evidenceKind:'manually_recorded_hours',timesheetVerified:false,payrollVerified:false,
    recommendation:'Review recorded hours and scope before preparing an internal labor review task.',
@@ -76,7 +113,7 @@ async function drain({db,events,commands,businessId='local-business',rule={id:'o
    if(plan.status!=='ready')throw Error(plan.error?.message||'Review not authorized');
    const result=await commands.execute(plan.id);
    if(result.status!=='succeeded'||!Array.isArray(result.result?.findings))throw Error(result.error?.message||'Review result unavailable');
-   const labor=laborFindingSummaries(result.result.findings);
+   const labor=laborFindingSummaries(result.result.findings,await readLaborCosts(db),businessId);
    outcome={status:'processed',result:{findingIds:result.result.findings.map(f=>f.id),evaluatedAt:result.result.evaluatedAt,ruleId:rule.id,laborFindings:labor.items,laborFindingsTruncated:labor.truncated}};
   }catch(error){outcome={status:row.attempts>=5?'failed':'pending',error:String(error.message).slice(0,200),nextAttemptAt:now()+Math.min(60000,1000*2**row.attempts)}}
   await transition(db,row.id,current=>{
@@ -86,5 +123,5 @@ async function drain({db,events,commands,businessId='local-business',rule={id:'o
  }
  return {status:'evaluated',processed};
 }
-return Object.freeze({validate,make,recordCommitted,write,drain,eventTypes:Object.freeze([...allowed]),laborFindingSummaries});
+return Object.freeze({validate,make,recordCommitted,write,drain,eventTypes:Object.freeze([...allowed]),laborFindingSummaries,laborCostBinding});
 });
