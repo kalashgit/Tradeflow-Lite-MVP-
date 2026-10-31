@@ -81,12 +81,13 @@ async function verify(viewport){
    try{
     const tx=db.transaction('commandLog','readonly'),get=tx.objectStore('commandLog').getAll();
     const all=await new Promise(resolve=>get.onsuccess=()=>resolve(get.result));
-    return all.find(x=>x.kind==='domain.event'&&x.status==='processed'&&
-     x.result?.laborFindings?.some(y=>y.jobId==='j1'&&y.varianceHours===5))||false;
+    // Return a primitive, not a live IndexedDB row/JS object handle.
+    const matched=all.find(x=>x.kind==='domain.event'&&x.status==='processed'&&
+     x.result?.laborFindings?.some(y=>y.jobId==='j1'&&y.varianceHours===5));
+    return matched?matched.result.laborFindings.find(y=>y.jobId==='j1').varianceHours:false;
    }finally{db.close()}
   },null,{timeout:15000});
-  const event=await found.jsonValue();
-  assert.equal(event.result.laborFindings.find(x=>x.jobId==='j1').varianceHours,5);
+  assert.equal(await found.jsonValue(),5,'persisted labor observation must report 5 hours');
   const first=await read(page);
   assert.equal(first.tasks.length,0);
   result.persistedFinding=true;
