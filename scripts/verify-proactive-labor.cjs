@@ -126,6 +126,98 @@ async function verify(viewport){
   assert.equal(recovered.tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1);
   assert.ok(recovered.commandLog.some(x=>x.kind==='domain.event'&&x.result?.laborFindings?.some(y=>y.jobId==='j1')));
   result.reloadRecovered=true;
+  // Simulate the narrow crash window after the core transaction committed its
+  // receipt and task, but before the outer command ledger finalized success.
+  // This is test-only IndexedDB fault injection; reconciliation must never
+  // replay the already committed business operation.
+  result.stage='interrupted command finalization reconciles receipt without replay';
+  const interrupted=await page.evaluate(async()=>{
+   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   try{
+    const tx=db.transaction('commandLog','readwrite'),store=tx.objectStore('commandLog');
+    const rows=await new Promise((resolve,reject)=>{
+     const request=store.getAll();request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+    });
+    const completed=rows.filter(x=>x.kind==='pilot.command'&&x.commandId==='job.labor_review.schedule'&&x.status==='succeeded');
+    if(completed.length!==1)throw Error('Expected one completed approved labor command');
+    const command=completed[0],receiptId='job-labor-review:operation:'+command.id;
+    if(rows.filter(x=>x.id===receiptId&&x.kind==='job.labor_review.schedule').length!==1)
+     throw Error('Committed core receipt missing before injected finalization loss');
+    const pending={...command,status:'executing',events:command.events.filter(x=>x.type!=='succeeded')};
+    delete pending.outcome;
+    store.put(pending);
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+    return {id:command.id,receiptId};
+   }finally{db.close()}
+  });
+  const reconciled=await page.evaluate(id=>window.TradeFlowPilot.commands.reconcile(id),interrupted.id);
+  assert.equal(reconciled.status,'succeeded','interrupted command must reconcile an existing durable receipt');
+  assert.equal(reconciled.result?.reconciled,true,'recovery must be receipt-backed, not a fresh execution');
+  const replay=await page.evaluate(id=>window.TradeFlowPilot.commands.execute(id),interrupted.id);
+  assert.equal(replay.status,'succeeded');
+  assert.equal(replay.reused,true,'executing a reconciled command must reuse the receipt');
+  const recoveryState=await read(page);
+  assert.equal(recoveryState.tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1);
+  assert.equal(recoveryState.commandLog.filter(x=>x.id===interrupted.receiptId).length,1);
+  assert.equal(recoveryState.commandLog.filter(x=>x.kind==='domain.event'&&
+   x.type==='task.created'&&x.correlationId===interrupted.receiptId).length,1);
+  result.interruptedReceiptReconciledNoReplay=true;
+  await page.screenshot({path:path.join(out,'proactive-labor-'+viewport.width+'-reconciled.png')});
+  result.stage='explicit rejection cannot create another labor task';
+  const rejected=await page.evaluate(async()=>{
+   const runtime=window.TradeFlowPilot.commands;
+   const plan=await runtime.prepare({commandId:'job.labor_review.schedule',
+    params:{ref:{store:'jobs',id:'j1'},due:'2026-11-01'}});
+   if(plan.status!=='needs_review')return {prepared:plan.status,error:plan.error};
+   const refusal=await runtime.reject(plan.id);
+   return {prepared:plan.status,rejected:refusal.status};
+  });
+  assert.equal(rejected.prepared,'needs_review',JSON.stringify(rejected));
+  assert.equal(rejected.rejected,'rejected','explicit rejection must be recorded');
+  assert.equal((await read(page)).tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1);
+  result.explicitRejectionNoWrite=true;
+  result.stage='revoked command capability before approval and execution fails closed';
+  // Test-only revocable authorization port, backed by the same real shared
+  // command runtime, IndexedDB command ledger and existing saved records.
+  // No production permission grant or alternate business executor is added.
+  const revoked=await page.evaluate(async()=>{
+   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   try{
+    let allowed=true,operationCalls=0;
+    const runtime=window.TradeFlowCommands.createRuntime({
+     snapshot:()=>window.TradeFlowLocalRecovery.readStores(db,[...db.objectStoreNames]),
+     context:()=>({actor:'local-owner',businessId:'local-business',today:'2026-10-31'}),
+     uid:()=>crypto.randomUUID(),
+     ledger:window.TradeFlowCommands.createLedger(()=>db),
+     can:(permission,context)=>allowed&&permission==='modify:job.labor_review.schedule'&&
+      context.actor==='local-owner'&&context.businessId==='local-business',
+     ports:{operation:async()=>{operationCalls++;throw Error('Revoked command reached business executor')}}
+    });
+    const plan=await runtime.prepare({commandId:'job.labor_review.schedule',
+     params:{ref:{store:'jobs',id:'j1'},due:'2026-11-02'}});
+    allowed=false;
+    const deniedApproval=await runtime.approve(plan.id);
+    allowed=true;
+    const approved=await runtime.approve(plan.id);
+    allowed=false;
+    const deniedExecution=await runtime.execute(plan.id);
+    const saved=await runtime.get(plan.id);
+    return {prepared:plan.status,deniedApproval:deniedApproval.status,
+     approved:approved.status,deniedExecution:deniedExecution.status,
+     savedStatus:saved?.status,operationCalls};
+   }finally{db.close()}
+  });
+  assert.equal(revoked.prepared,'needs_review',JSON.stringify(revoked));
+  assert.equal(revoked.deniedApproval,'denied');
+  assert.equal(revoked.approved,'approved');
+  assert.equal(revoked.deniedExecution,'denied');
+  assert.equal(revoked.savedStatus,'approved','revocation must not falsely finalize the command');
+  assert.equal(revoked.operationCalls,0,'revoked command must never enter the business operation');
+  assert.equal((await read(page)).tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1);
+  result.revokedCapabilityDeniedBeforeExecution=true;
+  await page.screenshot({path:path.join(out,'proactive-labor-'+viewport.width+'-revoked.png')});
   result.stage='replaced cost source with same aggregate hours must hide old attention';
   await page.evaluate(async()=>{
    const req=indexedDB.open('tradeflow-lite-v1',9);
