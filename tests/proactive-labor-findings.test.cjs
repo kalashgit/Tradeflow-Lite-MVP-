@@ -13,7 +13,7 @@ const costs=[
 ];
 const job={id:'j1',businessId:BUSINESS,title:'Synthetic panel replacement',status:'In Progress'};
 const context={actor:ACTOR,businessId:BUSINESS};
-const engine=intelligence.createEngine({commands,calendar:{conflicts:()=>[]},revenue:{totals:()=>({total:0}),collected:()=>0}});
+const engine=intelligence.createEngine({commands,calendar:{conflicts:()=>[]},revenue:{totals:()=>({total:0}),collected:()=>0},detectors:[...intelligence.builtinDetectors,...intelligence.optimizationDetectors]});
 function report(extra={}){
  return engine.evaluate({jobs:[job],jobCosts:costs,customers:[],tasks:[],quotes:[],invoices:[],payments:[],...extra},
   {today:'2026-10-31',now:'2026-10-31T12:00:00.000Z',businessId:BUSINESS});
