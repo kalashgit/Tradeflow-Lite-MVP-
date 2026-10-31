@@ -298,3 +298,40 @@ test('uncertain write reconciliation refuses a conflicting embedded tenant or re
   assert.equal(f.writes(),1,'no second network write during reconciliation');
  }
 });
+
+test('single record transport requires authoritative business scope for GET and PUT receipts',async()=>{
+ const good={businessId,id:'c1',type:'customers',revision:2,record:{id:'c1',name:'Legacy record'}};
+ const valid=createTenantTransport(businessId,async()=>Response.json(good));
+ const read=await valid.read('customers','c1');
+ assert.equal(read.status,200);
+ assert.equal(read.record.businessId,businessId);
+ assert.equal(read.record.revision,2);
+ assert.equal((await valid.write('customers','c1',{revision:1,record:{id:'c1'}})).status,200);
+ for(const payload of [
+  {...good,businessId:'another_business'},
+  {...good,businessId:undefined},
+  {...good,record:{...good.record,businessId:'another_business'}},
+  {...good,record:{...good.record,id:'c2'}},
+  {...good,record:['invalid']},
+  {...good,revision:'2'}
+ ]){
+  const bad=createTenantTransport(businessId,async()=>Response.json(payload));
+  await assert.rejects(bad.read('customers','c1'));
+  if(payload.businessId!==businessId)await assert.rejects(bad.write('customers','c1',{revision:1,record:{id:'c1'}}),/identity mismatch/);
+ }
+});
+test('catalogue transport rejects embedded cross-company and malformed identities',async()=>{
+ const good={businessId,type:'jobs',items:[{id:'j1',revision:3,record:{title:'Legacy job'}}],nextCursor:null};
+ for(const record of [
+  {id:'j1',businessId:'another_business',title:'Private job'},
+  {id:'j2',businessId,title:'Other job'},
+  {id:0,businessId,title:'Bad id'},
+  {businessId:0,title:'Bad business'},
+  ['invalid']
+ ]){
+  const bad=createTenantTransport(businessId,async()=>Response.json({...good,items:[{...good.items[0],record}]}));
+  await assert.rejects(bad.list('jobs'),/catalogue response invalid/);
+ }
+ const ok=createTenantTransport(businessId,async()=>Response.json(good));
+ assert.equal((await ok.list('jobs')).items.length,1,'legacy job without embedded IDs remains valid');
+});
