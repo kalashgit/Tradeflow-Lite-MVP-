@@ -255,3 +255,46 @@ test('nullish transport rejection cannot strand a queue lease or lose uncertaint
   }
  }
 });
+
+test('embedded wrong-business or wrong-record identity never drives a sync write or convergence receipt',async()=>{
+ for(const invalid of [
+  {id:'c1',businessId:'other_business',name:'Cross-tenant payload'},
+  {id:'c2',businessId:businessId,name:'Wrong record payload'}
+ ]){
+  const f=fixture();
+  await f.queue.enqueue({...change,operationId:'nested_scope_'+invalid.id+'_'+(invalid.businessId||'none')});
+  f.remote.set('customersc1',{
+   businessId,type:'customers',id:'c1',revision:1,record:invalid
+  });
+  const result=await f.queue.drain();
+  assert.equal(result.status,'retry_pending');
+  const [row]=await f.queue.list();
+  assert.equal(row.status,'pending','invalid nested identity cannot be marked applied or conflict approved');
+  assert.equal(row.writeUncertain===true,false,'read-only refusal must not invent a sent write');
+  assert.equal(row.verification,undefined);
+  assert.equal(f.writes(),0);
+  assert.equal((await f.make().drain()).processed,0,'no blind retry before backoff');
+ }
+});
+test('uncertain write reconciliation refuses a conflicting embedded tenant or record ID',async()=>{
+ for(const fields of [
+  {businessId:'other_business'},
+  {id:'different_customer'}
+ ]){
+  const f=fixture();
+  await f.queue.enqueue({...change,operationId:'nested_reconcile_'+Object.keys(fields)[0]});
+  f.loseAck();
+  assert.equal((await f.queue.drain()).status,'retry_pending');
+  assert.equal(f.writes(),1);
+  const [row]=await f.queue.list();
+  assert.equal(row.writeUncertain,true);
+  const remote=f.remote.get('customersc1');
+  f.remote.set('customersc1',{...remote,record:{...remote.record,...fields}});
+  await assert.rejects(f.queue.reconcile(row.id),/Record identity conflicts/);
+  const [after]=await f.queue.list();
+  assert.equal(after.status,'pending','invalid remote payload must not fabricate verified receipt');
+  assert.equal(after.writeUncertain,true,'uncertainty stays until an authorized valid readback');
+  assert.equal(after.verification,undefined);
+  assert.equal(f.writes(),1,'no second network write during reconciliation');
+ }
+});
