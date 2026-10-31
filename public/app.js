@@ -887,6 +887,28 @@ function tfQuotationRecordedHistory(d,quote){
  '<p>No linked follow-up task or contact has been recorded for this quotation.</p>')+
  '<small>Task creation is not customer contact. Contact entries are operator-reported and have no independent provider delivery verification.</small></section>';
 }
+// Display only already-persisted read-only labor observations that still agree
+// with the CURRENT local job-cost rows. Stale observations cannot trigger actions.
+function tfSavedProactiveLaborFinding(data,job){
+ if(!job?.id||job.businessId&&job.businessId!=='local-business')return null;
+ const costs=(data.jobCosts||[]).filter(c=>c.jobId===job.id&&c.category==='Labor'&&
+  ['estimate','actual'].includes(c.type)&&c.laborHours!=null);
+ if(!costs.length||costs.some(c=>c.businessId&&c.businessId!=='local-business'||
+  !Number.isFinite(c.laborHours)||c.laborHours<=0))return null;
+ const planned=costs.filter(c=>c.type==='estimate').reduce((n,c)=>n+c.laborHours,0);
+ const recorded=costs.filter(c=>c.type==='actual').reduce((n,c)=>n+c.laborHours,0);
+ if(planned<=0||recorded<=planned)return null;
+ const sources=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&e.status==='processed'&&
+  e.businessId==='local-business'&&e.actor==='local-owner'&&Array.isArray(e.result?.laborFindings));
+ for(const event of sources.reverse()){
+  const matched=event.result.laborFindings.find(item=>item?.jobId===job.id&&
+   item.detectorId==='job.labor_hours_variance_review'&&item.executionAuthority===false&&
+   item.estimatedLaborHours===planned&&item.recordedLaborHours===recorded&&
+   item.timesheetVerified===false&&item.payrollVerified===false);
+  if(matched)return matched;
+ }
+ return null;
+}
 function tfRecordDetailView(d,record,type){
  const title=type==='customers'?record.name:record.title||'Untitled';
  const status=tfRecordStatus(record,type);
@@ -926,7 +948,7 @@ function tfRecordDetailView(d,record,type){
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfChangeOrderReview" data-id="'+esc(record.id)+'" data-change-id="'+esc(change.id)+'">Review proposed change: '+esc(String(change.description||change.id).slice(0,100))+'</button>';
   }
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
-  if(type==='jobs')sections+='<section class="tf-record-dossier-box"><h3>Operational reasoning</h3><button type="button" class="tf-record-dossier-primary" data-action="tfDecisionExplain" data-id="'+esc(record.id)+'">Explain recorded job exceptions</button><div data-decision-job="'+esc(record.id)+'">'+(window.TradeFlowPilot?.decisions?.view(record.id)||'')+'</div></section>';
+  if(type==='jobs'){const laborAttention=tfSavedProactiveLaborFinding(d,record);sections+='<section class="tf-record-dossier-box"><h3>Operational reasoning</h3>'+(laborAttention?'<p data-proactive-labor-finding="'+esc(record.id)+'"><strong>Master Intelligence · Labor attention recorded</strong><br>Estimated '+esc(laborAttention.estimatedLaborHours)+' h · manually recorded '+esc(laborAttention.recordedLaborHours)+' h · variance +'+esc(laborAttention.varianceHours)+' h.<br><small>This saved observation is read-only. Hours are not verified timesheets or payroll. Review alternatives and approve any internal task explicitly.</small></p>':'')+'<button type="button" class="tf-record-dossier-primary" data-action="tfDecisionExplain" data-id="'+esc(record.id)+'">Explain recorded job exceptions</button><div data-decision-job="'+esc(record.id)+'">'+(window.TradeFlowPilot?.decisions?.view(record.id)||'')+'</div></section>'}
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
   if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.type==='estimate'))
    sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobCostReview" data-id="'+esc(record.id)+'">Review recorded job cost overrun</button>';
