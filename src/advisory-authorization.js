@@ -46,6 +46,9 @@ export function createServerAdvisoryAuthorizer({db,principal,context}={}){
    if(!evidence||evidence.length>200||!Array.isArray(context.records)||
       context.records.length!==evidence.length)return false;
    const allowed=new Set(evidenceTypes(auth.role)),seen=new Set();
+   // Validate the pinned references and mutable context before any SQL await.
+   // For multiple records, one bounded SQL statement returns a consistent
+   // SQLite statement snapshot rather than mixed-time per-record reads.
    for(let i=0;i<evidence.length;i++){
     const item=evidence[i],current=context.records[i],key=item.type+':'+item.id;
     if(!allowed.has(item.type)||!current||current.type!==item.type||
@@ -53,6 +56,34 @@ export function createServerAdvisoryAuthorizer({db,principal,context}={}){
        current.updatedAt!==item.updatedAt||
        !Number.isSafeInteger(item.revision)||item.revision<1||seen.has(key))return false;
     seen.add(key);
+   }
+   if(evidence.length>1){
+    const selectors=evidence.map(()=>'(record_type=? AND id=?)').join(' OR ');
+    const sql=`SELECT record_type,id,revision,updated_at,deleted_at,payload
+      FROM tenant_records WHERE business_id=? AND (${selectors})
+      AND EXISTS (SELECT 1 FROM business_memberships m
+       WHERE m.business_id=tenant_records.business_id AND m.business_id=?
+       AND m.issuer=? AND m.subject=? AND m.status='active' AND m.role=?)
+      LIMIT 201`;
+    const params=[expected.businessId,...evidence.flatMap(r=>[r.type,r.id]),
+      expected.businessId,auth.issuer,auth.subject,auth.role];
+    const rows=(await db.prepare(sql).bind(...params).all())?.results;
+    if(!Array.isArray(rows)||rows.length!==evidence.length)return false;
+    const byKey=new Map();
+    for(const row of rows){
+     const key=row.record_type+':'+row.id;
+     if(!seen.has(key)||byKey.has(key))return false;
+     byKey.set(key,row);
+    }
+    for(const item of evidence){
+     const row=byKey.get(item.type+':'+item.id);
+     if(!row||row.deleted_at!=null||row.revision!==item.revision||
+        typeof row.payload!=='string'||
+        (typeof item.updatedAt==='string'&&row.updated_at!==item.updatedAt))return false;
+     recordIdentity({businessId:expected.businessId,type:item.type,id:item.id,record:JSON.parse(row.payload)});
+    }
+   }else if(evidence.length===1){
+    const item=evidence[0];
     const query=authorizedTenantReadQuery({authorization:auth,table:item.type,recordId:item.id});
     const row=await db.prepare(query.sql).bind(...query.params).first();
     if(!row||row.deleted_at!=null||row.revision!==item.revision||
@@ -60,6 +91,12 @@ export function createServerAdvisoryAuthorizer({db,principal,context}={}){
        (typeof item.updatedAt==='string'&&row.updated_at!==item.updatedAt))return false;
     recordIdentity({businessId:expected.businessId,type:item.type,id:item.id,record:JSON.parse(row.payload)});
    }
+   // Reject context changes made while the database read was awaiting.
+   if(context.records.length!==evidence.length||evidence.some((item,i)=>{
+    const current=context.records[i];
+    return !current||current.type!==item.type||current.id!==item.id||
+      current.revision!==item.revision||current.updatedAt!==item.updatedAt;
+   }))return false;
    if(evidence.length){
     const latest=await authorizeBusiness({db,principal,businessId:expected.businessId,permission:'records:read'});
     if(latest.role!==auth.role)return false;

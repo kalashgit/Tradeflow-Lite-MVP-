@@ -193,3 +193,81 @@ test('H04-11: company-scope evidence and context mutations cannot bypass post-in
   assert.equal(auditCount(f),0);
  }finally{f.close();}
 });
+
+test('H04-12: multi-record evidence uses one bounded SQL snapshot at each authorization boundary',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  let batches=0,singles=0;
+  const db={prepare(query){
+   if(query.includes('FROM tenant_records')){
+    if(query.includes(' OR '))batches++;else singles++;
+   }
+   return f.db.prepare(query);
+  }};
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const result=await requestAuthorizedServerAdvisory({db,principal,context:h.context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>({text:'Read-only evidence'})});
+  assert.equal(result.executionAuthority,false);
+  assert.equal(batches,2);
+  assert.equal(singles,0);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-12: membership revoked after a batched SQL snapshot denies before inference',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  let revoked=false,transportCalls=0;
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    const bound=statement.bind(...params);
+    return {first:()=>bound.first(),all:async()=>{
+     const response=await bound.all();
+     if(query.includes('FROM tenant_records')&&!revoked){
+      revoked=true;
+      f.sql("UPDATE business_memberships SET status='suspended' WHERE business_id=?",[businessId]);
+     }
+     return response;
+    }};
+   }};
+  }};
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context:h.context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Must never reach transport'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(revoked,true);assert.equal(transportCalls,0);assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-12: incomplete or duplicated batched evidence rows fail closed',async()=>{
+ const {principal}=await verifiedIdentity();
+ for(const tamper of [rows=>rows.slice(1),rows=>[rows[0],rows[0]]]){
+  const f=fixture();
+  try{
+   addLinkedCost(f);
+   const h=await host(f,principal);let transportCalls=0;
+   const db={prepare(query){
+    const statement=f.db.prepare(query);
+    return {bind(...params){
+     const bound=statement.bind(...params);
+     return {first:()=>bound.first(),all:async()=>{
+      const response=await bound.all();
+      return query.includes('FROM tenant_records')?{results:tamper(response.results)}:response;
+     }};
+    }};
+   }};
+   const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+   await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context:h.context,
+    env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+     transportCalls++;return {text:'No partial snapshot'};
+    }}),e=>e.code==='authorization_denied');
+   assert.equal(transportCalls,0);assert.equal(auditCount(f),0);
+  }finally{f.close();}
+ }
+});
