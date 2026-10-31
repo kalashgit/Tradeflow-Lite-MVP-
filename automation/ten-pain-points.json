@@ -8,7 +8,19 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "completion, future dates, invalid dates and confirmed handoffs",
       "feature": "Existing operational intelligence / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 2,
+      "executionTest": "tests/quotation-followup-execution.test.cjs",
+      "contactResolutionTest": "tests/quotation-contact-recording.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "Owner-reviewed quote follow-up task and contact attempt/reached outcome; quote-linked task closure and audit commit; no external send",
+      "resolutionCriterion": "Only an owner-attested reached contact with linked evidence closes open follow-up tasks; attempted contact records activity but does not close tasks; provider delivery remains unverified",
+      "verification": "33/33 exact-GitHub-source tests passed in an isolated JavaScript host with Node API shims; full Node, real IndexedDB, Playwright and real contractor outcome remain unverified",
+      "gates": {
+        "code": "pending_exact_head_Node_and_browser_CI",
+        "product": "pending_actual_GUI_acceptance",
+        "operations": "pending_owner_auth_and_recovery_on_real_device",
+        "outcome": "pending_contractor_evidence"
+      }
     },
     {
       "id": "TF-P02",
@@ -16,7 +28,10 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "overdue invoices include partial payments",
       "feature": "Existing revenue / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 11,
+      "executionTest": "tests/invoice-followup-execution.test.cjs",
+      "executionScope": "owner-approved internal task creation with payment snapshot, idempotency and audited reconciliation; no customer outreach or bank verification",
+      "verification": "source implementation committed; real browser, Node suite and contractor outcome not yet verified"
     },
     {
       "id": "TF-P03",
@@ -24,7 +39,10 @@
       "test": "tests/operational-intelligence.test.cjs",
       "pattern": "calendar conflicts preserve resources",
       "feature": "Existing calendar / dispatch",
-      "originalRegisterRef": null
+      "originalRegisterRef": 13,
+      "executionTest": "tests/calendar-conflict-resolution.test.cjs",
+      "executionScope": "standalone calendar event overlap reschedule only; approved, snapshot guarded and atomic, with calendar audit and nonreplaying recovery; linked jobs and tasks remain review-only",
+      "verification": "source committed with isolated parse, conflict and transaction checks; full Node/browser/contractor acceptance pending"
     },
     {
       "id": "TF-P04",
@@ -32,7 +50,13 @@
       "test": "tests/change-order-intelligence.test.cjs",
       "pattern": "proposed work prompts review",
       "feature": "Existing job dossier / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 9,
+      "executionTest": "tests/change-order-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "reviewed internal task followed by separately owner-attested customer consent reference, guarded job change-order update, task closure and atomic domain audit; no external verification or contract amendment",
+      "resolutionCriterion": "recorded owner attestation must retain customer evidence reference, linked review receipt and task closure; independent customer authorization and field-work enforcement require operational verification",
+      "mappingScope": "partial: evidence record and task resolution do not independently verify customer consent or stop unauthorized field work",
+      "verification": "focused local Node tests passed; exact-head CI and Chromium scenario pending"
     },
     {
       "id": "TF-P05",
@@ -40,7 +64,12 @@
       "test": "tests/optimization-financial-integrity.test.cjs",
       "pattern": "budget overrun uses recorded costs",
       "feature": "Existing job costing / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 12,
+      "mappingScope": "partial: recorded overrun detection and owner-approved cost reconciliation task do not prove complete job profitability, external accounting reconciliation or settled cash",
+      "executionTest": "tests/job-cost-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-reviewed, revision-bound local budget-overrun reconciliation task with cost/expense provenance, idempotent task receipt and nonreplaying recovery",
+      "verification": "focused local Node tests passed; exact-head CI and real Chromium pending"
     },
     {
       "id": "TF-P06",
@@ -48,7 +77,12 @@
       "test": "tests/optimization-labor-hours.test.cjs",
       "pattern": "labor-hour variance is based",
       "feature": "Existing job costing / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 7,
+      "mappingScope": "partial: manually entered estimated and actual hours are not independently verified timesheets, payroll, schedule forecasts or job-level productivity outcomes",
+      "executionTest": "tests/job-labor-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved internal labor-hour variance task with source cost IDs, revision-bound execution, audit receipt, duplicate prevention and nonreplaying interruption reconciliation",
+      "verification": "local focused tests passed; exact-head CI and real Chromium pending"
     },
     {
       "id": "TF-P07",
@@ -56,7 +90,12 @@
       "test": "tests/optimization-financial-integrity.test.cjs",
       "pattern": "payment overrecording is flagged",
       "feature": "Existing invoice / notifications",
-      "originalRegisterRef": null
+      "originalRegisterRef": 22,
+      "mappingScope": "adjacent: local overpayment review and audited internal tasks do not integrate external accounting, verify settlement, or resolve malformed payment entries",
+      "executionTest": "tests/invoice-payment-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved internal reconciliation task for validated locally recorded payment totals above invoice balance; guarded, idempotent and recoverable with zero payment mutations",
+      "verification": "focused local Node tests passed; exact-commit CI and Chromium pending"
     },
     {
       "id": "TF-P08",
@@ -64,7 +103,12 @@
       "test": "tests/optimization-bid-readiness.test.cjs",
       "pattern": "pursued bids require explicit",
       "feature": "Existing opportunity dossier",
-      "originalRegisterRef": null
+      "originalRegisterRef": 4,
+      "mappingScope": "partial: operator-recorded invitation, scope and capacity checks plus internal review do not independently qualify bids or predict win rates",
+      "executionTest": "tests/bid-qualification-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-reviewed internal bid qualification task bound to opportunity revision and open-task snapshot; audit receipt, no submission, duplicate prevention and nonreplaying recovery",
+      "verification": "local focused tests passed; exact-commit CI and Chromium pending"
     },
     {
       "id": "TF-P09",
@@ -72,7 +116,12 @@
       "test": "tests/optimization-quote-reuse.test.cjs",
       "pattern": "copying an accepted quotation",
       "feature": "Existing quote dossier",
-      "originalRegisterRef": null
+      "originalRegisterRef": 38,
+      "mappingScope": "partial: source quote reuse copies safe estimate summary fields; detailed takeoffs, material pricing and estimator-system synchronization remain unverified",
+      "executionTest": "tests/quotation-reuse-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved unsent quote draft with immutable source provenance, source revision guard, idempotent receipt and nonreplaying recovery; no copied customer authority or send state",
+      "verification": "focused local Node tests passed; exact-head CI and Chromium pending"
     },
     {
       "id": "TF-P10",
@@ -80,13 +129,18 @@
       "test": "tests/optimization-account-economics.test.cjs",
       "pattern": "customer account economics sums local receipts",
       "feature": "Existing customer dossier",
-      "originalRegisterRef": null
+      "originalRegisterRef": 61,
+      "mappingScope": "partial: internally recorded cash contribution is not verified lifetime customer profitability, settled receipts, or complete cost allocation",
+      "executionTest": "tests/customer-economics-review-execution.test.cjs",
+      "browserTest": "scripts/verify-contractor-workflows.cjs",
+      "executionScope": "owner-approved internal customer economics review with linked job, invoice, payment, cost and expense snapshots, provenance, audit receipt and nonreplaying recovery",
+      "verification": "focused local Node tests passed; exact-head CI and Chromium pending"
     }
   ],
   "researchRegister": {
-    "locationReportedByOwner": "Library / TradeFlow",
-    "accessStatus": "Library type/path clarification pending",
+    "locationReportedByOwner": "Library /TradeFlow/TradeFlow_Pain_Point_Research_Register_2026-10-28.md",
+    "accessStatus": "original 62-entry register located and exact row IDs read",
     "originalEntryCount": 62,
-    "mappingStatus": "unreconciled"
+    "mappingStatus": "candidate IDs mapped to actual register rows; no outcome closure verified"
   }
 }

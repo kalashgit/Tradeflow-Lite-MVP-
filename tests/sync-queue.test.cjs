@@ -4,8 +4,8 @@ let createSyncQueue,createTenantTransport;
 require('node:test').before(async()=>({createSyncQueue,createTenantTransport}=await import('../public/sync-queue.js')));
 const businessId='business_001',change={type:'customers',id:'c1',operationId:'request_1',baseRevision:0,record:{id:'c1',name:'Test customer'}};
 function fixture(){
- const db=createDB(),remote=new Map();let writes=0,time=100000,status='signed_in',failure=0,lost=false;
- const session=async()=>({status,businesses:[{business_id:businessId,role:'owner'}]});
+ const db=createDB(),remote=new Map();let writes=0,time=100000,status='signed_in',failure=0,lost=false,role='owner',subject='owner_001';
+ const session=async()=>({status,identity:{issuer:'synthetic-issuer',subject},businesses:[{business_id:businessId,role}],capabilities:{recordTypes:['customers','jobs','quotes','invoices','jobCosts','payments','expenses']}});
  const transport={read:async(type,id)=>remote.has(type+id)?{status:200,record:structuredClone(remote.get(type+id))}:{status:404},write:async(type,id,body)=>{
   if(failure)return {status:failure};const key=type+id,old=remote.get(key);
   if((old?.revision||0)!==body.revision)return {status:409};
@@ -13,7 +13,7 @@ function fixture(){
   if(lost){lost=false;throw Error('Acknowledgment lost')}return {status:201};
  }};
  const make=()=>createSyncQueue({db,businessId,session,transport,now:()=>time});
- return {db,remote,make,transport,queue:make(),writes:()=>writes,advance:()=>time+=61000,deny:()=>status='signed_out',allow:()=>status='signed_in',failure:n=>failure=n,loseAck:()=>lost=true};
+ return {db,remote,make,transport,queue:make(),writes:()=>writes,advance:()=>time+=61000,deny:()=>status='signed_out',allow:()=>status='signed_in',failure:n=>failure=n,loseAck:()=>lost=true,setRole:value=>role=value,setSubject:value=>subject=value};
 }
 test('queue survives runtime recreation, serializes duplicate requests and verifies persisted result',async()=>{
  const f=fixture();await Promise.all([f.queue.enqueue(change),f.queue.enqueue(change)]);assert.equal((await f.make().list()).length,1);
@@ -57,4 +57,180 @@ test('same-origin transport rejects login redirects and mismatched successful pa
  const transport=createTenantTransport(businessId,async(url,options)=>{assert.ok(url.startsWith('/api/v1/businesses/'+businessId));assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'manual');return {status:0,type:'opaqueredirect'}});
  assert.equal((await transport.read('customers','c1')).status,401);
  const bad=createTenantTransport(businessId,async()=>Response.json({id:'c2',type:'customers',revision:1,record:{}}));await assert.rejects(bad.read('customers','c1'),/identity mismatch/);
+});
+
+test('Access redirect responses are authentication failures for all transport methods',async()=>{
+ for(const status of [301,308]){
+  let calls=0;
+  const transport=createTenantTransport(businessId,async(url,options)=>{
+   calls++;assert.equal(options.redirect,'manual');assert.equal(options.credentials,'same-origin');
+   return {status,ok:false,type:'basic',json:async()=>{throw Error('Redirect body must not be parsed')}};
+  });
+  assert.deepEqual(await transport.read('customers','c1'),{status:401});
+  assert.deepEqual(await transport.write('customers','c1',{revision:0,record:{id:'c1'}}),{status:401});
+  assert.deepEqual(await transport.list('customers'),{status:401});
+  assert.equal(calls,3);
+ }
+});
+
+test('read-only catalogue transport validates tenant, cursor, revisions and redirect boundaries',async()=>{
+ const expected={businessId,type:'jobs',items:[{id:'job_001',revision:3,record:{name:'Test job'}}],nextCursor:null};
+ let calls=0;
+ const transport=createTenantTransport(businessId,async(url,options)=>{
+  calls++;assert.equal(options.method,'GET');assert.equal(options.credentials,'same-origin');
+  assert.equal(url,'/api/v1/businesses/'+businessId+'/records/jobs?after=job_000');
+  return Response.json(expected);
+ });
+ const result=await transport.list('jobs','job_000');
+ assert.equal(result.status,200);assert.equal(result.items[0].revision,3);assert.equal(result.nextCursor,null);
+ assert.equal(calls,1);
+ await assert.rejects(transport.list('jobs','../../wrong'),/Invalid catalogue/);
+ const redirect=createTenantTransport(businessId,async()=>({status:302,type:'opaqueredirect'}));
+ assert.equal((await redirect.list('jobs')).status,401);
+ const crossTenant=createTenantTransport(businessId,async()=>Response.json({...expected,businessId:'business_999'}));
+ await assert.rejects(crossTenant.list('jobs'),/catalogue response invalid/);
+ const truncated=createTenantTransport(businessId,async()=>Response.json({...expected,nextCursor:'job_999'}));
+ await assert.rejects(truncated.list('jobs'),/catalogue response invalid/);
+});
+
+test('optional undefined fields do not crash canonical queue idempotency and remain omitted in persisted snapshots',async()=>{
+ const f=fixture(),withOptional={...change,record:{id:'c1',name:'Test customer',optional:undefined,details:{priority:1,note:undefined}}};
+ const again={...change,record:{details:{priority:1},name:'Test customer',id:'c1'}};
+ await f.queue.enqueue(withOptional);
+ await f.queue.enqueue(again);
+ assert.equal((await f.queue.list()).length,1);
+ assert.equal((await f.queue.drain()).status,'drained');
+ assert.equal(f.writes(),1);
+ assert.equal((await f.queue.list())[0].status,'applied');
+});
+
+test('conflict review fails closed when membership is revoked during approval',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Another device'}});
+ await f.queue.drain();
+ const row=(await f.queue.list())[0];assert.equal(row.status,'conflict');
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Approved'},async()=>{f.deny();return true}),/Authorized session changed/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('conflict review refuses stale remote revision changed while owner considers proposal',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Remote original'}});
+ await f.queue.drain();
+ const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Approved'},async()=>{
+  f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:3,record:{id:'c1',name:'Remote updated'}});
+  return true;
+ }),/Remote record changed during conflict review/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('conflict review refuses same-revision remote changes without evidence of consistency',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Original'}});
+ await f.queue.drain();
+ const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Approved'},async()=>{
+  f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Tampered'}});
+  return true;
+ }),/Remote record changed during conflict review/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+
+test('conflict review persists original approved proposal despite callback mutation',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});
+ await f.queue.drain();const row=(await f.queue.list())[0];
+ const proposal={id:'c1',name:'Reviewed',details:{category:'electrical'}};
+ await f.queue.resolve(row.id,proposal,async evidence=>{
+  assert.equal(evidence.proposed.name,'Reviewed');
+  proposal.name='Unreviewed';proposal.details.category='other';
+  evidence.proposed.name='Modified evidence';
+  return true;
+ });
+ const retained=(await f.queue.list())[0];
+ assert.equal(retained.change.record.name,'Reviewed');
+ assert.equal(retained.change.record.details.category,'electrical');
+ assert.equal(retained.status,'pending');
+ assert.equal(f.writes(),0);
+});
+test('foreign-business or changed record identity is rejected before requesting conflict approval',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});
+ await f.queue.drain();const row=(await f.queue.list())[0];let approvalCalls=0;
+ for(const proposed of [{id:'other',name:'Wrong'},{id:'c1',businessId:'business_999',name:'Foreign'}]){
+  await assert.rejects(f.queue.resolve(row.id,proposed,async()=>{approvalCalls++;return true}),/identity/);
+ }
+ assert.equal(approvalCalls,0);assert.equal((await f.queue.list())[0].status,'conflict');
+});
+
+test('conflict approval cannot transfer to another signed-in principal with same company role',async()=>{
+ const f=fixture();await f.queue.enqueue(change);
+ f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'Changed'}});
+ await f.queue.drain();const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'c1',name:'Reviewed'},async()=>{f.setSubject('another_user');return true}),/Reviewing principal changed/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('financial conflict review rejects member role before owner approval',async()=>{
+ const f=fixture(),financial={type:'jobCosts',id:'cost_01',operationId:'financial_01',baseRevision:0,record:{id:'cost_01',amount:150}};
+ await f.queue.enqueue(financial);
+ f.remote.set('jobCostscost_01',{businessId,type:'jobCosts',id:'cost_01',revision:2,record:{id:'cost_01',amount:175}});
+ await f.queue.drain();const row=(await f.queue.list())[0];assert.equal(row.status,'conflict');
+ f.setRole('member');let approvals=0;
+ await assert.rejects(f.queue.resolve(row.id,{id:'cost_01',amount:175},async()=>{approvals++;return true}),/owner or admin/);
+ assert.equal(approvals,0);assert.equal((await f.queue.list())[0].status,'conflict');
+});
+test('financial conflict review aborts on owner-to-member role downgrade during approval',async()=>{
+ const f=fixture(),financial={type:'jobCosts',id:'cost_02',operationId:'financial_02',baseRevision:0,record:{id:'cost_02',amount:150}};
+ await f.queue.enqueue(financial);
+ f.remote.set('jobCostscost_02',{businessId,type:'jobCosts',id:'cost_02',revision:2,record:{id:'cost_02',amount:175}});
+ await f.queue.drain();const row=(await f.queue.list())[0];
+ await assert.rejects(f.queue.resolve(row.id,{id:'cost_02',amount:175},async()=>{f.setRole('member');return true}),/Authorized session changed/);
+ assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+
+test('another principal cannot obtain a misleading approved state for the original actors conflict',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});await f.queue.drain();const row=(await f.queue.list())[0];f.setSubject('another_owner');let asked=0;
+ await assert.rejects(f.queue.resolve(row.id,change.record,()=>{asked++;return true}),/Original reviewing actor/);assert.equal(asked,0);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('actor switch during final remote conflict check cannot stage an approved replacement',async()=>{
+ const f=fixture();await f.queue.enqueue(change);f.remote.set('customersc1',{businessId,type:'customers',id:'c1',revision:2,record:{id:'c1',name:'External'}});await f.queue.drain();const row=(await f.queue.list())[0],read=f.transport.read;let reads=0;
+ f.transport.read=async(...args)=>{const result=await read(...args);if(++reads===2)f.setSubject('another_owner');return result};
+ await assert.rejects(f.queue.resolve(row.id,change.record,()=>true),/session changed during final/);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+test('financial downgrade during final remote conflict check cannot stage an approved replacement',async()=>{
+ const f=fixture(),financial={...change,type:'jobCosts'};await f.queue.enqueue(financial);f.remote.set('jobCostsc1',{businessId,type:'jobCosts',id:'c1',revision:2,record:{id:'c1',name:'External'}});await f.queue.drain();const row=(await f.queue.list())[0],read=f.transport.read;let reads=0;
+ f.transport.read=async(...args)=>{const result=await read(...args);if(++reads===2)f.setRole('member');return result};
+ await assert.rejects(f.queue.resolve(row.id,change.record,()=>true),/session changed during final/);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
+});
+
+test('transport exception secrets are not stored in persistent queue errors or history',async()=>{
+ const secret='PRIVATE_TOKEN_SHOULD_NOT_BE_PERSISTED_123';
+ for(const stage of ['read','write']){
+  const f=fixture();
+  await f.queue.enqueue({...change,operationId:'secret_'+stage});
+  const original=f.transport[stage];
+  f.transport[stage]=async(...args)=>{throw Error('network trace '+secret)};
+  try{
+   const outcome=await f.queue.drain();
+   assert.equal(outcome.status,'retry_pending');
+   const [row]=await f.queue.list();
+   assert.equal(row.status,'pending');
+   assert.equal(row.reason,'Synchronization could not be verified; inspect remote state before retrying');
+   assert.equal(JSON.stringify(row).includes(secret),false);
+   assert.equal(f.writes(),0);
+   if(stage==='read')assert.notEqual(row.writeUncertain,true);
+   if(stage==='write')assert.equal(row.writeUncertain,true,'write request may have crossed network');
+   assert.equal((await f.make().drain()).processed,0,'no automatic retry before backoff');
+  }finally{f.transport[stage]=original}
+ }
+});
+test('transport failures with non-Error rejection objects are redacted',async()=>{
+ const f=fixture();
+ await f.queue.enqueue({...change,operationId:'secret_object'});
+ f.transport.read=async()=>Promise.reject({message:'PRIVATE_HEADER',status:503});
+ const response=await f.queue.drain();
+ assert.equal(response.status,'retry_pending');
+ const row=(await f.queue.list())[0];
+ assert.equal(row.reason,'Synchronization could not be verified; inspect remote state before retrying');
+ assert.equal(JSON.stringify(row).includes('PRIVATE_HEADER'),false);
+ assert.equal(f.writes(),0);
 });

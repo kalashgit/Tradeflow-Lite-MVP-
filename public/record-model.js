@@ -13,4 +13,21 @@ export function linksForRecord(record){
  return links;
 }
 
+
+// Shared, pure record-envelope identity. Compatible with legacy local records that
+// have no embedded businessId; a conflicting embedded scope is never acceptable.
+export function recordIdentity(input){
+ const {businessId,type,id,record}=input||{};
+ const component=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
+ if(!component(businessId)||!component(id)||!RECORD_TYPES.includes(type))
+  throw Error('Invalid business record identity');
+ if(record!==undefined){
+  if(!record||typeof record!=='object'||Array.isArray(record))throw Error('Invalid record identity payload');
+  if(record.id!=null&&record.id!==id||record.businessId!=null&&record.businessId!==businessId)
+   throw Error('Record identity conflicts with requested business or identifier');
+ }
+ return Object.freeze({businessId,type,id,key:[businessId,type,id].join(':')});
+}
+export function validRecordRevision(value){return Number.isSafeInteger(value)&&value>=0}
+
 export const EXTENDED_SCHEMA=Object.freeze({id:'0003_extended_business_records',sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0',version:3});

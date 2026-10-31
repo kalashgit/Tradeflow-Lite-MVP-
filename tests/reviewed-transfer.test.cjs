@@ -61,3 +61,61 @@ test('multiple owned destinations require selection and viewer sessions never ex
  await createMigrationController(host).open(root);assert.match(root.innerHTML,/Choose destination business/);assert.match(root.innerHTML,/data-transfer-action="prepare" disabled/);
  host.session=async()=>({status:'signed_in',businesses:[{business_id:'business_001',business_name:'Viewer business',role:'viewer'}]});await createMigrationController(host).open(root);assert.doesNotMatch(root.innerHTML,/data-transfer-action="prepare"/);
 });
+
+test('existing Settings controller shows read-only cloud comparison without device writes',async()=>{
+ const {createMigrationController}=await import('../public/migration-ui.js');
+ const db=createDB({customers:[{id:'c1',name:'Device customer',businessId:'business_001'}]});
+ const before=db.dump(),root={innerHTML:'',isConnected:true},calls=[];
+ const session=async()=>({status:'signed_in',identity:{issuer:'https://verified.example',subject:'owner_001'},
+  businesses:[{business_id:'business_001',business_name:'Target business',role:'owner'}],
+  capabilities:{recordTypes:['customers','jobs']}});
+ const transport=()=>({async list(type,after){
+  calls.push([type,after]);return {status:200,items:type==='customers'?
+   [{id:'c1',revision:2,record:{id:'c1',name:'Changed cloud customer',businessId:'business_001'}},
+    {id:'c2',revision:1,record:{id:'c2',name:'New cloud customer',businessId:'business_001'}}]:[],nextCursor:null};
+ }});
+ const controller=createMigrationController({document:{addEventListener(){}},session,transport,db:()=>db,stores:STORES});
+ await controller.open(root);
+ assert.match(root.innerHTML,/cloud-review/);
+ await controller.reviewCloud();
+ assert.match(root.innerHTML,/1 missing on this device/);
+ assert.match(root.innerHTML,/1 conflicts/);
+ assert.match(root.innerHTML,/No local data was changed/);
+ assert.deepEqual(calls,[['customers',''],['jobs','']]);
+ assert.deepEqual(db.dump(),before);
+});
+test('viewer never sees cloud comparison action in existing Settings',async()=>{
+ const {createMigrationController}=await import('../public/migration-ui.js');
+ const root={innerHTML:'',isConnected:true};
+ const ctrl=createMigrationController({document:{addEventListener(){}},
+  session:async()=>({status:'signed_in',businesses:[{business_id:'business_001',role:'viewer'}]})});
+ await ctrl.open(root);
+ assert.doesNotMatch(root.innerHTML,/data-transfer-action="cloud-review"/);
+});
+
+test('Settings transfer canonical comparison tolerates optional undefined local record fields',async()=>{
+ const f=fixture(),plan=await f.prepare(true),q=f.queue();
+ plan.expectedStores.customers[0].optional=undefined;
+ const staged=await f.stage(q,plan);
+ assert.equal(staged.status,'staged');
+ assert.equal((await q.list()).length,4);
+});
+
+test('Settings comparison refuses expired owner session after remote scan without mutating data',async()=>{
+ const {createMigrationController}=await import('../public/migration-ui.js');
+ const db=createDB({customers:[{id:'c1',name:'On device',businessId:'business_001'}]}),before=db.dump(),root={innerHTML:'',isConnected:true};
+ let signed=true;
+ const session=async()=>signed?{status:'signed_in',identity:{issuer:'https://verified.example',subject:'owner_001'},businesses:[{business_id:'business_001',role:'owner'}],capabilities:{recordTypes:['customers']}}:{status:'signed_out',businesses:[]};
+ const ctrl=createMigrationController({document:{addEventListener(){}},session,db:()=>db,stores:STORES,transport:()=>({async list(){signed=false;return {status:200,items:[],nextCursor:null}}})});
+ await ctrl.open(root);await ctrl.reviewCloud();
+ assert.match(root.innerHTML,/Owner session changed/);
+ assert.doesNotMatch(root.innerHTML,/Read-only cloud comparison complete/);
+ assert.deepEqual(db.dump(),before);
+});
+
+test('transfer stages only the immutable reviewed snapshot despite mutation inside approval',async()=>{
+ const f=fixture(),plan=await f.prepare(true),original=structuredClone(plan.changes),q=f.queue();
+ await f.stage(q,plan,{approve:()=>{plan.changes[0].record.name='Unreviewed mutation';plan.changes.reverse();plan.expectedStores.customers[0].name='Changed expectation';return true}});
+ const rows=await q.list();for(const c of original)assert.deepEqual(rows.find(r=>r.change.operationId===c.operationId).change,c);
+ assert.notEqual(f.db.dump().customers[0].name,'Unreviewed mutation');assert.equal(f.written.length,0);
+});

@@ -45,11 +45,14 @@ function followupHarness(){
  },()=>'new-task',{TradeFlowCommands:{dateText:d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}});
  return {rows,run};
 }
-test('quotation lifecycle creates one reminder, updates its deadline, and closes on decision',async()=>{
+test('sent quotation never auto-creates reminders, but safely updates and closes existing legacy task',async()=>{
  const {rows,run}=followupHarness();
  await run('q1',{status:'Sent',title:'Panel upgrade',customerId:'c1',followup_date:'2026-11-05'});
- assert.equal(rows.length,1);assert.equal(rows[0].due,'2026-11-05');assert.equal(rows[0].followupAuto,true);
- await run('q1',{status:'Sent',title:'Panel upgrade revised',customerId:'c1',followup_date:'2026-11-07'},{followup_date:'2026-11-05'});
+ assert.equal(rows.length,0,'Owner approval is required for any new quotation follow-up task');
+ rows.push({id:'existing-legacy',quoteId:'q1',customerId:'c1',taskKind:'quotation_follow_up',
+  followupAuto:true,status:'Open',title:'Follow up quote: Panel upgrade',due:'2026-11-05'});
+ await run('q1',{status:'Sent',title:'Panel upgrade revised',customerId:'c1',
+  followup_date:'2026-11-07'},{followup_date:'2026-11-05'});
  assert.equal(rows.length,1);assert.equal(rows[0].due,'2026-11-07');assert.match(rows[0].title,/revised/);
  await run('q1',{status:'Accepted',title:'Panel upgrade revised',customerId:'c1'},{});
  assert.equal(rows[0].status,'Done');assert.equal(rows[0].completedReason,'quotation_closed');

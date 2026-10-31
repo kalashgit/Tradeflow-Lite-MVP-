@@ -17,7 +17,7 @@ const jwksResponse=async()=>new Response(JSON.stringify({keys:[jwk]}));
 const db=(role='viewer',recordBusiness=business)=>({prepare(sql){return {bind(...params){return {
  async first(){
   if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
-  if(sql.includes('FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
+  if(sql.startsWith('SELECT role FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
   if(sql.includes('FROM tenant_records'))return params[0]===recordBusiness?{payload:'{"name":"Private test job"}',revision:3,updated_at:'2026-10-29',deleted_at:null}:null;
   throw Error('Unexpected SQL');
  },async all(){return {results:[{business_id:business,business_name:'Test Contractor',role}]}}
@@ -108,4 +108,66 @@ test('extended routes are disabled until migration activation and financial writ
  const denied=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{id:'payment_1',amount:25}})}),{...envBase,TF_EXTENDED_RECORDS_ENABLED:'true',TF_DB:db('member')},{fetchJwks:jwksResponse});
  assert.equal(denied.status,403);
  const me=await api(req('/api/v1/me',signed),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse});assert.equal((await me.json()).capabilities.recordTypes.length,4);
+});
+
+test('cloud catalogue is tenant-authorized, bounded, cursor-paged and read-only',async()=>{
+ const signed=await token(),prefix='/api/v1/businesses/'+business+'/records/jobs';
+ const source=Array.from({length:51},(_,n)=>({id:'job_'+String(n).padStart(3,'0'),revision:2,updated_at:'2026-10-29',payload:JSON.stringify({name:'Synthetic job '+n})}));
+ let reads=0,writes=0;
+ const store={
+  prepare(sql){return {bind(...params){return {
+   async first(){
+    if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
+    if(sql.startsWith('SELECT role FROM business_memberships'))return params[0]===business?{role:'viewer'}:null;
+    throw Error('Unexpected first query');
+   },
+   async all(){
+    if(!sql.includes('FROM tenant_records')||!sql.includes('LIMIT 51'))throw Error('Unbounded catalogue');
+    reads++;
+    assert.equal(params[0],business);assert.equal(params[1],'jobs');
+    return {results:source.filter(row=>row.id>params[2]).slice(0,51)};
+   },
+   async run(){writes++;throw Error('Catalogue must not write')}
+  }}}}
+ };
+ const env={...envBase,TF_DB:store},options={fetchJwks:jwksResponse};
+ const first=await api(req(prefix,signed),env,options);
+ assert.equal(first.status,200);
+ const body=await first.json();assert.equal(body.items.length,50);assert.equal(body.nextCursor,'job_049');
+ assert.equal(body.items[0].record.name,'Synthetic job 0');
+ assert.equal(body.items[0].revision,2);
+ const next=await api(req(prefix+'?after='+body.nextCursor,signed),env,options);
+ assert.equal(next.status,200);assert.equal((await next.json()).items.length,1);
+ assert.equal((await api(req(prefix+'?after=not%2Fsafe',signed),env,options)).status,400);
+ assert.equal((await api(req(prefix+'?limit=10000',signed),env,options)).status,400);
+ assert.equal((await api(req('/api/v1/businesses/business_999/records/jobs',signed),env,options)).status,403);
+ assert.equal((await api(req(prefix),env,options)).status,401);
+ assert.equal(reads,2);assert.equal(writes,0);
+});
+
+test('API rejects crew administration by members despite owner-like fields in the roster payload',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/records/crew/crew_001';
+ const request=new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{name:'Display only',role:'owner',permissions:['members:manage']}})});
+ const res=await api(request,{...envBase,TF_DB:db('member'),TF_EXTENDED_RECORDS_ENABLED:'true'},{fetchJwks:jwksResponse});assert.equal(res.status,403);
+});
+
+test('read-only context route verifies identity and rejects client role/tool/scope overrides',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/intelligence/context';
+ const contextDb={prepare(sql){return {bind(...args){return {first:async()=>args[0]===business?{role:'member'}:null,all:async()=>({results:[{record_type:'jobs',id:'job_123',revision:2,updated_at:'2026-10-30',payload:JSON.stringify({id:'job_123',businessId:business,title:'Authorized job'})}]})}}}}};
+ const env={...envBase,TF_DB:contextDb},options={fetchJwks:jwksResponse};const good=await api(req(path,signed),env,options);assert.equal(good.status,200);const data=await good.json();assert.equal(data.readOnly,true);assert.equal(data.executionAuthority,false);assert.equal(data.records[0].id,'job_123');assert.equal(data.permission.role,'member');
+ assert.equal((await api(req(path),env,options)).status,401);
+ assert.equal((await api(req(path.replace(business,'business_999'),signed),env,options)).status,403);
+ for(const suffix of ['?role=owner','?businessId=foreign','?tools=send','?jobId=job_123&jobId=other'])assert.equal((await api(req(path+suffix,signed),env,options)).status,400);
+ assert.equal((await api(req(path,signed,'POST'),env,options)).status,405);
+});
+
+test('record and catalogue reads deny revocation during retrieval instead of returning private data or an empty success',async()=>{
+ const signed=await token();for(const catalogue of [false,true]){
+  let revoked=false;
+  const scopedDb={prepare(sql){return {bind(...args){return {
+   first:async()=>{if(sql.startsWith('SELECT role FROM business_memberships'))return revoked?null:{role:'owner'};assert.match(sql,/EXISTS \(SELECT 1 FROM business_memberships m/);revoked=true;return {payload:'{"name":"Must not expose"}',revision:1,updated_at:'2026-10-30'}},
+   all:async()=>{assert.match(sql,/EXISTS \(SELECT 1 FROM business_memberships m/);assert.deepEqual(args.slice(-3),[business,issuer,'user_123']);revoked=true;return {results:[{id:'private_01',revision:1,updated_at:'2026-10-30',payload:'{"name":"Must not expose"}'}]}}
+  }}}}};
+  const path='/api/v1/businesses/'+business+'/records/jobs'+(catalogue?'':'/private_01'),res=await api(req(path,signed),{...envBase,TF_DB:scopedDb},{fetchJwks:jwksResponse});assert.equal(res.status,403);assert.ok(!(await res.text()).includes('Must not expose'));
+ }
 });

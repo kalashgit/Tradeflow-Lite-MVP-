@@ -67,3 +67,55 @@ db.execute("UPDATE business_memberships SET role='admin' WHERE business_id='busi
 assert db.execute(financial_sql,financial_args).fetchone()[0]==1
 assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==4
 print("PASS: 20-type expansion preserves rows/audits, rollback works, financial SQL permissions enforced")
+
+# Crew management and job assignment are checked inside the write statement,
+# even when the JS authorization object is stale after a role downgrade.
+job_guard = re.search(r"export const JOB_ASSIGNMENT_GUARD_SQL =`(.*?)`;", source, re.S).group(1)
+job_sql = sql.replace("/* financial-guard */", job_guard)
+business="business_002"
+def assigned_job(expected, payload):
+    return db.execute(job_sql,(business,"jobs","assignment_job",expected+1,payload,"issuer.example","user_001",expected,business,"jobs","assignment_job",business,"issuer.example","user_001",payload,business,"assignment_job",expected)).fetchone()
+
+db.execute("UPDATE business_memberships SET role='owner' WHERE business_id=?",(business,))
+assert assigned_job(0,'{"title":"Panel replacement","crewId":"crew_001"}')[0]==1
+before_audit=db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]
+db.execute("UPDATE business_memberships SET role='member' WHERE business_id=?",(business,))
+assert assigned_job(1,'{"title":"Unapproved assignment","crewId":"crew_002"}') is None
+assert assigned_job(1,'{"title":"Unapproved removal"}') is None
+assert db.execute("SELECT COUNT(*) FROM tenant_audit_events").fetchone()[0]==before_audit
+assert assigned_job(1,'{"title":"Permitted note edit","crewId":"crew_001"}')[0]==2
+roster_sql=sql.replace("/* financial-guard */", "AND role IN ('owner','admin')")
+roster_args=(business,"crew","crew_private",1,'{"role":"owner"}',"issuer.example","user_001",0,business,"crew","crew_private",business,"issuer.example","user_001",0)
+assert db.execute(roster_sql,roster_args).fetchone() is None
+db.execute("UPDATE business_memberships SET role='admin' WHERE business_id=?",(business,))
+assert db.execute(roster_sql,roster_args).fetchone()[0]==1
+assert assigned_job(2,'{"title":"Authorized reassignment","crewId":"crew_002"}')[0]==3
+print("PASS: roster and assignment authority enforced atomically; member note edits preserved")
+
+# Read-only intelligence retrieval filters tenant, exact live role and permitted
+# record types in SQL before any data can be provided to an intelligence caller.
+context_source=(root / 'src' / 'intelligence-context.js').read_text()
+context_sql=re.search(r"export const CONTEXT_READ_SQL =`(.*?)`;",context_source,re.S).group(1).replace('/* permitted-types */','?')
+args=(business,business,'issuer.example','user_001','admin','jobs')
+assert len(db.execute(context_sql,args).fetchall())>0
+assert all(row[0]=='jobs' for row in db.execute(context_sql,args).fetchall())
+assert db.execute(context_sql,('business_001','business_001','issuer.example','user_001','admin','jobs')).fetchall()==[]
+db.execute("UPDATE business_memberships SET role='member' WHERE business_id=?",(business,))
+assert db.execute(context_sql,args).fetchall()==[]
+assert len(db.execute(context_sql,(business,business,'issuer.example','user_001','member','jobs')).fetchall())>0
+db.execute("UPDATE business_memberships SET status='suspended' WHERE business_id=?",(business,))
+assert db.execute(context_sql,(business,business,'issuer.example','user_001','member','jobs')).fetchall()==[]
+print('PASS: intelligence reads filter tenant, role, type and revocation inside SQL')
+
+security_source=(root / 'src' / 'tenant-security.js').read_text()
+read_guard=re.search(r"export const TENANT_READ_GUARD_SQL =`(.*?)`;",security_source,re.S).group(1)
+read_sql='SELECT payload FROM tenant_records WHERE business_id=? AND record_type=? AND id=? '+read_guard+' LIMIT 1'
+read_args=(business,'jobs','assignment_job',business,'issuer.example','user_001')
+assert db.execute(read_sql,read_args).fetchone() is None
+db.execute("UPDATE business_memberships SET status='active',role='viewer' WHERE business_id=?",(business,))
+assert db.execute(read_sql,read_args).fetchone() is not None
+assert db.execute(read_sql,(business,'jobs','assignment_job',business,'issuer.example','another_user')).fetchone() is None
+assert db.execute(read_sql,('business_001','jobs','assignment_job',business,'issuer.example','user_001')).fetchone() is None
+print('PASS: single-record read guards deny revoked and foreign identities in actual SQL')
+
+assert db.execute(read_sql,('business_001','jobs','job_001',business,'issuer.example','user_001')).fetchone() is None

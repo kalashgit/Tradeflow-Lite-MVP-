@@ -1,0 +1,444 @@
+'use strict';
+// H04-10: authenticated, synthetic host acceptance with the committed SQLite
+// migrations. No network, real identities, provider credentials, or business writes.
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const cp=require('node:child_process');
+const {webcrypto}=require('node:crypto');
+
+const issuer='https://synthetic-advisory.example',subject='synthetic_owner';
+const businessId='business_001',jobId='job_01',audience='synthetic-advisory';
+const oidcEnv={TF_OIDC_ISSUER:issuer,TF_OIDC_AUDIENCE:audience,
+ TF_OIDC_JWKS_URL:issuer+'/keys'};
+const advisoryEnv={TF_ADVISORY_ENABLED:'true',TF_ADVISORY_PROVIDER:'mock'};
+const b64=value=>Buffer.from(typeof value==='string'?value:JSON.stringify(value)).toString('base64url');
+
+function fixture(){
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tradeflow-advisory-sql-'));
+ const database=path.join(dir,'synthetic.sqlite');
+ function bridge(request){
+  return JSON.parse(cp.execFileSync('python3',['tests/helpers/sqlite-tenant-host.py'],
+   {input:JSON.stringify({database,...request}),encoding:'utf8'}));
+ }
+ bridge({initialize:true,issuer,subject});
+ const sql=(query,params=[])=>bridge({sql:query,params});
+ sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+  [businessId,'jobs',jobId,2,JSON.stringify({id:jobId,businessId,title:'Synthetic private job'})]);
+ const db={prepare(query){return {bind(...params){return {
+  first:async()=>sql(query,params)[0]||null,
+  all:async()=>({results:sql(query,params)})
+ }}}}};
+ return {db,sql,close:()=>fs.rmSync(dir,{recursive:true,force:true})};
+}
+async function verifiedIdentity(){
+ const {verifyBearerToken}=await import('../src/oidc-verifier.js');
+ const keys=await webcrypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',
+  modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},
+  true,['sign','verify']);
+ const jwk={...await webcrypto.subtle.exportKey('jwk',keys.publicKey),
+  kid:'synthetic',alg:'RS256',use:'sig'};
+ const now=Math.floor(Date.now()/1000);
+ const unsigned=b64({alg:'RS256',typ:'JWT',kid:'synthetic'})+'.'+
+  b64({iss:issuer,aud:audience,sub:subject,iat:now-5,exp:now+900});
+ const signature=await webcrypto.subtle.sign('RSASSA-PKCS1-v1_5',
+  keys.privateKey,new TextEncoder().encode(unsigned));
+ const token=unsigned+'.'+Buffer.from(signature).toString('base64url');
+ const fetchJwks=async()=>Response.json({keys:[jwk]});
+ const request=value=>new Request('https://synthetic-advisory.example/test',
+  {headers:{Authorization:'Bearer '+value}});
+ const principal=await verifyBearerToken(request(token),oidcEnv,{fetchJwks});
+ return {principal,verifyBearerToken,request,token,fetchJwks};
+}
+async function host(f,principal){
+ const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+ const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+ const context=await readIntelligenceContext({db:f.db,principal,businessId,jobId});
+ return {context,request:(transport,ctx=context)=>requestAuthorizedServerAdvisory({
+  db:f.db,principal,context:ctx,env:advisoryEnv,intent:'evidence_gaps',transport
+ })};
+}
+const auditCount=f=>f.sql('SELECT COUNT(*) AS n FROM tenant_audit_events')[0].n;
+
+test('signed JWT, real membership SQL and bounded job context permit mock-only advisory without writes',async()=>{
+ const f=fixture();
+ try{
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  let calls=0;const before=auditCount(f);
+  const result=await h.request(async(payload)=>{
+   calls++;
+   assert.deepEqual(payload.evidence,[{type:'jobs',id:jobId,revision:2}]);
+   assert.equal(JSON.stringify(payload).includes('Synthetic private job'),false);
+   return {text:'Owner review needed'};
+  });
+  assert.equal(calls,1);
+  assert.equal(result.readOnly,true);assert.equal(result.executionAuthority,false);
+  assert.equal(auditCount(f),before);
+  assert.equal(f.sql('SELECT revision FROM tenant_records WHERE id=?',[jobId])[0].revision,2);
+ }finally{f.close();}
+});
+
+test('real SQLite membership revocation and role downgrade during mock inference deny result',async()=>{
+ const {principal}=await verifiedIdentity();
+ for(const statement of [
+  "UPDATE business_memberships SET status='suspended' WHERE business_id=?",
+  "UPDATE business_memberships SET role='viewer' WHERE business_id=?"
+ ]){
+  const f=fixture();
+  try{
+   const h=await host(f,principal),before=auditCount(f);let calls=0;
+   await assert.rejects(h.request(async()=>{
+    calls++;f.sql(statement,[businessId]);return {text:'Never disclose after revocation'};
+   }),e=>e.code==='authorization_denied');
+   assert.equal(calls,1);assert.equal(auditCount(f),before);
+  }finally{f.close();}
+ }
+});
+
+test('real SQL stale job revision and foreign business fail closed before transport',async()=>{
+ const {principal}=await verifiedIdentity(),f=fixture();
+ try{
+  const h=await host(f,principal);let calls=0;
+  f.sql('UPDATE tenant_records SET revision=3 WHERE business_id=? AND record_type=? AND id=?',
+   [businessId,'jobs',jobId]);
+  await assert.rejects(h.request(async()=>{calls++;return {text:'stale'}}),
+   e=>e.code==='authorization_denied');
+  assert.equal(calls,0);
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  await assert.rejects(readIntelligenceContext({db:f.db,principal,
+   businessId:'business_002',jobId}),e=>e.status===403);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('tampered signed bearer cannot enter authenticated advisory host',async()=>{
+ const {verifyBearerToken,request,token,fetchJwks}=await verifiedIdentity();
+ const parts=token.split('.');parts[1]=b64({iss:issuer,aud:audience,sub:'attacker',
+  iat:Math.floor(Date.now()/1000)-5,exp:Math.floor(Date.now()/1000)+900});
+ await assert.rejects(verifyBearerToken(request(parts.join('.')),oidcEnv,{fetchJwks}),
+  e=>e.status===401);
+});
+
+function addLinkedCost(f){
+ f.sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+  [businessId,'jobCosts','cost_01',4,JSON.stringify({id:'cost_01',businessId,jobId,amount:120,currency:'USD'})]);
+}
+
+test('H04-11: a non-job cost revision changed during inference invalidates the advisory result',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  assert.deepEqual(h.context.records.map(r=>r.type),['jobCosts','jobs']);
+  const before=auditCount(f);let calls=0;
+  await assert.rejects(h.request(async payload=>{
+   calls++;
+   assert.deepEqual(payload.evidence,[{type:'jobCosts',id:'cost_01',revision:4},{type:'jobs',id:jobId,revision:2}]);
+   f.sql('UPDATE tenant_records SET revision=5 WHERE business_id=? AND record_type=? AND id=?',
+    [businessId,'jobCosts','cost_01']);
+   return {text:'Stale cost reasoning must be withheld'};
+  }),e=>e.code==='authorization_denied');
+  assert.equal(calls,1);assert.equal(auditCount(f),before);
+  assert.equal(f.sql('SELECT revision FROM tenant_records WHERE record_type=? AND id=?',
+   ['jobs',jobId])[0].revision,2);
+ }finally{f.close();}
+});
+
+test('H04-11: missing, deleted, and foreign-identity linked evidence is denied before transport',async()=>{
+ const {principal}=await verifiedIdentity();
+ for(const mutate of [
+  f=>f.sql('DELETE FROM tenant_records WHERE record_type=? AND id=?',['jobCosts','cost_01']),
+  f=>f.sql('UPDATE tenant_records SET deleted_at=? WHERE record_type=? AND id=?',
+   ['2026-10-31T01:00:00Z','jobCosts','cost_01']),
+  f=>f.sql('UPDATE tenant_records SET payload=? WHERE record_type=? AND id=?',
+   [JSON.stringify({id:'cost_01',businessId:'business_002',jobId,amount:120}),'jobCosts','cost_01'])
+ ]){
+  const f=fixture();
+  try{
+   addLinkedCost(f);
+   const h=await host(f,principal);let calls=0;
+   mutate(f);
+   await assert.rejects(h.request(async()=>{calls++;return {text:'Never returned'}}),
+    e=>e.code==='authorization_denied');
+   assert.equal(calls,0);assert.equal(auditCount(f),0);
+  }finally{f.close();}
+ }
+});
+
+test('H04-11: company-scope evidence and context mutations cannot bypass post-inference checks',async()=>{
+ const f=fixture();
+ try{
+  f.sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+   [businessId,'customers','customer_01',3,JSON.stringify({id:'customer_01',businessId,name:'Synthetic'})]);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  let calls=0;
+  await assert.rejects(requestAuthorizedServerAdvisory({db:f.db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    calls++;f.sql('UPDATE tenant_records SET revision=4 WHERE business_id=? AND record_type=? AND id=?',
+     [businessId,'customers','customer_01']);
+    return {text:'Must not return after customer revision changes'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(calls,1);
+  const refreshed=await readIntelligenceContext({db:f.db,principal,businessId});
+  await assert.rejects(requestAuthorizedServerAdvisory({db:f.db,principal,context:refreshed,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    refreshed.records[0].revision=99;
+    return {text:'Must not return after context mutation'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-12: multi-record evidence uses one bounded SQL snapshot at each authorization boundary',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  let batches=0,singles=0;
+  const db={prepare(query){
+   if(query.includes('FROM tenant_records')){
+    if(query.includes('JOIN json_each('))batches++;else singles++;
+   }
+   return f.db.prepare(query);
+  }};
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const result=await requestAuthorizedServerAdvisory({db,principal,context:h.context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>({text:'Read-only evidence'})});
+  assert.equal(result.executionAuthority,false);
+  assert.equal(batches,2);
+  assert.equal(singles,0);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-12: membership revoked after a batched SQL snapshot denies before inference',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  let revoked=false,transportCalls=0;
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    const bound=statement.bind(...params);
+    return {first:()=>bound.first(),all:async()=>{
+     const response=await bound.all();
+     if(query.includes('FROM tenant_records')&&!revoked){
+      revoked=true;
+      f.sql("UPDATE business_memberships SET status='suspended' WHERE business_id=?",[businessId]);
+     }
+     return response;
+    }};
+   }};
+  }};
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context:h.context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Must never reach transport'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(revoked,true);assert.equal(transportCalls,0);assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-12: incomplete or duplicated batched evidence rows fail closed',async()=>{
+ const {principal}=await verifiedIdentity();
+ for(const tamper of [rows=>rows.slice(1),rows=>[rows[0],rows[0]]]){
+  const f=fixture();
+  try{
+   addLinkedCost(f);
+   const h=await host(f,principal);let transportCalls=0;
+   const db={prepare(query){
+    const statement=f.db.prepare(query);
+    return {bind(...params){
+     const bound=statement.bind(...params);
+     return {first:()=>bound.first(),all:async()=>{
+      const response=await bound.all();
+      return query.includes('FROM tenant_records')?{results:tamper(response.results)}:response;
+     }};
+    }};
+   }};
+   const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+   await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context:h.context,
+    env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+     transportCalls++;return {text:'No partial snapshot'};
+    }}),e=>e.code==='authorization_denied');
+   assert.equal(transportCalls,0);assert.equal(auditCount(f),0);
+  }finally{f.close();}
+ }
+});
+
+
+function populateTwoHundredJobs(f){
+ // One SQL insert avoids per-record fixture overhead and exercises the exact
+ // context bound: the fixture already contains job_01.
+ f.sql(`WITH RECURSIVE seq(n) AS (
+  SELECT 2 UNION ALL SELECT n+1 FROM seq WHERE n<200
+ ) INSERT INTO tenant_records (business_id,record_type,id,revision,payload)
+ SELECT ?, 'jobs',printf('job_%03d',n),1,
+  json_object('id',printf('job_%03d',n),'businessId',?,'title','Synthetic bounded job')
+ FROM seq`,[businessId,businessId]);
+}
+
+test('H04-13: 200 evidence records use six D1-compatible binds per guarded snapshot',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  assert.equal(context.records.length,200);
+  let snapshots=0,transportCalls=0;
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    if(query.includes('JOIN json_each(')){
+     snapshots++;
+     assert.equal(params.length,6);
+     assert.ok(params.length<=100,'Cloudflare D1 bound parameter limit');
+     assert.equal(JSON.parse(params[0]).length,200);
+    }
+    return statement.bind(...params);
+   }};
+  }};
+  const result=await requestAuthorizedServerAdvisory({db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async payload=>{
+    transportCalls++;assert.equal(payload.evidence.length,200);
+    return {text:'Review synthetic evidence'};
+   }});
+  assert.equal(result.executionAuthority,false);
+  assert.equal(snapshots,2);
+  assert.equal(transportCalls,1);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-13: 201 records fail closed before creating an advisory context',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  f.sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+   [businessId,'jobs','job_201',1,JSON.stringify({id:'job_201',businessId,title:'Excess job'})]);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  await assert.rejects(readIntelligenceContext({db:f.db,principal,businessId}),
+   e=>e.status===413);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-13: viewer context excludes financial evidence and rejects forged financial references',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  f.sql("UPDATE business_memberships SET role='viewer' WHERE business_id=?",[businessId]);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  assert.equal(context.permission.role,'viewer');
+  assert.deepEqual(context.records.map(r=>r.type),['jobs']);
+  let transportCalls=0;
+  const result=await requestAuthorizedServerAdvisory({db:f.db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async payload=>{
+    transportCalls++;
+    assert.deepEqual(payload.evidence.map(r=>r.type),['jobs']);
+    return {text:'Viewer-safe evidence'};
+   }});
+  assert.equal(result.readOnly,true);
+  const forged=structuredClone(context);
+  const row=f.sql("SELECT updated_at FROM tenant_records WHERE record_type='jobCosts'")[0];
+  forged.records.push({type:'jobCosts',id:'cost_01',revision:4,updatedAt:row.updated_at,
+   provenance:'tenant_record',contentTrust:'untrusted_record_content',record:{jobId,amount:120}});
+  await assert.rejects(requestAuthorizedServerAdvisory({db:f.db,principal,context:forged,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Must never disclose cost'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(transportCalls,1);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-14: 200-record SQL adapter enforces D1 bind budget and denies post-snapshot revocation',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  assert.equal(context.records.length,200);
+  let snapshots=0,transportCalls=0,queries=0;
+  // Test-only D1 bound-parameter ceiling; this is NOT a Wrangler/D1 emulator.
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    queries++;
+    assert.ok(params.length<=100,'D1 supports at most 100 bound parameters per query');
+    const bound=statement.bind(...params);
+    return {first:()=>bound.first(),all:async()=>{
+     const response=await bound.all();
+     if(query.includes('JOIN json_each(')){
+      snapshots++;
+      assert.equal(params.length,6);
+      if(snapshots===2){
+       // Revoke after the final evidence SELECT but before the final role recheck.
+       f.sql("UPDATE business_memberships SET status='suspended' WHERE business_id=?",[businessId]);
+      }
+     }
+     return response;
+    }};
+   }};
+  }};
+  await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Do not return after final-snapshot revocation'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(snapshots,2);
+  assert.equal(transportCalls,1);
+  assert.ok(queries>=4);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-14: foreign-tenant payload injected into 200-record SQL snapshot fails closed',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  let snapshots=0,transportCalls=0;
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    assert.ok(params.length<=100,'D1 bound-parameter ceiling');
+    const bound=statement.bind(...params);
+    return {first:()=>bound.first(),all:async()=>{
+     const response=await bound.all();
+     if(query.includes('JOIN json_each(')){
+      snapshots++;
+      const rows=response.results.map((row,i)=>i===0?{
+       ...row,payload:JSON.stringify({...JSON.parse(row.payload),businessId:'business_002'})
+      }:row);
+      return {results:rows};
+     }
+     return response;
+    }};
+   }};
+  }};
+  await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Must not expose foreign tenant evidence'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(snapshots,1);
+  assert.equal(transportCalls,0);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});

@@ -95,10 +95,13 @@ const optimizationDetectors=[
   return list(d,'jobs').filter(j=>Array.isArray(j.changeOrders)&&j.changeOrders.some(x=>x&&x.status==='proposed')).map(j=>{
    const r=ref('jobs',j.id);
    const pending=j.changeOrders.filter(x=>x&&x.status==='proposed');
+    const ids=pending.map(x=>typeof x.id==='string'?x.id.trim():'');
+    const validIds=ids.every(Boolean)&&new Set(ids).size===ids.length;
+    const validAmounts=pending.every(x=>Number.isFinite(x.amount)&&x.amount>=0);
    return {type:this.id,refs:[r],explanation:'This job has proposed extra work without recorded customer approval. Review the change before treating the work as authorized or billable.',confidence:'record_based',
-    limitations:['Approval may exist outside TradeFlow; this detector only checks saved change-order records.','Proposed amounts are not invoices or contract values.'],
+     limitations:['Approval may exist outside TradeFlow; this detector only checks saved change-order records.','Proposed amounts are not invoices or contract values.',...(!validIds?['Change-order identifiers are missing or duplicated; reconcile the job before preparing an approved action.']:[]),...(!validAmounts?['At least one proposed change-order amount is missing or invalid; review the source before relying on cost totals.']:[])],
     priority:{tier:1,score:35+Math.min(20,pending.length*3)},constraints:[],action:open(r),
-    evidence:{proposedCount:pending.length}};
+     evidence:{proposedCount:pending.length,proposedIds:validIds?ids:[],identifiersReliable:validIds,amountsReliable:validAmounts}};
   });
  }},
  {id:'job.material_readiness_review',evaluate(d,c){

@@ -1,0 +1,139 @@
+name: TradeFlow Cloud Record Discovery Checks
+on:
+  push:
+    branches:
+      - feature/cloud-record-discovery
+  pull_request:
+    branches:
+      - feature/library-universal-intake
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discovery-regression:
+    runs-on: ubuntu-latest
+    env:
+      TRADEFLOW_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Confirm exact head and initialize evidence
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p artifacts
+          git rev-parse HEAD | tee artifacts/exact-head-sha.txt
+          node --version | tee artifacts/node-version.txt
+      - name: Syntax checks
+        run: |
+          node --check src/tenant-api.js
+          node --check src/intelligence-context.js
+          node --check public/cloud-intelligence.js
+          node --check public/intelligence-evidence.js
+          node --check public/master-intelligence.js
+          node --check public/decision-ui.js
+          node --check scripts/verify-decision-journey.cjs
+          node --check scripts/verify-intelligence-context.cjs
+          node --check scripts/verify-d1-advisory-local.cjs
+          node --check scripts/verify-d1-migrations-local.cjs
+          node --check scripts/verify-d1-restore-local.cjs
+          node --check scripts/verify-proactive-labor.cjs
+          node --check scripts/verify-two-device-sync.cjs
+          node --check public/sync-queue.js
+          node --check tests/sync-intent-status.test.cjs
+          node --check public/record-model.js
+          node --check public/offline-conflicts.js
+          node --check tests/record-identity-contract.test.cjs
+          node --check public/cloud-retrieval.js
+          node --check public/migration-ui.js
+          node --check public/migration-preview.js
+          node --check public/core-integration.js
+          node --check public/command-registry.js
+          node --check scripts/verify-command-cross-tab.cjs
+          node --check scripts/summarize-ci-evidence.cjs
+          node --check tests/ci-evidence-summary.test.cjs
+          node --check tests/command-hardening-adversarial.test.cjs
+          node --check tests/helpers/local-db.cjs
+          node --check public/operational-intelligence.js
+          node --check public/change-orders.js
+          node --check public/app.js
+          node --check tests/change-order-review-execution.test.cjs
+          node --check tests/job-cost-review-execution.test.cjs
+          node --check tests/quotation-followup-execution.test.cjs
+          node --check tests/quotation-legacy-followup-policy.test.cjs
+          node --check tests/quotation-contact-recording.test.cjs
+          node --check tests/invoice-followup-execution.test.cjs
+          node --check public/calendar.js
+          node --check tests/calendar-conflict-resolution.test.cjs
+          node --check tests/reviewed-transfer.test.cjs
+          node --check tests/cloud-retrieval.test.cjs
+          node --check tests/tenant-api.test.cjs
+          node --check tests/sync-queue.test.cjs
+      - name: Focused authorization and offline queue regression
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test tests/master-intelligence.test.cjs tests/tenant-api.test.cjs tests/sync-queue.test.cjs tests/cloud-retrieval.test.cjs tests/reviewed-transfer.test.cjs tests/quotation-followup-execution.test.cjs tests/quotation-legacy-followup-policy.test.cjs tests/quotation-contact-recording.test.cjs tests/invoice-followup-execution.test.cjs tests/calendar-conflict-resolution.test.cjs 2>&1 | tee artifacts/focused-node.log
+      - name: Full Node regression
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/full-node.log
+      - name: Storage migration regression
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:storage 2>&1 | tee artifacts/storage.log
+      - name: Contractor pain-point regression
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:contractors 2>&1 | tee artifacts/contractor-regression.log
+      - name: Browser prerequisites
+        run: npx playwright install --with-deps chromium
+      - name: Desktop and mobile browser regression
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:browser 2>&1 | tee artifacts/browser.log
+      - name: Synthetic mobile and desktop proactive labor workflow
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-proactive-labor.cjs 2>&1 | tee artifacts/proactive-labor-browser.log
+      - name: Disposable local Wrangler D1 advisory acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-d1-advisory-local.cjs 2>&1 | tee artifacts/d1-local-advisory.log
+      - name: Disposable local Wrangler D1 committed-migrations acceptance
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-d1-migrations-local.cjs 2>&1 | tee artifacts/d1-local-migrations.log
+      - name: Disposable local Wrangler D1 logical restore drill
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-d1-restore-local.cjs 2>&1 | tee artifacts/d1-local-restore.log
+      - name: Summarize exact-head regression evidence
+        run: node scripts/summarize-ci-evidence.cjs
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-cloud-review-verification
+          path: |
+            artifacts/
+          if-no-files-found: warn

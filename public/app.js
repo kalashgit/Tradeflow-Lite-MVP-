@@ -707,6 +707,7 @@ return tfRecordHubView(d)}
 
 /* Compact record command cards and context panels, shared across the four record types. */
 let tfRecordDetailId=null;
+let tfContactQuotePrefill='';
 let tfCalendarLinkedReturn=false;
 /* Keep the list exactly where the user left it when viewing a record.
    The record ID and on-screen offset provide a fallback if the list changes. */
@@ -794,7 +795,8 @@ function tfCustomerContactForm(d,customerId){
  '<form id="tfContactLogForm" data-customer-id="'+esc(customerId)+'">'+
  '<label>Contact method<select name="method" required>'+['Phone','Email','Meeting','Site visit','Other'].map(x=>'<option value="'+x+'">'+x+'</option>').join('')+'</select></label>'+
  '<label>Related quotation (optional)<select name="quoteId"><option value="">Customer-level contact</option>'+
- quotes.map(q=>'<option value="'+esc(q.id)+'">'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ quotes.map(q=>'<option value="'+esc(q.id)+'"'+(tfContactQuotePrefill===q.id?' selected':'')+'>'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ '<label>Outcome<select name="outcome" required><option value="attempted">Attempted — customer not reached</option><option value="reached">Customer reached — owner attests actual conversation or reply</option></select></label>'+
  '<label>Outcome / notes<textarea name="notes" required maxlength="1000" rows="2" placeholder="What happened and what is the agreed next step?"></textarea></label>'+
  '<button type="submit" class="tf-record-dossier-primary">Save contact log</button>'+
  '</form><small>Manual record only. TradeFlow cannot verify that a call or email was delivered.</small></section>';
@@ -864,6 +866,52 @@ function tfCustomerRelationshipHistory(d,customerId){
  (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label)+'</p>').join(''):'<p>No dated linked activity has been recorded yet.</p>')+
  '<small>Drawn from local TradeFlow records only; calls, emails and external systems are not synchronized.</small></section>';
 }
+function tfQuotationRecordedHistory(d,quote){
+ const linkedTasks=(d.tasks||[]).filter(t=>t.quoteId===quote.id&&t.customerId===quote.customerId);
+ const contacts=(d.events||[]).filter(e=>e.kind==='customer_contact'&&
+  e.quoteId===quote.id&&e.customerId===quote.customerId);
+ const rows=[];
+ for(const task of linkedTasks){
+  const when=String(task.createdAt||task.updatedAt||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))
+   rows.push({date:when,kind:'Internal task',label:String(task.title||'Task')+' · '+String(task.status||'Open')});
+ }
+ for(const contact of contacts){
+  const when=String(contact.date||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))
+   rows.push({date:when,kind:'Manually recorded contact',label:(contact.outcome==='reached'?'Owner-attested reached':'Attempted / unspecified')+' · '+String(contact.method||'Other')+' · '+String(contact.notes||'')});
+ }
+ rows.sort((a,b)=>b.date.localeCompare(a.date)||a.kind.localeCompare(b.kind));
+ return '<section class="tf-record-dossier-box" aria-label="Quotation recorded activity"><h3>Quotation activity</h3>'+
+ (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label.slice(0,150))+'</p>').join(''):
+ '<p>No linked follow-up task or contact has been recorded for this quotation.</p>')+
+ '<small>Task creation is not customer contact. Contact entries are operator-reported and have no independent provider delivery verification.</small></section>';
+}
+// Display only already-persisted read-only labor observations that still agree
+// with the CURRENT local job-cost rows. Stale observations cannot trigger actions.
+function tfSavedProactiveLaborFinding(data,job){
+ if(!job?.id||job.businessId&&job.businessId!=='local-business')return null;
+ const costs=(data.jobCosts||[]).filter(c=>c.jobId===job.id&&c.category==='Labor'&&
+  ['estimate','actual'].includes(c.type)&&c.laborHours!=null);
+ if(!costs.length||costs.some(c=>c.businessId&&c.businessId!=='local-business'||
+  !Number.isFinite(c.laborHours)||c.laborHours<=0))return null;
+ const planned=costs.filter(c=>c.type==='estimate').reduce((n,c)=>n+c.laborHours,0);
+ const recorded=costs.filter(c=>c.type==='actual').reduce((n,c)=>n+c.laborHours,0);
+ if(planned<=0||recorded<=planned)return null;
+ const binding=window.TradeFlowBusinessEvents?.laborCostBinding?.(data.jobCosts||[],job.id,'local-business');
+ if(!binding||Math.abs(binding.estimated-planned)>0.000001||Math.abs(binding.recorded-recorded)>0.000001)return null;
+ const sources=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&e.status==='processed'&&
+  e.businessId==='local-business'&&e.actor==='local-owner'&&Array.isArray(e.result?.laborFindings));
+ for(const event of sources.reverse()){
+  const matched=event.result.laborFindings.find(item=>item?.jobId===job.id&&
+   item.detectorId==='job.labor_hours_variance_review'&&item.executionAuthority===false&&
+   typeof item.sourceCostBinding==='string'&&item.sourceCostBinding===binding.proof&&
+   item.estimatedLaborHours===planned&&item.recordedLaborHours===recorded&&
+   item.timesheetVerified===false&&item.payrollVerified===false);
+  if(matched)return matched;
+ }
+ return null;
+}
 function tfRecordDetailView(d,record,type){
  const title=type==='customers'?record.name:record.title||'Untitled';
  const status=tfRecordStatus(record,type);
@@ -882,15 +930,33 @@ function tfRecordDetailView(d,record,type){
   sections+='<section class="tf-record-dossier-box"><h3>Linked records</h3><div class="tf-record-related-grid">'+related.map(([key,name,count])=>'<button type="button" data-action="tfRecordRelated" data-type="'+key+'" data-id="'+esc(record.id)+'">'+tfRecordIcon(key==='payments'?'cash':key,19)+'<span>'+name+'<small>'+count+' records</small></span>'+tfRecordIcon('arrow',17)+'</button>').join('')+'</div></section>';
   sections+=tfCustomerRelationshipHistory(d,record.id);
   sections+=tfCustomerRecordedEconomics(d,record.id);
+  if((d.jobs||[]).some(j=>j.customerId===record.id))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfCustomerEconomicsReview" data-id="'+esc(record.id)+'">Review recorded customer contribution</button>';
   sections+=tfCustomerContactForm(d,record.id);
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
-  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
+  if(type==='quotes')sections+=tfQuotationRecordedHistory(d,record);
+  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Create reviewed draft from this quote</button>';
+  if(type==='quotes'&&record.status==='Sent'&&record.followupResolution?.status!=='owner_attested_reached')
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteFollowupReview" data-id="'+esc(record.id)+'">Review follow-up task</button>';
+  if(type==='quotes'&&record.status==='Sent'&&record.customerId)
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteContactOutcome" data-id="'+esc(record.id)+'">Record actual contact outcome</button>';
+  if(type==='quotes'&&record.followupResolution?.status==='owner_attested_reached')
+   sections+='<p>Owner-attested customer reached. Linked internal follow-up tasks resolved. Provider delivery remains unverified.</p>';
   if(type==='quotes'&&record.status==='Accepted'&&!d.jobs.some(j=>j.quoteId===record.id))
    sections+='<button type="button" class="tf-record-dossier-primary" data-convert="'+esc(record.id)+'">Create job from accepted quote</button>';
+  if(type==='jobs'&&Array.isArray(record.changeOrders))for(const change of record.changeOrders){
+   if(change?.status!=='proposed'||typeof change.id!=='string'||!change.id.trim()||record.changeOrders.filter(x=>x?.id===change.id).length!==1)continue;
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfChangeOrderReview" data-id="'+esc(record.id)+'" data-change-id="'+esc(change.id)+'">Review proposed change: '+esc(String(change.description||change.id).slice(0,100))+'</button>';
+  }
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
+  if(type==='jobs'){const laborAttention=tfSavedProactiveLaborFinding(d,record);sections+='<section class="tf-record-dossier-box"><h3>Operational reasoning</h3>'+(laborAttention?'<p data-proactive-labor-finding="'+esc(record.id)+'"><strong>Master Intelligence · Labor attention recorded</strong><br>Estimated '+esc(laborAttention.estimatedLaborHours)+' h · manually recorded '+esc(laborAttention.recordedLaborHours)+' h · variance +'+esc(laborAttention.varianceHours)+' h.<br><small>This saved observation is read-only. Hours are not verified timesheets or payroll. Review alternatives and approve any internal task explicitly.</small></p>':'')+'<button type="button" class="tf-record-dossier-primary" data-action="tfDecisionExplain" data-id="'+esc(record.id)+'">Explain recorded job exceptions</button><div data-decision-job="'+esc(record.id)+'">'+(window.TradeFlowPilot?.decisions?.view(record.id)||'')+'</div></section>'}
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
+  if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.type==='estimate'))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobCostReview" data-id="'+esc(record.id)+'">Review recorded job cost overrun</button>';
+  if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.category==='Labor'&&c.type==='estimate'))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobLaborReview" data-id="'+esc(record.id)+'">Review recorded labor-hour variance</button>';
  }
  if(type==='jobs'&&record.status==='Completed'&&!(d.invoices||[]).some(i=>i.jobId===record.id&&i.status!=='Void'))sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobInvoiceDraft" data-id="'+esc(record.id)+'">Prepare invoice draft for completed job</button>';
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
@@ -960,26 +1026,29 @@ function tfReusableQuoteFields(source){
  };
 }
 async function tfSyncQuoteFollowUp(id,quote,previous={}){
+ // Legacy compatibility only: existing automatic tasks are preserved and updated.
+ // A newly sent quote must not silently create a task; use the explicit
+ // quotation.followup.schedule command in the existing quotation dossier.
  const tasks=(await all('tasks')).filter(t=>t.quoteId===id);
- const automatic=tasks.find(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
- const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ const linked=tasks.filter(t=>t.taskKind==='quotation_follow_up'||t.followupAuto===true||
+  String(t.title||'').startsWith('Follow up quote: '));
+ const active=linked.filter(t=>!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
  const terminal=['Accepted','Declined'].includes(quote.status);
- if(terminal&&automatic&&automatic.status!=='Done'){
-  await put('tasks',{...automatic,status:'Done',completedReason:'quotation_closed',updatedAt:new Date().toISOString()});return;
+ if(terminal){
+  for(const task of active)await put('tasks',{...task,status:'Done',
+   completedReason:'quotation_closed',updatedAt:new Date().toISOString()});
+  return;
  }
  if(quote.status!=='Sent')return;
- const due=validDate(quote.followup_date)?quote.followup_date:
-   validDate(previous.followup_date)?previous.followup_date:
-   (()=>{const x=new Date();x.setDate(x.getDate()+3);return window.TradeFlowCommands?.dateText?.(x)||x.toISOString().slice(0,10)})();
- if(!automatic){
-  if(tasks.some(t=>!['Done','Cancelled'].includes(t.status)))return;
-  await put('tasks',{id:uid(),title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),customerId:quote.customerId,
-    due,status:'Open',quoteId:id,followupAuto:true,createdAt:new Date().toISOString()});return;
+ const legacy=active.filter(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
+ const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ for(const old of legacy){
+  const updated={...old,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),
+   customerId:quote.customerId,due:validDate(quote.followup_date)?quote.followup_date:old.due,
+   updatedAt:new Date().toISOString()};
+  if(updated.due!==old.due||updated.title!==old.title||updated.customerId!==old.customerId)
+   await put('tasks',updated);
  }
- if(['Done','Cancelled'].includes(automatic.status))return;
- const updated={...automatic,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),customerId:quote.customerId,
-  due:validDate(quote.followup_date)?due:automatic.due,updatedAt:new Date().toISOString()};
- if(updated.due!==automatic.due||updated.title!==automatic.title||updated.customerId!==automatic.customerId)await put('tasks',updated);
 }
 async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntries(new FormData(form))};if(modal.commandDraft){try{window.TradeFlowCommands.validateDraft({...modal.commandDraft,fields:f},await tfPilotSnapshot(),tfPilotContext())}catch(error){alert('Draft needs review: '+error.message);return}}if(tab==='customers'){if(!modal.id&&!String(f.phone||'').trim()){alert('Customer phone number is required.');return}f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}if(tab==='jobs'&&f.closeoutStatus==='Complete'&&String(f.closeoutEvidence||'').trim().length<12){alert('Document the actual closeout evidence before marking documentation complete.');return}
 if(tab==='jobs'&&f.closeoutStatus==='Waived'&&String(f.closeoutEvidence||'').trim().length<12){alert('Record who waived closeout documentation and why.');return}
@@ -991,15 +1060,48 @@ document.addEventListener('submit',async function(e){
  const customer=await get('customers',customerId);
  if(!customer){alert('Customer is no longer available. Refresh before saving.');return}
  const values=new FormData(e.target),method=String(values.get('method')||''),
-  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim();
+  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim(),contactOutcome=String(values.get('outcome')||'attempted');
  if(!['Phone','Email','Meeting','Site visit','Other'].includes(method)||notes.length<3||notes.length>1000){alert('Choose a contact method and enter the actual outcome.');return}
  const quote=quoteId?await get('quotes',quoteId):null;
  if(quoteId&&(!quote||quote.customerId!==customerId)){alert('Related quotation no longer matches this customer.');return}
- const timestamp=new Date().toISOString();
- await put('events',{id:uid(),kind:'customer_contact',text:'Customer contact recorded',customerId,
-  quoteId,method,notes,date:timestamp});
- if(quote){await put('quotes',{...quote,lastContactAt:timestamp,updatedAt:timestamp})}
- await notify('Contact logged against customer record');
+ try{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime unavailable');
+  const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(row=>row.kind==='pilot.command'&&
+   row.commandId==='customer.contact.record'&&row.status==='executing'&&
+   row.params?.ref?.store==='customers'&&row.params.ref.id===customerId&&
+   (row.params.quoteId||'')===quoteId&&row.actor==='local-owner'&&
+   row.businessId==='local-business');
+  if(interrupted.length){
+   for(const previous of interrupted){
+    const verified=await commands.reconcile(previous.id);
+    if(verified.status!=='succeeded')
+     throw Error('Earlier customer contact is unresolved. Review the contact and audit history before retrying.');
+   }
+   await notify('Earlier contact outcome verified after interruption. No duplicate contact was recorded.');
+   return;
+  }
+  const plan=await commands.prepare({commandId:'customer.contact.record',
+   params:{ref:{store:'customers',id:customerId},quoteId,method,notes,outcome:contactOutcome}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Contact record requires fresh review');
+  const confirmation=contactOutcome==='reached'?
+   'Confirm you actually reached this customer? This is a manual owner attestation, NOT verified provider delivery. Linked quotation follow-up tasks will be marked complete.':
+   'Record an attempted contact without claiming the customer was reached? Linked quotation follow-up tasks stay open.';
+  if(!confirm(confirmation)){await commands.reject(plan.id);return}
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Contact relationships changed; review again');
+  const outcome=await commands.execute(plan.id);
+  if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Contact record outcome requires recovery review');
+  const saved=outcome.result;
+  if(!saved?.id)throw Error('Contact operation did not confirm persistence');
+  tfContactQuotePrefill='';
+  await notify(saved.outcome==='reached'?
+   'Owner-attested customer contact recorded; linked open follow-up tasks resolved. Provider delivery remains unverified.':
+   'Contact attempt recorded. Customer was not marked reached; follow-up tasks remain open.');
+ }catch(error){
+  alert('Contact was not confirmed. Review the customer history before retrying: '+String(error.message||error));
+ }
 });
 function tfDownloadBackup(data){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 async function exportData(){try{tfDownloadBackup(await window.TradeFlowLocalRecovery.createBackup(db,STORES))}catch(error){alert('Backup failed: '+error.message)}}
@@ -1122,13 +1224,64 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
+ if(el.dataset.action==='tfQuoteContactOutcome'){
+  const quote=await get('quotes',el.dataset.id);
+  if(!quote?.customerId){notify('Quotation has no linked customer.');return}
+  const customer=await get('customers',quote.customerId);
+  if(!customer){notify('Linked customer is unavailable.');return}
+  tfContactQuotePrefill=quote.id;
+  tfResetWorkspace('customers');tfRecordDetailId=customer.id;
+  await render();return;
+ }
+ if(el.dataset.action==='tfQuoteFollowupReview'){
+  const quote=await get('quotes',el.dataset.id);
+  if(quote?.status!=='Sent'){notify('Only sent quotations can schedule follow-ups.');return}
+  const result=await tfReviewQuotationFollowup(quote);
+  if(result?.status==='succeeded'){
+   await render();
+   notify(result.result?.reused?'Existing open follow-up task confirmed':'Follow-up task saved. Customer contact is still outstanding.');
+  }
+  return;
+ }
+ if(el.dataset.action==='tfChangeOrderReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobChangeOrder(job,el.dataset.changeId):null;
+  if(result?.status==='succeeded'){await render();notify('Internal authorization-review task verified. Customer approval is still unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfDecisionExplain'){await window.TradeFlowPilot?.decisions?.open(el.dataset.id);return;}
+ if(el.dataset.action==='tfJobCostReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobCost(job):null;
+  if(result?.status==='succeeded'){await render();notify('Internal job-cost reconciliation task saved. Profit and settlement remain unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfJobLaborReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobLabor(job):null;
+  if(result?.status==='succeeded'){await render();notify('Internal labor-hour variance review saved. Timesheets and payroll remain unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfBidQualificationReview'){
+  const opportunity=await get('opportunities',el.dataset.id);
+  const result=opportunity?await tfReviewBidQualification(opportunity):null;
+  if(result?.status==='succeeded'){await render();notify('Internal bid qualification task saved. No bid was submitted or customer commitment created.');}
+  return;
+ }
+ if(el.dataset.action==='tfCustomerEconomicsReview'){
+  const customer=await get('customers',el.dataset.id);
+  const result=customer?await tfReviewCustomerEconomics(customer):null;
+  if(result?.status==='succeeded'){await render();notify('Internal customer economics review saved. Final profit and bank settlement remain unverified.');}
+  return;
+ }
  if(el.dataset.action==='tfQuoteReuse'){
    const source=await get('quotes',el.dataset.id);
    if(!source)return;
-   tfResetWorkspace('quotes');
-   modal={draftDefaults:tfReusableQuoteFields(source)};
-   await render();
-   notify('New draft prepared. Choose the customer and recheck scope and pricing before saving.');
+   const outcome=await tfCreateQuoteReuseDraft(source);
+   if(outcome?.status==='succeeded'){
+    tfResetWorkspace('quotes');tfRecordDetailId=outcome.result.id;
+    await render();notify('Unsent draft saved. Choose a customer and recheck scope and pricing before sending.');
+   }
    return;
  }
  if(el.dataset.action==='tfJobInvoiceDraft'){
@@ -1730,7 +1883,12 @@ ${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article clas
 }
 
 window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,resolveLocations:tfResolveSupplyLocations,navigate:async function(next,options={}){if(next==='map'&&options.network)tfMapNetworkFocus=true;tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
-window.TradeFlowJobForms?.configure({get,put,render,uid});
+window.TradeFlowJobForms?.configure({get,put,render,uid,
+ recordCustomerApproval:async(jobId,changeOrderId,evidence)=>{
+  const job=await get('jobs',jobId);
+  if(!job)throw Error('Job no longer exists');
+  return tfRecordChangeOrderAuthorization(job,changeOrderId,evidence);
+ }});
 
 /* Atomic local calendar approval: recompute from authoritative records while
  * the IndexedDB write transaction holds the scheduling stores. */
@@ -1861,9 +2019,9 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.reuse.create','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:customer.economics_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
-   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
+   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
  // Header evaluation does not copy image payloads or the growing command journal.
  const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','crew','events','jobCosts','expenses','supplyOrders','calendarEntries','calendars','calendarPreferences'];
@@ -2036,7 +2194,15 @@ function tfInitializePilot(){
   return {status:'unsupported'};
  }
  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
-  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
+  let decisionController=null,decisionLoading=null;
+  const decisions=Object.freeze({view:id=>decisionController?.view(id)||'',open:async id=>{
+   if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
+    decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
+     readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope)});
+   })().catch(error=>{decisionLoading=null;throw error});
+   try{await decisionLoading;await decisionController.open(id)}catch(error){notify('Explanation unavailable: '+error.message)}
+  }});
+  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
 async function tfPilotNavigateCommand(workspace){
@@ -2044,6 +2210,270 @@ async function tfPilotNavigateCommand(workspace){
  const command=await window.TradeFlowPilot.commands.prepare({commandId:'workspace.open',params:{workspace}});
  const result=command.status==='ready'?await window.TradeFlowPilot.commands.execute(command.id):command;
  if(result.status!=='succeeded')notify(result.error?.message||'Command could not complete');
+}
+async function tfReviewQuotationFollowup(quote){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command foundation unavailable. Reload TradeFlow.');return null}
+ // A browser restart can occur after the task commit but before command finalization.
+ // Inspect interrupted journal entries first, never silently create a second request.
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='quotation.followup.schedule'&&x.status==='executing'&&
+  x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.store==='quotes'&&
+  x.params.ref.id===quote.id);
+ if(interrupted.length){
+  for(const pending of interrupted){
+   const recovery=await commands.reconcile(pending.id);
+   if(recovery.status!=='succeeded'){
+    notify('An earlier follow-up is unresolved. Review the task and audit history before continuing.');
+    return {status:'indeterminate'};
+   }
+  }
+  notify('Existing follow-up task verified after interruption. No duplicate task was created.');
+  return {status:'reconciled'};
+ }
+ const planned=String(quote.followup_date||'');
+ const due=window.TradeFlowCommands.isDate(planned)?planned:(()=>{
+  const d=new Date();d.setDate(d.getDate()+3);return window.TradeFlowCommands.dateText(d);
+ })();
+ const plan=await commands.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:quote.id},due}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Follow-up review unavailable');return null}
+ const label=String(quote.title||'Quotation').slice(0,100);
+ if(!confirm('Create an internal follow-up task for “'+label+'” due '+due+'? This does not contact the customer.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approved=await commands.approve(plan.id);
+ if(approved.status!=='approved'){notify(approved.error?.message||'Quotation changed; review again.');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Follow-up task outcome requires review.');
+ return result;
+}
+async function tfReviewJobChangeOrder(job,changeOrderId){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Authorized command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='job.change_order.review.schedule'&&x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&
+  x.params?.ref?.id===job.id&&x.params.changeOrderId===changeOrderId);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Prior change-order review has uncertain execution. Inspect the task and audit before retrying.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const change=job.changeOrders?.find(x=>x?.id===changeOrderId&&x.status==='proposed');
+ if(!change){notify('Proposed change order unavailable');return null}
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.change_order.review.schedule',
+  params:{ref:{store:'jobs',id:job.id},changeOrderId,due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Change order requires a fresh review');return null}
+ if(!confirm('Create an internal task to verify CUSTOMER authorization for “'+String(change.description||changeOrderId).slice(0,100)+'”? Owner approval creates a task only; it does not authorize the extra work or contact the customer.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Change-order review result requires inspection');
+ return result;
+}
+async function tfReviewJobCost(job){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='job.cost_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===job.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier job cost review has uncertain execution. Inspect the task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.cost_review.schedule',params:{ref:{store:'jobs',id:job.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'No reliable recorded overrun to review');return null}
+ const data=plan.result;
+ if(!confirm('Create an internal task to reconcile “'+String(job.title||job.id).slice(0,100)+'”? Local budget $'+data.budget.toFixed(2)+
+  ', recorded costs $'+data.recordedCosts.toFixed(2)+'. Costs may overlap or be incomplete. This is NOT verified profit, bank settlement or accounting reconciliation.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Job financial records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Job cost review requires inspection');
+ return result;
+}
+async function tfReviewJobLabor(job){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='job.labor_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===job.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier labor review has uncertain execution. Inspect task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.labor_review.schedule',params:{ref:{store:'jobs',id:job.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'No recorded labor overrun to review');return null}
+ const data=plan.result;
+ if(!confirm('Create an internal labor review for “'+String(job.title||job.id).slice(0,100)+'”? Estimated '+
+  data.estimatedLaborHours+' h, manually recorded '+data.recordedLaborHours+' h. These are NOT verified timesheets, payroll or billable hours.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Labor evidence changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Labor review requires inspection');
+ return result;
+}
+async function tfReviewInvoicePayments(invoice){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='invoice.payment_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===invoice.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier payment review has uncertain execution. Inspect task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'invoice.payment_review.schedule',params:{ref:{store:'invoices',id:invoice.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Payment records require manual verification');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal reconciliation for invoice “'+String(invoice.reference||invoice.id).slice(0,100)+'”? Invoice $'+
+  evidence.invoiceTotal.toFixed(2)+', manually recorded payments $'+evidence.recordedPayments.toFixed(2)+
+  '. These are NOT verified bank settlements or synchronized accounting records. No payments will be changed.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Payment evidence changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Payment review requires inspection');
+ return result;
+}
+async function tfReviewBidQualification(opportunity){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='opportunity.bid_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===opportunity.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier bid review has uncertain execution. Inspect task and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'opportunity.bid_review.schedule',params:{ref:{store:'opportunities',id:opportunity.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Bid readiness requires a new review');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal bid-qualification review for “'+String(opportunity.project_name||opportunity.id).slice(0,100)+'”? Invitation: '+
+  evidence.invitation+'; scope: '+evidence.scope+'; crew capacity: '+evidence.capacity+
+  '. Entries are operator-reported and NOT independently verified. No bid is submitted or external message sent.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Opportunity changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Bid review requires inspection');
+ return result;
+}
+async function tfCreateQuoteReuseDraft(source){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='quotation.reuse.create'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===source.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier reuse has uncertain execution. Inspect draft and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+  if(recovered.result?.id)return recovered;
+ }
+ const plan=await commands.prepare({commandId:'quotation.reuse.create',params:{ref:{store:'quotes',id:source.id}}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Source quotation requires review');return null}
+ const fields=plan.result;
+ if(!confirm('Create an UNSENT, owner-reviewed draft from “'+String(source.title||source.id).slice(0,100)+'” for $'+
+  fields.amount.toFixed(2)+'? Only title, trade category and recorded amount are reused. Customer, acceptance, signature and contact history are NOT copied. Recheck scope and pricing before sending.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Source quote changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Quote reuse requires inspection');
+ return result;
+}
+async function tfReviewCustomerEconomics(customer){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='customer.economics_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===customer.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier customer review has uncertain execution. Inspect task and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'customer.economics_review.schedule',params:{ref:{store:'customers',id:customer.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Recorded customer evidence requires reconciliation');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal customer contribution review for “'+String(customer.name||customer.id).slice(0,100)+'”? Recorded receipts $'+
+  evidence.received.toFixed(2)+', linked recorded costs $'+evidence.recordedCosts.toFixed(2)+'. This is NOT verified customer profit, bank settlement or lifetime value. Costs and expenses may overlap.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Customer economics records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Customer review requires inspection');
+ return result;
+}
+async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands)throw Error('Authorized command runtime unavailable');
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='job.change_order.authorization.record'&&x.status==='executing'&&
+  x.params?.ref?.id===job.id&&x.params.changeOrderId===changeOrderId&&x.actor==='local-owner'&&x.businessId==='local-business');
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded')throw Error('An earlier customer-authorization record has uncertain execution. Inspect the job, task and audit; no automatic replay.');
+ }
+ if(interrupted.length){await render();return {status:'reconciled'}};
+ const plan=await commands.prepare({commandId:'job.change_order.authorization.record',
+  params:{ref:{store:'jobs',id:job.id},changeOrderId,evidence}});
+ if(plan.status!=='needs_review')throw Error(plan.error?.message||'Change-order review is not ready');
+ if(!confirm('OWNER ATTESTATION: You separately verified actual customer consent and the reference “'+String(evidence).slice(0,100)+'”. Record that evidence and close the internal review task? This does not send a message, sign a contract, or independently verify consent.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved')throw Error(approval.error?.message||'Change order changed; review again');
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')throw Error(result.error?.message||'Authorization record requires manual review');
+ await render();notify('Owner-attested customer approval reference recorded. Independent customer verification remains outstanding.');
+ return result;
 }
 async function tfReviewQuotationHandoff(quote){
  const commands=window.TradeFlowPilot?.commands;
@@ -2059,7 +2489,51 @@ async function tfReviewQuotationHandoff(quote){
 }
 
 window.TradeFlowCalendar?.configure({
- get,put,all,del,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
+ get,put,all,del,render,notify,uid,
+ resolveConflict:async(event,date,time)=>{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime unavailable');
+  const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(interrupted.length){
+   for(const pending of interrupted){
+    const recovery=await commands.reconcile(pending.id);
+    if(recovery.status!=='succeeded')
+     return {status:'indeterminate',error:{code:'RECOVERY_UNVERIFIED',
+      message:'Earlier calendar change cannot be verified. Review the audit before another change.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
+  const cal=window.TradeFlowCalendar;
+  if(!cal?.conflicts)throw Error('Calendar conflict verification is unavailable');
+  const scope={...snapshot};
+  for(const store of ['tasks','jobs','calendarEntries'])scope[store]=(snapshot[store]||[]).map(x=>({
+   ...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'
+  }));
+  const involves=issue=>issue.a?.key==='event:'+event.id||issue.b?.key==='event:'+event.id;
+  const current=cal.conflicts(scope,{from:event.date,until:event.date}).filter(involves);
+  if(!current.length)throw Error('This event is no longer in a recorded scheduling conflict');
+  const proposed={...scope,calendarEntries:scope.calendarEntries.map(x=>
+   x.id===event.id?{...x,date,time}:x)};
+  if(cal.conflicts(proposed,{from:date,until:date}).some(involves))
+   throw Error('Replacement slot overlaps another recorded commitment. Choose a different time.');
+  const against=current.map(c=>c.a.key==='event:'+event.id?c.b:c.a);
+  const conflictNames=[...new Set(against.map(x=>String(x.title||'Other booking').slice(0,80)))].slice(0,3);
+  const plan=await commands.prepare({commandId:'calendar.conflict.reschedule',
+   params:{ref:{store:'calendarEntries',id:event.id},date,time}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Calendar event is not eligible for reschedule');
+  if(!confirm('Move standalone event “'+String(event.title||event.id).slice(0,110)+
+   '” from '+String(event.date)+' '+String(event.time)+' to '+date+' '+time+
+   '? Current conflict with: '+conflictNames.join('; ')+'. This changes a local calendar booking. Linked jobs and tasks are not rescheduled; no notifications are sent.')){
+   await commands.reject(plan.id);return {status:'rejected'};
+  }
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Schedule changed; review again');
+  return commands.execute(plan.id);
+ },
+ commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openRecord:async function(kind,id){
   if(!id)return;
@@ -2085,7 +2559,36 @@ window.TradeFlowMapExperience?.configure({
 });
 window.TradeFlowResearch?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowMarketing?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
-window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
+window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,
+ reviewInvoicePayments:tfReviewInvoicePayments,
+ scheduleInvoiceFollowup:async(invoice,due)=>{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime is unavailable.');
+  const snapshot=await tfPilotSnapshot();
+  const prior=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='invoice.followup.schedule'&&x.params?.ref?.store==='invoices'&&
+   x.params.ref.id===invoice.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(prior.length){
+   for(const pending of prior){
+    const recovered=await commands.reconcile(pending.id);
+    if(recovered.status!=='succeeded')
+     return {status:'indeterminate',error:{message:'Earlier invoice follow-up could not be verified. Review the audit before retrying.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
+  const plan=await commands.prepare({commandId:'invoice.followup.schedule',
+   params:{ref:{store:'invoices',id:invoice.id},due}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Invoice is not eligible for a reviewed follow-up.');
+  if(!confirm('Schedule an internal task for overdue invoice '+String(invoice.reference||invoice.id).slice(0,80)+
+   ' due '+due+'? Check recorded payments and contact preferences first. No email or payment request will be sent.')){
+   await commands.reject(plan.id);return {status:'rejected'};
+  }
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Invoice or payment records changed; review again.');
+  return commands.execute(plan.id);
+ },
+ navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowNotifications?.configure({
  get,put,render,uid,intelligence:data=>window.TradeFlowPilot?.evaluateSnapshot(data)||null,openRecord:tfPilotOpenRecord,navigate:async function(next){tab=next;query='';modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}
 });

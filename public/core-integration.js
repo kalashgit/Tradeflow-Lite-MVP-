@@ -264,10 +264,967 @@
    for(const store of ['customers','settings']){const req=tx.objectStore(store).getAll();req.onsuccess=()=>{data[store]=req.result;ready()}}
   });
  }
+ // Owner-approved internal quotation follow-up. Never represents an external contact.
+ // All checks and writes share one IndexedDB transaction, including the audit receipt.
+ function executeQuotationFollowup(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',
+   approved=false,recordGuard=[]}=args||{};
+  if(!db||typeof db.transaction!=='function'||approved!==true||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof uid!=='function'||typeof actor!=='string'||!actor.trim()||
+   !payload||typeof payload.quoteId!=='string'||!payload.quoteId||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='quotes'&&g.ref.id===payload.quoteId&&g.record)||
+   recordGuard.some(g=>!g?.ref||!['quotes','customers'].includes(g.ref.store)||!g.record))
+   return Promise.reject(Error('Explicit approved quote, guard and operation key required'));
+  if(Object.keys(payload).some(k=>!['quoteId','due'].includes(k))||!validDate(payload.due)||!payload.due)
+   return Promise.reject(Error('Valid follow-up due date required'));
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
+  const key='quote-followup:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=4,prior=null;const data={};
+   try{tx=db.transaction(['commandLog','quotes','customers','tasks'],'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Follow-up transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     const quote=data.quotes.find(q=>q.id===payload.quoteId);
+     if(prior){
+      if(prior.kind!=='quotation.followup.schedule'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Operation key has a different owner or payload');
+      if(!data.tasks.some(t=>t.id===prior.resultId&&t.quoteId===payload.quoteId))
+       throw Error('Previous follow-up task needs recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key};return;
+     }
+     for(const guard of recordGuard){
+      const source=data[guard.ref.store]||[];
+      if(source.filter(x=>x.id===guard.ref.id).length!==1||
+       stable(source.find(x=>x.id===guard.ref.id))!==stable(guard.record))
+       throw Error('Quotation or linked customer changed since approval; review again');
+     }
+     if(!quote)throw Error('Quotation changed since approval; review again');
+     if(quote.businessId&&quote.businessId!==businessId)
+      throw Error('Quotation belongs to another business');
+     if(String(quote.status||'').toLowerCase()!=='sent'||!quote.customerId||
+      quote.followupResolution?.status==='owner_attested_reached')
+      throw Error('Only sent quotations with customers can be followed up');
+     if(recordGuard.some(g=>g.ref.store==='customers'&&g.ref.id!==quote.customerId))
+      throw Error('Approved customer guard does not match the quotation customer');
+     const customer=data.customers.find(c=>c.id===quote.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)
+      throw Error('Quotation customer unavailable in this business');
+     const existing=data.tasks.filter(t=>t.quoteId===quote.id&&(t.taskKind==='quotation_follow_up'||t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '))&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(existing.length>1||existing.some(t=>t.customerId!==quote.customerId||
+      t.businessId&&t.businessId!==businessId))
+      throw Error('Ambiguous or cross-business quotation follow-up requires owner review');
+     if(existing.length){
+      result={id:existing[0].id,reused:true,commandKey:key};
+      tx.objectStore('commandLog').put({id:key,kind:'quotation.followup.schedule',
+       requestPayload:stable(payload),resultId:existing[0].id,actor,businessId,
+       createdAt:new Date().toISOString(),result:'existing_open_task'});
+      return;
+     }
+     const id=String(uid()),when=new Date().toISOString();
+     if(!id||data.tasks.some(t=>t.id===id))throw Error('Follow-up task identifier collision');
+     const title='Follow up quotation: '+String(quote.title||quote.id).slice(0,120);
+     const task={id,title,due:payload.due,quoteId:quote.id,customerId:quote.customerId,
+      taskKind:'quotation_follow_up',status:'Open',businessId,createdAt:when,updatedAt:when};
+     tx.objectStore('tasks').put(task);
+     domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+     tx.objectStore('commandLog').put({id:key,kind:'quotation.followup.schedule',
+      requestPayload:stable(payload),resultId:id,actor,businessId,quoteId:quote.id,
+      createdAt:when,result:'task_created'});
+     result={id,reused:false,commandKey:key};
+    }catch(e){abort(e)}
+   }
+   for(const name of ['commandLog','quotes','customers','tasks']){
+    const store=tx.objectStore(name),req=name==='commandLog'?store.get(key):store.getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()};
+   }
+  });
+ }
+ // Manual contact evidence: a local operator report, never provider-confirmed delivery.
+ // Customer contact and quotation's lastContactAt are atomic with the command receipt.
+ function executeContactRecord(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  const {customerId,quoteId='',method,notes,outcome='attempted'}=payload||{};
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='customers'&&g.ref.id===customerId&&g.record)||
+   recordGuard.some(g=>g.quoteOpenFollowups!==undefined?!Array.isArray(g.quoteOpenFollowups):
+    !g.ref||!['customers','quotes'].includes(g.ref.store)||!g.record)||
+   (quoteId&&!recordGuard.some(g=>g.ref.store==='quotes'&&g.ref.id===quoteId))||
+   typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
+   typeof customerId!=='string'||!customerId||typeof quoteId!=='string'||
+   !['Phone','Email','Meeting','Site visit','Other'].includes(method)||
+   !['attempted','reached'].includes(outcome)||
+   typeof notes!=='string'||notes.trim().length<3||notes.length>1000||
+   Object.keys(payload).some(k=>!['customerId','quoteId','method','notes','outcome'].includes(k)))
+   return Promise.reject(Error('Valid manually recorded customer contact required'));
+  const key='contact:'+requestKey.trim();
+  const normalized={customerId,quoteId,method,notes:notes.trim(),outcome};
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=5,prior=null;const data={};
+   try{tx=db.transaction(['commandLog','events','customers','quotes','tasks'],'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Contact transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='customer.contact.record'||prior.requestPayload!==stable(normalized)||
+       prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Contact operation key is bound to different details or actor');
+      const previous=data.events.find(e=>e.id===prior.resultId&&e.kind==='customer_contact'&&
+       e.customerId===customerId&&e.quoteId===quoteId&&e.outcome===outcome);
+      if(!previous)throw Error('Previous contact record requires recovery review');
+      if(!Array.isArray(prior.resolvedTaskIds)||prior.resolvedTasks!==prior.resolvedTaskIds.length||
+       prior.outcome!==outcome||prior.providerVerified!==false)
+       throw Error('Previous contact receipt requires recovery review');
+      if(quoteId){
+       const quote=data.quotes.find(q=>q.id===quoteId&&q.customerId===customerId);
+       if(!quote||outcome==='reached'&&quote.followupResolution?.contactEventId!==prior.resultId)
+        throw Error('Previous quotation resolution requires recovery review');
+      }
+      if(prior.resolvedTaskIds.some(taskId=>!data.tasks.some(t=>t.id===taskId&&
+       t.quoteId===quoteId&&t.customerId===customerId&&
+       t.contactEventId===prior.resultId&&t.completedReason==='owner_attested_customer_reached'&&
+       ['done','completed'].includes(String(t.status||'').toLowerCase()))))
+       throw Error('Previous follow-up task resolution requires recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key,outcome,resolvedTasks:prior.resolvedTasks};return;
+     }
+     for(const guard of recordGuard){
+      if(guard.quoteOpenFollowups!==undefined)continue;
+      const collection=data[guard.ref.store]||[];
+      if(collection.filter(x=>x.id===guard.ref.id).length!==1||
+       stable(collection.find(x=>x.id===guard.ref.id))!==stable(guard.record))
+       throw Error('Customer contact approval is stale; review changed records');
+     }
+     const customer=data.customers.find(c=>c.id===customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)
+      throw Error('Contact customer unavailable in this business');
+     if(recordGuard.some(g=>g.ref?.store==='quotes'&&g.ref.id!==quoteId))
+      throw Error('Approval references a different quotation');
+     const quote=quoteId?data.quotes.find(q=>q.id===quoteId):null;
+     if(quoteId&&(!quote||quote.customerId!==customerId||
+       quote.businessId&&quote.businessId!==businessId))
+      throw Error('Related quotation no longer belongs to customer and business');
+     const id=String(uid()),when=new Date().toISOString();
+     if(!id||data.events.some(e=>e.id===id))throw Error('Contact record identifier collision');
+     const event={id,kind:'customer_contact',text:'Manually recorded customer contact',
+      customerId,quoteId,method,notes:normalized.notes,outcome,date:when,
+      actor,businessId,evidence:'operator_reported',providerVerified:false,customerReached:outcome==='reached'};
+     tx.objectStore('events').put(event);
+     let resolvedTasks=0;const resolvedTaskIds=[];
+     if(quote){
+      const lastField=outcome==='reached'?'lastContactAt':'lastFollowUpAt';
+      const last=String(quote[lastField]||'');
+      const updated={...quote,[lastField]:last>when?last:when,updatedAt:when,
+       ...(outcome==='reached'?{followupResolution:{status:'owner_attested_reached',
+        contactEventId:id,recordedAt:when,actor,providerVerified:false}}:{})};
+      tx.objectStore('quotes').put(updated);
+      domainEvents?.recordCommitted(tx,'quotes',updated,key,{actor,businessId},quote);
+      if(outcome==='reached'){
+       const open=(data.tasks||[]).filter(t=>t.quoteId===quote.id&&t.customerId===customerId&&
+        (t.taskKind==='quotation_follow_up'||t.followupAuto===true||
+         String(t.title||'').startsWith('Follow up quote: '))&&
+        (!t.businessId||t.businessId===businessId)&&
+        !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+       const reviewed=recordGuard.find(g=>g.quoteOpenFollowups!==undefined);
+       if(reviewed&&stable(reviewed.quoteOpenFollowups)!==stable(open))
+        throw Error('Linked follow-up tasks changed since owner approval; review again');
+       for(const task of open){
+        const completed={...task,status:'Done',completedAt:when,
+         completedReason:'owner_attested_customer_reached',contactEventId:id,updatedAt:when};
+        tx.objectStore('tasks').put(completed);
+        domainEvents?.recordCommitted(tx,'tasks',completed,key,{actor,businessId},task);
+        resolvedTasks++;resolvedTaskIds.push(task.id);
+       }
+      }
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'customer.contact.record',
+      requestPayload:stable(normalized),resultId:id,actor,businessId,quoteId,
+      createdAt:when,result:outcome==='reached'?'owner_attested_reached':'manual_attempt_recorded',
+      outcome,resolvedTasks,resolvedTaskIds,providerVerified:false});
+     result={id,reused:false,commandKey:key,providerVerified:false,outcome,resolvedTasks};
+    }catch(e){abort(e)}
+   }
+   const receipt=tx.objectStore('commandLog').get(key);
+   receipt.onsuccess=()=>{prior=receipt.result;ready()};
+   for(const name of ['events','customers','quotes','tasks']){
+    const req=tx.objectStore(name).getAll();
+    req.onsuccess=()=>{data[name]=req.result;ready()};
+   }
+  });
+ }
+ // Approved, internal invoice follow-up. Does not send a payment demand or verify a bank receipt.
+ // Invoice, customer, payment snapshot, task, domain event and command receipt are checked/written atomically.
+ function executeInvoiceFollowup(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
+   typeof requestKey!=='string'||!requestKey.trim()||typeof actor!=='string'||!actor.trim()||
+   typeof payload.invoiceId!=='string'||!payload.invoiceId||!validDate(payload.due)||!payload.due||
+   Object.keys(payload).some(k=>!['invoiceId','due'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(x=>x.ref?.store==='invoices'&&x.ref.id===payload.invoiceId&&x.record)||
+   !recordGuard.some(x=>Array.isArray(x.invoicePayments)))
+   return Promise.reject(Error('Approved invoice, payment snapshot and operation key required'));
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
+  const key='invoice-followup:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=6,prior;const data={};
+   try{tx=db.transaction(['commandLog','invoices','customers','payments','tasks','jobs'],'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Invoice follow-up transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     const invoice=data.invoices.find(x=>x.id===payload.invoiceId);
+     if(prior){
+      if(prior.kind!=='invoice.followup.schedule'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)throw Error('Invoice operation key belongs to a different request');
+      if(!data.tasks.some(t=>t.id===prior.resultId&&t.invoiceId===payload.invoiceId))
+       throw Error('Previous invoice task needs recovery review');
+      result={id:prior.resultId,reused:true,commandKey:key};return;
+     }
+     if(!invoice||invoice.businessId&&invoice.businessId!==businessId)
+      throw Error('Invoice unavailable in this business');
+     for(const expected of recordGuard){
+      if(expected.ref){
+       const records=data[expected.ref.store];
+       if(!records||records.filter(x=>x.id===expected.ref.id).length!==1||
+        stable(records.find(x=>x.id===expected.ref.id))!==stable(expected.record))
+        throw Error('Invoice or related record changed since approval');
+      }
+      if(expected.invoicePayments&&stable(data.payments.filter(p=>p.invoiceId===payload.invoiceId))!==stable(expected.invoicePayments))
+       throw Error('Invoice payments changed since approval');
+     }
+     if(String(invoice.status||'').toLowerCase()!=='issued'||!invoice.customerId||
+      !validDate(invoice.dueDate)||invoice.dueDate>=new Date().toISOString().slice(0,10))
+      throw Error('Invoice is not an overdue issued invoice');
+     const customer=data.customers.find(x=>x.id===invoice.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)
+      throw Error('Invoice customer unavailable in business');
+     if(invoice.currency&&invoice.currency!=='USD'||!Array.isArray(invoice.lines)||!invoice.lines.length||
+      invoice.lines.some(l=>!Number.isFinite(Number(l.qty))||Number(l.qty)<=0||
+       !Number.isFinite(Number(l.unitPrice))||Number(l.unitPrice)<0)||
+      !Number.isFinite(Number(invoice.taxRate||0))||Number(invoice.taxRate||0)<0||Number(invoice.taxRate||0)>100)
+      throw Error('Invoice amount cannot be verified');
+     const payments=data.payments.filter(p=>p.invoiceId===invoice.id);
+     if(payments.some(p=>!Number.isFinite(Number(p.amount))||Number(p.amount)<0||
+      p.currency&&p.currency!==(invoice.currency||'USD')||p.customerId&&p.customerId!==invoice.customerId))
+      throw Error('Invoice payment integrity needs review');
+     const subtotal=invoice.lines.reduce((n,l)=>n+Math.round(Number(l.qty)*Math.round(Number(l.unitPrice)*100)),0);
+     const amount=subtotal+Math.round(subtotal*Number(invoice.taxRate||0)/100);
+     const paid=payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
+     if(amount-paid<=0)throw Error('No recorded outstanding invoice balance remains');
+     const existing=data.tasks.find(t=>t.invoiceId===invoice.id&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     const when=new Date().toISOString();
+     let id;
+     if(existing)id=existing.id;
+     else {
+      id=String(uid());
+      if(!id||data.tasks.some(t=>t.id===id))throw Error('Invoice task identifier collision');
+      const task={id,invoiceId:invoice.id,customerId:invoice.customerId,jobId:invoice.jobId||'',
+       title:'Review unpaid invoice: '+String(invoice.reference||invoice.id).slice(0,90),
+       description:'Review actual bank/provider records before contacting this customer. No outbound message was sent.',
+       due:payload.due,status:'Open',taskKind:'invoice_follow_up',businessId,createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'invoice.followup.schedule',requestPayload:stable(payload),
+      resultId:id,actor,businessId,invoiceId:invoice.id,createdAt:when,
+      result:existing?'existing_open_task':'task_created',providerVerified:false});
+     result={id,reused:!!existing,commandKey:key,providerVerified:false};
+    }catch(e){abort(e)}
+   }
+   const read=tx.objectStore('commandLog').get(key);
+   read.onsuccess=()=>{prior=read.result;ready()};
+   for(const name of ['invoices','customers','payments','tasks','jobs']){
+    const req=tx.objectStore(name).getAll();req.onsuccess=()=>{data[name]=req.result;ready()};
+   }
+  });
+ }
+ // Shared approved command for a standalone calendar event conflicting with another booking.
+ // The existing calendar conflict evaluator runs on records read inside a single transaction.
+ // Linked job/task work sessions cannot be moved through this action.
+ function executeConflictReschedule(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',
+   approved=false,recordGuard=[],calendar}=args||{};
+  const timeOK=v=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+  if(!db||typeof db.transaction!=='function'||typeof uid!=='function'||approved!==true||
+   typeof actor!=='string'||!actor.trim()||typeof requestKey!=='string'||!requestKey.trim()||
+   !payload||typeof payload.eventId!=='string'||!payload.eventId||!payload.date||
+   !validDate(payload.date)||!timeOK(payload.time)||
+   Object.keys(payload).some(k=>!['eventId','date','time'].includes(k))||
+   !calendar||typeof calendar.conflicts!=='function'||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='calendarEntries'&&g.ref.id===payload.eventId&&g.record)||
+   !recordGuard.some(g=>g.calendarState&&typeof g.calendarState==='object'))
+   return Promise.reject(Error('Approved standalone event, calendar evaluator and complete schedule snapshot required'));
+  const stable=v=>JSON.stringify(v,(k,value)=>value&&typeof value==='object'&&!Array.isArray(value)?
+   Object.fromEntries(Object.keys(value).sort().filter(x=>value[x]!==undefined).map(x=>[x,value[x]])):value);
+  const key='calendar-reschedule:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   let tx,error,result,remaining=5,prior=null;const data={};
+   const names=['commandLog','calendarEntries','tasks','jobs','calendarPreferences','calendarAudit'];
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;try{tx.abort()}catch{reject(e)}};
+   tx.oncomplete=()=>resolve(result);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Calendar conflict transaction failed'));
+   function ready(){
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='calendar.conflict.reschedule'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Reschedule operation key belongs to a different request');
+      const changed=data.calendarEntries.find(x=>x.id===prior.resultId);
+      if(!changed||changed.date!==payload.date||changed.time!==payload.time)
+       throw Error('Prior rescheduled event requires recovery review');
+      result={id:changed.id,reused:true,commandKey:key};return;
+     }
+     for(const expected of recordGuard){
+      if(expected.ref){
+       const rows=data[expected.ref.store]||[];
+       if(rows.filter(x=>x.id===expected.ref.id).length!==1||
+        stable(rows.find(x=>x.id===expected.ref.id))!==stable(expected.record))
+        throw Error('Calendar record changed since approval');
+      }
+      if(expected.calendarState){
+       for(const name of ['tasks','jobs','calendarEntries','calendarPreferences']){
+        if(stable(data[name])!==stable(expected.calendarState[name]))
+         throw Error('Calendar commitments changed since approval');
+       }
+      }
+     }
+     const event=data.calendarEntries.find(x=>x.id===payload.eventId);
+     if(!event||event.businessId&&event.businessId!==businessId)
+      throw Error('Event unavailable in this business');
+     if(event.sourceId&&event.sourceKind&&event.sourceKind!=='event'||
+      ['done','completed','cancelled','canceled'].includes(String(event.status||'').toLowerCase()))
+      throw Error('Linked or completed sessions require source-record review');
+     const duration=Number(event.durationMinutes),start=Number(payload.time.slice(0,2))*60+Number(payload.time.slice(3,5));
+     if(!Number.isInteger(duration)||duration<1||duration>1440||start+duration>1440||
+      event.date===payload.date&&event.time===payload.time)
+      throw Error('Invalid or unchanged calendar slot');
+     const normalized=clone=>({
+      ...clone,
+      tasks:(clone.tasks||[]).map(x=>({...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'})),
+      jobs:(clone.jobs||[]).map(x=>({...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'})),
+      calendarEntries:(clone.calendarEntries||[]).map(x=>({...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'}))
+     });
+     const scope={tasks:data.tasks,jobs:data.jobs,calendarEntries:data.calendarEntries,calendarPreferences:data.calendarPreferences};
+     const involved=issue=>issue.a?.key==='event:'+event.id||issue.b?.key==='event:'+event.id;
+     const earlier=calendar.conflicts(normalized(scope),{from:event.date,until:event.date}).filter(involved);
+     if(!earlier.length)throw Error('This standalone event no longer has a recorded conflict');
+     const next={...event,date:payload.date,time:payload.time,updatedAt:new Date().toISOString()};
+     const proposed={...scope,calendarEntries:scope.calendarEntries.map(x=>x.id===event.id?next:x)};
+     const after=calendar.conflicts(normalized(proposed),{from:payload.date,until:payload.date}).filter(involved);
+     if(after.length)throw Error('Replacement slot still conflicts with another recorded commitment');
+     tx.objectStore('calendarEntries').put(next);
+     domainEvents?.recordCommitted(tx,'calendarEntries',next,key,{actor,businessId},event);
+     tx.objectStore('calendarAudit').put({id:String(uid()),kind:'calendar.conflict.rescheduled',
+      sourceKind:'event',sourceId:event.id,oldDate:event.date,oldTime:event.time,
+      newDate:payload.date,newTime:payload.time,actor,businessId,correlationId:key,
+      createdAt:next.updatedAt});
+     tx.objectStore('commandLog').put({id:key,kind:'calendar.conflict.reschedule',
+      requestPayload:stable(payload),resultId:event.id,actor,businessId,
+      oldDate:event.date,oldTime:event.time,createdAt:next.updatedAt,result:'event_moved'});
+     result={id:event.id,reused:false,commandKey:key,oldDate:event.date,oldTime:event.time,
+      date:payload.date,time:payload.time,verifiedNoConflict:true};
+    }catch(e){abort(e)}
+   }
+   const r=tx.objectStore('commandLog').get(key);r.onsuccess=()=>{prior=r.result;ready()};
+   for(const name of ['calendarEntries','tasks','jobs','calendarPreferences']){
+    const req=tx.objectStore(name).getAll();req.onsuccess=()=>{data[name]=req.result;ready()};
+   }
+  });
+ }
+ // TF-P04: internal review only. Never marks a change order customer-approved.
+ function executeChangeOrderReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||!approved||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   !payload.jobId||typeof payload.changeOrderId!=='string'||!payload.changeOrderId.trim()||
+   !validDate(payload.due)||Object.keys(payload).some(k=>!['jobId','changeOrderId','due'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   recordGuard.some(g=>g?.ref&&!['jobs','customers','quotes','opportunities'].includes(g.ref.store)))
+   return Promise.reject(Error('Approved, revision-bound internal change-order review required'));
+  const stable=v=>JSON.stringify(stableOrder(v)),key='change-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Change-order review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.change_order.review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Operation receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.jobId===payload.jobId&&t.changeOrderId===payload.changeOrderId&&t.businessId===businessId);
+      if(!task)throw Error('Previous task receipt requires manual reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const job=data.jobs.find(x=>x.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job is missing or outside this business');
+     for(const guard of recordGuard){
+      if(!guard.ref)continue;
+      const matches=data[guard.ref.store].filter(x=>x.id===guard.ref.id);
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Job or change order changed after approval');
+     }
+     const taskGuard=recordGuard.find(g=>Array.isArray(g.changeOrderOpenReviews));
+     if(!taskGuard)throw Error('Open review task snapshot is missing');
+     const currentOpen=data.tasks.filter(t=>t.jobId===job.id&&t.changeOrderId===payload.changeOrderId&&t.taskKind==='change_order_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(stable(currentOpen)!==stable(taskGuard.changeOrderOpenReviews))throw Error('Linked change-order reviews changed after approval');
+     const changes=Array.isArray(job.changeOrders)?job.changeOrders:[];
+     const matches=changes.filter(x=>x&&x.id===payload.changeOrderId);
+     if(matches.length!==1||matches[0].status!=='proposed'||!Number.isFinite(matches[0].amount)||matches[0].amount<0)
+      throw Error('Proposed change order needs fresh review');
+     const existing=data.tasks.filter(t=>t.jobId===job.id&&t.changeOrderId===payload.changeOrderId&&t.taskKind==='change_order_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(existing.length>1||existing.some(t=>t.businessId!==businessId))throw Error('Ambiguous linked review tasks require owner inspection');
+     const when=new Date().toISOString();let id,kind;
+     if(existing.length){id=existing[0].id;kind='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Review task ID collision');
+      const task={id,jobId:job.id,changeOrderId:payload.changeOrderId,customerId:job.customerId||'',businessId,
+       taskKind:'change_order_review',title:'Verify customer authorization for change: '+String(matches[0].description||payload.changeOrderId).slice(0,100),
+       status:'Open',due:payload.due,customerAuthorizationStatus:'unverified',createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      kind='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'job.change_order.review.schedule',requestPayload:stable(payload),
+      resultId:id,actor,businessId,jobId:job.id,changeOrderId:payload.changeOrderId,createdAt:when,result:kind});
+     outcome={id,reused:kind!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){
+    const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()};
+   }
+  });
+ }
+ // Owner-attested consent reference, not a signature or independently verified customer response.
+ // The job update, task closure, domain audits and receipt commit in one transaction.
+ function executeChangeOrderAuthorization(args){
+  const {db,payload={},requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.jobId!=='string'||!payload.jobId||typeof payload.changeOrderId!=='string'||!payload.changeOrderId||
+   typeof payload.evidence!=='string'||payload.evidence.trim().length<10||payload.evidence.length>300||
+   Object.keys(payload).some(k=>!['jobId','changeOrderId','evidence'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.changeOrderOpenReviews))||
+   recordGuard.some(g=>g?.ref&&!['jobs','customers','quotes','opportunities'].includes(g.ref.store)))
+   return Promise.reject(Error('Verified owner approval, job revision, review task and evidence reference required'));
+  const key='change-authorization:'+requestKey.trim(),stable=v=>JSON.stringify(stableOrder(v));
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Authorization transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.change_order.authorization.record'||prior.requestPayload!==stable(payload)||
+       prior.actor!==actor||prior.businessId!==businessId)throw Error('Authorization receipt belongs to another operation');
+      const job=data.jobs.find(j=>j.id===payload.jobId),change=job?.changeOrders?.find(x=>x?.id===payload.changeOrderId);
+      const task=data.tasks.find(t=>t.id===prior.reviewTaskId&&t.jobId===payload.jobId&&t.status==='Done'&&t.authorizationReceiptId===key);
+      if(!task||change?.authorizationReceiptId!==key)throw Error('Previous authorization outcome requires manual recovery review');
+      outcome={id:job.id,reviewTaskId:task.id,reused:true,commandKey:key,providerVerified:false};return;
+     }
+     const job=data.jobs.find(x=>x.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job missing or outside this business');
+     for(const guard of recordGuard){
+      if(!guard.ref)continue;
+      const matches=data[guard.ref.store].filter(x=>x.id===guard.ref.id);
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Linked record changed after owner approval');
+     }
+     const guard=recordGuard.find(g=>Array.isArray(g.changeOrderOpenReviews));
+     const reviews=data.tasks.filter(t=>t.jobId===job.id&&t.changeOrderId===payload.changeOrderId&&
+      t.taskKind==='change_order_review'&&!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(reviews.length!==1||reviews[0].businessId!==businessId||stable(reviews)!==stable(guard.changeOrderOpenReviews))
+      throw Error('Review task changed since approval');
+     const changeOrders=Array.isArray(job.changeOrders)?job.changeOrders:[];
+     const matches=changeOrders.filter(x=>x?.id===payload.changeOrderId);
+     if(matches.length!==1||matches[0].status!=='proposed'||!Number.isFinite(matches[0].amount)||matches[0].amount<=0)
+      throw Error('Proposed change changed or requires review');
+     const when=new Date().toISOString(),updated={...job,changeOrders:changeOrders.map(x=>({...x}))};
+     const current=updated.changeOrders.find(x=>x.id===payload.changeOrderId);
+     current.status='approved_recorded';current.approvalEvidence=payload.evidence;current.approvedAt=when;
+     current.customerAuthorization={kind:'owner_attested_documented',reference:payload.evidence,recordedBy:actor,recordedAt:when,providerVerified:false};
+     current.authorizationReceiptId=key;updated.changeOrdersUpdatedAt=when;
+     const task={...reviews[0],status:'Done',completedAt:when,updatedAt:when,
+      completedReason:'owner_attested_documented_customer_authorization',authorizationReceiptId:key,
+      customerAuthorizationStatus:'owner_attested_documented'};
+     tx.objectStore('jobs').put(updated);tx.objectStore('tasks').put(task);
+     domainEvents?.recordCommitted(tx,'jobs',updated,key,{actor,businessId},job);
+     domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},reviews[0]);
+     tx.objectStore('commandLog').put({id:key,kind:'job.change_order.authorization.record',requestPayload:stable(payload),
+      resultId:job.id,reviewTaskId:task.id,actor,businessId,changeOrderId:payload.changeOrderId,
+      createdAt:when,result:'owner_attested_documented',providerVerified:false});
+     outcome={id:job.id,reviewTaskId:task.id,reused:false,commandKey:key,providerVerified:false};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
+ // TF-P05: reviewed reconciliation task using local costs; never claims final job profit.
+ function executeJobCostReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.jobId!=='string'||!payload.jobId||!validDate(payload.due)||
+   !Number.isFinite(payload.budget)||!Number.isFinite(payload.recordedCosts)||payload.recordedCosts<=payload.budget||
+   Object.keys(payload).some(k=>!['jobId','due','budget','recordedCosts'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.jobCostsSnapshot)&&Array.isArray(g.jobExpensesSnapshot)&&Array.isArray(g.costReviewTasks)))
+   return Promise.reject(Error('Explicit approved cost-review snapshot is required'));
+  const key='job-cost-review:'+requestKey.trim(),stable=v=>JSON.stringify(stableOrder(v));
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','jobCosts','expenses','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Job cost review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.cost_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Cost review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.jobId===payload.jobId&&t.taskKind==='job_cost_reconciliation'&&t.businessId===businessId);
+      if(!task)throw Error('Previous review task needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const job=data.jobs.find(j=>j.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job outside authorized business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Job or customer changed after approval');
+     }
+     const financial=recordGuard.find(g=>Array.isArray(g.jobCostsSnapshot)&&Array.isArray(g.jobExpensesSnapshot)&&Array.isArray(g.costReviewTasks));
+     const costs=data.jobCosts.filter(x=>x.jobId===job.id),expenses=data.expenses.filter(x=>x.jobId===job.id||x.relatedId===job.id),
+      tasks=data.tasks.filter(t=>t.jobId===job.id&&t.taskKind==='job_cost_reconciliation'&&
+       !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(stable(costs)!==stable(financial.jobCostsSnapshot)||stable(expenses)!==stable(financial.jobExpensesSnapshot)||
+      stable(tasks)!==stable(financial.costReviewTasks))throw Error('Job cost evidence or reviews changed after approval');
+     const valid=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0&&(!x.businessId||x.businessId===businessId);
+     if(!costs.some(x=>x.type==='estimate')||[...costs,...expenses].some(x=>!valid(x)))throw Error('Recorded cost evidence incomplete');
+     const budget=costs.filter(x=>x.type==='estimate').reduce((n,x)=>n+Math.round(x.amount*100),0),
+      spent=[...costs.filter(x=>x.type==='actual'),...expenses].reduce((n,x)=>n+Math.round(x.amount*100),0);
+     if(budget<=0||spent<=budget||budget/100!==payload.budget||spent/100!==payload.recordedCosts)
+      throw Error('Current cost totals differ from approved summary');
+     if(tasks.length>1||tasks.some(t=>t.businessId!==businessId))throw Error('Ambiguous cost-review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Cost review task ID collision');
+      const task={id,jobId:job.id,customerId:job.customerId||'',businessId,taskKind:'job_cost_reconciliation',status:'Open',
+       title:'Reconcile job cost overrun: '+String(job.title||job.id).slice(0,100),due:payload.due,
+       financialEvidence:{budget:budget/100,recordedCosts:spent/100,currency:'USD',costIds:costs.map(x=>x.id),expenseIds:expenses.map(x=>x.id),
+        possibleOverlap:true,externalAccountingVerified:false,settlementVerified:false,profitVerified:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'job.cost_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,jobId:job.id,createdAt:when,result});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
+ // TF-P06: atomic owner-approved internal review; manual hours are never payroll evidence.
+ function executeJobLaborReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.jobId!=='string'||!payload.jobId||!validDate(payload.due)||
+   !Number.isFinite(payload.estimatedLaborHours)||payload.estimatedLaborHours<=0||
+   !Number.isFinite(payload.recordedLaborHours)||payload.recordedLaborHours<=payload.estimatedLaborHours||
+   Object.keys(payload).some(k=>!['jobId','due','estimatedLaborHours','recordedLaborHours'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g?.ref?.store==='jobs'&&g.ref.id===payload.jobId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.laborCostsSnapshot)&&Array.isArray(g.laborReviewTasks)))
+   return Promise.reject(Error('Explicit approved labor-review snapshot is required'));
+  const key='job-labor-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['jobs','jobCosts','tasks','commandLog','customers','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Labor review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='job.labor_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Labor review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.jobId===payload.jobId&&t.taskKind==='job_labor_variance_review'&&t.businessId===businessId);
+      if(!task)throw Error('Previous labor review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const job=data.jobs.find(j=>j.id===payload.jobId);
+     if(!job||job.businessId&&job.businessId!==businessId)throw Error('Job outside authorized business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Linked record changed after approval');
+     }
+     const evidence=recordGuard.find(g=>Array.isArray(g.laborCostsSnapshot)&&Array.isArray(g.laborReviewTasks));
+     const costs=data.jobCosts.filter(x=>x.jobId===job.id&&x.category==='Labor'&&['estimate','actual'].includes(x.type));
+     const tasks=data.tasks.filter(t=>t.jobId===job.id&&t.taskKind==='job_labor_variance_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     if(stable(costs)!==stable(evidence.laborCostsSnapshot)||stable(tasks)!==stable(evidence.laborReviewTasks))
+      throw Error('Labor evidence or review tasks changed after approval');
+     if(costs.length<2||costs.some(x=>typeof x.laborHours!=='number'||!Number.isFinite(x.laborHours)||x.laborHours<=0||
+      x.businessId&&x.businessId!==businessId))throw Error('Labor entries incomplete or outside business');
+     const estimate=costs.filter(x=>x.type==='estimate').reduce((n,x)=>n+x.laborHours,0);
+     const actual=costs.filter(x=>x.type==='actual').reduce((n,x)=>n+x.laborHours,0);
+     if(estimate!==payload.estimatedLaborHours||actual!==payload.recordedLaborHours||actual<=estimate)throw Error('Labor variance changed');
+     if(tasks.length>1||tasks.some(t=>t.businessId!==businessId))throw Error('Ambiguous labor review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Labor review task ID collision');
+      const task={id,jobId:job.id,customerId:job.customerId||'',businessId,taskKind:'job_labor_variance_review',status:'Open',
+       title:'Review labor-hour variance: '+String(job.title||job.id).slice(0,100),due:payload.due,
+       laborEvidence:{estimatedLaborHours:estimate,recordedLaborHours:actual,varianceHours:actual-estimate,
+        sourceCostIds:costs.map(x=>x.id),manualEntries:true,timesheetVerified:false,payrollVerified:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);
+      domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'job.labor_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,jobId:job.id,createdAt:when,result});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
+ // TF-P07: internal reconciliation of manually recorded overpayments; no external finance writes.
+ function executeInvoicePaymentReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.invoiceId!=='string'||!payload.invoiceId||!payload.due||!validDate(payload.due)||
+   !Number.isFinite(payload.invoiceTotal)||payload.invoiceTotal<0||
+   !Number.isFinite(payload.recordedPayments)||payload.recordedPayments<=payload.invoiceTotal||
+   Object.keys(payload).some(k=>!['invoiceId','due','invoiceTotal','recordedPayments'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='invoices'&&g.ref.id===payload.invoiceId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.paymentReviewPayments)&&Array.isArray(g.paymentReviewTasks)))
+   return Promise.reject(Error('Approved payment reconciliation evidence required'));
+  const key='invoice-payment-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['invoices','payments','customers','tasks','commandLog','jobs','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Payment review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='invoice.payment_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Payment review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.invoiceId===payload.invoiceId&&t.taskKind==='invoice_payment_reconciliation'&&t.businessId===businessId);
+      if(!task)throw Error('Previous payment review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const invoice=data.invoices.find(i=>i.id===payload.invoiceId);
+     if(!invoice||invoice.businessId&&invoice.businessId!==businessId||String(invoice.status||'').toLowerCase()!=='issued')
+      throw Error('Issued invoice unavailable in this business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Invoice or linked record changed after approval');
+     }
+     const evidence=recordGuard.find(g=>Array.isArray(g.paymentReviewPayments)&&Array.isArray(g.paymentReviewTasks));
+     const payments=data.payments.filter(x=>x.invoiceId===invoice.id),tasks=data.tasks.filter(x=>x.invoiceId===invoice.id&&
+      x.taskKind==='invoice_payment_reconciliation'&&!['done','completed','cancelled','canceled'].includes(String(x.status||'').toLowerCase()));
+     if(stable(payments)!==stable(evidence.paymentReviewPayments)||stable(tasks)!==stable(evidence.paymentReviewTasks))
+      throw Error('Payment records or review tasks changed after approval');
+     const customer=data.customers.find(x=>x.id===invoice.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)throw Error('Invoice customer unavailable in business');
+     if(!Array.isArray(invoice.lines)||!invoice.lines.length||invoice.currency&&invoice.currency!=='USD'||
+      invoice.lines.some(x=>!Number.isFinite(Number(x.qty))||Number(x.qty)<=0||!Number.isFinite(Number(x.unitPrice))||Number(x.unitPrice)<0)||
+      !Number.isFinite(Number(invoice.taxRate||0))||Number(invoice.taxRate||0)<0||Number(invoice.taxRate||0)>100)
+      throw Error('Invoice terms incomplete');
+     if(!payments.length||payments.some(x=>typeof x.amount!=='number'||!Number.isFinite(x.amount)||x.amount<0||
+      x.businessId&&x.businessId!==businessId||x.customerId&&x.customerId!==invoice.customerId||x.currency&&x.currency!=='USD'))
+      throw Error('Payment entries cannot be reconciled');
+     const subtotal=invoice.lines.reduce((n,x)=>n+Math.round(Number(x.qty)*Math.round(Number(x.unitPrice)*100)),0);
+     const total=subtotal+Math.round(subtotal*Number(invoice.taxRate||0)/100);
+     const paid=payments.reduce((n,x)=>n+Math.round(x.amount*100),0);
+     if(paid<=total||total/100!==payload.invoiceTotal||paid/100!==payload.recordedPayments)
+      throw Error('Recorded overpayment differs from approved evidence');
+     if(tasks.length>1||tasks.some(x=>x.businessId!==businessId))throw Error('Ambiguous payment review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Payment review task ID collision');
+      const task={id,invoiceId:invoice.id,customerId:invoice.customerId,jobId:invoice.jobId||'',businessId,
+       taskKind:'invoice_payment_reconciliation',title:'Reconcile recorded invoice payments: '+String(invoice.reference||invoice.id).slice(0,90),
+       due:payload.due,status:'Open',paymentEvidence:{invoiceTotal:total/100,recordedPayments:paid/100,
+        discrepancy:(paid-total)/100,paymentIds:payments.map(x=>x.id),currency:'USD',manualEntries:true,
+        externalAccountingVerified:false,settlementVerified:false},createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'invoice.payment_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,invoiceId:invoice.id,createdAt:when,result,externalAccountingVerified:false,settlementVerified:false});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
+ // TF-P08: schedule deterministic internal qualification, not a bid or customer commitment.
+ function executeBidQualificationReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.opportunityId!=='string'||!payload.opportunityId||!payload.due||!validDate(payload.due)||
+   Object.keys(payload).some(k=>!['opportunityId','due','invitation','scope','capacity'].includes(k))||
+   ['invitation','scope','capacity'].some(k=>!['Yes','No','Unknown',''].includes(payload[k]))||
+   !['invitation','scope','capacity'].some(k=>payload[k]!=='Yes')||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='opportunities'&&g.ref.id===payload.opportunityId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.bidReviewTasks)))
+   return Promise.reject(Error('Explicit approved bid qualification review required'));
+  const key='bid-qualification-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['opportunities','tasks','commandLog','customers','jobs','quotes'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Bid review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='opportunity.bid_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Bid review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.opportunityId===payload.opportunityId&&t.taskKind==='bid_qualification_review'&&t.businessId===businessId);
+      if(!task)throw Error('Previous bid review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const opportunity=data.opportunities.find(x=>x.id===payload.opportunityId);
+     if(!opportunity||opportunity.businessId&&opportunity.businessId!==businessId||
+      String(opportunity.bid_decision||'').toLowerCase()!=='pursue'||
+      ['won','lost','closed','declined'].includes(String(opportunity.status||'').toLowerCase()))
+      throw Error('Pursued opportunity unavailable in business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Opportunity or linked record changed after approval');
+     }
+     const checks=['bidInvitationVerified','bidScopeReviewed','bidCapacityChecked'];
+     if(checks.some((k,i)=>String(opportunity[k]||'Unknown')!==payload[['invitation','scope','capacity'][i]]))
+      throw Error('Bid readiness evidence changed');
+     const tasks=data.tasks.filter(t=>t.opportunityId===opportunity.id&&t.taskKind==='bid_qualification_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
+     const guard=recordGuard.find(g=>Array.isArray(g.bidReviewTasks));
+     if(stable(tasks)!==stable(guard.bidReviewTasks)||tasks.length>1||tasks.some(t=>t.businessId!==businessId))
+      throw Error('Bid review tasks changed or ambiguous');
+     if(checks.every(k=>String(opportunity[k]||'').toLowerCase()==='yes'))throw Error('Bid readiness checks are already complete');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Bid review task ID collision');
+      const task={id,opportunityId:opportunity.id,businessId,taskKind:'bid_qualification_review',status:'Open',
+       title:'Qualify pursued bid: '+String(opportunity.project_name||opportunity.organization_name||opportunity.id).slice(0,100),due:payload.due,
+       qualificationEvidence:{invitation:payload.invitation,scope:payload.scope,capacity:payload.capacity,
+        operatorRecorded:true,independentlyVerified:false,bidSubmitted:false,customerCommitmentCreated:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'opportunity.bid_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,opportunityId:opportunity.id,createdAt:when,result,bidSubmitted:false});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
+ // TF-P09: a fresh, unsent estimate draft with guarded source provenance.
+ function executeQuoteReuse(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.sourceQuoteId!=='string'||!payload.sourceQuoteId||typeof payload.title!=='string'||!payload.title.trim()||payload.title.length>160||
+   typeof payload.category!=='string'||payload.category.length>90||!Number.isFinite(payload.amount)||payload.amount<0||payload.amount>100000000||
+   Object.keys(payload).some(k=>!['sourceQuoteId','title','category','amount'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='quotes'&&g.ref.id===payload.sourceQuoteId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.quoteReuseDrafts)))return Promise.reject(Error('Approved source quotation snapshot required'));
+  const key='quote-reuse:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['quotes','commandLog','customers','jobs','tasks','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Quote reuse transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='quotation.reuse.create'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Reuse receipt belongs to another approval');
+      const priorDraft=data.quotes.find(q=>q.id===prior.resultId&&q.sourceQuoteId===payload.sourceQuoteId&&q.businessId===businessId&&q.reuseReceiptId===key);
+      if(!priorDraft)throw Error('Previous draft requires manual reconciliation');
+      outcome={id:priorDraft.id,reused:true,commandKey:key};return;
+     }
+     const source=data.quotes.find(q=>q.id===payload.sourceQuoteId);
+     if(!source||source.businessId&&source.businessId!==businessId||!['accepted','sent','draft'].includes(String(source.status||'').toLowerCase()))
+      throw Error('Quotation source unavailable in business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Source or linked record changed after approval');
+     }
+     const existing=data.quotes.filter(q=>q.sourceQuoteId===source.id&&String(q.status||'').toLowerCase()==='draft'&&q.id!==source.id);
+     const checked=recordGuard.find(g=>Array.isArray(g.quoteReuseDrafts));
+     if(stable(existing)!==stable(checked.quoteReuseDrafts)||existing.some(q=>q.businessId!==businessId))
+      throw Error('Existing reused drafts changed after approval');
+     if(String(source.title||'').slice(0,160)!==payload.title||String(source.category||'').slice(0,90)!==payload.category||
+      source.amount===''||Number(source.amount)!==payload.amount)throw Error('Source quotation fields changed');
+     const when=new Date().toISOString();let id,result;
+     if(existing.length>1)throw Error('Ambiguous active reused drafts');
+     if(existing.length){id=existing[0].id;result='existing_open_draft'}
+     else{
+      id=String(uid());if(!id||data.quotes.some(x=>x.id===id))throw Error('Quote draft ID collision');
+      const draft={id,businessId,title:payload.title,category:payload.category,amount:String(payload.amount),
+       customerId:'',status:'Draft',sentDate:'',followup_date:'',sourceQuoteId:source.id,
+       reuseReceiptId:key,reuseEvidence:{sourceQuoteId:source.id,createdBy:actor,sourceStatusAtReuse:source.status,
+        copiedFields:['title','category','amount'],pricingReverified:false,customerAuthorizationCopied:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('quotes').put(draft);domainEvents?.recordCommitted(tx,'quotes',draft,key,{actor,businessId},null,true);
+      result='draft_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'quotation.reuse.create',resultId:id,requestPayload:stable(payload),
+      actor,businessId,sourceQuoteId:source.id,createdAt:when,result,customerAuthorizationCopied:false});
+     outcome={id,reused:result!=='draft_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
+ // TF-P10: local account contribution review; excludes any promise of actual profitability.
+ function executeCustomerEconomicsReview(args){
+  const {db,payload={},uid,requestKey,actor='local-owner',businessId='local-business',approved=false,recordGuard=[]}=args||{};
+  if(!db?.transaction||approved!==true||typeof uid!=='function'||typeof requestKey!=='string'||!requestKey.trim()||
+   typeof payload.customerId!=='string'||!payload.customerId||!payload.due||!validDate(payload.due)||
+   !Number.isFinite(payload.received)||payload.received<0||!Number.isFinite(payload.recordedCosts)||payload.recordedCosts<0||
+   Object.keys(payload).some(k=>!['customerId','due','received','recordedCosts'].includes(k))||
+   !Array.isArray(recordGuard)||!recordGuard.some(g=>g.ref?.store==='customers'&&g.ref.id===payload.customerId&&g.record)||
+   !recordGuard.some(g=>Array.isArray(g.economicsJobs)&&Array.isArray(g.economicsInvoices)&&Array.isArray(g.economicsPayments)&&
+    Array.isArray(g.economicsCosts)&&Array.isArray(g.economicsExpenses)&&Array.isArray(g.economicsTasks)))
+   return Promise.reject(Error('Approved customer economics snapshot required'));
+  const key='customer-economics-review:'+requestKey.trim();
+  return new Promise((resolve,reject)=>{
+   const names=['customers','jobs','invoices','payments','jobCosts','expenses','tasks','commandLog','quotes','opportunities'];
+   let tx,error,outcome,remaining=names.length,prior;const data={};
+   try{tx=db.transaction(names,'readwrite')}catch(e){reject(e);return}
+   const abort=e=>{error=e;tx.abort()};
+   tx.oncomplete=()=>resolve(outcome);
+   tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Customer review transaction failed'));
+   const ready=()=>{
+    if(--remaining)return;
+    try{
+     if(prior){
+      if(prior.kind!=='customer.economics_review.schedule'||prior.requestPayload!==stable(payload)||prior.actor!==actor||prior.businessId!==businessId)
+       throw Error('Customer review receipt belongs to another approval');
+      const task=data.tasks.find(t=>t.id===prior.resultId&&t.customerId===payload.customerId&&t.taskKind==='customer_economics_review'&&t.businessId===businessId);
+      if(!task)throw Error('Previous customer review needs reconciliation');
+      outcome={id:task.id,reused:true,commandKey:key};return;
+     }
+     const customer=data.customers.find(x=>x.id===payload.customerId);
+     if(!customer||customer.businessId&&customer.businessId!==businessId)throw Error('Customer unavailable in business');
+     for(const guard of recordGuard){if(!guard.ref)continue;
+      const matches=data[guard.ref.store]?.filter(x=>x.id===guard.ref.id)||[];
+      if(matches.length!==1||stable(matches[0])!==stable(guard.record))throw Error('Linked customer record changed after approval');
+     }
+     const jobs=data.jobs.filter(x=>x.customerId===customer.id),ids=new Set(jobs.map(x=>x.id));
+     const invoices=data.invoices.filter(x=>x.customerId===customer.id&&String(x.status||'').toLowerCase()!=='void');
+     const invoiceIds=new Set(invoices.map(x=>x.id));
+     const payments=data.payments.filter(x=>x.invoiceId?invoiceIds.has(x.invoiceId):x.customerId===customer.id||ids.has(x.jobId||x.relatedId));
+     const costs=data.jobCosts.filter(x=>ids.has(x.jobId)&&x.type==='actual');
+     const expenses=data.expenses.filter(x=>ids.has(x.jobId||x.relatedId));
+     const tasks=data.tasks.filter(x=>x.customerId===customer.id&&x.taskKind==='customer_economics_review'&&
+      !['done','completed','cancelled','canceled'].includes(String(x.status||'').toLowerCase()));
+     const snapshot=recordGuard.find(g=>Array.isArray(g.economicsJobs)&&Array.isArray(g.economicsInvoices));
+     for(const [key,actual] of [['economicsJobs',jobs],['economicsInvoices',invoices],['economicsPayments',payments],
+      ['economicsCosts',costs],['economicsExpenses',expenses],['economicsTasks',tasks]])
+      if(stable(actual)!==stable(snapshot[key]))throw Error('Customer economics evidence changed after approval');
+     const valid=x=>typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>=0&&(!x.currency||x.currency==='USD')&&
+      (!x.businessId||x.businessId===businessId);
+     if(!jobs.length||!payments.length||!costs.length&&!expenses.length||[...payments,...costs,...expenses].some(x=>!valid(x))||
+      payments.some(x=>x.customerId&&x.customerId!==customer.id||x.invoiceId&&invoices.filter(i=>i.id===x.invoiceId).length!==1)||
+      data.payments.some(x=>x.customerId===customer.id&&x.invoiceId&&!invoiceIds.has(x.invoiceId))||
+      jobs.some(j=>!costs.some(x=>x.jobId===j.id)&&!expenses.some(x=>x.jobId===j.id||x.relatedId===j.id)))
+      throw Error('Customer economics records incomplete');
+     const cents=list=>list.reduce((n,x)=>n+Math.round(x.amount*100),0);
+     const received=cents(payments),spent=cents(costs)+cents(expenses);
+     if(received/100!==payload.received||spent/100!==payload.recordedCosts)throw Error('Customer contribution differs from approved totals');
+     if(tasks.length>1||tasks.some(x=>x.businessId!==businessId))throw Error('Ambiguous customer review task');
+     const when=new Date().toISOString();let id,result;
+     if(tasks.length){id=tasks[0].id;result='existing_open_task'}
+     else{
+      id=String(uid());if(!id||data.tasks.some(t=>t.id===id))throw Error('Customer review task ID collision');
+      const task={id,customerId:customer.id,businessId,taskKind:'customer_economics_review',status:'Open',due:payload.due,
+       title:'Review recorded account economics: '+String(customer.name||customer.id).slice(0,100),
+       economicsEvidence:{received:received/100,recordedCosts:spent/100,recordedContribution:(received-spent)/100,
+        currency:'USD',jobIds:jobs.map(x=>x.id),invoiceIds:invoices.map(x=>x.id),paymentIds:payments.map(x=>x.id),
+        costIds:costs.map(x=>x.id),expenseIds:expenses.map(x=>x.id),possibleOverlap:true,
+        profitVerified:false,bankSettlementVerified:false,externalAccountingVerified:false,customerLifetimeValueVerified:false},
+       createdAt:when,updatedAt:when};
+      tx.objectStore('tasks').put(task);domainEvents?.recordCommitted(tx,'tasks',task,key,{actor,businessId},null,true);
+      result='task_created';
+     }
+     tx.objectStore('commandLog').put({id:key,kind:'customer.economics_review.schedule',resultId:id,requestPayload:stable(payload),
+      actor,businessId,customerId:customer.id,createdAt:when,result,profitVerified:false,externalAccountingVerified:false});
+     outcome={id,reused:result!=='task_created',commandKey:key};
+    }catch(e){abort(e)}
+   };
+   for(const name of names){const req=name==='commandLog'?tx.objectStore(name).get(key):tx.objectStore(name).getAll();
+    req.onsuccess=()=>{if(name==='commandLog')prior=req.result;else data[name]=req.result;ready()}}
+  });
+ }
  function execute(args){
   const {db,kind,payload,data,uid,requestKey,actor='local-owner'}=args||{};
   if(kind==='customer.create'||kind==='customer.source.delete')return executeCustomer(args);
   if(kind==='quotation.convert')return executeQuotation(args);
+  if(kind==='quotation.followup.schedule')return executeQuotationFollowup(args);
+  if(kind==='job.change_order.review.schedule')return executeChangeOrderReview(args);
+  if(kind==='job.change_order.authorization.record')return executeChangeOrderAuthorization(args);
+  if(kind==='job.cost_review.schedule')return executeJobCostReview(args);
+  if(kind==='job.labor_review.schedule')return executeJobLaborReview(args);
+  if(kind==='invoice.payment_review.schedule')return executeInvoicePaymentReview(args);
+  if(kind==='opportunity.bid_review.schedule')return executeBidQualificationReview(args);
+  if(kind==='quotation.reuse.create')return executeQuoteReuse(args);
+  if(kind==='customer.economics_review.schedule')return executeCustomerEconomicsReview(args);
+  if(kind==='invoice.followup.schedule')return executeInvoiceFollowup(args);
+  if(kind==='calendar.conflict.reschedule')return executeConflictReschedule(args);
+  if(kind==='customer.contact.record')return executeContactRecord(args);
   if(!db||typeof db.transaction!=='function')return Promise.reject(Error('Local database unavailable'));
   const plan=prepare(kind,payload,data,uid,()=>new Date().toISOString());
   const key=nonempty(requestKey)||'command:'+String(uid());

@@ -11,10 +11,25 @@ test('proposed work prompts review without implying actual approval or invoicing
  assert.ok(review);
  assert.equal(review.recordRefs[0].id,'j1');
  assert.equal(review.evidence.proposedCount,1);
+ assert.deepEqual(review.evidence.proposedIds,['co1']);
+ assert.equal(review.evidence.identifiersReliable,true);
+ assert.equal(review.evidence.amountsReliable,true);
  assert.match(review.explanation,/without recorded customer approval/);
  assert.equal(review.proposedAction.commandId,'record.open');
  d.jobs[0].changeOrders[0].status='approved_recorded';
  assert.equal(engine.evaluate(d,context).findings.some(x=>x.detectorId==='job.unapproved_change_review'),false);
+});
+test('unapproved-change detector flags ambiguous IDs and invalid amounts without inventing an actionable total',()=>{
+ const d=dataset();
+ d.jobs[0].changeOrders.push({id:'co1',description:'Duplicate source',amount:-10,status:'proposed'});
+ const finding=engine.evaluate(d,context).findings.find(x=>x.detectorId==='job.unapproved_change_review');
+ assert.equal(finding.evidence.proposedCount,2);
+ assert.equal(finding.evidence.identifiersReliable,false);
+ assert.equal(finding.evidence.amountsReliable,false);
+ assert.deepEqual(finding.evidence.proposedIds,[]);
+ assert.ok(finding.limitations.some(x=>/missing or duplicated/.test(x)));
+ assert.ok(finding.limitations.some(x=>/amount/.test(x)));
+ assert.equal(finding.proposedAction.commandId,'record.open');
 });
 test('existing notifications route pending approval reviews to exact job',()=>{
  const s=fs.readFileSync('public/notifications.js','utf8');

@@ -64,15 +64,8 @@ async function click(event){
   if(!order)return;
   const evidence=String(root.prompt?.('Enter a verifiable customer approval reference (signed document, email and date, etc.):')||'').trim();
   if(evidence.length<6||evidence.length>300)return;
-  if(!root.confirm?.('Confirm you personally verified the customer approval and evidence reference?'))return;
-  await update(jobId,next=>{
-   const current=next.changeOrders.find(x=>x.id===id);
-   if(!current||current.status!=='proposed')return false;
-   current.status='approved_recorded';
-   current.approvalEvidence=evidence;
-   current.approvedAt=new Date().toISOString();
-   return true;
-  });
+  if(typeof bridge.recordCustomerApproval!=='function')throw Error('Authorized command runtime unavailable');
+  await bridge.recordCustomerApproval(jobId,id,evidence);
  }catch(err){alert('Approval not recorded: '+err.message)}
 }
 function configure(api){
