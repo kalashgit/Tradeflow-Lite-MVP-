@@ -87,7 +87,7 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
     if(!await update(row,{status:'applied',result:'verified_write',...receipt(verified.revision)}))return {status:'lease_lost',processed};
    }catch(error){
     const auth=[401,403].includes(error.status),terminal=row.attempts>=5;
-    await update(row,{status:terminal?'failed':'pending',reason:auth?'Authentication or business permission required':String(error.message).slice(0,200),nextAttemptAt:now()+Math.min(60000,1000*2**Math.min(6,row.attempts))});
+    await update(row,{status:terminal?'failed':'pending',reason:auth?'Authentication or business permission required':'Synchronization could not be verified; inspect remote state before retrying',nextAttemptAt:now()+Math.min(60000,1000*2**Math.min(6,row.attempts))});
     // No further writes after authentication errors, transport failures or rate limiting.
     return {status:auth?'authorization_required':'retry_pending',processed};
    }
