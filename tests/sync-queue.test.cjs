@@ -201,3 +201,36 @@ test('financial downgrade during final remote conflict check cannot stage an app
  f.transport.read=async(...args)=>{const result=await read(...args);if(++reads===2)f.setRole('member');return result};
  await assert.rejects(f.queue.resolve(row.id,change.record,()=>true),/session changed during final/);assert.equal((await f.queue.list())[0].status,'conflict');assert.equal(f.writes(),0);
 });
+
+test('transport exception secrets are not stored in persistent queue errors or history',async()=>{
+ const secret='PRIVATE_TOKEN_SHOULD_NOT_BE_PERSISTED_123';
+ for(const stage of ['read','write']){
+  const f=fixture();
+  await f.queue.enqueue({...change,operationId:'secret_'+stage});
+  const original=f.transport[stage];
+  f.transport[stage]=async(...args)=>{throw Error('network trace '+secret)};
+  try{
+   const outcome=await f.queue.drain();
+   assert.equal(outcome.status,'retry_pending');
+   const [row]=await f.queue.list();
+   assert.equal(row.status,'pending');
+   assert.equal(row.reason,'Synchronization could not be verified; inspect remote state before retrying');
+   assert.equal(JSON.stringify(row).includes(secret),false);
+   assert.equal(f.writes(),0);
+   if(stage==='read')assert.notEqual(row.writeUncertain,true);
+   if(stage==='write')assert.equal(row.writeUncertain,true,'write request may have crossed network');
+   assert.equal((await f.make().drain()).processed,0,'no automatic retry before backoff');
+  }finally{f.transport[stage]=original}
+ }
+});
+test('transport failures with non-Error rejection objects are redacted',async()=>{
+ const f=fixture();
+ await f.queue.enqueue({...change,operationId:'secret_object'});
+ f.transport.read=async()=>Promise.reject({message:'PRIVATE_HEADER',status:503});
+ const response=await f.queue.drain();
+ assert.equal(response.status,'retry_pending');
+ const row=(await f.queue.list())[0];
+ assert.equal(row.reason,'Synchronization could not be verified; inspect remote state before retrying');
+ assert.equal(JSON.stringify(row).includes('PRIVATE_HEADER'),false);
+ assert.equal(f.writes(),0);
+});
