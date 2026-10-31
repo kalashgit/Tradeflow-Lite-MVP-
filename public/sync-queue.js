@@ -47,6 +47,9 @@ export function createSyncQueue({db,businessId,session,transport,now=Date.now,ui
   if(response.status!==200){const error=Error('Remote read failed');error.status=response.status;throw error}
   const remote=response.record;
   if(!remote||remote.businessId!==businessId||remote.type!==row.change.type||remote.id!==row.change.id||!Number.isSafeInteger(remote.revision)||remote.revision<1||!remote.record)throw Error('Remote identity or revision mismatch');
+  // The outer tenant/record envelope is not sufficient when its embedded payload
+  // claims a different company or record. Reuse the same identity check as writes.
+  recordIdentity({businessId,type:row.change.type,id:row.change.id,record:remote.record});
   return remote;
  }
  async function drain({limit=10,operationIds}={}){
