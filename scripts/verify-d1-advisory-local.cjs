@@ -35,7 +35,10 @@ async function main(){
   assert.ok(db?.prepare&&db?.exec,'local D1 binding unavailable');
   for(const migration of ['0001_tenant_foundation.sql','0002_record_audit.sql',
    '0003_extended_business_records.sql']){
-   await db.exec(fs.readFileSync(path.join('migrations',migration),'utf8'));
+   // D1 exec treats comment-only fragments as invalid statements.
+   const migrationSql=fs.readFileSync(path.join('migrations',migration),'utf8')
+    .split('\\n').filter(line=>!line.trimStart().startsWith('--')).join('\\n');
+   await db.exec(migrationSql);
   }
   await sql(db,'INSERT INTO businesses (id,name) VALUES (?,?)',
    [businessId,'Synthetic D1 contractor']);
