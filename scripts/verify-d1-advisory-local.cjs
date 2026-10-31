@@ -52,9 +52,37 @@ async function main(){
   const runAdvisory=(context,transport,store=db)=>requestAuthorizedServerAdvisory({
    db:store,principal,context,env:advisoryEnv,intent:'evidence_gaps',transport
   });
+  // H04-15b: compare the live guarded query against a json_each-first
+  // indexed-key lookup candidate. This is disposable D1 evidence only:
+  // do not change runtime SQL on a query-plan hypothesis alone.
+  const candidateSql=`SELECT tr.record_type,tr.id,tr.revision,tr.updated_at,tr.deleted_at,tr.payload
+   FROM json_each(?) AS wanted
+   JOIN tenant_records AS tr ON tr.business_id=?
+    AND tr.record_type=json_extract(wanted.value,'$.type')
+    AND tr.id=json_extract(wanted.value,'$.id')
+   WHERE EXISTS (SELECT 1 FROM business_memberships m
+    WHERE m.business_id=tr.business_id AND m.business_id=?
+     AND m.issuer=? AND m.subject=? AND m.status='active' AND m.role=?)
+   LIMIT 201`;
+  const sortedRows=rows=>rows.map(row=>JSON.stringify(row)).sort();
+  const compareCandidate=async(query,params,expectedCount,label)=>{
+   assert.equal(params.length,6);
+   const baseline=(await db.prepare(query).bind(...params).all()).results;
+   const candidate=(await db.prepare(candidateSql).bind(...params).all()).results;
+   assert.deepEqual(sortedRows(candidate),sortedRows(baseline),
+    'candidate evidence lookup must exactly match current guarded query: '+label);
+   assert.equal(baseline.length,expectedCount,label+' evidence count');
+   const plan=(await db.prepare('EXPLAIN QUERY PLAN '+candidateSql)
+    .bind(...params).all()).results;
+   assert.ok(plan?.length>0&&plan.every(row=>typeof row.detail==='string'));
+   console.log('Local D1 '+label+' candidate plan: '+plan.map(row=>row.detail).join(' | '));
+   return baseline;
+  };
+  let batchQuery,lastBatchParams;
   let positive=0,negative=0;
   const durations={};
-  for(const count of [1,2,200]){
+  // Start at 2 so the exact runtime batch SQL can also be compared at 1.
+  for(const count of [2,1,200]){
    await sql(db,'DELETE FROM tenant_records');
    await sql(db,`WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<?)
     INSERT INTO tenant_records (business_id,record_type,id,revision,payload)
@@ -98,10 +126,17 @@ async function main(){
    }
    if(snapshotPlans.length){
     const {query,params}=snapshotPlans[0];
+    batchQuery=query;lastBatchParams=params;
     const plan=await db.prepare('EXPLAIN QUERY PLAN '+query).bind(...params).all();
     console.log('Local D1 '+count+'-record evidence plan: '+
      plan.results.map(row=>row.detail).join(' | '));
    }
+   // The single-record runtime uses its guarded point-read; compare the
+   // batch alternative for one record independently without changing it.
+   const comparisonParams=snapshotPlans[0]?.params||[
+    JSON.stringify(context.records.map(row=>({type:row.type,id:row.id}))),
+    businessId,businessId,issuer,subject,'owner'];
+   await compareCandidate(batchQuery,comparisonParams,count,count+' records');
    positive++;
    console.log(`PASS local D1 ${count} record(s): ${snapshots} six-bind snapshots; ${durations[count]} ms`);
   }
@@ -110,6 +145,7 @@ async function main(){
   await assert.rejects(runAdvisory(current,async()=>{
    await sql(db,"UPDATE business_memberships SET status='suspended' WHERE business_id=?",
     [businessId]);
+   await compareCandidate(batchQuery,lastBatchParams,0,'revoked membership');
    return {text:'Never return after revocation'};
   }),error=>error.code==='authorization_denied');
   negative++;
@@ -121,6 +157,7 @@ async function main(){
   const isolated=await readIntelligenceContext({db,principal,businessId});
   assert.equal(isolated.records.length,200);
   assert.ok(isolated.records.every(row=>row.id!=='foreign_001'));
+  await compareCandidate(batchQuery,lastBatchParams,200,'foreign tenant excluded');
   await assert.rejects(readIntelligenceContext({db,principal,businessId:'business_002'}),
    error=>error.status===403);
   negative++;
@@ -128,12 +165,14 @@ async function main(){
   await assert.rejects(runAdvisory(isolated,async()=>{
    await sql(db,"UPDATE tenant_records SET revision=revision+1 WHERE business_id=? AND id=?",
     [businessId,'job_001']);
+   const changed=await compareCandidate(batchQuery,lastBatchParams,200,'stale revision');
+   assert.equal(changed.find(row=>row.id==='job_001')?.revision,2);
    return {text:'Never return after revision change'};
   }),error=>error.code==='authorization_denied');
   negative++;
   const audit=await db.prepare('SELECT COUNT(*) AS n FROM tenant_audit_events').first();
   assert.equal(audit.n,0,'advisory must never create business audit writes');
-  console.log(`H04-14b local Wrangler D1 acceptance: ${positive}/3 positive and ${negative}/3 negative checks passed; timings are non-production diagnostics.`);
+  console.log(`H04-15b local Wrangler D1 acceptance and candidate equivalence: ${positive}/3 positive and ${negative}/3 negative checks passed; timings are non-production diagnostics.`);
  }finally{
   if(dispose)await dispose();
   fs.rmSync(tmp,{recursive:true,force:true});
