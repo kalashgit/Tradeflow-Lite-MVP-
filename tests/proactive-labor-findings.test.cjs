@@ -47,6 +47,8 @@ test('automatic read-only domain event persists TF-P06 finding evidence, then re
  assert.equal(item.result.laborFindings[0].payrollVerified,false);
  assert.equal(item.result.laborFindings[0].executionAuthority,false);
  assert.equal(item.result.laborFindings[0].proposedCommandId,'job.labor_review.schedule');
+ assert.equal(item.result.laborFindings[0].sourceCostBinding,events.laborCostBinding(after.jobCosts,'j1',BUSINESS).proof);
+ assert.equal(item.result.laborFindings[0].sourceCostCount,2);
  assert.equal(after.tasks.length,0);
  assert.equal(after.commandLog.filter(x=>x.kind==='pilot.command'&&x.commandId==='job.labor_review.schedule').length,0);
  const replay=await events.drain({db,events:after.commandLog,commands:ports,businessId:BUSINESS});
@@ -98,4 +100,34 @@ test('existing dossier displays persisted attention only alongside the shared ex
  assert.match(app,/data-proactive-labor-finding/);
  assert.match(app,/data-action="tfDecisionExplain"/);
  assert.match(app,/NOT verified timesheets, payroll or billable hours/);
+});
+
+test('proactive labor source binding is ordering-stable but rejects swapped IDs, edited versions and foreign rows',()=>{
+ const original=events.laborCostBinding(costs,'j1',BUSINESS);
+ assert.ok(original);assert.equal(original.estimated,20);assert.equal(original.recorded,25);
+ assert.equal(events.laborCostBinding([...costs].reverse(),'j1',BUSINESS).proof,original.proof);
+ for(const variation of [
+  [{...costs[0],id:'replaced-planned'},costs[1]],
+  [costs[0],{...costs[1],id:'replaced-actual'}],
+  [costs[0],{...costs[1],revision:2}],
+  [costs[0],{...costs[1],updatedAt:'2026-11-01T00:00:00Z'}],
+  [costs[0],{...costs[1],amount:999}]
+ ]){
+  const modified=events.laborCostBinding(variation,'j1',BUSINESS);
+  assert.ok(modified);assert.notEqual(modified.proof,original.proof);
+  assert.equal(modified.estimated,20);assert.equal(modified.recorded,25);
+ }
+ assert.equal(events.laborCostBinding([...costs,costs[0]],'j1',BUSINESS),null);
+ assert.equal(events.laborCostBinding([costs[0],{...costs[1],businessId:'foreign'}],'j1',BUSINESS),null);
+ assert.equal(events.laborCostBinding([costs[0],{...costs[1],laborHours:NaN}],'j1',BUSINESS),null);
+ assert.equal(events.laborCostBinding([...costs,...Array.from({length:40},(_,i)=>({...costs[1],id:'extra'+i}))],'j1',BUSINESS),null);
+});
+test('a read-only journal cannot persist an actionable labor observation without complete source binding',async()=>{
+ const {db}=await fixture(),ports=host();
+ await put(db,'jobCosts',{...costs[1],businessId:'foreign'});
+ await events.drain({db,events:(await snapshot(db)).commandLog,commands:ports,businessId:BUSINESS});
+ const after=await snapshot(db),event=after.commandLog.find(x=>x.kind==='domain.event');
+ assert.equal(event.status,'processed');
+ assert.deepEqual(event.result.laborFindings,[]);
+ assert.equal(after.tasks.length,0);
 });
