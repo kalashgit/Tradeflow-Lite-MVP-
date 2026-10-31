@@ -6,6 +6,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
+const cp=require('node:child_process');
 const {performance}=require('node:perf_hooks');
 
 const businessId='business_001';
@@ -28,18 +29,21 @@ async function main(){
    d1_databases:[{binding:'TF_DB',database_name:'tradeflow-advisory-disposable',
     database_id:'00000000-0000-4000-8000-000000000000'}]
   }));
+  const persist=path.join(tmp,'state');
+  // Wrangler's --file importer handles multiline SQL and CREATE TRIGGER bodies;
+  // D1Database.exec is intentionally not used as a migration runner.
+  const wrangler=path.resolve('node_modules/.bin/wrangler');
+  for(const migration of ['0001_tenant_foundation.sql','0002_record_audit.sql',
+   '0003_extended_business_records.sql']){
+   cp.execFileSync(wrangler,['d1','execute','TF_DB','--local','--config',config,
+    '--persist-to',persist,'--file',path.resolve('migrations',migration)],
+    {encoding:'utf8',timeout:30000});
+  }
   const {getPlatformProxy}=await import('wrangler');
-  const proxy=await getPlatformProxy({configPath:config,persist:{path:path.join(tmp,'state')}});
+  const proxy=await getPlatformProxy({configPath:config,persist:{path:persist}});
   dispose=proxy.dispose;
   const db=proxy.env.TF_DB;
   assert.ok(db?.prepare&&db?.exec,'local D1 binding unavailable');
-  for(const migration of ['0001_tenant_foundation.sql','0002_record_audit.sql',
-   '0003_extended_business_records.sql']){
-   // D1 exec treats comment-only fragments as invalid statements.
-   const migrationSql=fs.readFileSync(path.join('migrations',migration),'utf8')
-    .split('\n').filter(line=>!line.trimStart().startsWith('--')).join('\n');
-   await db.exec(migrationSql);
-  }
   await sql(db,'INSERT INTO businesses (id,name) VALUES (?,?)',
    [businessId,'Synthetic D1 contractor']);
   await sql(db,'INSERT INTO businesses (id,name) VALUES (?,?)',
