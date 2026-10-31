@@ -84,7 +84,7 @@ async function verify(viewport){
   },null,{timeout:15000});
   const first=await read(page);
   const event=first.commandLog.find(x=>x.kind==='domain.event'&&x.result?.laborFindings?.some(y=>y.jobId==='j1'));
-  assert.ok(event,'source event must hold the durable labor finding');
+  assert.ok(event,'source event must hold the durable labor finding: '+JSON.stringify(first.commandLog.map(x=>({kind:x.kind,status:x.status,result:x.result,ref:x.ref}))).slice(0,1800));
   assert.equal(first.tasks.length,0);
   result.persistedFinding=true;
   result.stage='job dossier shows persisted observation and decision alternatives';
