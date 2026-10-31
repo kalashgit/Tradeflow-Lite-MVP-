@@ -64,12 +64,14 @@ async function main(){
    const context=await readIntelligenceContext({db,principal,businessId});
    assert.equal(context.records.length,count);
    let snapshots=0,calls=0;
+   const snapshotPlans=[];
    const instrumented={prepare(query){
     const statement=db.prepare(query);
     return {bind(...params){
      assert.ok(params.length<=100,'D1 bound-parameter ceiling exceeded');
      if(query.includes('JOIN json_each(')){
       snapshots++;assert.equal(params.length,6);
+      snapshotPlans.push({query,params});
      }
      return statement.bind(...params);
     }};
@@ -84,6 +86,22 @@ async function main(){
    assert.equal(result.executionAuthority,false);
    assert.equal(calls,1);
    assert.equal(snapshots,count===1?0:2);
+   assert.equal(snapshotPlans.length,snapshots);
+   // Explain the *same* six-bind statement in disposable D1, not a SQLite
+   // stand-in. This is a query-plan diagnostic, not a performance SLA.
+   for(const {query,params} of snapshotPlans){
+    const plan=await db.prepare('EXPLAIN QUERY PLAN '+query).bind(...params).all();
+    assert.ok(Array.isArray(plan?.results)&&plan.results.length>0,
+     'local D1 query plan unavailable');
+    assert.ok(plan.results.every(row=>typeof row.detail==='string'),
+     'local D1 query plan detail missing');
+   }
+   if(snapshotPlans.length){
+    const {query,params}=snapshotPlans[0];
+    const plan=await db.prepare('EXPLAIN QUERY PLAN '+query).bind(...params).all();
+    console.log('Local D1 '+count+'-record evidence plan: '+
+     plan.results.map(row=>row.detail).join(' | '));
+   }
    positive++;
    console.log(`PASS local D1 ${count} record(s): ${snapshots} six-bind snapshots; ${durations[count]} ms`);
   }
