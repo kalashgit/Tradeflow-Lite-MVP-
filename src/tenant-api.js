@@ -1,13 +1,20 @@
 import {readIntelligenceContext} from './intelligence-context.js';
 import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
-import {RECORD_TYPES,LEGACY_RECORD_TYPES} from '../public/record-model.js';
+import {RECORD_TYPES,LEGACY_RECORD_TYPES,recordIdentity} from '../public/record-model.js';
 import {planTenantRestore} from './tenant-restore-plan.js';
 import {exportTenantSnapshot} from './tenant-export.js';
 import {writeTenantRecord} from './tenant-record-store.js';
 import {verifyBearerToken} from './oidc-verifier.js';
 import {authorizeBusiness,authorizedTenantReadQuery,TENANT_READ_GUARD_SQL,AuthorizationError,requireBusinessId} from './tenant-security.js';
 const json=(payload,status=200)=>Response.json(payload,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Authorization'}});
+// Defense in depth: tenant-scoped SQL alone cannot make a malformed embedded
+// business/record identifier safe to return in an authenticated read response.
+const scopedPayload=(businessId,type,id,payload)=>{
+ const record=JSON.parse(payload);
+ recordIdentity({businessId,type,id,record});
+ return record;
+};
 export async function tenantApi(request,env,options={}){
  const url=new URL(request.url);
  if(!url.pathname.startsWith('/api/v1/'))return null;
@@ -76,7 +83,7 @@ export async function tenantApi(request,env,options={}){
    await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
    const rows=page.results||[];
    if(!Array.isArray(rows)||rows.length>51)return json({error:'Invalid record catalogue result'},503);
-   const items=rows.slice(0,50).map(row=>({id:row.id,revision:row.revision,updatedAt:row.updated_at,record:JSON.parse(row.payload)}));
+   const items=rows.slice(0,50).map(row=>({id:row.id,revision:row.revision,updatedAt:row.updated_at,record:scopedPayload(authorization.businessId,type,row.id,row.payload)}));
    return json({businessId,type,items,nextCursor:rows.length>50?items[items.length-1].id:null});
   }
   const match=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)\/([^/]+)$/.exec(url.pathname);
@@ -97,7 +104,7 @@ export async function tenantApi(request,env,options={}){
   const item=await env.TF_DB.prepare(query.sql).bind(...query.params).first();
   await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
   if(!item||item.deleted_at)return json({error:'Not found'},404);
-  return json({id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:JSON.parse(item.payload)});
+  return json({id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:scopedPayload(authorization.businessId,match[2],match[3],item.payload)});
  }catch(error){
   if(error instanceof AuthorizationError)return json({error:error.message},error.status);
   return json({error:'Request could not be completed'},503);
