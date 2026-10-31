@@ -202,7 +202,7 @@ test('H04-12: multi-record evidence uses one bounded SQL snapshot at each author
   let batches=0,singles=0;
   const db={prepare(query){
    if(query.includes('FROM tenant_records')){
-    if(query.includes(' OR '))batches++;else singles++;
+    if(query.includes('JOIN json_each('))batches++;else singles++;
    }
    return f.db.prepare(query);
   }};
@@ -270,4 +270,96 @@ test('H04-12: incomplete or duplicated batched evidence rows fail closed',async(
    assert.equal(transportCalls,0);assert.equal(auditCount(f),0);
   }finally{f.close();}
  }
+});
+
+
+function populateTwoHundredJobs(f){
+ // One SQL insert avoids per-record fixture overhead and exercises the exact
+ // context bound: the fixture already contains job_01.
+ f.sql(`WITH RECURSIVE seq(n) AS (
+  SELECT 2 UNION ALL SELECT n+1 FROM seq WHERE n<200
+ ) INSERT INTO tenant_records (business_id,record_type,id,revision,payload)
+ SELECT ?, 'jobs',printf('job_%03d',n),1,
+  json_object('id',printf('job_%03d',n),'businessId',?,'title','Synthetic bounded job')
+ FROM seq`,[businessId,businessId]);
+}
+
+test('H04-13: 200 evidence records use six D1-compatible binds per guarded snapshot',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  assert.equal(context.records.length,200);
+  let snapshots=0,transportCalls=0;
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    if(query.includes('JOIN json_each(')){
+     snapshots++;
+     assert.equal(params.length,6);
+     assert.ok(params.length<=100,'Cloudflare D1 bound parameter limit');
+     assert.equal(JSON.parse(params[0]).length,200);
+    }
+    return statement.bind(...params);
+   }};
+  }};
+  const result=await requestAuthorizedServerAdvisory({db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async payload=>{
+    transportCalls++;assert.equal(payload.evidence.length,200);
+    return {text:'Review synthetic evidence'};
+   }});
+  assert.equal(result.executionAuthority,false);
+  assert.equal(snapshots,2);
+  assert.equal(transportCalls,1);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-13: 201 records fail closed before creating an advisory context',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  f.sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+   [businessId,'jobs','job_201',1,JSON.stringify({id:'job_201',businessId,title:'Excess job'})]);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  await assert.rejects(readIntelligenceContext({db:f.db,principal,businessId}),
+   e=>e.status===413);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-13: viewer context excludes financial evidence and rejects forged financial references',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  f.sql("UPDATE business_memberships SET role='viewer' WHERE business_id=?",[businessId]);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  assert.equal(context.permission.role,'viewer');
+  assert.deepEqual(context.records.map(r=>r.type),['jobs']);
+  let transportCalls=0;
+  const result=await requestAuthorizedServerAdvisory({db:f.db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async payload=>{
+    transportCalls++;
+    assert.deepEqual(payload.evidence.map(r=>r.type),['jobs']);
+    return {text:'Viewer-safe evidence'};
+   }});
+  assert.equal(result.readOnly,true);
+  const forged=structuredClone(context);
+  const row=f.sql("SELECT updated_at FROM tenant_records WHERE record_type='jobCosts'")[0];
+  forged.records.push({type:'jobCosts',id:'cost_01',revision:4,updatedAt:row.updated_at,
+   provenance:'tenant_record',contentTrust:'untrusted_record_content',record:{jobId,amount:120}});
+  await assert.rejects(requestAuthorizedServerAdvisory({db:f.db,principal,context:forged,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Must never disclose cost'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(transportCalls,1);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
 });
