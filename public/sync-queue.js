@@ -203,13 +203,14 @@ export function summarizeSyncIntents(rows,businessId){
   allRemotelyVerified:items.length>0&&counts.committed_verified===items.length});
 }
 
-// Same-origin transport never follows an Access redirect into an HTML login response.
+// Same-origin transport treats Access redirects as expired authentication, never as a business response.
+const accessRedirect=response=>response.type==='opaqueredirect'||[0,301,302,303,307,308].includes(response.status);
 export function createTenantTransport(businessId,fetcher=fetch){
  if(!/^[A-Za-z0-9_-]{8,80}$/.test(businessId))throw Error('Invalid business');
  async function request(type,id,body){
   if(!types.includes(type)||!validId(id))throw Error('Invalid record identity');
   const response=await fetcher('/api/v1/businesses/'+businessId+'/records/'+type+'/'+id,{method:body?'PUT':'GET',credentials:'same-origin',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(10000),headers:body?{'Content-Type':'application/json',Accept:'application/json'}:{Accept:'application/json'},...(body?{body:JSON.stringify(body)}:{})});
-  if(response.type==='opaqueredirect'||[0,302,303,307].includes(response.status))return {status:401};
+  if(accessRedirect(response))return {status:401};
   if(!response.ok)return {status:response.status};
   const data=await response.json();
   if(data.id!==id||data.type!==type)throw Error('Server response identity mismatch');
@@ -219,7 +220,7 @@ export function createTenantTransport(businessId,fetcher=fetch){
   if(!types.includes(type)||after&&!validId(after))throw Error('Invalid catalogue request');
   const url='/api/v1/businesses/'+businessId+'/records/'+type+(after?'?after='+encodeURIComponent(after):'');
   const response=await fetcher(url,{method:'GET',credentials:'same-origin',redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(10000),headers:{Accept:'application/json'}});
-  if(response.type==='opaqueredirect'||[0,301,302,303,307,308].includes(response.status))return {status:401};
+  if(accessRedirect(response))return {status:401};
   if(!response.ok)return {status:response.status};
   const data=await response.json();
   if(data.businessId!==businessId||data.type!==type||!Array.isArray(data.items)||data.items.length>50||
