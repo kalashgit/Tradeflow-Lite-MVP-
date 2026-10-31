@@ -59,6 +59,20 @@ test('same-origin transport rejects login redirects and mismatched successful pa
  const bad=createTenantTransport(businessId,async()=>Response.json({id:'c2',type:'customers',revision:1,record:{}}));await assert.rejects(bad.read('customers','c1'),/identity mismatch/);
 });
 
+test('Access redirect responses are authentication failures for all transport methods',async()=>{
+ for(const status of [301,308]){
+  let calls=0;
+  const transport=createTenantTransport(businessId,async(url,options)=>{
+   calls++;assert.equal(options.redirect,'manual');assert.equal(options.credentials,'same-origin');
+   return {status,ok:false,type:'basic',json:async()=>{throw Error('Redirect body must not be parsed')}};
+  });
+  assert.deepEqual(await transport.read('customers','c1'),{status:401});
+  assert.deepEqual(await transport.write('customers','c1',{revision:0,record:{id:'c1'}}),{status:401});
+  assert.deepEqual(await transport.list('customers'),{status:401});
+  assert.equal(calls,3);
+ }
+});
+
 test('read-only catalogue transport validates tenant, cursor, revisions and redirect boundaries',async()=>{
  const expected={businessId,type:'jobs',items:[{id:'job_001',revision:3,record:{name:'Test job'}}],nextCursor:null};
  let calls=0;
