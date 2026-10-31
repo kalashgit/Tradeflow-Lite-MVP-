@@ -36,6 +36,27 @@ function transition(db,id,fn){return new Promise((resolve,reject)=>{
  tx.oncomplete=()=>resolve(result);tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Event journal failed'));
  req.onsuccess=()=>{try{const decision=fn(req.result);result=decision?.result;if(decision?.row)store.put(decision.row)}catch(e){error=e;tx.abort()}};
 })}
+// Observation metadata only. Business writes remain in the existing approved command engine.
+function laborFindingSummaries(findings){
+ const eligible=[];
+ for(const finding of findings){
+  if(finding?.detectorId!=='job.labor_hours_variance_review'||finding.status!=='ready_for_review')continue;
+  const refs=finding.recordRefs;
+  const jobs=Array.isArray(refs)?refs.filter(ref=>ref?.store==='jobs'&&typeof ref.id==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(ref.id)):[];
+  const planned=finding.evidence?.estimatedLaborHours,recorded=finding.evidence?.recordedLaborHours;
+  if(jobs.length!==1||!Number.isFinite(planned)||!Number.isFinite(recorded)||planned<=0||recorded<=planned)continue;
+  if(typeof finding.id!=='string'||finding.id.length>160)continue;
+  eligible.push({
+   id:finding.id,jobId:jobs[0].id,detectorId:'job.labor_hours_variance_review',
+   estimatedLaborHours:planned,recordedLaborHours:recorded,varianceHours:recorded-planned,
+   evidenceKind:'manually_recorded_hours',timesheetVerified:false,payrollVerified:false,
+   recommendation:'Review recorded hours and scope before preparing an internal labor review task.',
+   proposedCommandId:'job.labor_review.schedule',executionAuthority:false
+  });
+ }
+ eligible.sort((a,b)=>a.jobId.localeCompare(b.jobId)||a.id.localeCompare(b.id));
+ return {items:eligible.slice(0,20),truncated:eligible.length>20};
+}
 async function drain({db,events,commands,businessId='local-business',rule={id:'operational-review',enabled:true,effect:'read'},now=Date.now,limit=10}){
  if(rule.enabled!==true)return {status:'suspended',processed:0};
  if(rule.effect!=='read'||rule.id!=='operational-review'||!commands||!Array.isArray(events)||!Number.isInteger(limit)||limit<1||limit>20)throw Error('Only the registered read-only review rule can execute automatically');
@@ -55,7 +76,8 @@ async function drain({db,events,commands,businessId='local-business',rule={id:'o
    if(plan.status!=='ready')throw Error(plan.error?.message||'Review not authorized');
    const result=await commands.execute(plan.id);
    if(result.status!=='succeeded'||!Array.isArray(result.result?.findings))throw Error(result.error?.message||'Review result unavailable');
-   outcome={status:'processed',result:{findingIds:result.result.findings.map(f=>f.id),evaluatedAt:result.result.evaluatedAt,ruleId:rule.id}};
+   const labor=laborFindingSummaries(result.result.findings);
+   outcome={status:'processed',result:{findingIds:result.result.findings.map(f=>f.id),evaluatedAt:result.result.evaluatedAt,ruleId:rule.id,laborFindings:labor.items,laborFindingsTruncated:labor.truncated}};
   }catch(error){outcome={status:row.attempts>=5?'failed':'pending',error:String(error.message).slice(0,200),nextAttemptAt:now()+Math.min(60000,1000*2**row.attempts)}}
   await transition(db,row.id,current=>{
    if(!current||current.lease!==lease)return {};
@@ -64,5 +86,5 @@ async function drain({db,events,commands,businessId='local-business',rule={id:'o
  }
  return {status:'evaluated',processed};
 }
-return Object.freeze({validate,make,recordCommitted,write,drain,eventTypes:Object.freeze([...allowed])});
+return Object.freeze({validate,make,recordCommitted,write,drain,eventTypes:Object.freeze([...allowed]),laborFindingSummaries});
 });
