@@ -73,22 +73,22 @@ async function verify(viewport){
   await writeActual(page);
   assert.equal((await read(page)).tasks.length,0,'automatic detection must not create business tasks');
   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
-  // Return the exact IndexedDB record that satisfied the wait. The event
-  // consumer can commit concurrently with the probe; do not race a second read.
-  const found=await page.waitForFunction(async()=>{
-   const req=indexedDB.open('tradeflow-lite-v1',9);
-   const db=await new Promise(resolve=>req.onsuccess=()=>resolve(req.result));
-   try{
-    const tx=db.transaction('commandLog','readonly'),get=tx.objectStore('commandLog').getAll();
-    const all=await new Promise(resolve=>get.onsuccess=()=>resolve(get.result));
-    // Return a primitive, not a live IndexedDB row/JS object handle.
-    const matched=all.find(x=>x.kind==='domain.event'&&x.status==='processed'&&
-     x.result?.laborFindings?.some(y=>y.jobId==='j1'&&y.varianceHours===5));
-    return matched?matched.result.laborFindings.find(y=>y.jobId==='j1').varianceHours:false;
-   }finally{db.close()}
-  },null,{timeout:15000});
-  assert.equal(await found.jsonValue(),5,'persisted labor observation must report 5 hours');
-  const first=await read(page);
+  // Read the actual committed IndexedDB journal through the same recovery
+  // port used by the application. Poll boundedly; a waitForFunction JSHandle
+  // does not constitute a durable readback or an authoritative persisted row.
+  let first,event;
+  const deadline=Date.now()+15000;
+  do{
+   first=await read(page);
+   event=first.commandLog.find(x=>x.kind==='domain.event'&&x.status==='processed'&&
+    x.result?.laborFindings?.some(y=>y.jobId==='j1'&&y.varianceHours===5));
+   if(event)break;
+   await new Promise(resolve=>setTimeout(resolve,100));
+  }while(Date.now()<deadline);
+  assert.ok(event,'Persisted event missing: '+JSON.stringify((first?.commandLog||[]).map(x=>({
+   kind:x.kind,status:x.status,result:x.result,ref:x.ref
+  }))).slice(0,2300));
+  assert.equal(event.result.laborFindings.find(y=>y.jobId==='j1').varianceHours,5);
   assert.equal(first.tasks.length,0);
   result.persistedFinding=true;
   result.stage='job dossier shows persisted observation and decision alternatives';
