@@ -898,11 +898,14 @@ function tfSavedProactiveLaborFinding(data,job){
  const planned=costs.filter(c=>c.type==='estimate').reduce((n,c)=>n+c.laborHours,0);
  const recorded=costs.filter(c=>c.type==='actual').reduce((n,c)=>n+c.laborHours,0);
  if(planned<=0||recorded<=planned)return null;
+ const binding=window.TradeFlowBusinessEvents?.laborCostBinding?.(data.jobCosts||[],job.id,'local-business');
+ if(!binding||Math.abs(binding.estimated-planned)>0.000001||Math.abs(binding.recorded-recorded)>0.000001)return null;
  const sources=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&e.status==='processed'&&
   e.businessId==='local-business'&&e.actor==='local-owner'&&Array.isArray(e.result?.laborFindings));
  for(const event of sources.reverse()){
   const matched=event.result.laborFindings.find(item=>item?.jobId===job.id&&
    item.detectorId==='job.labor_hours_variance_review'&&item.executionAuthority===false&&
+   typeof item.sourceCostBinding==='string'&&item.sourceCostBinding===binding.proof&&
    item.estimatedLaborHours===planned&&item.recordedLaborHours===recorded&&
    item.timesheetVerified===false&&item.payrollVerified===false);
   if(matched)return matched;
