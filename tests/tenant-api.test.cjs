@@ -55,7 +55,9 @@ test('reads only tenant-scoped records with verified membership',async()=>{
  const path='/api/v1/businesses/'+business+'/records/jobs/job_123';
  const signed=await token(),env={...envBase,TF_DB:db()};
  const good=await api(req(path,signed),env,{fetchJwks:jwksResponse});
- assert.equal(good.status,200);assert.equal((await good.json()).record.name,'Private test job');
+ assert.equal(good.status,200);const scopedBody=await good.json();assert.equal(scopedBody.record.name,'Private test job');
+ assert.equal(scopedBody.businessId,business,'server must attest response business rather than leave it to client inference');
+ assert.equal(scopedBody.id,'job_123');assert.equal(scopedBody.type,'jobs');
  const forbidden=await api(req('/api/v1/businesses/business_999/records/jobs/job_123',signed),env,{fetchJwks:jwksResponse});
  assert.equal(forbidden.status,403);
  const absent=await api(req(path,signed),{...envBase,TF_DB:db('viewer','business_999')},{fetchJwks:jwksResponse});
