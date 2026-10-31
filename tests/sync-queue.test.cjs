@@ -234,3 +234,24 @@ test('transport failures with non-Error rejection objects are redacted',async()=
  assert.equal(JSON.stringify(row).includes('PRIVATE_HEADER'),false);
  assert.equal(f.writes(),0);
 });
+
+test('nullish transport rejection cannot strand a queue lease or lose uncertainty fencing',async()=>{
+ for(const stage of ['read','write']){
+  for(const rejected of [null,undefined]){
+   const f=fixture();
+   await f.queue.enqueue({...change,operationId:'nullish_'+stage+'_'+String(rejected)});
+   const original=f.transport[stage];
+   f.transport[stage]=async()=>Promise.reject(rejected);
+   const response=await f.queue.drain();
+   assert.equal(response.status,'retry_pending');
+   const row=(await f.queue.list())[0];
+   assert.equal(row.status,'pending','nullish transport errors must not leave an active sending lease');
+   assert.equal(row.lease,null);
+   assert.equal(row.reason,'Synchronization could not be verified; inspect remote state before retrying');
+   assert.equal(row.writeUncertain===true,stage==='write');
+   assert.equal(f.writes(),0);
+   assert.equal((await f.make().drain()).processed,0,'backoff must prevent blind replay');
+   f.transport[stage]=original;
+  }
+ }
+});
