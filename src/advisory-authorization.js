@@ -58,15 +58,23 @@ export function createServerAdvisoryAuthorizer({db,principal,context}={}){
     seen.add(key);
    }
    if(evidence.length>1){
-    const selectors=evidence.map(()=>'(record_type=? AND id=?)').join(' OR ');
-    const sql=`SELECT record_type,id,revision,updated_at,deleted_at,payload
-      FROM tenant_records WHERE business_id=? AND (${selectors})
+    // D1 permits at most 100 bound parameters per statement. The former
+    // (type,id) OR-list required 405 at the 200-record boundary. json_each
+    // is supported by D1 and keeps the entire guarded snapshot in one SELECT
+    // with six binds, regardless of the number of pinned references.
+    const sql=`SELECT tenant_records.record_type,tenant_records.id,
+       tenant_records.revision,tenant_records.updated_at,
+       tenant_records.deleted_at,tenant_records.payload
+      FROM tenant_records JOIN json_each(?) AS wanted
+       ON tenant_records.record_type=json_extract(wanted.value,'$.type')
+       AND tenant_records.id=json_extract(wanted.value,'$.id')
+      WHERE tenant_records.business_id=?
       AND EXISTS (SELECT 1 FROM business_memberships m
        WHERE m.business_id=tenant_records.business_id AND m.business_id=?
        AND m.issuer=? AND m.subject=? AND m.status='active' AND m.role=?)
       LIMIT 201`;
-    const params=[expected.businessId,...evidence.flatMap(r=>[r.type,r.id]),
-      expected.businessId,auth.issuer,auth.subject,auth.role];
+    const params=[JSON.stringify(evidence.map(r=>({type:r.type,id:r.id}))),
+      expected.businessId,expected.businessId,auth.issuer,auth.subject,auth.role];
     const rows=(await db.prepare(sql).bind(...params).all())?.results;
     if(!Array.isArray(rows)||rows.length!==evidence.length)return false;
     const byKey=new Map();
