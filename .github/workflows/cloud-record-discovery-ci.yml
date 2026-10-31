@@ -47,6 +47,7 @@ jobs:
           node --check scripts/verify-intelligence-context.cjs
           node --check scripts/verify-d1-advisory-local.cjs
           node --check scripts/verify-d1-migrations-local.cjs
+          node --check scripts/verify-d1-restore-local.cjs
           node --check scripts/verify-two-device-sync.cjs
           node --check public/sync-queue.js
           node --check tests/sync-intent-status.test.cjs
@@ -115,6 +116,11 @@ jobs:
         run: |
           set -o pipefail
           node scripts/verify-d1-migrations-local.cjs 2>&1 | tee artifacts/d1-local-migrations.log
+      - name: Disposable local Wrangler D1 logical restore drill
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-d1-restore-local.cjs 2>&1 | tee artifacts/d1-local-restore.log
       - name: Summarize exact-head regression evidence
         run: node scripts/summarize-ci-evidence.cjs
       - name: Upload regression evidence
