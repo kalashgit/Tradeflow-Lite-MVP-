@@ -120,3 +120,76 @@ test('tampered signed bearer cannot enter authenticated advisory host',async()=>
  await assert.rejects(verifyBearerToken(request(parts.join('.')),oidcEnv,{fetchJwks}),
   e=>e.status===401);
 });
+
+function addLinkedCost(f){
+ f.sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+  [businessId,'jobCosts','cost_01',4,JSON.stringify({id:'cost_01',businessId,jobId,amount:120,currency:'USD'})]);
+}
+
+test('H04-11: a non-job cost revision changed during inference invalidates the advisory result',async()=>{
+ const f=fixture();
+ try{
+  addLinkedCost(f);
+  const {principal}=await verifiedIdentity(),h=await host(f,principal);
+  assert.deepEqual(h.context.records.map(r=>r.type),['jobCosts','jobs']);
+  const before=auditCount(f);let calls=0;
+  await assert.rejects(h.request(async payload=>{
+   calls++;
+   assert.deepEqual(payload.evidence,[{type:'jobCosts',id:'cost_01',revision:4},{type:'jobs',id:jobId,revision:2}]);
+   f.sql('UPDATE tenant_records SET revision=5 WHERE business_id=? AND record_type=? AND id=?',
+    [businessId,'jobCosts','cost_01']);
+   return {text:'Stale cost reasoning must be withheld'};
+  }),e=>e.code==='authorization_denied');
+  assert.equal(calls,1);assert.equal(auditCount(f),before);
+  assert.equal(f.sql('SELECT revision FROM tenant_records WHERE record_type=? AND id=?',
+   ['jobs',jobId])[0].revision,2);
+ }finally{f.close();}
+});
+
+test('H04-11: missing, deleted, and foreign-identity linked evidence is denied before transport',async()=>{
+ const {principal}=await verifiedIdentity();
+ for(const mutate of [
+  f=>f.sql('DELETE FROM tenant_records WHERE record_type=? AND id=?',['jobCosts','cost_01']),
+  f=>f.sql('UPDATE tenant_records SET deleted_at=? WHERE record_type=? AND id=?',
+   ['2026-10-31T01:00:00Z','jobCosts','cost_01']),
+  f=>f.sql('UPDATE tenant_records SET payload=? WHERE record_type=? AND id=?',
+   [JSON.stringify({id:'cost_01',businessId:'business_002',jobId,amount:120}),'jobCosts','cost_01'])
+ ]){
+  const f=fixture();
+  try{
+   addLinkedCost(f);
+   const h=await host(f,principal);let calls=0;
+   mutate(f);
+   await assert.rejects(h.request(async()=>{calls++;return {text:'Never returned'}}),
+    e=>e.code==='authorization_denied');
+   assert.equal(calls,0);assert.equal(auditCount(f),0);
+  }finally{f.close();}
+ }
+});
+
+test('H04-11: company-scope evidence and context mutations cannot bypass post-inference checks',async()=>{
+ const f=fixture();
+ try{
+  f.sql('INSERT INTO tenant_records (business_id,record_type,id,revision,payload) VALUES (?,?,?,?,?)',
+   [businessId,'customers','customer_01',3,JSON.stringify({id:'customer_01',businessId,name:'Synthetic'})]);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  let calls=0;
+  await assert.rejects(requestAuthorizedServerAdvisory({db:f.db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    calls++;f.sql('UPDATE tenant_records SET revision=4 WHERE business_id=? AND record_type=? AND id=?',
+     [businessId,'customers','customer_01']);
+    return {text:'Must not return after customer revision changes'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(calls,1);
+  const refreshed=await readIntelligenceContext({db:f.db,principal,businessId});
+  await assert.rejects(requestAuthorizedServerAdvisory({db:f.db,principal,context:refreshed,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    refreshed.records[0].revision=99;
+    return {text:'Must not return after context mutation'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
