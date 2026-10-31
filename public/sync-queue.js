@@ -216,7 +216,11 @@ export function createTenantTransport(businessId,fetcher=fetch){
   if(accessRedirect(response))return {status:401};
   if(!response.ok)return {status:response.status};
   const data=await response.json();
-  if(data.id!==id||data.type!==type)throw Error('Server response identity mismatch');
+  if(data.businessId!==businessId||data.id!==id||data.type!==type)throw Error('Server response identity mismatch');
+  if(!body){
+   if(!Number.isSafeInteger(data.revision)||data.revision<1)throw Error('Server response revision invalid');
+   recordIdentity({businessId,type,id,record:data.record});
+  }
   return {status:response.status,record:body?null:{businessId,type,id,revision:data.revision,record:data.record,deletedAt:data.deletedAt}};
  }
  async function list(type,after=''){
@@ -227,7 +231,7 @@ export function createTenantTransport(businessId,fetcher=fetch){
   if(!response.ok)return {status:response.status};
   const data=await response.json();
   if(data.businessId!==businessId||data.type!==type||!Array.isArray(data.items)||data.items.length>50||
-   data.items.some(row=>!validId(row?.id)||!Number.isSafeInteger(row.revision)||row.revision<1||!row.record||typeof row.record!=='object'||Array.isArray(row.record))||
+   data.items.some(row=>{try{if(!validId(row?.id)||!Number.isSafeInteger(row.revision)||row.revision<1)return true;recordIdentity({businessId,type,id:row.id,record:row.record});return false}catch{return true}})||
    data.nextCursor!==null&&(!validId(data.nextCursor)||data.items.length===0||data.nextCursor!==data.items[data.items.length-1].id))
    throw Error('Server catalogue response invalid');
   return {status:response.status,items:data.items,nextCursor:data.nextCursor};
