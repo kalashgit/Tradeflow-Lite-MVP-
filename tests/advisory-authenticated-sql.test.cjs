@@ -363,3 +363,82 @@ test('H04-13: viewer context excludes financial evidence and rejects forged fina
   assert.equal(auditCount(f),0);
  }finally{f.close();}
 });
+
+test('H04-14: 200-record SQL adapter enforces D1 bind budget and denies post-snapshot revocation',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  assert.equal(context.records.length,200);
+  let snapshots=0,transportCalls=0,queries=0;
+  // Test-only D1 bound-parameter ceiling; this is NOT a Wrangler/D1 emulator.
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    queries++;
+    assert.ok(params.length<=100,'D1 supports at most 100 bound parameters per query');
+    const bound=statement.bind(...params);
+    return {first:()=>bound.first(),all:async()=>{
+     const response=await bound.all();
+     if(query.includes('JOIN json_each(')){
+      snapshots++;
+      assert.equal(params.length,6);
+      if(snapshots===2){
+       // Revoke after the final evidence SELECT but before the final role recheck.
+       f.sql("UPDATE business_memberships SET status='suspended' WHERE business_id=?",[businessId]);
+      }
+     }
+     return response;
+    }};
+   }};
+  }};
+  await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Do not return after final-snapshot revocation'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(snapshots,2);
+  assert.equal(transportCalls,1);
+  assert.ok(queries>=4);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
+
+test('H04-14: foreign-tenant payload injected into 200-record SQL snapshot fails closed',async()=>{
+ const f=fixture();
+ try{
+  populateTwoHundredJobs(f);
+  const {principal}=await verifiedIdentity();
+  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
+  const {requestAuthorizedServerAdvisory}=await import('../src/advisory-authorization.js');
+  const context=await readIntelligenceContext({db:f.db,principal,businessId});
+  let snapshots=0,transportCalls=0;
+  const db={prepare(query){
+   const statement=f.db.prepare(query);
+   return {bind(...params){
+    assert.ok(params.length<=100,'D1 bound-parameter ceiling');
+    const bound=statement.bind(...params);
+    return {first:()=>bound.first(),all:async()=>{
+     const response=await bound.all();
+     if(query.includes('JOIN json_each(')){
+      snapshots++;
+      const rows=response.results.map((row,i)=>i===0?{
+       ...row,payload:JSON.stringify({...JSON.parse(row.payload),businessId:'business_002'})
+      }:row);
+      return {results:rows};
+     }
+     return response;
+    }};
+   }};
+  }};
+  await assert.rejects(requestAuthorizedServerAdvisory({db,principal,context,
+   env:advisoryEnv,intent:'evidence_gaps',transport:async()=>{
+    transportCalls++;return {text:'Must not expose foreign tenant evidence'};
+   }}),e=>e.code==='authorization_denied');
+  assert.equal(snapshots,1);
+  assert.equal(transportCalls,0);
+  assert.equal(auditCount(f),0);
+ }finally{f.close();}
+});
