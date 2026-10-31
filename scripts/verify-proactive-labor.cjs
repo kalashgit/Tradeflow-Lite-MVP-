@@ -126,6 +126,39 @@ async function verify(viewport){
   assert.equal(recovered.tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1);
   assert.ok(recovered.commandLog.some(x=>x.kind==='domain.event'&&x.result?.laborFindings?.some(y=>y.jobId==='j1')));
   result.reloadRecovered=true;
+  result.stage='replaced cost source with same aggregate hours must hide old attention';
+  await page.evaluate(async()=>{
+   const req=indexedDB.open('tradeflow-lite-v1',9);
+   const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+   try{
+    const tx=db.transaction('jobCosts','readwrite');
+    const rows=tx.objectStore('jobCosts');
+    rows.delete('actual');
+    rows.put({id:'actual-replaced',jobId:'j1',category:'Labor',type:'actual',
+     laborHours:25,amount:1000,businessId:'local-business'});
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+   }finally{db.close()}
+  });
+  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+  // Navigate through the same read-only command boundary as the existing UI.
+  const nav=await page.evaluate(async()=>{
+   const runtime=window.TradeFlowPilot.commands;
+   const plan=await runtime.prepare({commandId:'record.open',params:{ref:{store:'jobs',id:'j1'}}});
+   if(plan.status!=='ready')return plan;
+   return runtime.execute(plan.id);
+  });
+  assert.equal(nav.status,'succeeded','read-only record navigation must succeed');
+  await page.locator('[data-action="tfDecisionExplain"][data-id="j1"]').waitFor();
+  assert.equal(await page.locator('[data-proactive-labor-finding="j1"]').count(),0,
+   'replaced underlying record with equal total hours cannot reuse stale source observation');
+  const stale=await read(page);
+  assert.equal(stale.tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1,
+   'stale display suppression cannot replay or delete an approved task');
+  assert.ok(stale.commandLog.some(x=>x.kind==='domain.event'&&
+   x.result?.laborFindings?.some(y=>y.jobId==='j1')),
+   'older audit observation should remain stored for inspection');
+  result.sameTotalStaleSourceSuppressed=true;
+  await page.screenshot({path:path.join(out,'proactive-labor-'+viewport.width+'-stale-source.png')});
   result.status='pass';
   return result;
  }catch(error){
