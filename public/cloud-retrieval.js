@@ -1,4 +1,4 @@
-import {RECORD_TYPES,LEGACY_RECORD_TYPES} from './record-model.js';
+import {RECORD_TYPES,LEGACY_RECORD_TYPES,recordIdentity} from './record-model.js';
 
 // Read-only cloud-to-device planning. No IndexedDB transaction, writes or merge decisions.
 // Calling code must obtain fresh local records and an authenticated session.
@@ -22,6 +22,8 @@ export async function previewCloudRetrieval({businessId,session,localStores,tran
   const byId=new Map();
   for(const item of local){
    if(!item||!validId(item.id)||byId.has(item.id))throw Error('Duplicate or invalid local record');
+   try{recordIdentity({businessId,type,id:item.id,record:item})}
+   catch{throw Error('Invalid local record identity')}
    byId.set(item.id,item);
   }
   let after='';
@@ -30,11 +32,10 @@ export async function previewCloudRetrieval({businessId,session,localStores,tran
    if(response?.status!==200||!Array.isArray(response.items)||response.items.length>50)
     throw Error('Cloud catalogue unavailable or incomplete; no retrieval approved');
    for(const remote of response.items){
-    if(!validId(remote?.id)||!Number.isSafeInteger(remote.revision)||remote.revision<1||
-      !remote.record||typeof remote.record!=='object'||Array.isArray(remote.record)||
-      remote.record.id&&remote.record.id!==remote.id||
-      remote.record.businessId&&remote.record.businessId!==businessId)
+    if(!validId(remote?.id)||!Number.isSafeInteger(remote.revision)||remote.revision<1)
       throw Error('Invalid cloud record identity');
+    try{recordIdentity({businessId,type,id:remote.id,record:remote.record})}
+    catch{throw Error('Invalid cloud record identity')}
     const key=type+':'+remote.id;
     if(seen.has(key)||(after&&remote.id<=after)||
       (response.items.indexOf(remote)>0&&remote.id<=response.items[response.items.indexOf(remote)-1].id))
