@@ -12,10 +12,10 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   await page.route('**/api/v1/me',route=>route.fulfill({status:signedIn?200:401,json:signedIn?{identity:{issuer:'https://synthetic-session.example',subject:'test-owner'},businesses:[{business_id:'business_001',business_name:'Synthetic destination',role:'owner'}],capabilities:{recordTypes:model.RECORD_TYPES,extendedRecords:true,schemaVersion:3}}:{error:'Expired'}}));
   await page.route('**/api/v1/businesses/business_001/records/**',async route=>{
    const req=route.request(),parts=new URL(req.url()).pathname.split('/'),type=parts.at(-2),id=parts.at(-1),key=type+':'+id;
-   if(req.method()==='GET'){const row=remote.get(key);await route.fulfill({status:row?200:404,json:row?{id,type,revision:row.revision,record:row.record}:{error:'Not found'}});return}
+   if(req.method()==='GET'){const row=remote.get(key);await route.fulfill({status:row?200:404,json:row?{businessId:'business_001',id,type,revision:row.revision,record:row.record}:{error:'Not found'}});return}
    assert.equal(req.method(),'PUT');const body=req.postDataJSON();if(remote.has(key)){await route.fulfill({status:409,json:{error:'Revision conflict'}});return}
    if(type==='jobs')assert.ok(remote.has('customers:c1'));if(type==='invoices')assert.ok(remote.has('jobs:j1'));if(type==='payments')assert.ok(remote.has('invoices:i1'));
-   writes.push(key);remote.set(key,{revision:1,record:body.record});await route.fulfill({status:201,json:{id,type,revision:1,updatedAt:'2026-10-29T00:00:00Z'}});
+   writes.push(key);remote.set(key,{revision:1,record:body.record});await route.fulfill({status:201,json:{businessId:'business_001',id,type,revision:1,updatedAt:'2026-10-29T00:00:00Z'}});
   });
   await page.goto('http://127.0.0.1:4194');await page.waitForFunction(()=>!!window.TradeFlowPilot);
   await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),tx=db.transaction([...db.objectStoreNames],'readwrite');for(const s of db.objectStoreNames)tx.objectStore(s).clear();
