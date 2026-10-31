@@ -48,6 +48,7 @@ jobs:
           node --check scripts/verify-d1-advisory-local.cjs
           node --check scripts/verify-d1-migrations-local.cjs
           node --check scripts/verify-d1-restore-local.cjs
+          node --check scripts/verify-proactive-labor.cjs
           node --check scripts/verify-two-device-sync.cjs
           node --check public/sync-queue.js
           node --check tests/sync-intent-status.test.cjs
@@ -106,6 +107,11 @@ jobs:
         run: |
           set -o pipefail
           npm run test:browser 2>&1 | tee artifacts/browser.log
+      - name: Synthetic mobile and desktop proactive labor workflow
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-proactive-labor.cjs 2>&1 | tee artifacts/proactive-labor-browser.log
       - name: Disposable local Wrangler D1 advisory acceptance
         shell: bash
         run: |
