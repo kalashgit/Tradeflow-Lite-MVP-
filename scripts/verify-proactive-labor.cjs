@@ -159,6 +159,64 @@ async function verify(viewport){
    'older audit observation should remain stored for inspection');
   result.sameTotalStaleSourceSuppressed=true;
   await page.screenshot({path:path.join(out,'proactive-labor-'+viewport.width+'-stale-source.png')});
+  const reopen=async()=>{
+   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+   const nav=await page.evaluate(async()=>{
+    const commands=window.TradeFlowPilot.commands;
+    const plan=await commands.prepare({commandId:'record.open',params:{ref:{store:'jobs',id:'j1'}}});
+    return plan.status==='ready'?commands.execute(plan.id):plan;
+   });
+   assert.equal(nav.status,'succeeded');
+   await page.locator('[data-action="tfDecisionExplain"][data-id="j1"]').waitFor();
+  };
+  result.stage='foreign-tenant cost source cannot revive saved labor observation';
+  await page.evaluate(async()=>{
+   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   try{
+    const tx=db.transaction('jobCosts','readwrite');
+    tx.objectStore('jobCosts').put({id:'actual-replaced',jobId:'j1',category:'Labor',type:'actual',
+     laborHours:25,amount:1000,businessId:'foreign-business'});
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+   }finally{db.close()}
+  });
+  await reopen();
+  assert.equal(await page.locator('[data-proactive-labor-finding="j1"]').count(),0);
+  assert.equal((await read(page)).tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1);
+  result.foreignSourceSuppressed=true;
+  result.stage='missing planned cost source cannot revive saved labor observation';
+  await page.evaluate(async()=>{
+   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   try{
+    const tx=db.transaction('jobCosts','readwrite');tx.objectStore('jobCosts').delete('planned');
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+   }finally{db.close()}
+  });
+  await reopen();
+  assert.equal(await page.locator('[data-proactive-labor-finding="j1"]').count(),0);
+  result.missingSourceSuppressed=true;
+  result.stage='disabled automatic review never processes new event or executes extra task';
+  await page.evaluate(async()=>{
+   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   try{
+    const tx=db.transaction('settings','readwrite');
+    tx.objectStore('settings').put({id:'automation.rules',operationalReviewEnabled:false});
+    await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error)});
+    await window.TradeFlowBusinessEvents.write(db,'jobCosts',{
+     id:'disabled-actual',jobId:'j1',category:'Labor',type:'actual',laborHours:27,
+     amount:1080,businessId:'local-business'
+    },{actor:'local-owner',businessId:'local-business'});
+   }finally{db.close()}
+  });
+  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
+  const disabled=await read(page);
+  assert.ok(disabled.commandLog.some(x=>x.kind==='domain.event'&&x.ref?.id==='disabled-actual'&&x.status==='pending'),
+   'disabled automatic review must leave the new event pending, not processed');
+  assert.equal(disabled.tasks.filter(x=>x.taskKind==='job_labor_variance_review').length,1,
+   'disabled automatic review cannot create another task');
+  result.disabledRulePreventsReview=true;
   result.status='pass';
   return result;
  }catch(error){
