@@ -69,3 +69,31 @@ test('cloud comparison remains read-only when optional undefined fields appear i
  assert.equal(result.counts.conflicts,1);
  assert.equal(source.optional,undefined);
 });
+
+test('read-only retrieval rejects embedded wrong-tenant local records before transport access',async()=>{
+ for(const item of [
+  {id:'c1',businessId:'other_business',name:'Local wrong tenant'},
+  {id:'c1',businessId:0,name:'Local invalid scope'},
+  {id:'c1',name:'Legacy',recordType:'jobs',businessId:'different_business'}
+ ]){
+  const f=fixture({});
+  await assert.rejects(previewCloudRetrieval({businessId,session,localStores:{customers:[item]},transport:f.transport}),/Invalid local record identity/);
+  assert.equal(f.calls.length,0,'invalid local scope must not trigger any cloud reads');
+ }
+});
+test('cloud preview rejects malformed nested IDs without revealing or staging data',async()=>{
+ for(const payload of [
+  {id:0,businessId,name:'Invalid numeric id'},
+  {id:'c1',businessId:0,name:'Invalid numeric tenant'},
+  {id:'other_record',businessId,name:'Wrong record'},
+  ['invalid_array_payload']
+ ]){
+  const f=fixture({customers:{'':{status:200,items:[{id:'c1',revision:2,record:payload}],nextCursor:null}}});
+  await assert.rejects(previewCloudRetrieval({businessId,session,localStores:{},transport:f.transport}),/Invalid cloud record identity/);
+  assert.deepEqual(f.calls,[{type:'customers',after:''}]);
+ }
+ const legacy=fixture({customers:{'':{status:200,items:[{id:'c1',revision:1,record:{name:'Older client record'}}],nextCursor:null}}});
+ const review=await previewCloudRetrieval({businessId,session,localStores:{},transport:legacy.transport});
+ assert.equal(review.records[0].status,'new_on_device','legacy payloads with absent embedded IDs remain valid');
+ assert.equal(review.localWritesPerformed,false);
+});
