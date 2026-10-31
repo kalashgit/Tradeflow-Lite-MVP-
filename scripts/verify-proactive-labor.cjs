@@ -73,18 +73,21 @@ async function verify(viewport){
   await writeActual(page);
   assert.equal((await read(page)).tasks.length,0,'automatic detection must not create business tasks');
   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
-  await page.waitForFunction(async()=>{
+  // Return the exact IndexedDB record that satisfied the wait. The event
+  // consumer can commit concurrently with the probe; do not race a second read.
+  const found=await page.waitForFunction(async()=>{
    const req=indexedDB.open('tradeflow-lite-v1',9);
    const db=await new Promise(resolve=>req.onsuccess=()=>resolve(req.result));
-   const tx=db.transaction('commandLog','readonly'),get=tx.objectStore('commandLog').getAll();
-   const all=await new Promise(resolve=>get.onsuccess=()=>resolve(get.result));
-   db.close();
-   return all.some(x=>x.kind==='domain.event'&&x.status==='processed'&&
-    x.result?.laborFindings?.some(y=>y.jobId==='j1'&&y.varianceHours===5));
+   try{
+    const tx=db.transaction('commandLog','readonly'),get=tx.objectStore('commandLog').getAll();
+    const all=await new Promise(resolve=>get.onsuccess=()=>resolve(get.result));
+    return all.find(x=>x.kind==='domain.event'&&x.status==='processed'&&
+     x.result?.laborFindings?.some(y=>y.jobId==='j1'&&y.varianceHours===5))||false;
+   }finally{db.close()}
   },null,{timeout:15000});
+  const event=await found.jsonValue();
+  assert.equal(event.result.laborFindings.find(x=>x.jobId==='j1').varianceHours,5);
   const first=await read(page);
-  const event=first.commandLog.find(x=>x.kind==='domain.event'&&x.result?.laborFindings?.some(y=>y.jobId==='j1'));
-  assert.ok(event,'source event must hold the durable labor finding: '+JSON.stringify(first.commandLog.map(x=>({kind:x.kind,status:x.status,result:x.result,ref:x.ref}))).slice(0,1800));
   assert.equal(first.tasks.length,0);
   result.persistedFinding=true;
   result.stage='job dossier shows persisted observation and decision alternatives';
