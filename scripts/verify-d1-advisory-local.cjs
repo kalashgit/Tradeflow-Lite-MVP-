@@ -37,7 +37,7 @@ async function main(){
    '0003_extended_business_records.sql']){
    // D1 exec treats comment-only fragments as invalid statements.
    const migrationSql=fs.readFileSync(path.join('migrations',migration),'utf8')
-    .split('\\n').filter(line=>!line.trimStart().startsWith('--')).join('\\n');
+    .split('\n').filter(line=>!line.trimStart().startsWith('--')).join('\n');
    await db.exec(migrationSql);
   }
   await sql(db,'INSERT INTO businesses (id,name) VALUES (?,?)',
