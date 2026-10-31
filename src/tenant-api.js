@@ -98,13 +98,13 @@ export async function tenantApi(request,env,options={}){
    for await(const part of stream){raw+=part;if(raw.length>32000)return json({error:'Request too large'},413)}
    let body;try{body=JSON.parse(raw)}catch{return json({error:'Invalid JSON'},400)}
    const saved=await writeTenantRecord(env.TF_DB,authorization,match[2],match[3],body);
-   return json({id:match[3],type:match[2],...saved},saved.revision===1?201:200);
+   return json({businessId:authorization.businessId,id:match[3],type:match[2],...saved},saved.revision===1?201:200);
   }
   const query=authorizedTenantReadQuery({authorization,table:match[2],recordId:match[3]});
   const item=await env.TF_DB.prepare(query.sql).bind(...query.params).first();
   await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
   if(!item||item.deleted_at)return json({error:'Not found'},404);
-  return json({id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:scopedPayload(authorization.businessId,match[2],match[3],item.payload)});
+  return json({businessId:authorization.businessId,id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:scopedPayload(authorization.businessId,match[2],match[3],item.payload)});
  }catch(error){
   if(error instanceof AuthorizationError)return json({error:error.message},error.status);
   return json({error:'Request could not be completed'},503);
