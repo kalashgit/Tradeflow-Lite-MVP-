@@ -171,3 +171,47 @@ test('record and catalogue reads deny revocation during retrieval instead of ret
   const path='/api/v1/businesses/'+business+'/records/jobs'+(catalogue?'':'/private_01'),res=await api(req(path,signed),{...envBase,TF_DB:scopedDb},{fetchJwks:jwksResponse});assert.equal(res.status,403);assert.ok(!(await res.text()).includes('Must not expose'));
  }
 });
+
+test('authenticated tenant reads fail closed on conflicting embedded record identities',async()=>{
+ const signed=await token(),secret='SYNTHETIC_FOREIGN_CUSTOMER_CONTENT';
+ let payload={name:'Allowed legacy job'},writes=0;
+ const scopedDb={prepare(sql){return {bind(...args){return {
+  async first(){
+   if(sql.startsWith('SELECT role FROM business_memberships'))return {role:'owner'};
+   if(sql.includes('FROM tenant_records')){
+    assert.equal(args[0],business);
+    return {payload:JSON.stringify(payload),revision:2,updated_at:'2026-10-31'};
+   }
+   throw Error('Unexpected SQL during scoped read');
+  },
+  async all(){
+   assert.match(sql,/FROM tenant_records/);
+   assert.equal(args[0],business);
+   return {results:[{id:'job_1',revision:2,updated_at:'2026-10-31',payload:JSON.stringify(payload)}]};
+  },
+  async run(){writes++;throw Error('Read-only identity check must not mutate database')}
+ }}}}};
+ const env={...envBase,TF_DB:scopedDb},options={fetchJwks:jwksResponse};
+ const record='/api/v1/businesses/'+business+'/records/jobs/job_1';
+ const catalogue='/api/v1/businesses/'+business+'/records/jobs';
+ for(const path of [record,catalogue]){
+  const allowed=await api(req(path,signed),env,options);
+  assert.equal(allowed.status,200,'legacy payload without embedded IDs remains compatible');
+ }
+ for(const invalid of [
+  {id:'job_1',businessId:'other_business',name:secret},
+  {id:'job_2',businessId:business,name:secret},
+  {id:'job_1',businessId:0,name:secret},
+  ['invalid_payload',secret]
+ ]){
+  payload=invalid;
+  for(const path of [record,catalogue]){
+   const denied=await api(req(path,signed),env,options);
+   assert.equal(denied.status,503,'corrupt nested cloud identity must not escape authenticated API');
+   const body=await denied.text();
+   assert.equal(body.includes(secret),false,'wrong tenant content must never appear in error response');
+   assert.match(body,/Request could not be completed/);
+  }
+ }
+ assert.equal(writes,0);
+});
