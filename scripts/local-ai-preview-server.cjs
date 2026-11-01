@@ -54,8 +54,18 @@ function deterministicModelFetch(url,options){
  const parsed=JSON.parse(input.content);
  const refs=parsed.evidence.records.map(x=>x.ref);
  const invoice=refs.find(x=>x.startsWith('invoices:')),cost=refs.find(x=>x.startsWith('jobCosts:')),quote=refs.find(x=>x.startsWith('quotes:'));
- const chosen=[invoice,cost,quote].filter(Boolean).slice(0,2);
- const answer='Synthetic demo: Review the overdue invoice for cash timing, then investigate recorded job labor costs. Collection, actual contribution profit and the final labor variance are not verified. No action was taken.';
+ const question=String(parsed.question||'').toLowerCase();
+ let chosen,answer;
+ if(/quotation|quote|estimate|price/.test(question)){
+  chosen=[quote,invoice].filter(Boolean);
+  answer='Synthetic demo: Review the sent quote and confirm the customer response. Margin and crew availability are unknown; no quote follow-up was sent.';
+ }else if(/labor|cost|overrun/.test(question)){
+  chosen=[cost,invoice].filter(Boolean);
+  answer='Synthetic demo: Review recorded job labor costs and compare them with an independently verified budget. The available facts do not establish an overrun or contribution-profit impact; no action was taken.';
+ }else{
+  chosen=[invoice,cost].filter(Boolean);
+  answer='Synthetic demo: Review the overdue invoice for cash timing, then investigate recorded job labor costs. Collection, actual contribution profit and the final labor variance are not verified. No action was taken.';
+ }
  return Promise.resolve({ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({answer,refs:chosen})},finish_reason:'stop'}]})});
 }
 function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0}}={}){
