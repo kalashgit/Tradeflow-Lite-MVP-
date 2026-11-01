@@ -9,6 +9,23 @@ export function resolveJobReviewIntent(text,jobs){
  const matches=all.filter(x=>lower.includes(x.title.trim().toLowerCase()));
  if(matches.length===1)return {status:'selected',jobs:matches};
  if(matches.length>1)return {status:'ambiguous',jobs:matches.map(x=>({id:x.id,title:x.title}))};
+ // "Last job" is not a request for the whole portfolio. Prefer a uniquely
+ // identifiable completed job; never guess from IndexedDB row order.
+ if(/\b(last|latest|most recent)\b/.test(lower)){
+  if(!all.length)return {status:'empty',jobs:[]};
+  const candidates=completed.length?completed:all;
+  if(candidates.length===1)return {status:'selected',jobs:[candidates[0]],resolution:completed.length?'only_completed_job':'only_saved_job'};
+  const dated=candidates.map(job=>{
+   const raw=job.completedAt||job.completionDate||job.dateCompleted;
+   const stamp=typeof raw==='string'&&/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?$/.test(raw)?Date.parse(raw):NaN;
+   return {job,stamp};
+  });
+  if(dated.every(x=>Number.isFinite(x.stamp))){
+   dated.sort((x,y)=>y.stamp-x.stamp);
+   if(dated[0].stamp>dated[1].stamp)return {status:'selected',jobs:[dated[0].job],resolution:'unique_recorded_completion_time'};
+  }
+  return {status:'ambiguous',jobs:candidates.slice(0,12).map(x=>({id:x.id,title:x.title}))};
+ }
  const requestedAll=/\b(all|my|active|completed|which)\b/.test(lower)||/\bjobs\b/.test(lower);
  if(!requestedAll)return {status:'ambiguous',jobs:all.slice(0,12).map(x=>({id:x.id,title:x.title}))};
  if(!all.length)return {status:'empty',jobs:[]};
