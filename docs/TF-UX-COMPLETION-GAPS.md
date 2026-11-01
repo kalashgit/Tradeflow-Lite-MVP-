@@ -47,3 +47,7 @@ AI-owned contract requested (method names/shapes remain for joint agreement):
 - Expose context-change notification or fresh-read semantics so the frontend invalidates stale controls after thread, actor, business or access changes.
 
 Frontend acceptance once supplied: original thread/job/draft restored; missing/deleted/foreign thread denied; context change during navigation fails safely; offline behavior explicit; repeated taps do not duplicate operations. Approval and execution remain in the existing controller. No HTTP endpoint, new persistence schema or live access provision is implied. API implementation remains a dependency; this decision does not claim that it exists.
+
+## Superseding founder decision — dark-only
+
+The founder removed the white/light background requirement. Dark slate/graphite is the sole application direction; earlier light-alternative requirements in this register and Notion references are superseded. Removed the scoped light CSS/tokens and light screenshot branch. Keep contrast, keyboard access, reduced motion, high-contrast/forced-color accessibility and user zoom. Browser regression verifies that OS light preference and the former light attribute cannot turn the component white. This is not removal of accessibility support.

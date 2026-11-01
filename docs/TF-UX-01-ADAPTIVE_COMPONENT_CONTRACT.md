@@ -20,7 +20,7 @@ Business records and saved message IDs remain in their existing stores. Expansio
 
 Motion tokens: press 90ms, reveal 180ms, panel 240ms; easing cubic-bezier(.2,.8,.2,1); press scale .985. The proof uses press feedback and an interruptible opacity/4px translation reveal. Prior animations cancel; no numerical/business-value tween, height animation, spring library or scroll-driven motion. Reduced motion disables both reveal and press transforms. Panel token is reserved for later existing sheet/dialog adoption, not a claim that every surface has been converted.
 
-Opaque graphite by default. A scoped `[data-tf-color-scheme="light"]` alternative is available for host theme integration; no automatic white card inside the existing dark app and no new global theme setting. Touch targets are at least 44px; native disclosure keyboard semantics, focus indicators, source labels and unchanged live receipt/status regions are retained. Full VoiceOver and physical-device acceptance remain separate gates.
+Dark graphite only, per the founder’s latest decision. No white/light variant or theme selector. System light preference cannot switch these surfaces to white. Touch targets are at least 44px; native disclosure keyboard semantics, focus indicators, source labels and unchanged live receipt/status regions are retained. Full VoiceOver and physical-device acceptance remain separate gates.
 
 ## Feedback and voice boundary
 
