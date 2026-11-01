@@ -22,7 +22,8 @@ const token='synthetic-browser-local-private-test-token';
     await page.goto(url,{waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>!!window.TradeFlowPilot,{timeout:30000});
     // The live TradeFlow navigation handler owns the transition to the existing chat screen.
-    await page.evaluate(()=>{const nav=document.querySelector('[data-tab="ai"]');if(!nav)throw Error('TradeFlow AI navigation item not found');nav.click()});
+    await page.locator('[data-tab="settings"]').first().click();
+    await page.locator('.tf-more-menu [data-tab="ai"]').click();
     await page.locator('#tfAiUnlockForm input[name="code"]').fill(token);
     await page.locator('#tfAiUnlockForm button[type="submit"]').click();
     await page.waitForFunction(()=>sessionStorage.getItem('tf-ai-preview-code')!==null);
