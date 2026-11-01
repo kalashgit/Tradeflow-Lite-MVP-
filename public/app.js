@@ -655,7 +655,9 @@ async function tfAiLocalJobReview(content){
 }
 async function tfAISend(text){
  const content=String(text||'').trim().slice(0,1200);
- if(!content||tfChatBusy)return;\n if(await tfAiLocalJobReview(content))return;\n if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
+ if(!content||tfChatBusy)return;
+ if(await tfAiLocalJobReview(content))return;
+ if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
  tfChatError='';
  try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
