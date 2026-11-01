@@ -36,5 +36,7 @@ test('Manager system preserves hypothesis, authorization and operational truth',
  const hand=fs.readFileSync(path.resolve(__dirname,'../docs/TRADEFLOW_MANAGER_HANDOFF_2026-11-01.md'),'utf8');
  for(const term of ['5–15','Austin','Commercial','0/62','Code / Product / Operations / Outcome','not install','background','draft PR'])assert.ok((idx+'\n'+hand).toLowerCase().includes(term.toLowerCase()),'Unclear manager boundary '+term);
  assert.ok(idx.includes('tradeflow-principal-ai-engineer/SKILL.md'));
+ assert.ok(idx.includes('tradeflow-general-app-engineer/SKILL.md'));
+ assert.ok(fs.existsSync(path.join(root,'tradeflow-general-app-engineer','SKILL.md')));
  assert.ok(hand.includes('market_model.xlsx'));
 });
