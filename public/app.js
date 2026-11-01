@@ -637,7 +637,7 @@ async function tfAiLocalBriefingFollowUp(content){
  await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
-  let answer='',refs=['jobs:'+job.id];
+  let answer='',refs=['jobs:'+job.id+'@0'];
   if(kind==='why_blocked'||kind==='who_approves'){
    const {assessInvoiceReadiness}=await import('./job-intelligence-request.js');
    const [invoices,quotes]=await Promise.all([all('invoices'),all('quotes')]);
@@ -648,7 +648,7 @@ async function tfAiLocalBriefingFollowUp(content){
   }else if(kind==='show_evidence'||kind==='open_review'){
    if(!window.TradeFlowPilot?.decisions?.investigate||!window.TradeFlowPilot?.decisions?.open)throw Error('Existing job evidence controls unavailable');
    const decision=await window.TradeFlowPilot.decisions.investigate(job.id);
-   refs=[...new Set(['jobs:'+job.id,...decision.observations.flatMap(o=>(o.refs||[]).map(r=>r.type+':'+r.id+'@'+(r.revision||0)))] )].slice(0,8);
+   refs=[...new Set(['jobs:'+job.id+'@0',...decision.observations.flatMap(o=>(o.refs||[]).map(r=>r.type+':'+r.id+'@'+(r.revision||0)))] )].slice(0,8);
    await window.TradeFlowPilot.decisions.open(job.id);
    answer=kind==='show_evidence'?
     'Opened the existing job evidence review for '+String(job.title||job.id)+'. Review the cited records and uncertainties there. No record was changed.':
@@ -679,7 +679,7 @@ async function tfAiLocalBusinessBriefing(content){
   const result=createOperationalBriefing({data:snapshot,evaluation,businessId:'local-business'});
   tfAiReviewJobId=result.blockedJobIds.length===1?result.blockedJobIds[0]:null;
   tfAiReviewThreadId=tfAiReviewJobId?tfActiveChatThreadId:null;
-  await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:result.refs.slice(0,8)});
+  await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:result.refs.slice(0,8).map(r=>r+'@0')});
  }catch(error){tfChatError='Business briefing unavailable: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
  return true;

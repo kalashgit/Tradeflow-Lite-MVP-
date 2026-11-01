@@ -5,7 +5,7 @@ export function resolveJobReviewIntent(text,jobs){
  const lower=text.toLowerCase();
  if(!/\b(job|jobs|project|projects|invoice|invoicing|bill|billing|cost|costs|overrun|labor|labour)\b/.test(lower)||!/\b(review|check|investigat|identify|find|ready|prepare|which|show|explain|overrun)/.test(lower))return {status:'not_job_review'};
  const eligible=(Array.isArray(jobs)?jobs:[]).filter(x=>x&&(!x.businessId||x.businessId==='local-business')&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.trim()&&['Completed','Cancelled'].includes(x.status)!==true);
- const completed=(Array.isArray(jobs)?jobs:[]).filter(x=>x&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.trim()&&x.status==='Completed');
+ const completed=(Array.isArray(jobs)?jobs:[]).filter(x=>x&&(!x.businessId||x.businessId==='local-business')&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.trim()&&x.status==='Completed');
  const all=[...eligible,...completed];
  const matches=all.filter(x=>lower.includes(x.title.trim().toLowerCase()));
  if(matches.length===1)return {status:'selected',jobs:matches};
