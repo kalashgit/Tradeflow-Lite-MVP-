@@ -28,7 +28,7 @@ const out='artifacts/intelligence-context';fs.mkdirSync(out,{recursive:true});
  try{for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
   role='owner';const browserContext=await browser.newContext({viewport,serviceWorkers:'block'}),page=await browserContext.newPage();await page.goto('http://127.0.0.1:4199');await page.waitForFunction(()=>!!window.TradeFlowPilot);
   const run=()=>page.evaluate(async()=>{
-   const {createCloudReviewPort}=await import('/cloud-intelligence.js');const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   const {createCloudReviewPort}=await import('/cloud-intelligence.js');const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    try{const commands=window.TradeFlowCommands,session=async()=>{const r=await fetch('/api/v1/me');return {status:'signed_in',...await r.json()}};let observed=null;
     const rt=commands.createRuntime({uid:()=>crypto.randomUUID(),context:()=>({actor:'synthetic_owner',businessId:'business_001'}),snapshot:async()=>({}),ledger:commands.createLedger(db),can:p=>p==='read',ports:{review:createCloudReviewPort({businessId:'business_001',jobId:'job_01',session,onContext:c=>{observed=c}})}});
     const plan=await rt.prepare('review business'),outcome=await rt.execute(plan.id),journal=await window.TradeFlowLocalRecovery.readStores(db,['commandLog']);return {outcome,observed,journal:journal.commandLog.filter(r=>r.id===plan.id)};

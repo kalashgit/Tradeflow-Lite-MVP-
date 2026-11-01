@@ -17,14 +17,14 @@ const server=http.createServer((req,res)=>{
  });
 });
 const read=page=>page.evaluate(async()=>{
- const req=indexedDB.open('tradeflow-lite-v1',9);
+ const req=indexedDB.open('tradeflow-lite-v1');
  const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
  try{return await window.TradeFlowLocalRecovery.readStores(db,['commandLog','tasks','jobCosts'])}
  finally{db.close()}
 });
 async function seed(page){
  await page.evaluate(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9);
+  const req=indexedDB.open('tradeflow-lite-v1');
   const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
   const tx=db.transaction([...db.objectStoreNames],'readwrite');
   for(const name of db.objectStoreNames)tx.objectStore(name).clear();
@@ -40,7 +40,7 @@ async function seed(page){
 }
 async function writeActual(page){
  await page.evaluate(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9);
+  const req=indexedDB.open('tradeflow-lite-v1');
   const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
   try{
    await window.TradeFlowBusinessEvents.write(db,'jobCosts',{
@@ -132,7 +132,7 @@ async function verify(viewport){
   // replay the already committed business operation.
   result.stage='interrupted command finalization reconciles receipt without replay';
   const interrupted=await page.evaluate(async()=>{
-   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const q=indexedDB.open('tradeflow-lite-v1');
    const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    try{
     const tx=db.transaction('commandLog','readwrite'),store=tx.objectStore('commandLog');
@@ -182,7 +182,7 @@ async function verify(viewport){
   // command runtime, IndexedDB command ledger and existing saved records.
   // No production permission grant or alternate business executor is added.
   const revoked=await page.evaluate(async()=>{
-   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const q=indexedDB.open('tradeflow-lite-v1');
    const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    try{
     let allowed=true,operationCalls=0;
@@ -220,7 +220,7 @@ async function verify(viewport){
   await page.screenshot({path:path.join(out,'proactive-labor-'+viewport.width+'-revoked.png')});
   result.stage='replaced cost source with same aggregate hours must hide old attention';
   await page.evaluate(async()=>{
-   const req=indexedDB.open('tradeflow-lite-v1',9);
+   const req=indexedDB.open('tradeflow-lite-v1');
    const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
    try{
     const tx=db.transaction('jobCosts','readwrite');
@@ -263,7 +263,7 @@ async function verify(viewport){
   };
   result.stage='foreign-tenant cost source cannot revive saved labor observation';
   await page.evaluate(async()=>{
-   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const q=indexedDB.open('tradeflow-lite-v1');
    const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    try{
     const tx=db.transaction('jobCosts','readwrite');
@@ -278,7 +278,7 @@ async function verify(viewport){
   result.foreignSourceSuppressed=true;
   result.stage='missing planned cost source cannot revive saved labor observation';
   await page.evaluate(async()=>{
-   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const q=indexedDB.open('tradeflow-lite-v1');
    const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    try{
     const tx=db.transaction('jobCosts','readwrite');tx.objectStore('jobCosts').delete('planned');
@@ -290,7 +290,7 @@ async function verify(viewport){
   result.missingSourceSuppressed=true;
   result.stage='disabled automatic review never processes new event or executes extra task';
   await page.evaluate(async()=>{
-   const q=indexedDB.open('tradeflow-lite-v1',9);
+   const q=indexedDB.open('tradeflow-lite-v1');
    const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    try{
     const tx=db.transaction('settings','readwrite');

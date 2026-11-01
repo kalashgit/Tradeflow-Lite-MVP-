@@ -24,7 +24,7 @@ const token='synthetic-browser-local-private-test-token';
     // New installations enter onboarding. Complete it ONLY in this isolated browser's
     // local IndexedDB, consistent with existing synthetic TradeFlow browser journeys.
     await page.evaluate(async()=>{
-     const request=indexedDB.open('tradeflow-lite-v1',10);
+     const request=indexedDB.open('tradeflow-lite-v1');
      const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
      const tx=db.transaction('settings','readwrite');
      tx.objectStore('settings').put({id:'business',company:'Synthetic AI Conversation Test',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true});
@@ -66,7 +66,7 @@ const token='synthetic-browser-local-private-test-token';
     await page.locator('#tfAiThreadPicker').selectOption(firstThread);
     assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2,'Switching threads restores scoped turns');
     const scoped=await page.evaluate(async(threadId)=>{
-     const r=indexedDB.open('tradeflow-lite-v1',10);
+     const r=indexedDB.open('tradeflow-lite-v1');
      const db=await new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
      const store=window.TradeFlowConversationStore;
      const local={kind:'local',businessId:'local-business',actorId:'local-owner'};

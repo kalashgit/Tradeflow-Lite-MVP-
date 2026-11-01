@@ -23,7 +23,7 @@ const file=path.join(out,'synthetic-speech-envelope.wav');fs.writeFileSync(file,
    navigator.mediaDevices.getUserMedia=async options=>{const stream=await original(options);window.testStreams.push(stream);return stream};
   });
   await page.goto(process.env.BASE_URL||'http://127.0.0.1:4190/');await page.waitForFunction(()=>!!window.TradeFlowVoice);
-  await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'business',company:'Isolated audio verification',primaryTrade:'Electrical'});await new Promise(r=>tx.oncomplete=r);db.close()});
+  await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'business',company:'Isolated audio verification',primaryTrade:'Electrical'});await new Promise(r=>tx.oncomplete=r);db.close()});
   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowVoice);
   await page.evaluate(()=>window.TradeFlowVoice.start());
   await page.locator('[data-voice="mic"]').click();

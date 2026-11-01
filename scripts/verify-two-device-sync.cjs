@@ -27,7 +27,7 @@ let server,browser,temp;
  }catch(error){res.writeHead(500);res.end('Synthetic test host failure')}});
  await new Promise(r=>server.listen(4201,'127.0.0.1',r));browser=await chromium.launch({args:['--no-sandbox']});const results=[];
  async function boot(page){await page.goto('http://127.0.0.1:4201');await page.waitForFunction(()=>!!window.TradeFlowPilot&&!!window.TradeFlowAccountSession);await page.evaluate(async()=>{
-  const {createSyncQueue,createTenantTransport,summarizeSyncIntents}=await import('/sync-queue.js');const request=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
+  const {createSyncQueue,createTenantTransport,summarizeSyncIntents}=await import('/sync-queue.js');const request=indexedDB.open('tradeflow-lite-v1'),db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
   window.__syncNow=Date.now()+61000;window.__syncQ=createSyncQueue({db,businessId:'business_001',session:()=>window.TradeFlowAccountSession.readSession(),transport:createTenantTransport('business_001'),now:()=>window.__syncNow});window.__syncSummary=async()=>summarizeSyncIntents(await window.__syncQ.list(),'business_001');
  })}
  const enqueue=(page,id,operationId,baseRevision,title)=>page.evaluate(c=>window.__syncQ.enqueue(c),{type:'jobs',id,operationId,baseRevision,record:{id,title}});

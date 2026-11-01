@@ -21,7 +21,7 @@ const cases=[
  {id:'TF-P10',data:{jobs:[job],invoices:[{...invoice,lines:[{qty:1,unitPrice:1000}]}],payments:[{id:'p1',invoiceId:'i1',customerId:'c1',currency:'USD',amount:750}],jobCosts:[{id:'k1',jobId:'j1',type:'actual',amount:250}],expenses:[{id:'e1',jobId:'j1',amount:150}]}}
 ];
 async function seed(page,data,clear){await page.evaluate(async({data,clear})=>{
- const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),stores=clear?[...db.objectStoreNames]:Object.keys(data),tx=db.transaction(stores,'readwrite');
+ const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),stores=clear?[...db.objectStoreNames]:Object.keys(data),tx=db.transaction(stores,'readwrite');
  for(const store of stores){tx.objectStore(store).clear();for(const row of data[store]||[])tx.objectStore(store).put(row)}await new Promise(r=>tx.oncomplete=r);db.close();
 },{data,clear})}
 async function verifyInvoiceFollowupJourney(page,result){
@@ -34,7 +34,7 @@ async function verifyInvoiceFollowupJourney(page,result){
  await button.waitFor({timeout:15000});
  await button.click();
  await page.waitForFunction(async()=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9);
+  const q=indexedDB.open('tradeflow-lite-v1');
   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
   try{
    const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);
@@ -43,7 +43,7 @@ async function verifyInvoiceFollowupJourney(page,result){
   }finally{db.close()}
  },null,{timeout:15000});
  const evidence=await page.evaluate(async()=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return d;
  });
  const tasks=evidence.tasks.filter(t=>t.invoiceId==='i1');
@@ -57,7 +57,7 @@ async function verifyInvoiceFollowupJourney(page,result){
  await page.reload();
  await page.waitForFunction(()=>!!window.TradeFlowPilot);
  const after=await page.evaluate(async()=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return d;
  });
  assert.equal(after.tasks.filter(t=>t.invoiceId==='i1').length,1,'Invoice task missing after reload: '+JSON.stringify({tasks:after.tasks,receipts:after.commandLog.filter(c=>c.kind==='invoice.followup.schedule')}));
@@ -74,11 +74,11 @@ async function verifyChangeOrderReviewJourney(page,result){
  await button.waitFor({timeout:15000});
  await button.click();
  const read=()=>page.evaluate(async()=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
   const data=await window.TradeFlowLocalRecovery.readStores(db,['jobs','tasks','commandLog']);db.close();return data;
  });
  await page.waitForFunction(async()=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
   const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();
   return d.tasks.some(t=>t.changeOrderId==='co1')&&d.commandLog.some(x=>x.commandId==='job.change_order.review.schedule'&&x.status==='succeeded');
  },null,{timeout:15000});
@@ -124,7 +124,7 @@ async function verifyJobCostReviewJourney(page,result){
  await button.waitFor({timeout:15000});await button.click();
  await page.getByText('Internal job-cost reconciliation task saved.',{exact:false}).waitFor({timeout:15000});
  const read=()=>page.evaluate(async()=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+  const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return data;
  });
  result.stage='job cost review: persisted evidence';
@@ -148,7 +148,7 @@ async function verifyJobLaborReviewJourney(page,result){
  await button.waitFor({timeout:15000});await button.click();
  await page.getByText('Internal labor-hour variance review saved.',{exact:false}).waitFor({timeout:15000});
  const read=()=>page.evaluate(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+  const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog']);db.close();return data;
  });
  result.stage='labor variance: persisted evidence';
@@ -172,7 +172,7 @@ async function verifyInvoicePaymentReviewJourney(page,result){
  await button.waitFor({timeout:15000});await button.click();
  await page.getByText('Internal invoice payment reconciliation task saved.',{exact:false}).waitFor({timeout:15000});
  const read=()=>page.evaluate(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+  const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','payments','commandLog']);db.close();return data;
  });
  result.stage='payment discrepancy: persisted evidence';
@@ -197,7 +197,7 @@ async function verifyBidQualificationReviewJourney(page,result){
  await button.waitFor({timeout:15000});await button.click();
  await page.getByText('Internal bid qualification task saved.',{exact:false}).waitFor({timeout:15000});
  const read=()=>page.evaluate(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+  const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','opportunities','commandLog']);db.close();return data;
  });
  result.stage='bid qualification: persisted evidence';
@@ -221,7 +221,7 @@ async function verifyQuoteFollowupJourney(page,result){
  page.on('console',message=>{if(message.type()==='error')browserErrors.push('console: '+message.text())});
 
  const snapshot=()=>page.evaluate(async()=>{
-  const req=indexedDB.open('tradeflow-lite-v1',9);
+  const req=indexedDB.open('tradeflow-lite-v1');
   const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
   const data=await window.TradeFlowLocalRecovery.readStores(db,['quotes','customers','tasks','events','commandLog']);
   db.close();return data;
@@ -349,7 +349,7 @@ async function verifyQuoteFollowupJourney(page,result){
 
 async function committed(page,stores){
  return page.evaluate(async names=>{
-  const q=indexedDB.open('tradeflow-lite-v1',9);
+  const q=indexedDB.open('tradeflow-lite-v1');
   const db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
   try{return await window.TradeFlowLocalRecovery.readStores(db,names)}
   finally{db.close()}
@@ -398,7 +398,7 @@ async function verifyCalendarConflictJourney(page,result){
  if(!await button.count()){
   const screen=await page.locator('body').innerText();
   const diagnostics=await page.evaluate(async()=>{
-   const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+   const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
    const data=await window.TradeFlowLocalRecovery.readStores(db,['calendarEntries','calendarPreferences','jobs','tasks']);db.close();
    return {calendarEntries:data.calendarEntries,detected:window.TradeFlowCalendar?.conflicts?.(data)||[],
     panel:!!document.querySelector('.tf-cal-review'),calendar:!!document.querySelector('.tf-cal-page'),
@@ -510,7 +510,7 @@ async function verifyCalendarConflictJourney(page,result){
      const dialogs=[];page.on('dialog',async d=>{dialogs.push(d.message());await d.accept()});
      await page.locator('[data-action="tfQuoteReuse"]').click();
      await page.getByText('Unsent draft saved.',{exact:false}).waitFor({timeout:15000});
-     const check=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes','commandLog']);db.close();return rows});
+     const check=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes','commandLog']);db.close();return rows});
      assert.equal(check.quotes.length,2);const draft=check.quotes.find(q=>q.id!=='q1');assert.equal(draft.status,'Draft');assert.equal(draft.customerId,'');
      assert.equal(draft.sentDate,'');assert.equal(draft.signature,undefined);assert.equal(draft.approvedBy,undefined);
      assert.equal(draft.sourceQuoteId,'q1');assert.equal(draft.reuseEvidence.customerAuthorizationCopied,false);
@@ -519,7 +519,7 @@ async function verifyCalendarConflictJourney(page,result){
      assert.ok(dialogs.some(x=>x.includes('Customer, acceptance, signature and contact history are NOT copied')));
      result.safeDraftPersisted=true;result.transactionalReviewProcessed=true;
      result.stage='quote reuse reload';await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);
-     const after=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes']);db.close();return rows});
+     const after=await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),rows=await window.TradeFlowLocalRecovery.readStores(db,['quotes']);db.close();return rows});
      assert.equal(after.quotes.filter(q=>q.id===draft.id).length,1);result.draftSurvivedReload=true;
     }else{
      const box=page.locator('.tf-record-dossier-box').filter({hasText:'Recorded customer economics'});await box.waitFor();const text=await box.innerText();for(const value of ['$750.00','$400.00','$350.00','not verified bank receipts'])assert.ok(text.includes(value));result.recordedEconomicsRendered=true;
@@ -529,7 +529,7 @@ async function verifyCalendarConflictJourney(page,result){
      await button.waitFor({timeout:15000});await button.click();
      await page.getByText('Internal customer economics review saved.',{exact:false}).waitFor({timeout:15000});
      const read=()=>page.evaluate(async()=>{
-      const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+      const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
       const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','payments']);db.close();return data;
      });
      result.stage='customer economics: saved evidence';

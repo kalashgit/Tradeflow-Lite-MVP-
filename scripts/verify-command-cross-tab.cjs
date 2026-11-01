@@ -13,7 +13,7 @@ const server=http.createServer((req,res)=>{
 });
 async function state(page){
  return page.evaluate(async()=>{
-  const request=indexedDB.open('tradeflow-lite-v1',9);
+  const request=indexedDB.open('tradeflow-lite-v1');
   const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
   try{return await window.TradeFlowLocalRecovery.readStores(db,['quotes','commandLog'])}finally{db.close()}
  });
@@ -25,7 +25,7 @@ async function run(viewport,browser){
  try{
   await boot(one);await boot(two);
   await one.evaluate(async()=>{
-   const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+   const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
    const t=db.transaction(['customers','quotes','settings'],'readwrite');
    t.objectStore('customers').put({id:'h01-customer',name:'Synthetic panel customer',businessId:'local-business'});
    t.objectStore('quotes').put({id:'h01-quote',title:'Synthetic quote for concurrent reuse',category:'Electrical',
