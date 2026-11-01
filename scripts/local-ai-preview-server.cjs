@@ -62,9 +62,15 @@ function deterministicModelFetch(url,options){
  }else if(/labor|cost|overrun/.test(question)){
   chosen=[cost,invoice].filter(Boolean);
   answer='Synthetic demo: Review recorded job labor costs and compare them with an independently verified budget. The available facts do not establish an overrun or contribution-profit impact; no action was taken.';
- }else{
+ }else if(/ideal customer|customer profile|\bicp\b|target customer|target market|customer acquisition|marketing|lead generation/i.test(question)){
+  chosen=[];
+  answer='Synthetic demo: Your question is about selecting profitable customer segments, but these test records contain no customer acquisition costs, job margins by segment, repeat business rates or win rates. I cannot rank an ideal customer profile from this evidence. For a real analysis, compare customer types by contribution margin, sales effort, payment speed and repeat work; no customer targeting action was taken.';
+ }else if(/invoice|cash|profitab|priorit|receivable|overdue/i.test(question)){
   chosen=[invoice,cost].filter(Boolean);
   answer='Synthetic demo: Review the overdue invoice for cash timing, then investigate recorded job labor costs. Collection, actual contribution profit and the final labor variance are not verified. No action was taken.';
+ }else{
+  chosen=[];
+  answer='Synthetic demo: This fixed test dataset does not contain enough relevant evidence to answer your specific question. Try asking about synthetic invoices, quotes or labor costs, or switch to live Qwen for broader reasoning. No business action was taken.';
  }
  return Promise.resolve({ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({answer,refs:chosen})},finish_reason:'stop'}]})});
 }
