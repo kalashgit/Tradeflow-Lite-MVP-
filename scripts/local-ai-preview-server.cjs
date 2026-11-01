@@ -74,6 +74,14 @@ function deterministicModelFetch(url,options){
  }
  return Promise.resolve({ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({answer,refs:chosen})},finish_reason:'stop'}]})});
 }
+function mockOutOfScope(question){
+ const q=String(question||'').toLowerCase();
+ if(/ideal customer|customer profile|icp|target customer|target market|customer acquisition|marketing|lead generation/.test(q))
+  return 'Synthetic demo: These records cannot identify your most profitable ideal customer. To decide, compare electrical customer segments by gross margin after direct labor and materials, acquisition cost, quote win rate, payment delays and repeat work. Segment-level evidence is missing, so no customer ranking is verified.';
+ if(!/quotation|quote|estimate|price|labor|cost|overrun|invoice|cash|profitab|priorit|receivable|overdue/.test(q))
+  return 'Synthetic demo: This fixed test dataset does not answer that question. This is not a real AI-generated analysis; use live Qwen when it is available. No business action was taken.';
+ return null;
+}
 function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0}}={}){
  if(typeof secret!=='string'||secret.length<12)throw Error('Development preview token must be at least 12 characters');
  if(!['mock','live','unavailable'].includes(mode))throw Error('Invalid preview model mode');
@@ -93,6 +101,11 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      // Intentionally ignore the browser's "business", "screen" and claimed identity fields.
      // This server has ONLY a fixed synthetic tenant/principal and cannot open real records.
      if(mode==='unavailable')return send(res,200,{reply:'The model is unavailable. Synthetic business records were not changed. Retry when Qwen is available.',refs:[],source:'unavailable',syntheticDemo:true,executionAuthority:false});
+     // Mock is a fixed script, NOT intelligence. Never attach unrelated evidence to an ICP answer.
+     if(mode==='mock'&&!localFetch){
+      const informational=mockOutOfScope(question);
+      if(informational)return send(res,200,{reply:informational,refs:[],source:'synthetic_mock',syntheticDemo:true,executionAuthority:false,readReverified:false});
+     }
      const {readIntelligenceContext}=await import('../src/intelligence-context.js');
      const result=await briefFromAuthorizedSource({
       db:syntheticDb(metrics),principal,businessId,question:question.trim(),enabled:true,synthetic:true,
