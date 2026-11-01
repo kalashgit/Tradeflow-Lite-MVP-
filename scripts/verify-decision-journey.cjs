@@ -104,6 +104,9 @@ let browser,activePage;
   assert.deepEqual(approvedRecords.invoices.sort((a,b)=>a.id.localeCompare(b.id)),expectedInvoices,'Invoice records are unchanged by internal approval');
   const originalThreadId=await approvalPage.locator('#tfAiThreadPicker').inputValue();
   await approvalPage.locator('[data-action="tfAiNewThread"]').click();
+  // Thread creation changes IndexedDB and asynchronously repaints the AI workspace.
+  // Observe the newly active empty thread before checking cross-thread isolation.
+  await approvalPage.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===0&&!document.querySelector('[data-decision-job="job_01"]'),null,{timeout:10000});
   assert.equal(await approvalPage.locator('[data-decision-job="job_01"]').count(),0,'Unrelated conversation cannot display previous approval controls');
   assert.equal(await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),0,'Unrelated conversation has no previous evidence');
   await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
