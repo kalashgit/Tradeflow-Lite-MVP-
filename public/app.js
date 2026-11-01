@@ -628,7 +628,7 @@ async function tfAiDescribeError(err){
  }
 }
 async function tfAiLocalJobReview(content){
- const {resolveJobReviewIntent,explainJobDecision}=await import('./job-intelligence-request.js');
+ const {resolveJobReviewIntent,explainJobDecision,assessInvoiceReadiness}=await import('./job-intelligence-request.js');
  const jobs=await all('jobs'),request=resolveJobReviewIntent(content,jobs);
  if(request.status==='not_job_review')return false;
  await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
@@ -641,9 +641,11 @@ async function tfAiLocalJobReview(content){
   else {
    if(!window.TradeFlowPilot?.decisions?.investigate)throw Error('Local authorized investigation unavailable');
    const summaries=[];
+   const [invoiceRecords,quoteRecords]=await Promise.all([all('invoices'),all('quotes')]);
    for(const job of request.jobs){
     const decision=await window.TradeFlowPilot.decisions.investigate(job.id);
-    const explanation=explainJobDecision(job,decision);
+    const readiness=assessInvoiceReadiness({job,invoices:invoiceRecords,quotes:quoteRecords});
+    const explanation=explainJobDecision(job,decision,readiness);
     summaries.push(explanation.content);refs.push(...explanation.refs);
    }
    answer='DEVICE-LOCAL EVIDENCE REVIEW (not an authenticated cloud tenant)\n'+summaries.join('\n\n');

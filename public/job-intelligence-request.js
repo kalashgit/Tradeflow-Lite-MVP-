@@ -15,12 +15,29 @@ export function resolveJobReviewIntent(text,jobs){
  if(all.length>20)return {status:'too_many',count:all.length};
  return {status:'selected',jobs:requestedAll?all:[all[0]]};
 }
-export function explainJobDecision(job,decision){
+// Conservative local readiness contract: no customer-specific signoff/terms are inferred.
+export function assessInvoiceReadiness({job,invoices=[],quotes=[]}){
+ if(!job||typeof job.id!=='string')throw Error('Saved job identity required');
+ const local=rows=>Array.isArray(rows)?rows.filter(r=>r&&(!r.businessId||r.businessId==='local-business')):[];
+ const linkedInvoices=local(invoices).filter(x=>x.jobId===job.id&&x.status!=='Void');
+ const linkedQuotes=local(quotes).filter(x=>x.id===job.quoteId||x.jobId===job.id);
+ const blockers=[];
+ if(job.status!=='Completed')blockers.push('job_not_recorded_completed');
+ if(!job.customerId)blockers.push('customer_not_linked');
+ if(linkedInvoices.length)blockers.push('existing_invoice_requires_review');
+ if(!linkedQuotes.some(x=>x.status==='Accepted'))blockers.push('accepted_scope_not_verified');
+ // The current record schema provides no independently verified completion signoff,
+ // billing terms, or confirmed change-order approval contract.
+ blockers.push('completion_signoff_unverified','billing_terms_unverified','change_order_approval_unverified');
+ return Object.freeze({status:'blocked',jobId:job.id,blockers:Object.freeze(blockers),invoiceCount:linkedInvoices.length,acceptedQuoteRecorded:linkedQuotes.some(x=>x.status==='Accepted'),mayPrepareInvoice:false,maySendInvoice:false});
+}
+export function explainJobDecision(job,decision,readiness){
  if(!job||!decision||!Array.isArray(decision.observations))throw Error('Verified job review required');
  const refs=[...new Set(decision.observations.flatMap(o=>o.refs||[]).filter(r=>r&&r.type&&r.id).map(r=>r.type+':'+r.id+'@'+(r.revision||0)))].slice(0,8);
  const findings=decision.observations.slice(0,4).map(o=>o.text);
  const unknowns=[...new Set((decision.unknowns||[]).map(x=>x.code))];
  const invoice=job.status==='Completed'?'Completed status is recorded, but invoice readiness requires independently reviewed completion/signoff, scope, billing terms, change-order approval and existing invoice state. No invoice has been prepared.':'Job is not recorded Completed; invoice readiness is not established.';
- const lines=['Job: '+job.title+' ('+job.status+').',...findings.map(x=>'Finding: '+x),findings.length?'':'No eligible exception was found in the available evidence; this is not a complete audit.',invoice,unknowns.length?'Unverified evidence: '+unknowns.join(', ')+'.':'',decision.proposals.length?'Available after explicit approval: '+decision.proposals.map(p=>p.label).join('; ')+'.':'No action is authorized from this review.', 'No record was changed. Open the saved job review to inspect sources and approval controls.'].filter(Boolean);
+ const readinessText=readiness?'Invoice readiness: '+readiness.status+' ('+readiness.blockers.join(', ')+'). No billing action is authorized.':'';
+ const lines=['Job: '+job.title+' ('+job.status+').',...findings.map(x=>'Finding: '+x),findings.length?'':'No eligible exception was found in the available evidence; this is not a complete audit.',invoice,readinessText,unknowns.length?'Unverified evidence: '+unknowns.join(', ')+'.':'',decision.proposals.length?'Available after explicit approval: '+decision.proposals.map(p=>p.label).join('; ')+'.':'No action is authorized from this review.', 'No record was changed. Open the saved job review to inspect sources and approval controls.'].filter(Boolean);
  return {content:lines.join('\n'),refs};
 }
