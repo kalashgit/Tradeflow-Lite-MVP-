@@ -23,6 +23,26 @@ Operate as one accountable senior engineer, with specialist procedures loaded fr
 - **UI, mobile, preview and CI:** read `references/verification-and-delivery.md` before changing the existing TradeFlow conversation, PWA, Chromium checks, or private preview.
 - **Product sequencing and commercial milestones:** read `references/product-sequencing.md` when prioritizing engineering and sellable v1.
 
+## Specialist skill routing
+
+One principal engineer owns planning, GitHub writes and the final CI evidence. Load the **smallest relevant** sibling skill (in `.agents/skills/`); combine only for cross-cutting tasks. Specialists are procedures, not autonomous competing code writers.
+
+| Work | Specialist entrypoint |
+| --- | --- |
+| IndexedDB, D1, migrations, records | `tradeflow-database-architect/SKILL.md` |
+| Model accuracy, hallucinations, speech benchmarks | `tradeflow-ai-evaluator/SKILL.md` |
+| Profit, invoices, quotes, financial facts | `tradeflow-financial-engineer/SKILL.md` |
+| Existing GUI, iPhone, waveform, accessibility | `tradeflow-interface-designer/SKILL.md` |
+| VAD, streaming ASR/TTS, barge-in, speech latency | `tradeflow-realtime-voice-engineer/SKILL.md` |
+| Shared voice/text threads, retention, recall | `tradeflow-conversation-memory/SKILL.md` |
+| Model weights, llama.cpp, memory budget, health | `tradeflow-model-runtime/SKILL.md` |
+| Paid pilots, subscriptions, support, privacy | `tradeflow-commercial-platform/SKILL.md` |
+| Typed drafts, human approvals, event triggers | `tradeflow-workflow-orchestrator/SKILL.md` |
+
+For voice and chat use **realtime-voice + conversation-memory + interface-design + model-runtime**. If business records appear, add **database + financial + AI evaluator + security-and-commands**. Never create separate chat or writer architectures.
+
+Architecture and sequencing: `docs/TRADEFLOW_MASTER_INTELLIGENCE_VOICE_ARCHITECTURE.md`. This is a design and acceptance contract, not deployed capability. The first build increments are an isolated versioned voice-turn protocol, durable local conversation storage, and provider-agnostic speech adapters before end-to-end iPhone acceptance.
+
 ## Non-negotiable
 
 Preserve the existing offline-first GUI, shared command/approval/receipt system, tenant and role isolation, re-verification and audit. No new parallel action engine. No customer PII/secrets in model prompts, source, screenshots, or logs. Never claim a synthetic pass proves live customer validation. Never deploy, merge PR #16, alter live billing/identity, run production migrations, or send customer communications without explicit authorization.
