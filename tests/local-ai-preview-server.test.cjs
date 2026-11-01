@@ -99,3 +99,30 @@ test('synthetic chat varies evidence-backed guidance for quote and labor questio
   assert.equal(metrics.reads,4);
  });
 });
+
+test('iPhone reported ICP prompt does not receive irrelevant invoice response',async()=>{
+ await host({},async({post,metrics})=>{
+  const r=await post('/api/ai/chat',{code:secret,messages:[{role:'user',content:'Hello AI how should I target my ideal customer profile for my electrical contracting business for maximum profit?'}]});
+  assert.equal(r.status,200);
+  const body=await r.json();
+  assert.equal(body.source,'synthetic_mock');assert.deepEqual(body.refs,[]);
+  assert.match(body.reply,/customer segments|customer profile/i);
+  assert.doesNotMatch(body.reply,/review the overdue invoice/i);
+  assert.equal(metrics.reads,0);assert.equal(metrics.writes,0);
+ });
+});
+test('live ICP answer is isolated general Qwen advice without company records',async()=>{
+ let seen;
+ await host({mode:'live',localFetch:async(url,options)=>{
+  seen=JSON.parse(options.body);
+  return {ok:true,json:async()=>({choices:[{message:{content:'Focus on customer segments with good contribution margin and repeat work; measure win rate, payment delays and acquisition cost.'},finish_reason:'stop'}]})};
+ }},async({post,metrics})=>{
+  const r=await post('/api/ai/chat',{code:secret,messages:[{role:'user',content:'How should I target my ideal customer profile for maximum profit?'}]});
+  assert.equal(r.status,200);
+  const body=await r.json();
+  assert.equal(body.source,'general_advice');assert.deepEqual(body.refs,[]);
+  assert.equal(body.executionAuthority,false);assert.equal(metrics.reads,0);assert.equal(metrics.writes,0);
+  assert.ok(seen.messages.some(x=>x.role==='system'));
+  assert.doesNotMatch(JSON.stringify(seen),/synthetic_invoice|synthetic_quote|tenant_record/);
+ });
+});
