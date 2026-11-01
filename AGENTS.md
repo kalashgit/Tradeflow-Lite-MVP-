@@ -10,7 +10,7 @@ This repository is an **existing**, offline-first, AI-native contractor operatin
 
 ## Specialist engineering skills (repository-local)
 
-The coordinating skill is `.agents/skills/tradeflow-principal-ai-engineer/SKILL.md`, with nine scoped specialist entrypoints listed in `docs/TRADEFLOW_AI_ENGINEERING_SKILLS.md`. Consult the relevant specialist rules for database, AI evaluation, finance, interface, duplex voice, conversation memory, model runtime, commercial operations and command orchestration. One principal engineer owns GitHub modifications and verification; specialist files are reusable guidance, not independent writers.
+The coordinating skill is `.agents/skills/tradeflow-principal-ai-engineer/SKILL.md`, with ten scoped specialist entrypoints (including general app engineering) listed in `docs/TRADEFLOW_AI_ENGINEERING_SKILLS.md`. Consult the relevant specialist rules for general app workflows, database, AI evaluation, finance, interface, duplex voice, conversation memory, model runtime, commercial operations and command orchestration. One principal engineer owns GitHub modifications and verification; specialist files are reusable guidance, not independent writers.
 
 The proposed unified voice-and-text design and bounded staged acceptance gates are in `docs/TRADEFLOW_MASTER_INTELLIGENCE_VOICE_ARCHITECTURE.md`. That design does not authorize microphone capture, speech model downloads, new production sync, monetization changes or deployment. Repo-based skills are not automatically installed as account-wide ChatGPT skills.
 
