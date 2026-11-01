@@ -13,6 +13,17 @@ let browser,activePage;
   // AI workspace -> actual saved job dossier -> deterministic evidence and existing review actions.
   await page.locator('[data-tab="settings"]:visible').first().click();
   await page.locator('.tf-more-menu [data-tab="ai"]').click();
+  // A natural-language question is investigated inside the existing saved AI thread, without private preview/model access.
+  await page.locator('#tfAiPrompt').fill('Review Warehouse rewiring job costs');
+  // Fixture uses a distinct saved job title; unmatched names must not resolve to fabricated records.
+  await page.locator('#tfAiChatForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Which job should I investigate?'),null,{timeout:10000});
+  assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2);
+  await page.locator('#tfAiPrompt').fill('Review my active jobs and invoice readiness');
+  await page.locator('#tfAiChatForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('No record was changed.'),null,{timeout:15000});
+  assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/invoice readiness/i);
+  assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/LOCAL RECORD EVIDENCE|DEVICE-LOCAL EVIDENCE REVIEW/);
   const aiJob=page.locator('[data-action="tfAiReviewJob"][data-id="job_01"]');
   await aiJob.waitFor();
   await aiJob.click();

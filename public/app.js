@@ -476,6 +476,7 @@ function tfAiContext(data){
 }
 function tfAiAttribution(message){
  if(message.role!=='assistant'||!message.source)return '';
+ if(message.source==='device_local_evidence')return '<div class="tf-ai-evidence"><span>LOCAL RECORD EVIDENCE · NOT VERIFIED CLOUD DATA</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
  const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':message.source==='unverified_model'?'UNVERIFIED MODEL RESPONSE':'MODEL UNAVAILABLE';
  const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x)).slice(0,8):[];
  return '<div class="tf-ai-evidence"><span>'+esc(mode)+'</span>'+(refs.length?'<small>Evidence: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
@@ -647,7 +648,7 @@ async function tfAiLocalJobReview(content){
    }
    answer='DEVICE-LOCAL EVIDENCE REVIEW (not an authenticated cloud tenant)\n'+summaries.join('\n\n');
   }
-  await tfAiSaveTurn({role:'assistant',content:answer.slice(0,5000),modality:'text',status:'committed',source:'device_local_evidence',refs:[...new Set(refs)].slice(0,8)});
+  await tfAiSaveTurn({role:'assistant',content:answer.slice(0,2400),modality:'text',status:'committed',source:'device_local_evidence',refs:[...new Set(refs)].slice(0,8)});
  }catch(error){tfChatError='Local job investigation was not completed: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
  return true;
