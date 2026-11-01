@@ -1,12 +1,13 @@
 # TradeFlow AI Engineering Skill System — Index
 
-**Purpose:** one coordinated ChatGPT-led Principal AI Engineer, nine specialist skills, one existing TradeFlow codebase. The files are repository-hosted engineering skills, not nine independent agents or automatically installed ChatGPT plugins.
+**Purpose:** one coordinated ChatGPT-led Principal AI Engineer, ten specialist skills, one existing TradeFlow codebase. The files are repository-hosted engineering skills, not nine independent agents or automatically installed ChatGPT plugins.
 
 ## Skills
 
 | Skill | Trigger | Entrypoint |
 | --- | --- | --- |
 | Principal AI Engineer | General engineering ownership, GitHub changes, CI | [Principal](../.agents/skills/tradeflow-principal-ai-engineer/SKILL.md) |
+| General App Engineer | Existing GUI, job workflows, offline data, mobile PWA | [General App](../.agents/skills/tradeflow-general-app-engineer/SKILL.md) |
 | Database Architect | IndexedDB, D1, migrations, chat persistence, sync | [Database](../.agents/skills/tradeflow-database-architect/SKILL.md) |
 | AI Evaluator | Model quality, financial hallucinations, speech latency | [Evaluator](../.agents/skills/tradeflow-ai-evaluator/SKILL.md) |
 | Financial Engineer | Deterministic cost/margin/cash calculations | [Finance](../.agents/skills/tradeflow-financial-engineer/SKILL.md) |
