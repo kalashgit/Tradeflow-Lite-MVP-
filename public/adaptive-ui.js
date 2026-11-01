@@ -5,7 +5,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const text=(v,n)=>typeof v==='string'&&v.length>0&&v.length<=n;
 const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,120}$/.test(v);
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
-const refs=v=>typeof v==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]{1,10}$/.test(v);
+const refs=v=>typeof v==='string'&&v.length<=260&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]{1,10}$/.test(v);
 const feedbackEvents=Object.freeze(['selection','light_impact','confirmation','warning','error','boundary','gesture_snapped','voice_state']);
 function createFeedback({enabled=false,nativeImpact}={}){
  return Object.freeze({emit(event,{receipt}={}){if(!enabled||!feedbackEvents.includes(event)||typeof nativeImpact!=='function')return false;if(event==='confirmation'&&receipt?.status!=='recorded_task_verified')return false;try{const result=nativeImpact(event);if(result&&typeof result.then==='function')void Promise.resolve(result).catch(()=>{});return true}catch{return false}}});
