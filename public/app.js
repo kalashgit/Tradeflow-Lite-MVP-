@@ -484,7 +484,7 @@ function tfAiAttribution(message){
 function tfAIChatView(data){
  const unlocked=!!tfAiKey();
  const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
- const examples=[['Job intelligence','Review my active jobs, identify cost overruns and invoice readiness'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
+ const examples=[['Business update','TradeFlow, give me an update on my business. What needs attention?'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
  const reviewJobs=(data.jobs||[]).filter(job=>typeof job.id==='string'&&job.id&&typeof job.title==='string').slice(0,5);
  const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
  const conversationReview=tfAiReviewJobId&&tfAiReviewThreadId===tfActiveChatThreadId?'<section class="tf-ai-preview-gate" aria-label="Conversation job approval"><strong>Job review and approval</strong><p>Local evidence only. Internal review actions require explicit approval; invoice preparation remains blocked where billing evidence is missing.</p><div data-decision-job="'+esc(tfAiReviewJobId)+'">'+(window.TradeFlowPilot?.decisions?.view(tfAiReviewJobId)||'')+'</div></section>':'';
@@ -628,6 +628,23 @@ async function tfAiDescribeError(err){
   return 'Network error: the browser could not reach /api/ai/chat or /api/ai/health ('+message.slice(0,60)+'). Open the preview directly in Safari, disable content blockers/VPN if applicable, and retry.';
  }
 }
+async function tfAiLocalBusinessBriefing(content){
+ const {isBusinessBriefingRequest,createOperationalBriefing}=await import('./intelligence-briefing.js');
+ if(!isBusinessBriefingRequest(content))return false;
+ if(!window.TradeFlowPilot?.evaluate)throw Error('Existing local operational detectors unavailable');
+ await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  const snapshot=await tfPilotSnapshot();
+  const evaluation=await window.TradeFlowPilot.evaluate();
+  const result=createOperationalBriefing({data:snapshot,evaluation,businessId:'local-business'});
+  tfAiReviewJobId=result.blockedJobIds.length===1?result.blockedJobIds[0]:null;
+  tfAiReviewThreadId=tfAiReviewJobId?tfActiveChatThreadId:null;
+  await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:result.refs.slice(0,8)});
+ }catch(error){tfChatError='Business briefing unavailable: '+String(error.message||error).slice(0,160)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI()}
+ return true;
+}
 async function tfAiLocalJobReview(content){
  const {resolveJobReviewIntent,explainJobDecision,assessInvoiceReadiness}=await import('./job-intelligence-request.js');
  const jobs=await all('jobs'),request=resolveJobReviewIntent(content,jobs);
@@ -661,7 +678,8 @@ async function tfAiLocalJobReview(content){
 async function tfAISend(text){
  const content=String(text||'').trim().slice(0,1200);
  if(!content||tfChatBusy)return;
- if(await tfAiLocalJobReview(content))return;
+ if(await tfAiLocalBusinessBriefing(content))return;
+  if(await tfAiLocalJobReview(content))return;
  if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
  tfChatError='';

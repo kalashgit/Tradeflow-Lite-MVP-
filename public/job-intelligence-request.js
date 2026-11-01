@@ -1,9 +1,10 @@
+import {evaluateInvoiceCandidate} from './invoice-readiness.js';
 // Deterministic local owner intent routing. Never authorizes a write or determines invoice eligibility.
 export function resolveJobReviewIntent(text,jobs){
  if(typeof text!=='string'||text.length>1200)return {status:'not_job_review'};
  const lower=text.toLowerCase();
  if(!/\b(job|jobs|project|projects|invoice|invoicing|bill|billing|cost|costs|overrun|labor|labour)\b/.test(lower)||!/\b(review|check|investigat|identify|find|ready|prepare|which|show|explain|overrun)/.test(lower))return {status:'not_job_review'};
- const eligible=(Array.isArray(jobs)?jobs:[]).filter(x=>x&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.trim()&&['Completed','Cancelled'].includes(x.status)!==true);
+ const eligible=(Array.isArray(jobs)?jobs:[]).filter(x=>x&&(!x.businessId||x.businessId==='local-business')&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.trim()&&['Completed','Cancelled'].includes(x.status)!==true);
  const completed=(Array.isArray(jobs)?jobs:[]).filter(x=>x&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.trim()&&x.status==='Completed');
  const all=[...eligible,...completed];
  const matches=all.filter(x=>lower.includes(x.title.trim().toLowerCase()));
@@ -33,7 +34,8 @@ export function resolveJobReviewIntent(text,jobs){
  return {status:'selected',jobs:requestedAll?all:[all[0]]};
 }
 // Conservative local readiness contract: no customer-specific signoff/terms are inferred.
-export function assessInvoiceReadiness({job,invoices=[],quotes=[]}){
+export function assessInvoiceReadiness({job,invoices=[],quotes=[],customer=null,quote=null,evidence=undefined,businessId='local-business'}){
+ if(evidence!==undefined)return evaluateInvoiceCandidate({job,invoices,customer,quote,evidence,businessId});
  if(!job||typeof job.id!=='string')throw Error('Saved job identity required');
  const local=rows=>Array.isArray(rows)?rows.filter(r=>r&&(!r.businessId||r.businessId==='local-business')):[];
  const linkedInvoices=local(invoices).filter(x=>x.jobId===job.id&&x.status!=='Void');
