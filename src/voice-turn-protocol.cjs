@@ -7,17 +7,22 @@ const safeId=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{4,100}$/.test(s);
 function createVoiceTurnMachine({sessionId,threadId}={}){
  if(!safeId(sessionId)||!safeId(threadId))throw Error('Valid voice session and thread IDs required');
  let state='idle',sequence=-1,generation=0,partial='',lastUserFinal='',lastAssistantText='';
- const seen=new Set();
+ const seen=new Map();
+ function remember(event,signature){seen.set(event.event_id,signature);if(seen.size>2048)seen.delete(seen.keys().next().value)}
  function snapshot(){return Object.freeze({sessionId,threadId,state,sequence,generation,partial,lastUserFinal,lastAssistantText})}
  function dispatch(event){
   if(!event||event.version!==1||event.session_id!==sessionId||event.thread_id!==threadId||!safeId(event.event_id)||!Number.isSafeInteger(event.sequence)||event.sequence<0||typeof event.kind!=='string')throw Error('Voice event contract invalid');
-  if(seen.has(event.event_id))return {status:'duplicate',snapshot:snapshot(),effects:[]};
+  const signature=JSON.stringify(event);
+  if(seen.has(event.event_id)){
+   if(seen.get(event.event_id)!==signature)throw Error('Conflicting duplicate voice event');
+   return {status:'duplicate',snapshot:snapshot(),effects:[]};
+  }
   if(event.sequence<=sequence)throw Error('Voice event sequence not increasing');
   const effects=[],kind=event.kind,data=event.payload||{};
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid voice event payload');
   if(kind==='tts.audio.chunk'&&(!Number.isSafeInteger(data.generation)||data.generation!==generation||state!=='speaking')){
    // Frames queued before an interruption are never allowed to resume playback.
-   seen.add(event.event_id);sequence=event.sequence;
+   remember(event,signature);sequence=event.sequence;
    return {status:'stale_audio_ignored',snapshot:snapshot(),effects:[]};
   }
   const from=state;
@@ -33,7 +38,7 @@ function createVoiceTurnMachine({sessionId,threadId}={}){
     state='failed';effects.push({kind:'mic.release',reason:'permission_denied'});break;
    case 'vad.speech_start':
     if(state!=='listening')throw Error('Speech start requires listening');
-    state='capturing';partial='';lastUserFinal='';effects.push({kind:'caption.begin'});break;
+    state='capturing';partial='';lastUserFinal='';lastAssistantText='';effects.push({kind:'caption.begin'});break;
    case 'asr.partial':
     if(!['capturing','transcribing'].includes(state))throw Error('ASR partial requires capture');
     if(typeof data.text!=='string'||data.text.length>2000)throw Error('Invalid partial ASR');
@@ -63,7 +68,7 @@ function createVoiceTurnMachine({sessionId,threadId}={}){
     state='listening';effects.push({kind:'audio.playback.complete',generation});break;
    case 'voice.interrupt':
     if(state!=='speaking')throw Error('Voice interruption requires speaking');
-    generation++;state='capturing';partial='';
+    generation++;state='capturing';partial='';lastAssistantText='';
     effects.push({kind:'audio.playback.cancel_prior_generation',generation},{kind:'conversation.assistant_turn.interrupted'},{kind:'caption.begin'});
     break;
    case 'voice.session.end':
@@ -76,7 +81,7 @@ function createVoiceTurnMachine({sessionId,threadId}={}){
     break;
    default:throw Error('Unknown voice event kind');
   }
-  seen.add(event.event_id);sequence=event.sequence;
+  remember(event,signature);sequence=event.sequence;
   return {status:'accepted',transition:from+'->'+state,snapshot:snapshot(),effects};
  }
  return Object.freeze({dispatch,snapshot});
