@@ -21,8 +21,20 @@ const token='synthetic-browser-local-private-test-token';
    try {
     await page.goto(url,{waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>!!window.TradeFlowPilot,{timeout:30000});
-    // The live TradeFlow navigation handler owns the transition to the existing chat screen.
-    await page.locator('[data-tab="settings"]').first().click();
+    // New installations enter onboarding. Complete it ONLY in this isolated browser's
+    // local IndexedDB, consistent with existing synthetic TradeFlow browser journeys.
+    await page.evaluate(async()=>{
+     const request=indexedDB.open('tradeflow-lite-v1',9);
+     const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
+     const tx=db.transaction('settings','readwrite');
+     tx.objectStore('settings').put({id:'business',company:'Synthetic AI Conversation Test',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true});
+     await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+     db.close();
+    });
+    await page.reload();
+    await page.waitForFunction(()=>!!document.querySelector('[data-tab="settings"]'),{timeout:30000});
+    // Use the existing More → TradeFlow AI navigation, not a replacement interface.
+    await page.locator('[data-tab="settings"]:visible').first().click();
     await page.locator('.tf-more-menu [data-tab="ai"]').click();
     await page.locator('#tfAiUnlockForm input[name="code"]').fill(token);
     await page.locator('#tfAiUnlockForm button[type="submit"]').click();
