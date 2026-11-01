@@ -46,3 +46,7 @@ Putting `SKILL.md` in GitHub makes the instructions available to engineering age
 7. Run private physical-phone acceptance, commercial infrastructure gates and real contractor pilots; only then consider billing or release.
 
 **No deployment, production database migration, identity changes, live merchant operations or PR merge are authorized.**
+
+## Coordination with the separate TradeFlow Manager
+
+The product/engineering manager's skills are indexed in [TradeFlow Manager Skills](TRADEFLOW_MANAGER_SKILLS.md). The Manager sets evidence-backed ICP/value priorities, triages agent work, validates commercial needs and owns release/go-no-go advice. The **existing Principal AI Engineer** retains sole code-writing ownership and exact-SHA implementation verification. This is a management layer around the same application and branch—not a second development team or autonomous background executor.
