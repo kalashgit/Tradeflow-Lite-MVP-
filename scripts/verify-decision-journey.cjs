@@ -26,6 +26,10 @@ let browser,activePage;
   assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/LOCAL RECORD EVIDENCE|DEVICE-LOCAL EVIDENCE REVIEW/);
   await page.locator('#tfAiPrompt').fill('Review Synthetic panel replacement job costs');
   await page.locator('#tfAiChatForm button[type="submit"]').click();
+  // A prior portfolio question may already have opened the same job's review.
+  // Wait for the NEW conversational answer instead of reusing an earlier review panel.
+  await page.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===6,null,{timeout:15000});
+  assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/Review Synthetic panel replacement job costs/);
   await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').first().waitFor({timeout:15000});
   assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),6,'Single-job investigation persists in the shared conversation');
   const aiJob=page.locator('[data-action="tfAiReviewJob"][data-id="job_01"]');
