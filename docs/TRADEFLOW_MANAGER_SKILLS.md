@@ -17,7 +17,7 @@
 
 ## Coordination with existing engineering specialists
 
-Use [Principal AI Engineer](../.agents/skills/tradeflow-principal-ai-engineer/SKILL.md) and [AI Engineering Skills Index](TRADEFLOW_AI_ENGINEERING_SKILLS.md) for code implementation, architecture and verification. **The Manager owns prioritization and customer-value acceptance; the Principal Engineer owns one coherent code-writing branch.** Specialist roles are instructions, not spawned independent agents. Never double-write shared files, create substitute apps or confuse completed tasks with scheduled ones.
+Use [Principal AI Engineer](../.agents/skills/tradeflow-principal-ai-engineer/SKILL.md), [General App Engineer](../.agents/skills/tradeflow-general-app-engineer/SKILL.md) and [AI Engineering Skills Index](TRADEFLOW_AI_ENGINEERING_SKILLS.md) for code implementation, architecture and verification. **The Manager owns prioritization and customer-value acceptance; the Principal Engineer owns one coherent code-writing branch.** Specialist roles are instructions, not spawned independent agents. Never double-write shared files, create substitute apps or confuse completed tasks with scheduled ones.
 
 ## Market decision (provisional)
 
