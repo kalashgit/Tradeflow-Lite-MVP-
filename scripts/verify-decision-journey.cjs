@@ -114,6 +114,8 @@ let browser,activePage;
   await approvalPage.reload();await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
   await approvalPage.locator('[data-tab="settings"]:visible').first().click();
   await approvalPage.locator('.tf-more-menu [data-tab="ai"]').click();
+  // A newer, empty thread may be selected after reload; reopen the exact original.
+  await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
   const afterReload=await approvalPage.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','invoices']);db.close();return d});
   assert.equal(afterReload.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1,'Reload must not replay approved command');
