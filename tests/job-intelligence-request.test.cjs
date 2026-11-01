@@ -14,3 +14,9 @@ test('ambiguous, empty and oversized scopes fail closed',async()=>{const {resolv
 test('explanation reports uncertainty and cannot claim invoice readiness or execution',async()=>{const {explainJobDecision}=await load();const d={observations:[{text:'Recorded cost exception',refs:[{type:'jobs',id:'b',revision:2}]}],unknowns:[{code:'external_settlement_and_payroll_unverified'}],proposals:[]};const x=explainJobDecision(jobs[1],d);assert.match(x.content,/invoice readiness requires/);assert.match(x.content,/No record was changed/);assert.deepEqual(x.refs,['jobs:b@2'])});
 
 test('invoice readiness blocks unsupported signoff, financial scope and existing invoices',async()=>{const {assessInvoiceReadiness}=await load();const job={id:'j1',status:'Completed',customerId:'c1',quoteId:'q1'};const r=assessInvoiceReadiness({job,quotes:[{id:'q1',status:'Accepted'}]});assert.equal(r.status,'blocked');assert.equal(r.mayPrepareInvoice,false);assert.ok(r.blockers.includes('completion_signoff_unverified'));assert.ok(r.blockers.includes('billing_terms_unverified'));assert.ok(r.blockers.includes('change_order_approval_unverified'));const b=assessInvoiceReadiness({job,invoices:[{jobId:'j1',status:'Draft'}]});assert.ok(b.blockers.includes('existing_invoice_requires_review'));const other=assessInvoiceReadiness({job,invoices:[{jobId:'j1',status:'Draft',businessId:'foreign-business'}]});assert.equal(other.invoiceCount,0);});
+test('foreign-tenant completed jobs are excluded from local natural-language review',async()=>{
+ const {resolveJobReviewIntent}=await load();
+ const input=[{id:'private',businessId:'other-tenant',title:'Foreign job',status:'Completed'}];
+ assert.equal(resolveJobReviewIntent('Review my completed jobs',input).status,'empty');
+ assert.equal(resolveJobReviewIntent('Review Foreign job costs',input).status,'ambiguous');
+});
