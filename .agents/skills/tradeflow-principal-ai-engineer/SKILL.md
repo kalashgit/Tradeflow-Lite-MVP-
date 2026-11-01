@@ -29,6 +29,7 @@ One principal engineer owns planning, GitHub writes and the final CI evidence. L
 
 | Work | Specialist entrypoint |
 | --- | --- |
+| General GUI, offline business workflows, forms, iPhone PWA | `tradeflow-general-app-engineer/SKILL.md` |
 | IndexedDB, D1, migrations, records | `tradeflow-database-architect/SKILL.md` |
 | Model accuracy, hallucinations, speech benchmarks | `tradeflow-ai-evaluator/SKILL.md` |
 | Profit, invoices, quotes, financial facts | `tradeflow-financial-engineer/SKILL.md` |
