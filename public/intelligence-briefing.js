@@ -28,3 +28,15 @@ export function createOperationalBriefing({data,evaluation,businessId='local-bus
  ].filter(Boolean);
  return Object.freeze({status:'device_local_review',content:lines.join('\n').slice(0,3500),activeCount:active.length,completedCount:completed.length,blockedInvoiceCount:blocked.length,openTaskCount:openTasks.length,pendingCommandCount:pending.length,refs:Object.freeze([...new Set([...findings.flatMap(f=>f.recordRefs.map(ref)),...blocked.map(x=>'jobs:'+x.job.id)])].slice(0,12)),blockedJobIds:Object.freeze(blocked.map(x=>x.job.id)),executionAuthority:false});
 }
+
+/* Follow-up classification does not authorize action; the host must bind a thread-scoped record. */
+export function classifyBriefingFollowUp(s){
+ if(typeof s!=='string'||s.length>240)return null;
+ const v=s.trim().toLowerCase();
+ if(/^why (?:is|was) (?:that|this|the) job blocked\??$/.test(v))return 'why_blocked';
+ if(/^who (?:needs to|has to|must|should) approv(?:e|e) (?:it|that|this)\??$/.test(v))return 'who_approves';
+ if(/^(?:show me|show|inspect) (?:the|that|its) evidence\??$/.test(v))return 'show_evidence';
+ if(/^(?:prepare|open) (?:the|that|its) review\??$/.test(v))return 'open_review';
+ if(/^(?:go to|open) (?:that|this|the) job\??$/.test(v))return 'open_job';
+ return null;
+}
