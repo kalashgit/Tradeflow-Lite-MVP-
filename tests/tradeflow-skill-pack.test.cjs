@@ -3,11 +3,11 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const base=path.resolve(__dirname,'../.agents/skills');
 const required=[
- 'tradeflow-principal-ai-engineer','tradeflow-database-architect','tradeflow-ai-evaluator',
+ 'tradeflow-principal-ai-engineer','tradeflow-general-app-engineer','tradeflow-database-architect','tradeflow-ai-evaluator',
  'tradeflow-financial-engineer','tradeflow-interface-designer','tradeflow-realtime-voice-engineer',
  'tradeflow-conversation-memory','tradeflow-model-runtime','tradeflow-commercial-platform','tradeflow-workflow-orchestrator'
 ];
-test('principal and nine TradeFlow specialist skill entrypoints are present',()=>{
+test('principal and ten TradeFlow specialist skill entrypoints are present',()=>{
  for(const slug of required)assert.ok(fs.existsSync(path.join(base,slug,'SKILL.md')),slug+' missing');
 });
 test('each skill has bounded valid frontmatter, UI metadata and existing references',()=>{
