@@ -4,7 +4,7 @@
 // Real Qwen inference is opt-in and loopback only.
 'use strict';
 const {briefFromAuthorizedSource}=require('../src/local-ai-context-bridge.cjs');
-const principal={issuer:'https://synthetic.example',subject:'synthetic_owner'};
+const principal={verified:true,issuer:'https://synthetic.example',subject:'synthetic_owner'};
 const businessId='synthetic_business_01';
 const records=[
  {record_type:'invoices',id:'synthetic_invoice_01',revision:1,updated_at:'2026-11-01T00:00:00Z',payload:JSON.stringify({id:'synthetic_invoice_01',businessId,status:'overdue',dueDate:'2026-10-17',currency:'USD',number:'SYN-1'})},
