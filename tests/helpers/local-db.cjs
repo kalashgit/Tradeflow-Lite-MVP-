@@ -2,10 +2,12 @@
 // Small transactional test host. Browser verification also exercises real IndexedDB.
 const copy=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
 const STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments','invoices','jobCosts','marketingCampaigns','crew','routePlans','suppliers','supplyOrders','commandLog','calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'];
-function createDB(initial={}){
- const state=Object.fromEntries(STORES.map(s=>[s,new Map((initial[s]||[]).map(x=>[x.id,copy(x)]))]));
+function createDB(initial={},extraStores=[]){
+ const names=[...STORES,...extraStores];
+ if(new Set(names).size!==names.length)throw Error('Duplicate test store');
+ const state=Object.fromEntries(names.map(s=>[s,new Map((initial[s]||[]).map(x=>[x.id,copy(x)]))]));
  const waiting=[];let active=false;
- const db={version:9,failPutOnce:false,failPutAt:0,objectStoreNames:STORES.slice(),dump:()=>Object.fromEntries(STORES.map(s=>[s,[...state[s].values()].map(copy)]))};
+ const db={version:extraStores.length?10:9,failPutOnce:false,failPutAt:0,objectStoreNames:names.slice(),dump:()=>Object.fromEntries(names.map(s=>[s,[...state[s].values()].map(copy)]))};
  function start(){if(active||!waiting.length)return;active=true;const tx=waiting.shift();tx.start()}
  db.transaction=(names,mode)=>{
   names=typeof names==='string'?[names]:Array.from(names);

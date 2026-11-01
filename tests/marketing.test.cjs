@@ -68,6 +68,6 @@ const form=(fields)=>({preventDefault(){},target:{id:'tfMarketingForm',fields}})
  assert.equal(mod._test.marketingSummary(data).spend,40.20);
  assert.ok(app.includes("tab==='marketing'"));
  assert.ok(app.includes("'marketingCampaigns','crew','routePlans'"),'Marketing must have a real database store');
- assert.ok(app.includes('indexedDB.open(DB,9)'),'Marketing requires a browser storage migration');
+ assert.ok(app.includes('indexedDB.open(DB,window.TradeFlowConversationStore?.VERSION||10)'),'Marketing requires a browser storage migration');
  console.log('PASS: Marketing V2 campaigns, ICP/persona, local attribution, linked jobs/cash, Finance spend, safe manual workflows');
 })().catch(err=>{console.error(err);process.exitCode=1});
