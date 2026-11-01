@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "status": "evaluation_candidates_only",
+  "defaultSpeechMode": "disabled",
+  "defaultAudioRetention": "none",
+  "rules": {
+    "modelArtifacts": "do_not_store_in_git",
+    "licenses": "verify_code_and_weights_before_download_distribution_or_production",
+    "activation": "explicit_local_development_approval_and_hardware_fit",
+    "inference": "must_use_existing_tradeflow_authorization_and_validation",
+    "transport": "localhost_or_private_authenticated_adapter_only",
+    "fallback": "text_only",
+    "noAutomaticCloudFallback": true
+  },
+  "providers": [
+    {
+      "id": "qwen-local-llm",
+      "kind": "llm",
+      "runtime": "llama.cpp",
+      "modelFamily": "Qwen3",
+      "weightsRef": null,
+      "weightsSha256": null,
+      "licenseReviewed": false,
+      "enabled": false,
+      "notes": "Existing loopback connector; historical Codespace Qwen3-0.6B reported. Pin exact model artifacts before acceptance."
+    },
+    {
+      "id": "sherpa-streaming-asr",
+      "kind": "asr",
+      "runtime": "sherpa-onnx",
+      "modelFamily": "streaming Zipformer or Paraformer",
+      "weightsRef": null,
+      "weightsSha256": null,
+      "licenseReviewed": false,
+      "enabled": false,
+      "notes": "Candidate for partial/final transcription; benchmark electrical terminology."
+    },
+    {
+      "id": "whisper-cpp-asr",
+      "kind": "asr",
+      "runtime": "whisper.cpp",
+      "modelFamily": "Whisper",
+      "weightsRef": null,
+      "weightsSha256": null,
+      "licenseReviewed": false,
+      "enabled": false,
+      "notes": "Alternative transcription path; do not assume sample stream is full-duplex."
+    },
+    {
+      "id": "sherpa-silero-vad",
+      "kind": "vad",
+      "runtime": "sherpa-onnx",
+      "modelFamily": "Silero VAD",
+      "weightsRef": null,
+      "weightsSha256": null,
+      "licenseReviewed": false,
+      "enabled": false,
+      "notes": "Candidate endpointing for noisy job sites."
+    },
+    {
+      "id": "sherpa-piper-vits",
+      "kind": "tts",
+      "runtime": "sherpa-onnx",
+      "modelFamily": "Piper / VITS",
+      "weightsRef": null,
+      "weightsSha256": null,
+      "licenseReviewed": false,
+      "enabled": false,
+      "notes": "Latency baseline for original clear voice."
+    },
+    {
+      "id": "sherpa-kokoro-tts",
+      "kind": "tts",
+      "runtime": "sherpa-onnx",
+      "modelFamily": "Kokoro",
+      "weightsRef": null,
+      "weightsSha256": null,
+      "licenseReviewed": false,
+      "enabled": false,
+      "notes": "Alternative naturalness/latency candidate; license and redistribution review required."
+    }
+  ],
+  "evaluation": {
+    "requiredMetrics": [
+      "asr_wer_domain",
+      "vad_false_endpoint_rate",
+      "llm_groundedness",
+      "unsupported_numeric_claim_rate",
+      "tts_first_chunk_ms",
+      "first_audible_response_ms",
+      "barge_in_stop_ms",
+      "peak_ram_mib",
+      "cold_start_ms",
+      "p95_recovery_ms"
+    ],
+    "hardwareProfileRequired": true,
+    "benchmarkDatasetShaRequired": true,
+    "doNotClaimPerformanceFromTargets": true
+  }
+}
