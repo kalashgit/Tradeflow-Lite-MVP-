@@ -386,6 +386,15 @@ function tfFinancePhotoSection(record,target){
    identity is NOT an authenticated cloud identity, and history is never synchronized. */
 let tfChatMessages=[],tfChatThreads=[],tfActiveChatThreadId=null,tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='',tfAiReviewJobId=null,tfAiReviewThreadId=null;
 const tfAiLocalScope=Object.freeze({kind:'local',businessId:'local-business',actorId:'local-owner'});
+/* AI-owned adapter: UI motion consumes this public surface; app state remains authoritative. */
+function tfHostRead(){
+ const selected=['jobs','tasks','quotes','customers'].includes(tab)&&tfRecordDetailId?
+  {store:tab,id:tfRecordDetailId}:null;
+ return {actorId:tfAiLocalScope.actorId,businessId:tfAiLocalScope.businessId,screen:tab,
+  selected,threadId:tfActiveChatThreadId,contextRecordId:tfAiReviewThreadId===tfActiveChatThreadId?tfAiReviewJobId:null};
+}
+function tfHostDraftRead(){return document.getElementById('tfAiPrompt')?.value??document.getElementById('tfAiQuickPrompt')?.value??tfAiPanelDraft??''}
+function tfHostDraftWrite(value){tfAiPanelDraft=value;const prompt=document.getElementById('tfAiPrompt')||document.getElementById('tfAiQuickPrompt');if(prompt)prompt.value=value}
 async function tfAiLoadHistory(){
  const store=window.TradeFlowConversationStore;
  if(!store){tfChatError='Local conversation storage module unavailable; sending is disabled.';return}
@@ -2410,6 +2419,16 @@ function tfInitializePilot(){
   }});
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
+}
+if(window.TradeFlowHostLifecycleFactory){
+ window.TradeFlowHostLifecycle=window.TradeFlowHostLifecycleFactory.createHostLifecycle({
+  read:tfHostRead,readDraft:tfHostDraftRead,writeDraft:tfHostDraftWrite,
+  stopMicrophone:()=>window.TradeFlowVoice?.stopMicrophoneNow?.(),
+  recordExists:async ref=>!!(await get(ref.store,ref.id))&&(!((await get(ref.store,ref.id))?.businessId)||((await get(ref.store,ref.id))?.businessId)==='local-business'),
+  navigate:async target=>{if(target.selected)await tfPilotOpenRecord(target.selected);else await tfNavigateWorkspace(target.screen)},
+  restoreFocus:target=>{const el=target.screen==='ai'?document.getElementById('tfAiPrompt'):document.querySelector('[data-tab="'+target.screen+'"]:visible');el?.focus?.()},
+  closeVisual:()=>{tfAiPanelOpen=false;window.TradeFlowVoice?.close?.();tfAiRefreshOverlay()}
+ });
 }
 async function tfPilotNavigateCommand(workspace){
  if(!window.TradeFlowPilot)return tfNavigateWorkspace(workspace);
