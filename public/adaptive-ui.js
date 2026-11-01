@@ -68,6 +68,7 @@ function conversation({jobId,reviewThreadId,activeThreadId,messages,data,owner,r
 }
 function configure({document,readState,commands,notify}){
  registry.connect(document);
+ root.TradeFlowPresentationMotion?.connect({document,readState,motion:createMotion({document})});
  document.addEventListener('click',async e=>{const b=e.target.closest?.('[data-adaptive-source]'),card=b?.closest('[data-adaptive-owner]');if(!card||b.disabled)return;e.preventDefault();b.disabled=true;
  try{const current=readState(),key=JSON.parse(card.dataset.adaptiveOwner),ref=b.dataset.adaptiveSource;if(key[0]!==current.actor||key[1]!==current.businessId||key[2]!==current.threadId||!current.messages.some(m=>m.id===key[3]&&m.source==='device_local_evidence'&&m.refs?.includes(ref)))throw Error('Evidence context changed. Reopen this investigation.');
  const [store,id]=ref.split('@')[0].split(':'),plan=await commands.prepare({commandId:'record.open',params:{ref:{store,id}}});

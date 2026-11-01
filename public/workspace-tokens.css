@@ -7,3 +7,8 @@
 .tf-adaptive-card .tf-adaptive-content button:disabled{background:var(--tf-graphite-raised)!important;color:var(--tf-muted)!important;border:1px solid var(--tf-border)!important;opacity:1;cursor:not-allowed}
 @media(prefers-contrast:more){:is(.tf-command-center,.tf-adaptive-card){--tf-border:currentColor;--tf-hairline:currentColor} :is(.tf-command-center,.tf-adaptive-card) :is(button,summary):focus-visible{outline-width:3px}}
 @media(forced-colors:active){:is(.tf-command-center,.tf-adaptive-card){border-color:CanvasText}:is(.tf-command-center,.tf-adaptive-card) :is(button,summary){forced-color-adjust:auto}}
+/* Use one entry animation; pointer interaction can cancel it immediately. */
+.tf-presentation-motion :is(.tf-ai-mini-panel,.tf-voice-sheet,.tf-notif-panel,.tf-record-modal){animation:none!important}
+.tf-presentation-motion .tf-voice-top{touch-action:none}
+.tf-presentation-motion .tf-voice-sheet{transition:transform var(--tf-motion-panel) var(--tf-motion-ease)}
+@media(prefers-reduced-motion:reduce){.tf-presentation-motion .tf-voice-sheet{transition:none!important}}
