@@ -82,7 +82,7 @@ test('invalid content, cross-origin post and unsupported write are denied',async
  await host({},async({post,origin})=>{
   assert.equal((await post('/api/ai/chat',{code:secret,messages:[{role:'user',content:'x'}]})).status,400);
   assert.equal((await post('/api/ai/chat',{code:secret,messages:[message]},{Origin:'https://attacker.invalid'})).status,403);
-  assert.equal((await post('/api/v1/businesses/synthetic_business_01/records/jobs/j_01',{},{})).status,404);
+  assert.equal((await post('/api/v1/businesses/synthetic_business_01/records/jobs/j_01',{},{})).status,405);
   assert.equal((await fetch(origin+'/.env')).status,403);
  });
 });
