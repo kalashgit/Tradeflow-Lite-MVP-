@@ -29,11 +29,22 @@ const db={
 async function main(){
  const {readIntelligenceContext}=await import('../src/intelligence-context.js');
  const question='What should I review first to protect profitability and cash flow?';
- const result=await briefFromAuthorizedSource({db,principal,businessId,question,enabled:true,contextReader:readIntelligenceContext,timeoutMs:180000});
+ const mock=process.argv.includes('--mock');
+ if(process.argv.some(arg=>arg.startsWith('--')&&arg!=='--mock'))throw Error('Supported option: --mock');
+ const fetchImpl=async(url,request)=>{
+  if(!mock)throw Error('Mock invoked in live mode');
+  if(new URL(url).hostname!=='127.0.0.1')throw Error('Model endpoint is not loopback');
+  const messages=JSON.parse(request.body).messages;
+  const requestPayload=JSON.parse(messages.find(m=>m.role==='user').content);
+  const ref=requestPayload.evidence.records.find(r=>r.ref==='invoices:synthetic_invoice_01@1')?.ref;
+  if(!ref)throw Error('Expected synthetic evidence was not included');
+  return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({answer:'Review the synthetic overdue invoice; settlement status is not verified.',refs:[ref]})},finish_reason:'stop'}]})};
+ };
+ const result=await briefFromAuthorizedSource({db,principal,businessId,question,enabled:true,contextReader:readIntelligenceContext,timeoutMs:180000,...(mock?{fetchImpl}:{})});
  if(result.status!=='completed'||!result.readReverified||result.executionAuthority!==false||!result.refs?.length||writes!==0||queries<2)throw Error('End-to-end source briefing failed: '+JSON.stringify({status:result.status,queries,writes}));
- console.log('TradeFlow development Qwen briefing PASS');
+ console.log(mock?'TradeFlow H04-01 → mock provider integration PASS (NO MODEL INFERENCE)':'TradeFlow H04-01 → live Qwen briefing PASS');
  console.log('Source: actual H04-01 readIntelligenceContext (synthetic D1, synthetic principal)');
  console.log('Read queries:',queries,'writes:',writes,'refs:',result.refs.join(', '));
- console.log('Model answer (UNTRUSTED; NOT a business action):',result.answer);
+ console.log(mock?'Deterministic mock answer (NOT Qwen inference):':'Model answer (UNTRUSTED; NOT a business action):',result.answer);
 }
 main().catch(e=>{console.error('Development briefing failed:',e.message);process.exitCode=1});
