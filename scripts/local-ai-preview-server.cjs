@@ -7,6 +7,7 @@
 const http=require('node:http'),fs=require('node:fs/promises'),path=require('node:path');
 const crypto=require('node:crypto');
 const {briefFromAuthorizedSource}=require('../src/local-ai-context-bridge.cjs');
+const {adviseGenerally}=require('../src/local-ai-general-advice.cjs');
 const STATIC_ROOT=path.resolve(__dirname,'../public');
 const principal=Object.freeze({verified:true,issuer:'https://synthetic.preview.invalid',subject:'synthetic_owner'});
 const businessId='synthetic_demo_business';
@@ -105,6 +106,14 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      if(mode==='mock'&&!localFetch){
       const informational=mockOutOfScope(question);
       if(informational)return send(res,200,{reply:informational,refs:[],source:'synthetic_mock',syntheticDemo:true,executionAuthority:false,readReverified:false});
+     }
+     // Broad business strategy is not an evidence-backed record question. Route it to
+     // a separate, zero-record, opt-in general-advice inference path in LIVE mode.
+     // In mock mode the explicit missing-evidence response above remains authoritative.
+     if(mode==='live' && mockOutOfScope(question)){
+      const result=await adviseGenerally({question:question.trim(),enabled:true,timeoutMs:45000,...(localFetch?{fetchImpl:localFetch}:{})});
+      if(result.status!=='completed')return send(res,200,{reply:'Qwen could not complete general guidance ('+result.status+'). No business action was taken.',refs:[],source:'unavailable',syntheticDemo:true,executionAuthority:false});
+      return send(res,200,{reply:result.answer,refs:[],source:'general_advice',syntheticDemo:true,executionAuthority:false,readReverified:false});
      }
      const {readIntelligenceContext}=await import('../src/intelligence-context.js');
      const result=await briefFromAuthorizedSource({
