@@ -14,6 +14,12 @@ The coordinating skill is `.agents/skills/tradeflow-principal-ai-engineer/SKILL.
 
 The proposed unified voice-and-text design and bounded staged acceptance gates are in `docs/TRADEFLOW_MASTER_INTELLIGENCE_VOICE_ARCHITECTURE.md`. That design does not authorize microphone capture, speech model downloads, new production sync, monetization changes or deployment. Repo-based skills are not automatically installed as account-wide ChatGPT skills.
 
+## Product management and specialist coordination (repository-local)
+
+For product/engineering management, daily priorities, ICP validation, value economics, agent delegation, release gates and successor handoff, read `docs/TRADEFLOW_MANAGER_SKILLS.md` and `.agents/skills/tradeflow-principal-manager/SKILL.md`. This manager coordinates one existing Principal AI Engineer, general app engineering and read-only market/commercial research; it does **not** become a second code writer or a self-running background automation.
+
+The November 1 provisional beachhead is **Austin owner-led 5–15-person small commercial electrical projects plus commercial service and maintenance**, with residential tertiary. This is a customer-discovery hypothesis, not verified market fit or permission to replace the authoritative roadmap. The near-term value hypothesis is job-coded labor/material capture → trustworthy estimate-vs-actual review → change-order and invoice readiness. Preserve competing customer research, disconfirming findings and the four Code/Product/Operations/Outcome evidence gates. See `docs/TRADEFLOW_MANAGER_HANDOFF_2026-11-01.md`.
+
 ## Engineering rules
 - Preserve the single shared command, authorization, explicit approval, auditable receipt and uncertainty-reconciliation architecture. No parallel autonomous writer.
 - Maintain tenant isolation, offline-first data preservation, role boundaries, deterministic source bindings, safe local queue recovery and authorization rechecks. A lost acknowledgment must not cause a blind replay.
