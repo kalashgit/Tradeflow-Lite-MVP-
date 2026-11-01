@@ -483,11 +483,11 @@ function tfAiAttribution(message){
 function tfAIChatView(data){
  const unlocked=!!tfAiKey();
  const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
- const examples=[['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
+ const examples=[['Job intelligence','Review my active jobs, identify cost overruns and invoice readiness'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
  const reviewJobs=(data.jobs||[]).filter(job=>typeof job.id==='string'&&job.id&&typeof job.title==='string').slice(0,5);
  const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
  const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
- return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(unlocked&&!tfChatBusy?'':'disabled')+' placeholder="'+(unlocked?'Ask TradeFlow AI...':'Unlock private preview to chat')+'"></textarea><button type="submit" '+(unlocked&&!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
 }
 
 /* TradeFlow Intelligence node: screen-aware preview UI, no silent data access/actions. */
@@ -626,9 +626,35 @@ async function tfAiDescribeError(err){
   return 'Network error: the browser could not reach /api/ai/chat or /api/ai/health ('+message.slice(0,60)+'). Open the preview directly in Safari, disable content blockers/VPN if applicable, and retry.';
  }
 }
+async function tfAiLocalJobReview(content){
+ const {resolveJobReviewIntent,explainJobDecision}=await import('./job-intelligence-request.js');
+ const jobs=await all('jobs'),request=resolveJobReviewIntent(content,jobs);
+ if(request.status==='not_job_review')return false;
+ await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  let answer='',refs=[];
+  if(request.status==='empty')answer='No saved jobs are available in this local workspace. No action was taken.';
+  else if(request.status==='too_many')answer='This review exceeds the 20-job safety limit. Narrow the question to a specific saved job. No action was taken.';
+  else if(request.status==='ambiguous')answer='Which job should I investigate? '+request.jobs.map(x=>x.title).join('; ')+'. No action was taken.';
+  else {
+   if(!window.TradeFlowPilot?.decisions?.investigate)throw Error('Local authorized investigation unavailable');
+   const summaries=[];
+   for(const job of request.jobs){
+    const decision=await window.TradeFlowPilot.decisions.investigate(job.id);
+    const explanation=explainJobDecision(job,decision);
+    summaries.push(explanation.content);refs.push(...explanation.refs);
+   }
+   answer='DEVICE-LOCAL EVIDENCE REVIEW (not an authenticated cloud tenant)\n'+summaries.join('\n\n');
+  }
+  await tfAiSaveTurn({role:'assistant',content:answer.slice(0,5000),modality:'text',status:'committed',source:'device_local_evidence',refs:[...new Set(refs)].slice(0,8)});
+ }catch(error){tfChatError='Local job investigation was not completed: '+String(error.message||error).slice(0,160)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI()}
+ return true;
+}
 async function tfAISend(text){
  const content=String(text||'').trim().slice(0,1200);
- if(!content||tfChatBusy||!tfAiKey())return;
+ if(!content||tfChatBusy)return;\n if(await tfAiLocalJobReview(content))return;\n if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
  tfChatError='';
  try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
@@ -2297,7 +2323,19 @@ function tfInitializePilot(){
  }
  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   let decisionController=null,decisionLoading=null;
-  const decisions=Object.freeze({view:id=>decisionController?.view(id)||'',open:async id=>{
+  const investigateJob=async id=>{
+   if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
+    decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
+     readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope)});
+   })().catch(error=>{decisionLoading=null;throw error});
+   await decisionLoading;
+   const {localEvidence}=await import('./intelligence-evidence.js');
+   const {createDecisionProtocol}=await import('./master-intelligence.js');
+   const scope={mode:'local',actor:'local-owner',businessId:'local-business',jobId:id,today:tfPilotContext().today};
+   const context=await localEvidence(await tfPilotSnapshot(),scope);
+   return createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}).review({objective:'Review job operations',context,scope,today:scope.today});
+  };
+  const decisions=Object.freeze({view:id=>decisionController?.view(id)||'',investigate:investigateJob,open:async id=>{
    if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
     decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
      readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope)});
