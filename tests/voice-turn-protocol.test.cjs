@@ -43,6 +43,7 @@ test('barge-in cancels old audio generation and permits a new utterance',()=>{
  const out=t.event('voice.interrupt');
  assert.equal(out.snapshot.state,'capturing');assert.ok(out.snapshot.generation>old);
  assert.ok(out.effects.some(e=>e.kind==='audio.playback.cancel_prior_generation'));
+ assert.equal(out.snapshot.lastAssistantText,'');
  assert.equal(t.event('tts.audio.chunk',{generation:old}).status,'stale_audio_ignored');
  assert.equal(t.event('asr.partial',{text:'Wait!'}).snapshot.partial,'Wait!');
  t.event('vad.speech_end');
@@ -58,6 +59,7 @@ test('duplicate events are idempotent and old sequences rejected',()=>{
  const t=make(),a={version:1,session_id:'synthetic_voice_01',thread_id:'synthetic_thread_01',event_id:'evt_dup_01',sequence:4,kind:'voice.session.request',payload:{}};
  assert.equal(t.session.dispatch(a).status,'accepted');
  assert.equal(t.session.dispatch(a).status,'duplicate');
+ assert.throws(()=>t.session.dispatch({...a,payload:{tampered:true}}),/Conflicting duplicate/);
  assert.throws(()=>t.session.dispatch({...a,event_id:'evt_older',sequence:3}));
 });
 test('permission denied fails closed and any end releases capture',()=>{
