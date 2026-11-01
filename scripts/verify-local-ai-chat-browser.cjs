@@ -106,7 +106,7 @@ const token='synthetic-browser-local-private-test-token';
     results.push({viewport:viewport.name,source:'synthetic_mock',evidenceVisible:true,activeBusinessMutations:metrics.writes,actualQwenTested:false});
    } finally {await context.close()}
   }
-  assert.equal(metrics.reads,6);
+  assert.equal(metrics.reads,4,'Two synthetic prompts per viewport; thread restoration must not invoke the model');
   assert.equal(metrics.writes,0);
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({synthetic:true,results},null,2));
   console.log('2/2 TradeFlow AI durable-history Chromium journeys passed; scoped local threads, reload, dedupe, delete, mock inference, zero business writes.');
