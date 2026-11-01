@@ -16,3 +16,13 @@ test('interrupted async navigation never reports success',async()=>{let s={actor
 test('close cancellation still stops microphone immediately',()=>{const f=fixture();f.host.onBeforeClose(()=>false);assert.equal(f.host.requestClose().status,'cancelled');assert.equal(f.get().mic,1);assert.equal(f.get().visual,0)});
 test('repeated close is idempotent under reentrancy',()=>{const f=fixture();let nested;f.host.onBeforeClose(()=>{nested=f.host.requestClose();return true});assert.equal(f.host.requestClose().status,'closed');assert.equal(nested.status,'already_closing');assert.equal(f.get().visual,1);assert.equal(f.get().mic,2)});
 test('offline reload can reconstruct origin from provided snapshot without storage authority',async()=>{const f=fixture(),snap=f.host.captureOrigin();await f.host.openFromOrigin();const fresh=fixture();fresh.set({screen:'ai',selected:null});assert.equal((await fresh.host.returnToOrigin({from:snap})).status,'returned')});
+
+test('sequential repeated close does not dismiss twice, but still stops microphone',()=>{
+ const f=fixture();assert.equal(f.host.requestClose().status,'closed');assert.equal(f.host.requestClose().status,'already_closed');assert.equal(f.get().visual,1);assert.equal(f.get().mic,2);
+});
+test('opening from a mini prompt carries exact unsent text into the conversation editor',async()=>{
+ const f=fixture(),snap=f.host.captureOrigin();
+ f.host.setDraft('changed after capture');
+ assert.equal((await f.host.openFromOrigin({from:snap})).status,'opened');
+ assert.equal(f.get().draft,'unsent');
+});

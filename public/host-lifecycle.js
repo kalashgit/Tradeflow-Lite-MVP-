@@ -5,7 +5,7 @@ const plain=x=>JSON.parse(JSON.stringify(x));
 const valid=x=>typeof x==='string'&&x.length>0&&x.length<=150;
 function createHostLifecycle(ports){
  if(!ports||!['read','navigate','recordExists','stopMicrophone','readDraft','writeDraft'].every(k=>typeof ports[k]==='function'))throw Error('Host lifecycle requires existing host services');
- const listeners=new Set();let generation=0,origin=null,closing=false;
+ const listeners=new Set();let generation=0,origin=null,closing=false,closed=false;
  const safe=()=>{const s=ports.read();if(!s||!valid(s.actorId)||!valid(s.businessId)||!valid(s.screen))throw Error('Host identity or screen unavailable');return s};
  function snapshot(){
   const s=safe(),selected=s.selected&&valid(s.selected.store)&&valid(s.selected.id)?{store:s.selected.store,id:s.selected.id}:null;
@@ -26,7 +26,7 @@ function createHostLifecycle(ports){
   const next=Object.freeze(plain(selected));
   await ports.navigate({screen:'ai',selected:null});
   if(token!==generation||!matches(snapshot(),next))return {status:'interrupted'};
-  origin=next;
+  origin=next;closed=false;ports.writeDraft(next.draft);
   return {status:'opened',context:getContext()};
  }
  async function returnToOrigin({from}={}){
@@ -47,6 +47,7 @@ function createHostLifecycle(ports){
  function requestClose({reason='dismiss'}={}){
   stopMicrophoneNow(); // Synchronous, even if the visual close is vetoed.
   if(closing)return {status:'already_closing'};
+  if(closed)return {status:'already_closed'};
   closing=true;
   try{
    const current=getContext();
@@ -56,7 +57,7 @@ function createHostLifecycle(ports){
     if(allowed===false)return {status:'cancelled'};
    }
    ++generation;
-   ports.closeVisual?.();
+   ports.closeVisual?.();closed=true;
    ports.restoreFocus?.(current.origin||current);
    return {status:'closed'};
   }finally{closing=false}
