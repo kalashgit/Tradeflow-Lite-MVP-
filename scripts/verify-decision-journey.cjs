@@ -84,7 +84,7 @@ let browser,activePage;
   await approvalPage.reload();await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
   await approvalPage.locator('[data-tab="settings"]:visible').first().click();
   await approvalPage.locator('.tf-more-menu [data-tab="ai"]').click();
-  await approvalPage.locator('#tfAiPrompt').fill('Review Synthetic panel replacement job costs');
+  await approvalPage.locator('#tfAiPrompt').fill('Review my last job. What did it cost, what remains unfinished, and is it ready to invoice?');
   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
   const inlineReview=approvalPage.locator('[data-decision-job="job_01"]');
   await inlineReview.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).waitFor({timeout:15000});
