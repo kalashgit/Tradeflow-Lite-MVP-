@@ -33,3 +33,17 @@ Use the existing `tests/fixtures/contractor-operating-flow-v1.json` through `nod
 Before desktop/phone: artifacts/ux02-before/ from actual 199cc28 source. After: artifacts/adaptive-ui/. Five widths 360/390/768/1280/1440 × normal/reduced motion; 200% component-text overflow checks, exact light text color, native keyboard disclosure, source navigation, thread isolation and one canonical receipt. Contrast tests cover the actual shared text/accent pairs. This is not full WCAG certification, actual browser zoom, physical VoiceOver or low-end-device performance validation. Current theme rules do not claim an app-wide light rollout.
 
 PRs #16/#18 remain draft/unmerged/undeployed. No production, roles, external actions, customer records or pain-point retirement.
+
+## Founder decision — shared context/navigation API
+
+Founder confirmed the second coordination option: the AI engineer supplies a shared read/navigation API; the frontend consumes it rather than reserving app.js edits or creating its own conversation/draft authority. This approves the integration approach, not new roles, data access or business actions.
+
+AI-owned contract requested (method names/shapes remain for joint agreement):
+
+- Read authorized current actor/business/thread/message/job and context revision; explicitly distinguish local device identity from authenticated identity.
+- Open a referenced source using the existing typed read command and return an opaque origin handle.
+- Restore that origin only after checking current actor/business, thread access, record availability and revision. Report expired/denied/stale/unavailable outcomes explicitly.
+- Preserve the unsent composer draft through the existing conversation/UI host. Do not copy draft text into a second frontend store, URL, logs or receipts.
+- Expose context-change notification or fresh-read semantics so the frontend invalidates stale controls after thread, actor, business or access changes.
+
+Frontend acceptance once supplied: original thread/job/draft restored; missing/deleted/foreign thread denied; context change during navigation fails safely; offline behavior explicit; repeated taps do not duplicate operations. Approval and execution remain in the existing controller. No HTTP endpoint, new persistence schema or live access provision is implied. API implementation remains a dependency; this decision does not claim that it exists.
