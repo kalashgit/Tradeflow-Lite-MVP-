@@ -8,6 +8,8 @@ test('offline app and AI styles referenced by index are present in service worke
  const style=html.match(/<link rel="stylesheet" href="(\.\/ai-preview\.css[^"]*)"/);
  assert.ok(app,'Index must include TradeFlow application script');
  assert.ok(style,'Index must include TradeFlow assistant style');
- for(const asset of [app[1],style[1]])assert.ok(sw.includes("'"+asset+"'"),'Offline cache missing '+asset);
+ const history=html.match(/<script src="(\.\/conversation-store\.js[^"]*)"/);
+ assert.ok(history,'The existing AI page must load its offline conversation store');
+ for(const asset of [app[1],style[1],history[1]])assert.ok(sw.includes("'"+asset+"'"),'Offline cache missing '+asset);
  assert.match(sw,/self\.addEventListener\('fetch'/);
 });

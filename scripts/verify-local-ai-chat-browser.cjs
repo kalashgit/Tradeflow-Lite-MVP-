@@ -24,7 +24,7 @@ const token='synthetic-browser-local-private-test-token';
     // New installations enter onboarding. Complete it ONLY in this isolated browser's
     // local IndexedDB, consistent with existing synthetic TradeFlow browser journeys.
     await page.evaluate(async()=>{
-     const request=indexedDB.open('tradeflow-lite-v1',9);
+     const request=indexedDB.open('tradeflow-lite-v1',10);
      const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
      const tx=db.transaction('settings','readwrite');
      tx.objectStore('settings').put({id:'business',company:'Synthetic AI Conversation Test',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true});
@@ -48,14 +48,62 @@ const token='synthetic-browser-local-private-test-token';
     assert.match(text,/SYNTHETIC.*MOCK/);
     assert.match(text,/invoices:synthetic_invoice_01@1/);
     assert.equal(await page.locator('.tf-ai-chat-error:visible').count(),0);
+    assert.match(await page.locator('.tf-ai-local-label').innerText(),/LOCAL ONLY.*NOT SYNCED/);
+    const firstThread=await page.locator('#tfAiThreadPicker').inputValue();
+    assert.ok(firstThread,'A persisted thread should be created by the first send');
+    await page.reload();
+    await page.waitForFunction(()=>!!window.TradeFlowPilot,{timeout:30000});
+    await page.locator('[data-tab="settings"]:visible').first().click();
+    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2,'Messages must survive refresh');
+    assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/What should I prioritize today/);
+    await page.locator('[data-action="tfAiNewThread"]').click();
+    assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),0);
+    assert.equal(await page.locator('#tfAiThreadPicker option').count(),2);
+    await page.locator('#tfAiChatForm textarea[name="prompt"]').fill('Give me a concise generic safety checklist.');
+    await page.locator('#tfAiChatForm button[type="submit"]').click();
+    await page.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===2);
+    await page.locator('#tfAiThreadPicker').selectOption(firstThread);
+    assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2,'Switching threads restores scoped turns');
+    const scoped=await page.evaluate(async(threadId)=>{
+     const r=indexedDB.open('tradeflow-lite-v1',10);
+     const db=await new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+     const store=window.TradeFlowConversationStore;
+     const local={kind:'local',businessId:'local-business',actorId:'local-owner'};
+     const foreign={kind:'local',businessId:'other-business',actorId:'another-owner'};
+     const hidden=await store.listThreads(db,foreign);
+     let denied=false;
+     try{await store.listTurns(db,foreign,threadId)}catch{denied=true}
+     const event={id:'fixture_'+threadId.slice(0,12),role:'user',content:'Scoped storage test',
+      modality:'voice',status:'committed',source:'user'};
+     await store.appendTurn(db,local,threadId,event);
+     await store.appendTurn(db,local,threadId,event);
+     const turns=await store.listTurns(db,local,threadId);
+     let conflictDenied=false;
+     try{await store.appendTurn(db,local,threadId,{...event,content:'Conflicting duplicate'})}
+     catch{conflictDenied=true}
+     db.close();
+     return {foreignCount:hidden.length,denied,count:turns.length,conflictDenied};
+    },firstThread);
+    assert.deepEqual(scoped,{foreignCount:0,denied:true,count:3,conflictDenied:true});
+    await page.reload();
+    await page.waitForFunction(()=>!!window.TradeFlowPilot,{timeout:30000});
+    await page.locator('[data-tab="settings"]:visible').first().click();
+    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    await page.locator('#tfAiThreadPicker').selectOption(firstThread);
+    assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),3,'Final voice transcript uses same thread and survives reload');
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('[data-action="tfAiClear"]').click();
+    assert.equal(await page.locator('#tfAiThreadPicker option').count(),1,'Delete removes only selected thread');
+    assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2,'Other thread remains');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.screenshot({path:path.join(out,viewport.name+'.png'),fullPage:true});
     results.push({viewport:viewport.name,source:'synthetic_mock',evidenceVisible:true,activeBusinessMutations:metrics.writes,actualQwenTested:false});
    } finally {await context.close()}
   }
-  assert.equal(metrics.reads,4);
+  assert.equal(metrics.reads,6);
   assert.equal(metrics.writes,0);
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({synthetic:true,results},null,2));
-  console.log('2/2 TradeFlow existing AI conversation Chromium journeys passed; mock model, synthetic context, zero business writes.');
+  console.log('2/2 TradeFlow AI durable-history Chromium journeys passed; scoped local threads, reload, dedupe, delete, mock inference, zero business writes.');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve))}
 })().catch(e=>{console.error('Synthetic conversation browser verification failed:',e);process.exitCode=1});

@@ -179,3 +179,12 @@
 .tf-ai-evidence span{border:1px solid rgba(16,207,225,.5);border-radius:5px;padding:2px 6px;background:rgba(16,207,225,.10);font-weight:700}
 .tf-ai-evidence small{font-size:10px;overflow-wrap:anywhere;word-break:break-word;letter-spacing:0;max-width:100%;color:#b9d6df}
 .tf-ai-mini-message .tf-ai-evidence{font-size:9px;line-height:1.3}
+
+/* Device-local conversation selector. Text and voice will share these thread IDs. */
+.tf-ai-history{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 17px;border-bottom:1px solid #244253;background:#0a2434}
+.tf-ai-history label{font-size:12px;color:#c2e5ea}
+.tf-ai-history select{min-width:135px;max-width:100%;flex:1 1 170px;background:#0e3447;color:#f3fcff;border:1px solid #397087;border-radius:8px;padding:9px 10px;font:inherit}
+.tf-ai-history button{border:1px solid #397087;border-radius:8px;padding:9px 11px;background:#123747;color:#dbf9ff;cursor:pointer}
+.tf-ai-history button:disabled{opacity:.4;cursor:not-allowed}
+.tf-ai-local-label{flex-basis:100%;font-size:10px;font-weight:700;letter-spacing:.09em;color:#9cd5df}
+@media(max-width:440px){.tf-ai-history{padding:10px;gap:7px}.tf-ai-history button{padding:8px}.tf-ai-history select{min-width:130px}}

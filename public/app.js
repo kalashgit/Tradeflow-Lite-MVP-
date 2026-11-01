@@ -1,6 +1,7 @@
 const DB='tradeflow-lite-v1', STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments','invoices','jobCosts','marketingCampaigns','crew','routePlans','suppliers','supplyOrders','commandLog','calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'];let db,tab='dashboard',query='',modal=null,toast='';let tfMotionNext='',tfRecordListContext=null;let prefs={company:'TradeFlow Lite',accent:'#10cfe1',primaryTrade:'',categories:[]};
+const BACKUP_STORES=[...STORES,'aiConversationThreads','aiConversationTurns'];
 const $=s=>document.querySelector(s);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const euro=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n)||0);const today=()=>new Date().toISOString().slice(0,10);const uid=()=>crypto.randomUUID();
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,9);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,window.TradeFlowConversationStore?.VERSION||10);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'});window.TradeFlowConversationStore?.upgrade(r.result)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function tx(store,mode,cb){return new Promise((res,rej)=>{const t=db.transaction(store,mode),s=t.objectStore(store),r=cb(s);t.oncomplete=()=>res(r?.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})}const all=s=>tx(s,'readonly',x=>x.getAll());const put=(s,v)=>window.TradeFlowBusinessEvents?.write(db,s,v,tfPilotContext())||tx(s,'readwrite',x=>x.put(v));const del=(s,id)=>tx(s,'readwrite',x=>x.delete(id));const get=(s,id)=>tx(s,'readonly',x=>x.get(id));
 async function tfExecuteCommand(kind,payload,requestKey){const data=Object.fromEntries(await Promise.all(STORES.map(async store=>[store,await all(store)])));return window.TradeFlowCore.execute({db,kind,payload,data,uid,requestKey});}
 async function event(text){await put('events',{id:uid(),text,date:new Date().toISOString()})}let tfToastSequence=0;
@@ -381,9 +382,85 @@ function tfFinancePhotoSection(record,target){
  return '<div class="tf-photo-finance-attached"><strong>Attached paper record</strong><img src="'+saved+'" alt="Photo attached to financial record"><small>Kept locally with this record and included in JSON backup.</small></div>';
 }
 
-/* TradeFlow AI preview: chat remains in memory, private code stays in sessionStorage,
-   and only opted-in aggregate context crosses the network. */
-let tfChatMessages=[],tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='';
+/* AI preview threads remain in this device's local workspace. The app's local-owner
+   identity is NOT an authenticated cloud identity, and history is never synchronized. */
+let tfChatMessages=[],tfChatThreads=[],tfActiveChatThreadId=null,tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='';
+const tfAiLocalScope=Object.freeze({kind:'local',businessId:'local-business',actorId:'local-owner'});
+async function tfAiLoadHistory(){
+ const store=window.TradeFlowConversationStore;
+ if(!store){tfChatError='Local conversation storage module unavailable; sending is disabled.';return}
+ try{
+  tfChatThreads=await store.listThreads(db,tfAiLocalScope);
+  if(!tfChatThreads.some(t=>t.id===tfActiveChatThreadId))tfActiveChatThreadId=tfChatThreads[0]?.id||null;
+  tfChatMessages=tfActiveChatThreadId?await store.listTurns(db,tfAiLocalScope,tfActiveChatThreadId):[];
+ }catch(error){tfChatMessages=[];tfChatError='Could not read local AI history. No messages were sent; inspect browser storage.'}
+}
+async function tfAiEnsureThread(title){
+ const store=window.TradeFlowConversationStore;
+ if(!store)throw Error('Local conversation storage unavailable');
+ if(!tfActiveChatThreadId){
+  const thread=await store.createThread(db,tfAiLocalScope,title);
+  tfActiveChatThreadId=thread.id;
+ }
+ return tfActiveChatThreadId;
+}
+async function tfAiSaveTurn(turn){
+ const store=window.TradeFlowConversationStore;
+ if(!store)throw Error('Local conversation storage unavailable');
+ const threadId=await tfAiEnsureThread(turn.role==='user'?turn.content.slice(0,64):'New conversation');
+ const saved=await store.appendTurn(db,tfAiLocalScope,threadId,turn);
+ tfChatMessages.push(saved);
+ tfChatThreads=await store.listThreads(db,tfAiLocalScope);
+ return saved;
+}
+async function tfAiSwitchThread(threadId){
+ if(tfChatBusy)return;
+ const store=window.TradeFlowConversationStore;
+ try{
+  if(!tfChatThreads.some(t=>t.id===threadId))throw Error('Conversation no longer available');
+  const turns=await store.listTurns(db,tfAiLocalScope,threadId);
+  tfActiveChatThreadId=threadId;tfChatMessages=turns;tfChatError='';
+ }catch(error){tfChatError='Could not open the selected local conversation.'}
+ await tfAiUpdateChatUI();
+}
+async function tfAiNewThread(){
+ if(tfChatBusy)return;
+ try{
+  const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
+  tfActiveChatThreadId=thread.id;tfChatMessages=[];tfChatError='';
+  tfChatThreads=await window.TradeFlowConversationStore.listThreads(db,tfAiLocalScope);
+ }catch(error){tfChatError='Could not create local conversation; no new thread was saved.'}
+ await tfAiUpdateChatUI();
+}
+async function tfAiDeleteThread(){
+ if(tfChatBusy||!tfActiveChatThreadId)return;
+ if(!confirm('Permanently delete this local conversation and all its messages from this device?'))return;
+ try{
+  await window.TradeFlowConversationStore.deleteThread(db,tfAiLocalScope,tfActiveChatThreadId);
+  tfActiveChatThreadId=null;tfChatError='';
+  await tfAiLoadHistory();
+ }catch(error){tfChatError='Could not delete conversation. Local history was not confirmed deleted.'}
+ await tfAiUpdateChatUI();
+}
+async function tfAiExportThread(){
+ if(!tfActiveChatThreadId)return;
+ try{
+  const thread=tfChatThreads.find(t=>t.id===tfActiveChatThreadId);
+  const turns=await window.TradeFlowConversationStore.listTurns(db,tfAiLocalScope,tfActiveChatThreadId);
+  const output={format:'tradeflow-local-ai-thread',version:1,syncState:'local_only',title:thread?.title||'Conversation',
+   exportedAt:new Date().toISOString(),messages:turns.map(({role,content,modality,source,refs,at})=>({role,content,modality,source,refs,at}))};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(output,null,2)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download='tradeflow-local-ai-thread.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ }catch(error){tfChatError='Conversation export failed; no history was deleted.';await tfAiUpdateChatUI()}
+}
+function tfAiHistoryView(){
+ return '<div class="tf-ai-history"><label for="tfAiThreadPicker">Local conversation</label><select id="tfAiThreadPicker" aria-label="Saved local conversations" '+(tfChatBusy?'disabled':'')+'>'+(
+  tfChatThreads.length?tfChatThreads.map(t=>'<option value="'+esc(t.id)+'" '+(t.id===tfActiveChatThreadId?'selected':'')+'>'+esc(t.title)+'</option>').join(''):
+  '<option value="">No saved conversation</option>')+'</select><button type="button" data-action="tfAiNewThread" '+(tfChatBusy?'disabled':'')+'>New</button>'+
+  '<button type="button" data-action="tfAiExportThread" '+(!tfActiveChatThreadId?'disabled':'')+'>Export</button>'+
+  '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
+}
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
@@ -399,7 +476,7 @@ function tfAiContext(data){
 }
 function tfAiAttribution(message){
  if(message.role!=='assistant'||!message.source)return '';
- const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':'MODEL UNAVAILABLE';
+ const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':message.source==='unverified_model'?'UNVERIFIED MODEL RESPONSE':'MODEL UNAVAILABLE';
  const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x)).slice(0,8):[];
  return '<div class="tf-ai-evidence"><span>'+esc(mode)+'</span>'+(refs.length?'<small>Evidence: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
 }
@@ -408,7 +485,7 @@ function tfAIChatView(data){
  const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
  const examples=[['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
  const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
- return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(tfChatBusy?'disabled':'')+' aria-label="Clear conversation">Clear</button></div>'+gate+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(unlocked&&!tfChatBusy?'':'disabled')+' placeholder="'+(unlocked?'Ask TradeFlow AI...':'Unlock private preview to chat')+'"></textarea><button type="submit" '+(unlocked&&!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Messages are sent for inference but not saved in TradeFlow.')+'</p></section>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(unlocked&&!tfChatBusy?'':'disabled')+' placeholder="'+(unlocked?'Ask TradeFlow AI...':'Unlock private preview to chat')+'"></textarea><button type="submit" '+(unlocked&&!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
 }
 
 /* TradeFlow Intelligence node: screen-aware preview UI, no silent data access/actions. */
@@ -516,6 +593,7 @@ document.addEventListener('click',event=>{
 document.addEventListener('input',event=>{if(event.target.id==='tfAiQuickPrompt')tfAiPanelDraft=event.target.value;const form=event.target.closest?.('#tfOdContactWorkflowForm');if(form&&['contact_phone','contact_email'].includes(event.target.name))window.TradeFlowDossier?.syncQuickLinks(form)});
 document.addEventListener('change',event=>{
  if(event.target.id==='tfAiQuickContext')tfChatWithSummary=event.target.checked;
+  if(event.target.id==='tfAiThreadPicker'){void tfAiSwitchThread(event.target.value);return}
  if(event.target.id==='tfAiHaptics'){
   tfUiHapticsEnabled=!!event.target.checked;
   try{localStorage.setItem('tf-ui-haptics',tfUiHapticsEnabled?'on':'off')}catch(e){}
@@ -551,18 +629,22 @@ async function tfAISend(text){
  if(!content||tfChatBusy||!tfAiKey())return;
  const screen=tab;
  tfChatError='';
- tfChatMessages.push({role:'user',content});
+ try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
+ catch(error){tfChatError='Your message could not be saved locally; nothing was sent. Check available device storage.';await tfAiUpdateChatUI();return}
  tfChatBusy=true;
  await tfAiUpdateChatUI();
  try{
   let business=null;
   if(tfChatWithSummary){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
-  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages:tfChatMessages.slice(-8),business,screen}),cache:'no-store'});
+  const messages=tfChatMessages.slice(-8).map(({role,content})=>({role,content}));
+  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
   tfAiPreviewMode=payload.syntheticDemo?String(payload.source||'mock'):tfAiPreviewMode;
-  tfChatMessages.push({role:'assistant',content:payload.reply.trim().slice(0,2500),source:payload.syntheticDemo?payload.source:null,refs:payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
+  await tfAiSaveTurn({role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
+   source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable'].includes(payload.source)?payload.source:'unverified_model',
+   refs:payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
  }catch(err){tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
 }
@@ -1113,11 +1195,11 @@ document.addEventListener('submit',async function(e){
  }
 });
 function tfDownloadBackup(data){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-async function exportData(){try{tfDownloadBackup(await window.TradeFlowLocalRecovery.createBackup(db,STORES))}catch(error){alert('Backup failed: '+error.message)}}
+async function exportData(){try{tfDownloadBackup(await window.TradeFlowLocalRecovery.createBackup(db,BACKUP_STORES))}catch(error){alert('Backup failed: '+error.message)}}
 async function restore(file){try{
  if(file.size>64*1024*1024)throw Error('Backup exceeds 64 MB');
  const snapshot=JSON.parse(await file.text());
- const result=await window.TradeFlowLocalRecovery.restoreBackup({db,stores:STORES,snapshot,
+ const result=await window.TradeFlowLocalRecovery.restoreBackup({db,stores:BACKUP_STORES,snapshot,
   approve:plan=>confirm(`Restore preview: ${plan.creates} new, ${plan.updates} changed, ${plan.deletes} removed, ${plan.unchanged} unchanged.\n${plan.checksumVerified?'Checksum verified.':'Legacy backup: no checksum available.'} ${plan.missingReferences.length} missing linked references.\nReplace local records? A pre-restore recovery copy will be retained on this device.`),
   saveRecovery:before=>window.TradeFlowLocalRecovery.saveRecovery(indexedDB,before)});
  if(result.status==='restored')await notify('Backup restored. Previous records are available as a recovery backup.');
@@ -1209,8 +1291,10 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  }
  if(el.dataset.action==='tfAiPrompt'){const field=document.getElementById('tfAiPrompt');if(field){field.value=el.dataset.prompt||'';field.focus()}return}
  if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}await tfAiUpdateChatUI();return}
- if(el.dataset.action==='tfAiClear'){tfChatMessages=[];tfChatError='';await tfAiUpdateChatUI();return}
- if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatMessages=[];tfChatError='';tfAiStatus='';tfAiPreviewMode='';await tfAiUpdateChatUI();return}
+ if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
+  if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
+  if(el.dataset.action==='tfAiExportThread'){await tfAiExportThread();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatError='';tfAiStatus='';tfAiPreviewMode='';await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 
@@ -2623,7 +2707,7 @@ async function tfReceiveSiriCustomer(){
  await window.TradeFlowCustomerEntry.openReview(instruction,{source:'transcript'});
 }
 window.addEventListener('hashchange',()=>{void tfReceiveSiriCustomer()});
-(async()=>{try{db=await openDB();tfInitializePilot();const accountReturn=new URL(location.href).searchParams.get('account')==='connected';if(accountReturn)tab='preferences';await render();if(accountReturn){history.replaceState(null,'',location.pathname);showSettingsPanel('account')}await tfReceiveSiriCustomer();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
+(async()=>{try{db=await openDB();tfInitializePilot();await tfAiLoadHistory();const accountReturn=new URL(location.href).searchParams.get('account')==='connected';if(accountReturn)tab='preferences';await render();if(accountReturn){history.replaceState(null,'',location.pathname);showSettingsPanel('account')}await tfReceiveSiriCustomer();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
 
 // V0.5: online MapLibre street tiles are optional. Records, pins and CRM stay in IndexedDB.
 let tfMapNetworkFocus=false;

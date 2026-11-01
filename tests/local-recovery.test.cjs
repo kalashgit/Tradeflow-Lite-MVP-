@@ -52,3 +52,17 @@ test('legacy backups retain explicitly present stores and initialize only histor
   assert.equal(checked.checksumVerified,false);assert.equal(checked.stores.customers[0].custom,'preserve');assert.deepEqual(checked.stores.calendarEntries,[]);
  }
 });
+
+test('v10 conversation backup accepts scoped history; v9 snapshots do not silently replace new history',async()=>{
+ const allStores=[...STORES,'aiConversationThreads','aiConversationTurns'];
+ const rows=Object.fromEntries(allStores.map(s=>[s,[]]));
+ rows.aiConversationThreads.push({id:'thread_1',scopeKey:'["local","local-business","local-owner"]',syncState:'local_only'});
+ rows.aiConversationTurns.push({id:'turn_1',threadId:'thread_1',content:'Example synthetic question'});
+ const current={format:'tradeflow-lite',version:10,stores:rows};
+ const checked=await recovery.validateBackup(current,allStores);
+ assert.equal(checked.stores.aiConversationTurns[0].content,'Example synthetic question');
+ const old={format:'tradeflow-lite',version:9,stores:Object.fromEntries(STORES.map(s=>[s,[]]))};
+ const legacy=await recovery.validateBackup(old,allStores);
+ assert.deepEqual(legacy.stores.aiConversationThreads,[]);
+ assert.deepEqual(legacy.stores.aiConversationTurns,[]);
+});
