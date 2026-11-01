@@ -79,7 +79,7 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      if(mode==='unavailable')return send(res,200,{reply:'The model is unavailable. Synthetic business records were not changed. Retry when Qwen is available.',refs:[],source:'unavailable',syntheticDemo:true,executionAuthority:false});
      const {readIntelligenceContext}=await import('../src/intelligence-context.js');
      const result=await briefFromAuthorizedSource({
-      db:syntheticDb(metrics),principal,businessId,question:question.trim(),enabled:true,
+      db:syntheticDb(metrics),principal,businessId,question:question.trim(),enabled:true,synthetic:true,
       contextReader:readIntelligenceContext,timeoutMs:45000,
       ...(mode==='mock'?{fetchImpl:localFetch||deterministicModelFetch}:localFetch?{fetchImpl:localFetch}:{})
      });
