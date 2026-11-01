@@ -10,6 +10,15 @@ let browser,activePage;
   await page.goto('http://127.0.0.1:4203');await page.waitForFunction(()=>!!window.TradeFlowPilot);
   await page.evaluate(async records=>{const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result)),tx=db.transaction([...db.objectStoreNames],'readwrite');for(const store of db.objectStoreNames)tx.objectStore(store).clear();for(const r of records)tx.objectStore(r.type).put({id:r.id,...r.record,businessId:'local-business'});tx.objectStore('jobCosts').put({id:'legacy_preserve',jobId:'unrelated_job',amount:5,type:'actual',category:'Materials'});tx.objectStore('settings').put({id:'business',company:'Synthetic decision contractor',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true});await new Promise(r=>tx.oncomplete=r);db.close()},seed.records);
   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);const peer=await context.newPage();await peer.goto('http://127.0.0.1:4203');await peer.waitForFunction(()=>!!window.TradeFlowPilot);
+  // AI workspace -> actual saved job dossier -> deterministic evidence and existing review actions.
+  await page.locator('[data-tab="ai"]').first().click();
+  const aiJob=page.locator('[data-action="tfAiReviewJob"][data-id="job_01"]');
+  await aiJob.waitFor();
+  await aiJob.click();
+  await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').first().waitFor();
+  assert.equal(await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').count()>0,true,'AI review shortcut must expose existing reviewed commands');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'AI review shortcut must not create horizontal overflow');
+  await page.locator('[data-tab="dashboard"]').first().click();
   let mode='cancel',dialogs=0;
   page.on('dialog',async dialog=>{dialogs++;assert.equal(dialog.type(),'confirm');assert.ok(dialog.message().includes('No customer message, payment or cost correction'));
    if(mode==='cancel'){await dialog.dismiss();return}if(mode==='stale')await peer.evaluate(async()=>{const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result)),tx=db.transaction('jobCosts','readwrite'),store=tx.objectStore('jobCosts'),get=store.get('actual_labor');get.onsuccess=()=>store.put({...get.result,amount:970});await new Promise(r=>tx.oncomplete=r);db.close()});await dialog.accept();
