@@ -399,7 +399,7 @@ function tfAiContext(data){
 }
 function tfAiAttribution(message){
  if(message.role!=='assistant'||!message.source)return '';
- const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':'MODEL UNAVAILABLE';
+ const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':'MODEL UNAVAILABLE';
  const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x)).slice(0,8):[];
  return '<div class="tf-ai-evidence"><span>'+esc(mode)+'</span>'+(refs.length?'<small>Evidence: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
 }
