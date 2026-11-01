@@ -15,7 +15,7 @@ fs.mkdirSync(out,{recursive:true});
  try{
   const url='http://127.0.0.1:'+server.address().port;
   for(const viewport of [{name:'mobile',width:390,height:844},{name:'desktop',width:1280,height:900}]){
-   const context=await browser.newContext({viewport,serviceWorkers:'block'});
+   const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'});
    try{
     const page=await context.newPage();
     await page.goto(url,{waitUntil:'domcontentloaded'});
