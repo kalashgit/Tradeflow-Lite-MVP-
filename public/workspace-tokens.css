@@ -1,3 +1,4 @@
+:root{--tf-motion-press:90ms;--tf-motion-reveal:180ms;--tf-motion-panel:240ms;--tf-motion-ease:cubic-bezier(.2,.8,.2,1);--tf-motion-press-scale:.985}
 /* Shared frontend semantics. Existing business/accent tokens remain authoritative. */
 :root{color-scheme:dark;--tf-touch-target:44px;--tf-focus-width:2px;--tf-focus-offset:3px;--tf-state-radius:12px}
 :is(.tf-command-center,.tf-adaptive-card) :is(button,summary):focus-visible{outline:var(--tf-focus-width) solid var(--tf-focus);outline-offset:var(--tf-focus-offset)}

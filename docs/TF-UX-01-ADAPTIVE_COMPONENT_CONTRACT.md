@@ -29,3 +29,7 @@ Dark graphite only, per the founder’s latest decision. No white/light variant 
 ## Reproduction
 
 `node --test tests/adaptive-ui.test.cjs`; `node scripts/verify-adaptive-ui.cjs`; full existing npm/SQL/browser/D1 suites through exact-head CI. Four synthetic browser journeys: phone/desktop × normal/reduced motion, keyboard disclosure, no-haptics fallback, explicit approval, repeated tap producing one task/canonical receipt, conversation switching and original-thread receipt return. Screenshots/results: `artifacts/adaptive-ui/`. No real customer or financial outcomes. No merge/deployment; 0/62 retired.
+
+## Shared motion primitive increment
+
+`createMotion({media,document,style})` centralizes the existing reveal and fixed panel/navigation presets. CSS tokens live in workspace-tokens.css (90/180/240ms); durations accept milliseconds/seconds, respect zero, cap at 320ms and safely fall back on malformed CSS. New motion cancels the previous effect for that element. Preference changes, document hiding and explicit disposal cancel active effects; completed/cancelled effects release their map entries. Unsupported or throwing animation APIs leave the readable final DOM intact. The registry now consumes this primitive; it never accepts model keyframes or animates financial numbers. Panel/navigation presets are available for the agreed host integration, not a claim that all navigation is converted. Existing haptic/voice processing and authorization remain unchanged.
