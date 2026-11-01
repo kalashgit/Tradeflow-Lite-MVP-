@@ -91,7 +91,13 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
   try{
    if(url.pathname.startsWith('/api/ai/')){
     if(req.headers.origin && new URL(req.headers.origin).host!==req.headers.host)return send(res,403,{error:'Cross-origin request denied'});
-    if(url.pathname==='/api/ai/health'&&req.method==='GET')return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode});
+    if(url.pathname==='/api/ai/health'&&req.method==='GET'){
+     let modelReady=mode==='mock';
+     if(mode==='live'){
+      try{const probe=await fetch('http://127.0.0.1:8088/health',{signal:AbortSignal.timeout(1500)});modelReady=probe.ok}catch{modelReady=false}
+     }
+     return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady});
+    }
     if((url.pathname==='/api/ai/verify'||url.pathname==='/api/ai/chat')&&req.method==='POST'){
      if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON required'});
      const data=await bodyJson(req);
