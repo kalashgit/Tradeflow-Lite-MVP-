@@ -44,6 +44,8 @@ jobs:
           node --check public/cloud-intelligence.js
           node --check public/intelligence-evidence.js
           node --check public/master-intelligence.js
+          node --check public/adaptive-ui.js
+          node --check scripts/verify-adaptive-ui.cjs
           node --check public/command-center.js
           node --check scripts/verify-command-center.cjs
           node --check public/decision-ui.js
