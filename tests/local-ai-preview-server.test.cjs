@@ -87,3 +87,15 @@ test('invalid content, cross-origin post and unsupported write are denied',async
   assert.equal((await fetch(origin+'/.env')).status,403);
  });
 });
+
+test('synthetic chat varies evidence-backed guidance for quote and labor questions',async()=>{
+ await host({},async({post,metrics})=>{
+  const quote=await post('/api/ai/chat',{code:secret,messages:[{role:'user',content:'Should I follow up the quote?'}]});
+  const q=await quote.json();assert.equal(q.source,'synthetic_mock');
+  assert.ok(q.refs.includes('quotes:synthetic_quote_01@2'));assert.match(q.reply,/quote/i);
+  const cost=await post('/api/ai/chat',{code:secret,messages:[{role:'user',content:'How is our labor cost?'}]});
+  const l=await cost.json();assert.ok(l.refs.includes('jobCosts:synthetic_cost_01@1'));
+  assert.match(l.reply,/budget/i);assert.equal(metrics.writes,0);
+  assert.equal(metrics.reads,4);
+ });
+});
