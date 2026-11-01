@@ -10,7 +10,7 @@ export function resolveJobReviewIntent(text,jobs){
  if(matches.length===1)return {status:'selected',jobs:matches};
  if(matches.length>1)return {status:'ambiguous',jobs:matches.map(x=>({id:x.id,title:x.title}))};
  const requestedAll=/\b(all|my|active|completed|which)\b/.test(lower)||/\bjobs\b/.test(lower);
- if(!requestedAll&&all.length>1)return {status:'ambiguous',jobs:all.slice(0,12).map(x=>({id:x.id,title:x.title}))};
+ if(!requestedAll)return {status:'ambiguous',jobs:all.slice(0,12).map(x=>({id:x.id,title:x.title}))};
  if(!all.length)return {status:'empty',jobs:[]};
  if(all.length>20)return {status:'too_many',count:all.length};
  return {status:'selected',jobs:requestedAll?all:[all[0]]};
