@@ -532,7 +532,7 @@ async function tfAiHealthCheck(){
  const body=await response.json().catch(()=>null);
  if(!response.ok||!body?.online)throw Error('AI endpoint unreachable (HTTP '+response.status+')');
  tfAiPreviewMode=body.syntheticDemo?String(body.modelMode||'mock'):'';
- tfAiStatus=body.syntheticDemo?'Synthetic development demo online. Only synthetic records can be used.':!body.secretConfigured?'Endpoint reachable, but TF_AI_PREVIEW_TOKEN has not been saved in Cloudflare.':!body.aiBound?'Endpoint reachable, but the AI binding is missing.':'Endpoint online. AI binding and access-code configuration detected.';
+ tfAiStatus=body.syntheticDemo?(body.modelMode==='live'&&!body.modelReady?'Synthetic preview online; local Qwen is not ready. Responses will show MODEL UNAVAILABLE.':'Synthetic development demo online. Only synthetic records can be used.'):!body.secretConfigured?'Endpoint reachable, but TF_AI_PREVIEW_TOKEN has not been saved in Cloudflare.':!body.aiBound?'Endpoint reachable, but the AI binding is missing.':'Endpoint online. AI binding and access-code configuration detected.';
  return body;
 }
 async function tfAiDescribeError(err){
