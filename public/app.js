@@ -842,6 +842,7 @@ return `<section class="tf-home tf-home-v2">
 
 <div class="tf-home-intro"><h1>Good ${greeting}.</h1><p>Your business at a glance.</p><button class="tf-home-library-shortcut" type="button" data-tab="library"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3m0 0L7 8m5-5 5 5M4 16v4h16v-4"/></svg><span>Import</span></button></div>
 <div class="tf-home-stats">${stats.map(([label,value,target],i)=>`<button type="button" class="tf-home-stat" data-tab="${target}"><span class="tf-stat-icon">${icons[i]}</span><strong>${value}</strong><span>${label}</span></button>`).join('')}</div>
+${window.TradeFlowCommandCenter?.render(d,window.TradeFlowPilot?.evaluateSnapshot(d),tfPilotContext())||''}
 <section class="tf-home-finance" aria-label="Revenue overview"><div class="tf-home-charthead"><span class="tf-home-kicker">Revenue</span><select id="tfHomePeriod" class="tf-home-period" aria-label="Chart time range">${[['1W','This week'],['1M','This month'],['3M','3 months'],['6M','6 months'],['1Y','This year'],['All','All time']].map(([value,label])=>`<option value="${value}" ${period===value?'selected':''}>${label}</option>`).join('')}</select></div><strong class="tf-home-revenue">${euro(chart.total)}</strong><div class="tf-home-growth">${chart.hasRevenue?'Recorded revenue':'No payments recorded yet'}</div>
 <div class="tf-home-chart">${chart.html}</div></section>
 <section class="tf-home-trade"><div class="tf-home-sectionhead"><h2>${esc(trade)} performance</h2><span>This month</span></div><div class="tf-home-trade-body"><div class="tf-home-trade-label"><span class="tf-home-trade-icon">${tfTradeIcon(trade,29)}</span><div><strong>${esc(trade)}</strong><small>Your primary trade</small></div></div><div class="tf-home-trade-metrics"><div><strong>${euro(recordedTradeRevenue)}</strong><small>Revenue</small></div><div><strong>${euro(quoted)}</strong><small>Quoted</small></div><div><strong>${euro(expenses)}</strong><small>Expenses</small></div></div></div><div class="tf-home-progress"><span style="width:${conversion??0}%"></span></div><div class="tf-home-progress-caption">${conversion===null?'No decided quotations':conversion+'% of decided quotations accepted ('+decided.length+' decided)'} <button type="button" data-tab="quotes" aria-label="View quotations">›</button></div></section>
@@ -2368,6 +2369,7 @@ function tfInitializePilot(){
    })().catch(error=>{decisionLoading=null;throw error});
    try{await decisionLoading;await decisionController.open(id)}catch(error){notify('Explanation unavailable: '+error.message)}
   }});
+  window.TradeFlowCommandCenter?.configure({document,commands:runtime,notify,showNotifications:()=>window.TradeFlowNotifications?.show()});
   window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
