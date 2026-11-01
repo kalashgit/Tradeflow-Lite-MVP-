@@ -62,6 +62,7 @@ test('local Qwen request receives ONLY synthetic allowlisted evidence',async()=>
   assert.equal(metrics.reads,2);
   assert.equal(metrics.writes,0);
   assert.ok(payload);
+  assert.equal(JSON.parse(payload.messages.find(x=>x.role==='user').content).evidence.synthetic,true);
   assert.doesNotMatch(JSON.stringify(payload),/PRIVATE_CONTACT|2500000|synthetic\.example/);
   assert.equal(payload.chat_template_kwargs.enable_thinking,false);
  });
