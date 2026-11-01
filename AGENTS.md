@@ -8,6 +8,12 @@ This repository is an **existing**, offline-first, AI-native contractor operatin
 3. Treat the Master Development Roadmap v1.1 (Google Doc ID `1_6HAHgumQ2EKrH4Yw2w-ZZ1CqVTMnfe_AVnrisaCX6o`) as strategic priority, the ledger as execution tracking, and the actual source plus exact-commit CI as authoritative implementation evidence. Historical SHA and test counts are **not** current unless rechecked.
 4. Inventory existing implementation/tests before selecting the highest-priority dependency-ready unfinished task. Do not duplicate previously completed TF-P01–P10, TF-P06 labor-review, H03 security/recovery, or cloud identity validation.
 
+## Specialist engineering skills (repository-local)
+
+The coordinating skill is `.agents/skills/tradeflow-principal-ai-engineer/SKILL.md`, with nine scoped specialist entrypoints listed in `docs/TRADEFLOW_AI_ENGINEERING_SKILLS.md`. Consult the relevant specialist rules for database, AI evaluation, finance, interface, duplex voice, conversation memory, model runtime, commercial operations and command orchestration. One principal engineer owns GitHub modifications and verification; specialist files are reusable guidance, not independent writers.
+
+The proposed unified voice-and-text design and bounded staged acceptance gates are in `docs/TRADEFLOW_MASTER_INTELLIGENCE_VOICE_ARCHITECTURE.md`. That design does not authorize microphone capture, speech model downloads, new production sync, monetization changes or deployment. Repo-based skills are not automatically installed as account-wide ChatGPT skills.
+
 ## Engineering rules
 - Preserve the single shared command, authorization, explicit approval, auditable receipt and uncertainty-reconciliation architecture. No parallel autonomous writer.
 - Maintain tenant isolation, offline-first data preservation, role boundaries, deterministic source bindings, safe local queue recovery and authorization rechecks. A lost acknowledgment must not cause a blind replay.
