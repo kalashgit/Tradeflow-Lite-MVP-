@@ -128,10 +128,11 @@ let browser,activePage;
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
   // Verify source-backed thread context survives a real browser reload.
    assert.equal(await approvalPage.evaluate(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId),'job_01');
+   const beforeFollowUp=await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count();
    await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
    await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
-   await approvalPage.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length>=10 &&
-     document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Cause not established.'),null,{timeout:15000});
+   await approvalPage.waitForFunction(before=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===before+2 &&
+     document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Cause not established.'),beforeFollowUp,{timeout:15000});
    assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/planned 8 hours; actual 12 hours/);
    // A changed source must not reuse those old hours in the next explanation.
    await approvalPage.evaluate(async()=>{
