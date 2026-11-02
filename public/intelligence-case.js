@@ -43,7 +43,7 @@ export function createIntelligenceCase({decision,scope,threadId=null,asOf=new Da
    priorityBand:typeof o.priority?.band==='string'?o.priority.band:'review'});
  }
  const proposals=decision.proposals.map(p=>{
-  if(!id(p?.commandId)||typeof p.id!=='string'||!p.id||p.requiresApproval!==true||p.externalEffects!==false)throw Error('Only existing explicitly reviewable internal proposals are permitted');
+  if(typeof p?.commandId!=='string'||!/^[a-z][a-z0-9_.-]{0,99}$/.test(p.commandId)||typeof p.id!=='string'||!p.id||p.requiresApproval!==true||p.externalEffects!==false)throw Error('Only existing explicitly reviewable internal proposals are permitted');
   return {proposalId:p.id,commandId:p.commandId,status:'proposed_not_authorized',receiptRef:null};
  });
  const unknowns=[...new Set(decision.unknowns.filter(u=>typeof u?.code==='string'&&u.code.length<=100).map(u=>u.code))];
