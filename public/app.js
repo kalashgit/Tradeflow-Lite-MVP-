@@ -656,7 +656,7 @@ async function tfAiLocalBriefingFollowUp(content){
     'Latest invoice readiness for '+String(job.title||job.id)+': '+readiness.status+'. Recorded blockers: '+readiness.blockers.join(', ')+'. No invoice was prepared.';
   }else if(kind==='show_evidence'||kind==='open_review'){
    if(!window.TradeFlowPilot?.decisions?.investigate||!window.TradeFlowPilot?.decisions?.open)throw Error('Existing job evidence controls unavailable');
-   const decision=await window.TradeFlowPilot.decisions.investigate(job.id);
+   const decision=await window.TradeFlowPilot.decisions.investigate(job.id,{threadId:tfActiveChatThreadId});
    refs=[...new Set(['jobs:'+job.id+'@0',...decision.observations.flatMap(o=>(o.refs||[]).map(r=>r.type+':'+r.id+'@'+(r.revision||0)))] )].slice(0,8);
    await window.TradeFlowPilot.decisions.open(job.id);
    answer=kind==='show_evidence'?
@@ -2398,7 +2398,8 @@ function tfInitializePilot(){
  }
  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   let decisionController=null,decisionLoading=null;
-  const investigateJob=async id=>{
+  const investigateJob=async (id,request={})=>{
+   if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation changed before investigation');
    if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
     decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
      readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope),onOutcome:async ({jobId,status})=>{if(tfAiReviewJobId!==jobId||!tfAiReviewThreadId||tfAiReviewThreadId!==tfActiveChatThreadId)return;const content=status==='verified'?'Internal review task saved and verified against the command receipt. The underlying exception and invoice-readiness blockers are not resolved.':status==='cancelled'?'Approval cancelled. No business task was created.':'The command result is not verified. Inspect the receipt; no automatic retry was performed.';try{await tfAiSaveTurn({role:'assistant',content,modality:'text',status:'committed',source:'device_local_evidence',refs:[]});await tfAiUpdateChatUI()}catch(error){tfChatError='Unable to save outcome in local conversation.'}}});
@@ -2408,7 +2409,9 @@ function tfInitializePilot(){
    const {createDecisionProtocol}=await import('./master-intelligence.js');
    const scope={mode:'local',actor:'local-owner',businessId:'local-business',jobId:id,today:tfPilotContext().today};
    const context=await localEvidence(await tfPilotSnapshot(),scope);
-   return createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}).review({objective:'Review job operations',context,scope,today:scope.today});
+   const decision=await createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}).review({objective:'Review job operations',context,scope,today:scope.today,threadId:request.threadId||null});
+   if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation switched during investigation');
+   return decision;
   };
   const decisions=Object.freeze({view:id=>decisionController?.view(id)||'',investigate:investigateJob,open:async id=>{
    if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);

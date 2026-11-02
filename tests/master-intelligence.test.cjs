@@ -84,3 +84,23 @@ test('fresh review keys cannot bypass an interrupted command; revoked inspection
 test('projected records never turn omitted closeout fields into a false operating exception',async()=>{
  const f=fixture();await put(f.db,'jobs',{...f.db.dump().jobs[0],closeoutStatus:'Complete',closeoutEvidence:'Signed synthetic handover evidence reference'});const d=await f.review('Review business');assert.ok(!d.observations.some(o=>o.detectorId==='job.closeout_evidence_review'));assert.ok(d.coverage.notAssessed.includes('closeout'));assert.ok(d.unknowns.some(x=>x.code==='context_coverage_limited'));
 });
+
+test('existing verified decision path exposes a bounded source-linked case in the same app',async()=>{
+ const f=fixture(),decision=await f.review('Review labor hours');
+ assert.equal(decision.case.kind,'tradeflow.intelligence.case.v1');
+ assert.equal(decision.case.businessId,'local-business');
+ assert.equal(decision.case.jobId,'job_01');
+ assert.equal(decision.case.status,'owner_review_available');
+ assert.ok(decision.case.sources.some(r=>r.type==='jobs'&&r.id==='job_01'));
+ assert.ok(decision.case.sources.every(r=>r.revision===null&&/^[a-f0-9]{64}$/.test(r.contentHash)));
+ assert.ok(decision.case.proposals.every(p=>p.status==='proposed_not_authorized'&&p.receiptRef===null));
+ assert.equal(decision.case.executionAuthority,false);
+});
+test('conversation-thread cases stay bound to the reviewed thread and are read-only',async()=>{
+ const f=fixture(),ctx=await f.readCurrent(scope);
+ const decision=await f.protocol.review({objective:'Review labor hours',context:ctx,scope,today:scope.today,threadId:'thread_abc'});
+ const {inspectIntelligenceCase}=await import('../public/intelligence-case.js');
+ assert.equal(decision.case.threadId,'thread_abc');
+ assert.equal(inspectIntelligenceCase({caseFile:decision.case,decision,scope,threadId:'different_thread',accessGranted:true}).status,'thread_changed');
+ assert.equal(f.calls(),0);assert.equal(f.db.dump().tasks.length,0);
+});
