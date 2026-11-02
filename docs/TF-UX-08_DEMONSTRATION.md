@@ -17,3 +17,7 @@ Host/API review: https://github.com/kalashgit/Tradeflow-Lite-MVP-/pull/16#issuec
 Remaining: independent uncoached contractor walkthrough and measured usability, physical iPhone/VoiceOver/real recognition and latency, approved cloud identity/two-device gates. Existing host only preserves the supported screen/selected record/thread/AI composer draft fields; arbitrary unsaved business forms or new navigation history are not claimed. Origins remain ephemeral; no automatic cross-session authority or second conversation/draft store.
 
 Next ready task after CI: turn this verified path into the concise founder/customer sales walkthrough and obtain independent acceptance; do not add more animation infrastructure.
+
+## Blocked-return recovery polish
+
+Demonstrate a mismatched conversation or deleted origin: an inline notice explains the next step without exposing internal status codes or repainting the composer. The unsent question stays visible and unchanged. Dismiss the notice to return focus to the question, or select the original conversation/current record before trying again. Unknown errors are generic; no success or restored access is invented. Browser evidence includes blocked-return-*.png and tests the exact field contents, semantic alert, no raw code text and unchanged one-task/receipt behavior.
