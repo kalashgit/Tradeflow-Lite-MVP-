@@ -21,6 +21,7 @@ function createHostLifecycle(ports){
   const s=snapshot();if(s.screen==='ai')return {status:'already_open',context:getContext()};
   const selected=from||s;
   if(!selected||selected.version!==1||!matches(selected,s))return {status:'scope_changed'};
+  if(selected.threadId&&selected.threadId!==s.threadId)return {status:'thread_changed'};
   const token=++generation;
   const available=!selected.selected||await ports.recordExists(selected.selected);
   if(token!==generation||!matches(snapshot(),s)||snapshot().threadId!==s.threadId)return {status:'interrupted'};
