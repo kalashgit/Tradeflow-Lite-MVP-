@@ -50,5 +50,5 @@ export async function projectRoleExchange({db,principal,businessId,jobId,event,a
   source:{type:'jobs',id:jobId,requestedRevision:event.subject.revision,observedRevision:row.revision},
   note:copy(event.note),deliveryState,acknowledgment:'unverified',action:receipt||{status:'not_verified'},sourceVerified:fresh,
   // No push/email/provider/deliberative call; read-only projection.
-  executionAuthority:false});
+  actorAttributionVerified:false,executionAuthority:false});
 }

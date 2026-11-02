@@ -23,3 +23,14 @@ test('wrong principal and role body do not impersonate membership',async()=>{con
 test('missing event is rejected before assignment or receipt lookup',async()=>{const f=fixture();delete f.event;let assignments=0,receipts=0;f.assignmentCheck=async()=>{assignments++;return true};f.readReceipt=async()=>{receipts++;return {verified:true}};await assert.rejects(projectRoleExchange(f),/Report scope or source invalid/);assert.equal(assignments,0);assert.equal(receipts,0)});
 test('duplicate event tuple cannot verify delivery or request a receipt',async()=>{const f=fixture();f.job.fieldUpdates.push({...f.job.fieldUpdates[0]});f.db={prepare:sql=>({bind:()=>({first:async()=>sql.includes('business_memberships WHERE')?{role:'member'}:{revision:3,payload:JSON.stringify(f.job)}})})};let receipts=0;f.event={...f.event,actionReceiptRef:'receipt_1'};f.readReceipt=async()=>{receipts++;return {verified:true}};const r=await projectRoleExchange(f);assert.equal(r.sourceVerified,false);assert.equal(r.action.status,'not_verified');assert.equal(receipts,0)});
 test('receipt for another business job or event never verifies the response',async()=>{for(const change of [{businessId:'other_business'},{jobId:'other_job'},{eventId:'other_event'}]){const f=fixture();f.event={...f.event,actionReceiptRef:'receipt_1'};f.readReceipt=async()=>({verified:true,jobId:'job_01',businessId:'business_01',eventId:'event_01',...change});const r=await projectRoleExchange(f);assert.equal(r.action.status,'not_verified');assert.equal(r.acknowledgment,'unverified')}});
+test('duplicate source events prevent a verified projection',async()=>{
+ const f=fixture();f.job.fieldUpdates.push({...f.job.fieldUpdates[0]});
+ // Replace the server readback fixture with the duplicated current job record.
+ f.db={prepare:sql=>({bind:()=>({first:async()=>sql.includes('business_memberships WHERE')?{role:'member'}:{revision:3,payload:JSON.stringify(f.job),deleted_at:null}})})};
+ assert.equal((await projectRoleExchange(f)).sourceVerified,false);
+});
+test('job readback does not independently prove authorship or consent',async()=>{
+ const f=fixture();const r=await projectRoleExchange(f);
+ assert.equal(r.actorAttributionVerified,false);
+ assert.equal(r.acknowledgment,'unverified');
+});
