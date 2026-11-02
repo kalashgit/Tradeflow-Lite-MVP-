@@ -19,3 +19,15 @@ test('deleted record cannot be presented',async()=>{const f=fixture({deleted:tru
 test('no false receipt from arbitrary action reference',async()=>{const f=fixture();f.event={...f.event,actionReceiptRef:'receipt_1'};f.readReceipt=async()=>({verified:false});assert.equal((await projectRoleExchange(f)).action.status,'not_verified')});
 test('matching verified internal receipt is distinct from acknowledgment',async()=>{const f=fixture();f.event={...f.event,actionReceiptRef:'receipt_1'};f.readReceipt=async()=>({verified:true,jobId:'job_01',businessId:'business_01',eventId:'event_01'});const r=await projectRoleExchange(f);assert.equal(r.action.status,'verified_internal_action');assert.equal(r.acknowledgment,'unverified')});
 test('wrong principal and role body do not impersonate membership',async()=>{const f=fixture();f.principal={subject:'crew_01',issuer:'issuer',verified:false};await assert.rejects(projectRoleExchange(f),/Authentication required/)});
+
+test('duplicate source events prevent a verified projection',async()=>{
+ const f=fixture();f.job.fieldUpdates.push({...f.job.fieldUpdates[0]});
+ // Replace the server readback fixture with the duplicated current job record.
+ f.db={prepare:sql=>({bind:()=>({first:async()=>sql.includes('business_memberships WHERE')?{role:'member'}:{revision:3,payload:JSON.stringify(f.job),deleted_at:null}})})};
+ assert.equal((await projectRoleExchange(f)).sourceVerified,false);
+});
+test('job readback does not independently prove authorship or consent',async()=>{
+ const f=fixture();const r=await projectRoleExchange(f);
+ assert.equal(r.actorAttributionVerified,false);
+ assert.equal(r.acknowledgment,'unverified');
+});
