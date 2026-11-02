@@ -13,6 +13,9 @@ test('followups are bounded and never interpreted as permission',async()=>{
  assert.equal(f('Go to that job'),'open_job');
  assert.equal(f('Why are labor hours over budget?'),'labor_cause');
  assert.equal(f("What's causing the labor overrun?"),'labor_cause');
+ assert.equal(f('What is blocking this job, and what should we do?'),'job_blockers');
+ assert.equal(f("What's blocking that project?"),'job_blockers');
+ assert.equal(f('What should we do about this job?'),'job_blockers');
  assert.equal(f('Send the invoice'),null);
 });
 
@@ -38,4 +41,31 @@ test('labor explanation cites manual evidence without inventing cause or executi
    {...d,case:{...c,jobId:'another'}},{...d,observations:[]},
    {...d,observations:[{...obs,evidence:{estimatedLaborHours:8,recordedLaborHours:NaN}}]}])
   assert.equal(f(bad,job).status,'unavailable');
+});
+
+test('owner blockers are current case scoped, conservative and never authorize billing',async()=>{
+ const {explainJobBlockers}=await load();
+ const binding='c'.repeat(64),job={id:'job_01',title:'Synthetic panel replacement',status:'Completed',businessId:'local-business'};
+ const c={kind:'tradeflow.intelligence.case.v1',jobId:job.id,businessId:'local-business',sourceBinding:binding,
+  sourceMode:'device_local_unverified',executionAuthority:false,sources:[{type:'jobs',id:job.id},{type:'jobCosts',id:'actual_labor'}],
+  findings:[{id:'finding_01',detectorId:'job.labor_hours_variance_review'}],
+  proposals:[{proposalId:'p1',commandId:'job.labor_review.schedule',status:'proposed_not_authorized'}]};
+ const d={kind:'tradeflow.decision.v1',status:'ready_for_review',binding,evidenceMode:'device_local_unverified_identity',case:c,
+  observations:[{id:'finding_01',detectorId:'job.labor_hours_variance_review',text:'Recorded hours exceeded the estimate.',refs:[{type:'jobs',id:job.id}]}],
+  proposals:[{id:'p1',label:'Prepare internal labor review',requiresApproval:true,externalEffects:false,
+   commandId:'job.labor_review.schedule',params:{ref:{store:'jobs',id:job.id}}}]};
+ const readiness={jobId:job.id,status:'blocked',blockers:['completion_signoff_unverified','billing_terms_unverified'],
+  mayPrepareInvoice:false,maySendInvoice:false};
+ const result=explainJobBlockers(d,job,readiness);
+ assert.equal(result.status,'blocked_for_billing');assert.match(result.content,/Invoice preparation blocked/);
+ assert.match(result.content,/Completion signoff has not been independently verified/);
+ assert.match(result.content,/only after explicit approval/);assert.match(result.content,/No invoice was prepared or sent/);
+ assert.deepEqual(result.proposalIds,['p1']);assert.equal(result.executionAuthority,false);
+ for(const bad of [
+  {d:{...d,case:{...c,businessId:'foreign'}}},{job:{...job,businessId:'foreign'}},
+  {readiness:{...readiness,mayPrepareInvoice:true}},{d:{...d,evidenceMode:'authenticated_cloud_read'}}
+ ])assert.equal(explainJobBlockers(bad.d||d,bad.job||job,bad.readiness||readiness).status,'unavailable');
+ const limited=explainJobBlockers({...d,status:'evidence_needs_review',proposals:[]},job,readiness);
+ assert.equal(limited.status,'evidence_needs_review');
+ assert.doesNotMatch(limited.content,/Prepare internal labor review/);
 });

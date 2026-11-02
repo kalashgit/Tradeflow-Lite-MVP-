@@ -88,6 +88,20 @@ let browser,activePage;
   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
   const inlineReview=approvalPage.locator('[data-decision-job="job_01"]');
   await inlineReview.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).waitFor({timeout:15000});
+  // Same-thread, fresh local evidence blocker question cannot mutate invoices/tasks.
+  await approvalPage.locator('#tfAiPrompt').fill('What is blocking this job, and what should we do?');
+  await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Invoice preparation blocked:'),null,{timeout:15000});
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/Completion signoff has not been independently verified/);
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/only after explicit approval/);
+  assert.equal(await approvalPage.locator('.tf-ai-chat-error:visible').count(),0);
+  const untouched=await approvalPage.evaluate(async()=>{
+   const r=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(ok=>r.onsuccess=()=>ok(r.result));
+   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','invoices']);db.close();
+   return {tasks:data.tasks.length,invoices:data.invoices.length};
+  });
+  assert.equal(untouched.tasks,seed.records.filter(x=>x.type==='tasks').length);
+  assert.equal(untouched.invoices,seed.records.filter(x=>x.type==='invoices').length);
   // Current evidence follow-up remains in the same saved conversation.
   await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();

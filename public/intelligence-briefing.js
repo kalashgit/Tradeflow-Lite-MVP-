@@ -33,6 +33,7 @@ export function createOperationalBriefing({data,evaluation,businessId='local-bus
 export function classifyBriefingFollowUp(s){
  if(typeof s!=='string'||s.length>240)return null;
  const v=s.trim().toLowerCase().replace(/[’]/g,"'");
+ if(/^(?:what(?:'s| is) blocking (?:this|that|the) (?:job|project)(?:,? and what (?:should|can) we do)?|what (?:should|can) we do about (?:this|that|the) (?:job|project))\??$/.test(v))return 'job_blockers';
  if(/^why (?:are|were) (?:the |our )?labou?r (?:hours )?(?:over budget|over(?: the)? estimate)\??$/.test(v)||
     /^what(?:'s| is| was) (?:causing|caused) (?:the |this )?labou?r (?:hours )?(?:overrun|variance)\??$/.test(v))return 'labor_cause';
  if(/^why (?:is|was) (?:that|this|the) job blocked\??$/.test(v))return 'why_blocked';
@@ -71,4 +72,56 @@ export function explainLaborFollowUp(decision,job){
  'No business record was changed.'
  ].join('\n');
  return Object.freeze({status:'recorded_variance',content,refs:sources.slice(0,8).map(r=>r.type+':'+r.id+'@'+(r.revision||0)),executionAuthority:false});
+}
+
+/* This is a narrative over current verified local case references, not a
+ * billing readiness approval or a new executable planner.
+ */
+export function explainJobBlockers(decision,job,readiness){
+ const unavailable=m=>Object.freeze({status:'unavailable',content:m+' Check the saved job evidence. No action was taken.',refs:[],executionAuthority:false});
+ const c=decision?.case;
+ if(!job?.id||job.businessId&&job.businessId!=='local-business'||decision?.kind!=='tradeflow.decision.v1'||
+  !['ready_for_review','evidence_needs_review'].includes(decision.status)||c?.kind!=='tradeflow.intelligence.case.v1'||
+  c.jobId!==job.id||c.businessId!=='local-business'||c.sourceMode!=='device_local_unverified'||
+  c.sourceBinding!==decision.binding||c.executionAuthority!==false||decision.evidenceMode!=='device_local_unverified_identity'||
+  !c.sources?.some(s=>s.type==='jobs'&&s.id===job.id))return unavailable('The current source-linked job investigation is unavailable.');
+ if(readiness?.jobId!==job.id||readiness.status!=='blocked'||readiness.mayPrepareInvoice!==false||
+   readiness.maySendInvoice!==false||!Array.isArray(readiness.blockers)||readiness.blockers.length>20)
+  return unavailable('Billing readiness evidence is incomplete or invalid.');
+ const labels={
+  job_not_recorded_completed:'Job completion is not recorded',
+  customer_not_linked:'Customer linkage needs review',
+  existing_invoice_requires_review:'Existing invoice must be checked',
+  accepted_scope_not_verified:'Accepted scope is not verified',
+  completion_signoff_unverified:'Completion signoff has not been independently verified',
+  billing_terms_unverified:'Billing terms have not been independently verified',
+  change_order_approval_unverified:'Change-order approval has not been independently verified'
+ };
+ if(readiness.blockers.some(code=>!Object.prototype.hasOwnProperty.call(labels,code)))
+  return unavailable('Unrecognized billing blockers require source review.');
+ const sourceKeys=new Set(c.sources.map(s=>s.type+':'+s.id));
+ const findings=(decision.observations||[]).filter(o=>o&&typeof o.text==='string'&&Array.isArray(o.refs)&&
+  o.refs.some(r=>r.type==='jobs'&&r.id===job.id)&&o.refs.every(r=>sourceKeys.has(r.type+':'+r.id))&&
+  c.findings?.some(f=>f.id===o.id&&f.detectorId===o.detectorId));
+ const reviews=(decision.proposals||[]).filter(p=>p?.requiresApproval===true&&p.externalEffects===false&&
+  p.params?.ref?.store==='jobs'&&p.params.ref.id===job.id&&
+  c.proposals?.some(x=>x.proposalId===p.id&&x.commandId===p.commandId&&x.status==='proposed_not_authorized'));
+ const attention=decision.status==='evidence_needs_review'?
+  'Linked evidence needs review before interpreting its recorded cost or labor values.':
+  findings.length?'Recorded operational exceptions: '+findings.slice(0,3).map(o=>o.text.slice(0,220)).join(' '):
+  'No eligible exception was detected in the available records; this is not a complete audit.';
+ const textBody=[
+  'DEVICE-LOCAL JOB REVIEW — '+String(job.title||job.id).slice(0,100)+'. Recorded job status: '+String(job.status||'unknown').slice(0,50)+'.',
+  'Invoice preparation blocked: '+readiness.blockers.map(code=>labels[code]).join('; ')+'.',
+  attention,
+  'Next: inspect the recorded job, verify completion signoff, approved scope, billing terms and missing cost/labor entries with the responsible people.',
+  decision.status==='ready_for_review'&&reviews.length?
+   'Optional internal review, only after explicit approval in existing TradeFlow controls: '+reviews.slice(0,3).map(p=>String(p.label||p.commandId).slice(0,100)).join('; ')+'.':
+   'No internal review action is currently eligible from this evidence.',
+  'These records do not establish a root cause. No invoice was prepared or sent, no task was created, and no business record was changed.'
+ ].join('\n');
+ const refs=c.sources.filter(s=>s.type==='jobs'&&s.id===job.id||['jobCosts','quotes','invoices','customers','tasks'].includes(s.type))
+  .slice(0,8).map(s=>s.type+':'+s.id+'@'+(s.revision||0));
+ return Object.freeze({status:decision.status==='evidence_needs_review'?'evidence_needs_review':'blocked_for_billing',
+  content:textBody.slice(0,2400),refs,proposalIds:reviews.slice(0,3).map(p=>p.id),executionAuthority:false});
 }
