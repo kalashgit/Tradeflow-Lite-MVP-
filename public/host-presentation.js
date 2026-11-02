@@ -31,11 +31,11 @@ function connect({document,getHost,motion,notify}){
   b.disabled=true;try{let result;if(b.dataset.voice==='close'||b.dataset.action==='tfAiClose')result=await controller.close(b.closest('.tf-voice-sheet,.tf-ai-mini-panel'));else result=await (b.dataset.hostAction==='return'?controller.returnToOrigin():controller.open());if(['closed','already_closed','returned','opened','already_open'].includes(result.status)){focusPending=true;decorate()}}catch{notify('Context operation unavailable. No success was verified.')}finally{b.disabled=false}
  }
  app.addEventListener('click',click,true);
- function interact(event){if(event.type==='keydown'&&!['Enter',' ','Escape'].includes(event.key))return;const panel=event.target.closest?.('.tf-voice-sheet,.tf-ai-mini-panel');if(!panel)return;if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();void controller.close(panel,'escape').then(result=>{if(['closed','already_closed'].includes(result.status)){focusPending=true;decorate()}},()=>notify('Close unavailable; microphone status must be checked.'));return}if(!event.target.closest?.('[data-voice="close"],[data-action="tfAiClose"]'))controller.cancel()}
- app.addEventListener('pointerdown',interact,true);app.addEventListener('keydown',interact,true);
+ function interact(event){if(event.type==='keydown'&&!['Enter',' ','Escape'].includes(event.key))return;const panel=event.target.closest?.('.tf-voice-sheet,.tf-ai-mini-panel')||(event.key==='Escape'?app.querySelector('.tf-voice-sheet,.tf-ai-mini-panel'):null);if(!panel)return;if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();void controller.close(panel,'escape').then(result=>{if(['closed','already_closed'].includes(result.status)){focusPending=true;decorate()}},()=>notify('Close unavailable; microphone status must be checked.'));return}if(!event.target.closest?.('[data-voice="close"],[data-action="tfAiClose"]'))controller.cancel()}
+ app.addEventListener('pointerdown',interact,true);document.addEventListener('keydown',interact,true);
  function hide(){controller.invalidate()}
  document.defaultView?.addEventListener('pagehide',hide);
- return Object.freeze({controller,dispose(){observer.disconnect();app.removeEventListener('click',click,true);app.removeEventListener('pointerdown',interact,true);app.removeEventListener('keydown',interact,true);document.defaultView?.removeEventListener('pagehide',hide);controller.dispose()}});
+ return Object.freeze({controller,dispose(){observer.disconnect();app.removeEventListener('click',click,true);app.removeEventListener('pointerdown',interact,true);document.removeEventListener('keydown',interact,true);document.defaultView?.removeEventListener('pagehide',hide);controller.dispose()}});
 }
 const api=Object.freeze({createController,connect});if(typeof module==='object'&&module.exports)module.exports=api;else root.TradeFlowHostPresentation=api;
 })(typeof window==='object'?window:globalThis);
