@@ -63,6 +63,62 @@ function laborCostBinding(records,jobId,businessId='local-business'){
  if(!Number.isFinite(estimated)||!Number.isFinite(recorded))return null;
  return {proof,estimated,recorded,count:entries.length};
 }
+/* HYB-01: a source-linked derived case from an EXISTING committed event.
+ * It lives solely inside that event's journal result, not in a new authority.
+ * The local event actor label is not cloud-authenticated identity.
+ */
+function jobCaseBinding(job,businessId){
+ if(!job||typeof job.id!=='string'||!job.id||job.businessId&&job.businessId!==businessId)return null;
+ const scalar=x=>x==null?null:typeof x==='string'&&x.length<=120?x:typeof x==='number'&&Number.isFinite(x)?x:undefined;
+ const values=[job.id,job.businessId||businessId,scalar(job.revision),scalar(job.updatedAt),scalar(job.status),scalar(job.crewId)];
+ return values.some(v=>v===undefined)?null:JSON.stringify(values);
+}
+function currentLaborEvidence({jobId,jobs=[],jobCosts=[],businessId='local-business'}){
+ if(!Array.isArray(jobs)||!Array.isArray(jobCosts))return null;
+ const matches=jobs.filter(j=>j?.id===jobId);
+ if(matches.length!==1)return null;
+ const jobProof=jobCaseBinding(matches[0],businessId),costProof=laborCostBinding(jobCosts,jobId,businessId);
+ return jobProof&&costProof?{jobProof,costProof}:null;
+}
+function makeReactiveLaborCase({event,jobs,jobCosts,findings,at,businessId='local-business'}){
+ if(event?.kind!=='domain.event'||event.businessId!==businessId||event.actor!=='local-owner'||event.ref?.store!=='jobCosts'||!event.type?.startsWith('job_cost.'))return null;
+ const candidate=Array.isArray(jobCosts)?jobCosts.filter(c=>c?.id===event.ref.id):[];
+ if(candidate.length!==1||candidate[0].businessId&&candidate[0].businessId!==businessId||typeof candidate[0].jobId!=='string')return null;
+ const jobId=candidate[0].jobId,evidence=currentLaborEvidence({jobId,jobs,jobCosts,businessId});
+ if(!evidence)return null;
+ const match=Array.isArray(findings)?findings.find(f=>f?.jobId===jobId&&f.sourceCostBinding===evidence.costProof.proof&&f.executionAuthority===false&&f.detectorId==='job.labor_hours_variance_review'):null;
+ const overrun=evidence.costProof.recorded>evidence.costProof.estimated;
+ const status=overrun?(match?'owner_review_available':'evaluation_unverified'):'no_recorded_overrun';
+ return {kind:'tradeflow.intelligence.reactive-labor-case.v1',schemaVersion:1,eventId:event.id,correlationId:event.correlationId,
+  businessId,actor:'local-owner',sourceMode:'device_local_unverified',sourceRef:{store:'jobCosts',id:event.ref.id},
+  jobId,jobProof:evidence.jobProof,sourceCostBinding:evidence.costProof.proof,
+  evaluatedAt:at,status,findingId:match?.id||null,
+  estimatedLaborHours:evidence.costProof.estimated,recordedLaborHours:evidence.costProof.recorded,
+  proposedCommandId:match?'job.labor_review.schedule':null,approvalRequired:true,
+  timesheetVerified:false,payrollVerified:false,outcomeVerified:false,executionAuthority:false};
+}
+function inspectReactiveLaborCase({event,records,businessId='local-business',actor='local-owner'}={}){
+ if(!event||event.kind!=='domain.event'||event.status!=='processed'||event.businessId!==businessId||event.actor!==actor||actor!=='local-owner')return {status:'access_or_event_unverified'};
+ const saved=event.result?.reactiveLaborCase;
+ if(!saved||saved.kind!=='tradeflow.intelligence.reactive-labor-case.v1'||saved.executionAuthority!==false||saved.businessId!==businessId||saved.eventId!==event.id||saved.actor!==actor)return {status:'case_unavailable'};
+ if(!records||!Array.isArray(records.jobs)||!Array.isArray(records.jobCosts))return {status:'source_unavailable'};
+ const found=records.jobCosts.filter(x=>x?.id===event.ref?.id);
+ if(found.length!==1||found[0].businessId&&found[0].businessId!==businessId||found[0].jobId!==saved.jobId)return {status:'source_unavailable'};
+ const current=currentLaborEvidence({jobId:saved.jobId,jobs:records.jobs,jobCosts:records.jobCosts,businessId});
+ if(!current)return {status:'source_unavailable'};
+ if(current.jobProof!==saved.jobProof||current.costProof.proof!==saved.sourceCostBinding||saved.estimatedLaborHours!==current.costProof.estimated||saved.recordedLaborHours!==current.costProof.recorded)return {status:'stale_source'};
+ if(saved.status==='owner_review_available'&&!(current.costProof.recorded>current.costProof.estimated))return {status:'stale_source'};
+ if(saved.status==='no_recorded_overrun'&&current.costProof.recorded>current.costProof.estimated)return {status:'stale_source'};
+ return {status:'current',findingId:saved.findingId,reviewStatus:saved.status,executionAuthority:false};
+}
+function readLaborSnapshot(db){
+ return new Promise((resolve,reject)=>{
+  let tx;try{tx=db.transaction(['jobs','jobCosts'],'readonly')}catch(e){reject(e);return}
+  const requests={};for(const store of ['jobs','jobCosts'])requests[store]=tx.objectStore(store).getAll();
+  tx.oncomplete=()=>resolve({jobs:requests.jobs.result||[],jobCosts:requests.jobCosts.result||[]});
+  tx.onerror=tx.onabort=()=>reject(tx.error||Error('Labor case source snapshot unavailable'));
+ });
+}
 function readLaborCosts(db){
  return new Promise((resolve,reject)=>{
   let tx,request;
@@ -113,8 +169,10 @@ async function drain({db,events,commands,businessId='local-business',rule={id:'o
    if(plan.status!=='ready')throw Error(plan.error?.message||'Review not authorized');
    const result=await commands.execute(plan.id);
    if(result.status!=='succeeded'||!Array.isArray(result.result?.findings))throw Error(result.error?.message||'Review result unavailable');
-   const labor=laborFindingSummaries(result.result.findings,await readLaborCosts(db),businessId);
-   outcome={status:'processed',result:{findingIds:result.result.findings.map(f=>f.id),evaluatedAt:result.result.evaluatedAt,ruleId:rule.id,laborFindings:labor.items,laborFindingsTruncated:labor.truncated}};
+   const current=await readLaborSnapshot(db);
+   const labor=laborFindingSummaries(result.result.findings,current.jobCosts,businessId);
+   const reactiveLaborCase=makeReactiveLaborCase({event:row,jobs:current.jobs,jobCosts:current.jobCosts,findings:labor.items,at:result.result.evaluatedAt,businessId});
+   outcome={status:'processed',result:{findingIds:result.result.findings.map(f=>f.id),evaluatedAt:result.result.evaluatedAt,ruleId:rule.id,laborFindings:labor.items,laborFindingsTruncated:labor.truncated,...(reactiveLaborCase?{reactiveLaborCase}:{})}};
   }catch(error){outcome={status:row.attempts>=5?'failed':'pending',error:String(error.message).slice(0,200),nextAttemptAt:now()+Math.min(60000,1000*2**row.attempts)}}
   await transition(db,row.id,current=>{
    if(!current||current.lease!==lease)return {};
@@ -123,5 +181,5 @@ async function drain({db,events,commands,businessId='local-business',rule={id:'o
  }
  return {status:'evaluated',processed};
 }
-return Object.freeze({validate,make,recordCommitted,write,drain,eventTypes:Object.freeze([...allowed]),laborFindingSummaries,laborCostBinding});
+return Object.freeze({validate,make,recordCommitted,write,drain,eventTypes:Object.freeze([...allowed]),laborFindingSummaries,laborCostBinding,makeReactiveLaborCase,inspectReactiveLaborCase});
 });
