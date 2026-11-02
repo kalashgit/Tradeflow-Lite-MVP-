@@ -1,7 +1,7 @@
 /* HYB-02: bounded, derived Master Intelligence case. Business records and
  * command receipts remain authoritative; a case cannot execute any operation.
  */
-import {canonical,copy,freeze} from './intelligence-evidence.js';
+import {canonical,copy,freeze,validateEvidence} from './intelligence-evidence.js';
 export const CASE_KIND='tradeflow.intelligence.case.v1';
 export const CASE_TTL_MS=10*60*1000;
 const id=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
@@ -68,5 +68,24 @@ export function inspectIntelligenceCase({caseFile,decision,scope,threadId=null,a
  if(decision?.kind!=='tradeflow.decision.v1'||!hash(decision.binding)||caseFile.sourceBinding!==decision.binding)return {status:'stale_evidence'};
  let current;try{current=sourcesOf(decision,scope.mode)}catch{return {status:'stale_evidence'}}
  if(canonical(current)!==canonical(caseFile.sources))return {status:'stale_evidence'};
+ return {status:'current',executionAuthority:false};
+}
+
+/* HYB-03B: Recheck current local source fingerprints before answering.
+ * An assembled case and its reviewed decision are not evidence that later
+ * source edits, deletions or offline updates have not occurred. This helper
+ * cannot authenticate cloud identity or grant any command authorization.
+ */
+export async function inspectCurrentLocalCase({caseFile,decision,scope,threadId=null,asOf=new Date().toISOString(),accessGranted=false,readCurrent}={}){
+ const previous=inspectIntelligenceCase({caseFile,decision,scope,threadId,asOf,accessGranted});
+ if(previous.status!=='current')return previous;
+ if(scope?.mode!=='local'||caseFile.sourceMode!=='device_local_unverified')return {status:'authenticated_refresh_unavailable',executionAuthority:false};
+ if(typeof readCurrent!=='function')return {status:'fresh_source_unavailable',executionAuthority:false};
+ try{
+  const refreshed=await readCurrent(scope);
+  await validateEvidence(refreshed,scope);
+  if(canonical(sourcesOf({workflow:{records:refreshed.records}},'local'))!==canonical(caseFile.sources))
+   return {status:'stale_evidence',executionAuthority:false};
+ }catch{return {status:'fresh_source_unavailable',executionAuthority:false}}
  return {status:'current',executionAuthority:false};
 }

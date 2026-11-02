@@ -57,3 +57,31 @@ test('offline application precaches the added source module',()=>{
  const sw=fs.readFileSync('public/sw.js','utf8');
  assert.match(sw,/intelligence-case\.js/);assert.match(sw,/const CACHE='tradeflow-lite-[a-z0-9-]+'/);
 });
+
+test('fresh local case re-reads saved records rather than trusting the original decision',async()=>{
+ const {localEvidence}=await import('../public/intelligence-evidence.js');
+ const f=fixture(),data={jobs:[{id:'job_01',businessId:'local-business',title:'Synthetic job',status:'In Progress'}]};
+ const current=await localEvidence(data,f.scope);
+ f.decision.workflow.records=current.records.map(r=>({type:r.type,id:r.id,revision:r.revision,contentHash:r.contentHash,provenance:r.provenance}));
+ f.decision.observations[0].refs=f.decision.workflow.records;
+ const caseFile=mod.createIntelligenceCase(f);
+ const check=rest=>mod.inspectCurrentLocalCase({...f,caseFile,accessGranted:true,readCurrent:async s=>localEvidence(data,s),...rest});
+ assert.equal((await check()).status,'current');
+ assert.equal((await check({accessGranted:false})).status,'access_unverified');
+ assert.equal((await check({threadId:'other_thread'})).status,'thread_changed');
+ assert.equal((await check({readCurrent:null})).status,'fresh_source_unavailable');
+ data.jobs[0].status='Completed';
+ assert.equal((await check()).status,'stale_evidence');
+ data.jobs.length=0;
+ assert.equal((await check()).status,'fresh_source_unavailable');
+});
+test('local freshness port cannot be misused as a cloud authentication provider',async()=>{
+ const f=fixture();
+ f.scope={mode:'cloud',businessId:'biz_01',jobId:'job_01',today:'2026-11-03',role:'member',identity:{issuer:'issuer_01',subject:'actor_01'}};
+ f.decision.evidenceMode='authenticated_cloud_read';
+ f.decision.workflow.records=[{type:'jobs',id:'job_01',revision:2,provenance:'tenant_record'}];
+ f.decision.observations[0].refs=f.decision.workflow.records;
+ const caseFile=mod.createIntelligenceCase(f);
+ const inspected=await mod.inspectCurrentLocalCase({...f,caseFile,accessGranted:true,readCurrent:()=>{throw Error('Must not read cloud')}});
+ assert.equal(inspected.status,'authenticated_refresh_unavailable');
+});
