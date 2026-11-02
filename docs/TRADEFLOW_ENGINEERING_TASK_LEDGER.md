@@ -1,3 +1,11 @@
+## TF-RM-03 / #25 — Role exchange v1 source-bound read-only increment (2026-11-03)
+
+**Status:** Implemented in code; exact-head CI pending at creation. AI Principal owns `src/role-exchange.js` and its focused tests. Existing server `authorizeBusiness` and `authorizedTenantReadQuery` enforce membership/tenant before source projection; existing `jobs` payload is the record authority. No new store, migration, command, sync provider, GUI writer, automatic model call, or external delivery.
+
+**Observable internal scenario:** A synthetic assigned crew actor constructs a local blocker report, and a permitted office/crew reader sees a readback-verified projection **only when** the authenticated server job contains that exact event tuple at a non-stale revision. Offline/uncommitted input remains local/unverified; acknowledgment and internal action receipts are independent, never inferred. A supplied assignment verifier is mandatory because the current job `crewId` display link is not authenticated actor-to-job authorization.
+
+**Gates:** Synthetic focused tests cover actor, role, assignment, tenant, stale, deleted, offline/queued, receipt, invalid fields; full CI/browser/D1 needed at exact SHA. Not an end-to-end field submission or real role exchange yet. Next: implement server-side authenticated assignment binding and existing-command write/reply/ack adapters before Codex may present a working crew ⇄ office workflow. No live user, external notification or production. PR #16 draft; #18 separate; 0/62 research pains retired.
+
 # Authoritative engineering task ledger
 
 Source of priority: Master Development Roadmap v1.1, read 2026-10-30. This is execution tracking, not a replacement roadmap. All tasks owned by Codex on `feature/cloud-record-discovery`, draft PR #16. No merge/deploy or live access changes authorized in this session. Historical milestone evidence remains in the dated handoff and verification ledger.
