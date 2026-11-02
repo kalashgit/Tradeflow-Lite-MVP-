@@ -116,7 +116,9 @@ let browser,activePage;
   await approvalPage.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===0&&!document.querySelector('[data-decision-job="job_01"]'),null,{timeout:10000});
   assert.equal(await approvalPage.locator('[data-decision-job="job_01"]').count(),0,'Unrelated conversation cannot display previous approval controls');
   assert.equal(await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),0,'Unrelated conversation has no previous evidence');
-  await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
+  assert.equal(await approvalPage.evaluate(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId),null,
+    'New thread cannot inherit the previous job');
+   await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'));
   await approvalPage.reload();await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
   await approvalPage.locator('[data-tab="settings"]:visible').first().click();
@@ -124,7 +126,25 @@ let browser,activePage;
   // A newer, empty thread may be selected after reload; reopen the exact original.
   await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
-  const afterReload=await approvalPage.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','invoices']);db.close();return d});
+  // Verify source-backed thread context survives a real browser reload.
+   assert.equal(await approvalPage.evaluate(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId),'job_01');
+   await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
+   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+   await approvalPage.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length>=10 &&
+     document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Cause not established.'),null,{timeout:15000});
+   assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/planned 8 hours; actual 12 hours/);
+   // A changed source must not reuse those old hours in the next explanation.
+   await approvalPage.evaluate(async()=>{
+    const r=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(ok=>r.onsuccess=()=>ok(r.result));
+    const tx=db.transaction('jobCosts','readwrite'),s=tx.objectStore('jobCosts'),q=s.get('actual_labor');
+    q.onsuccess=()=>s.put({...q.result,laborHours:7,revision:3});
+    await new Promise(ok=>tx.oncomplete=ok);db.close();
+   });
+   await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
+   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('No supported labor overrun was found'),null,{timeout:15000});
+   assert.equal(await approvalPage.locator('.tf-ai-chat-error:visible').count(),0);
+   const afterReload=await approvalPage.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','invoices']);db.close();return d});
   assert.equal(afterReload.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1,'Reload must not replay approved command');
   assert.deepEqual(afterReload.invoices.sort((a,b)=>a.id.localeCompare(b.id)),expectedInvoices,'Reload preserves existing invoices without generating new ones');
   await approvalContext.close();

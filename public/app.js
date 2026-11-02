@@ -386,6 +386,31 @@ function tfFinancePhotoSection(record,target){
    identity is NOT an authenticated cloud identity, and history is never synchronized. */
 let tfChatMessages=[],tfChatThreads=[],tfActiveChatThreadId=null,tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='',tfAiReviewJobId=null,tfAiReviewThreadId=null;
 const tfAiLocalScope=Object.freeze({kind:'local',businessId:'local-business',actorId:'local-owner'});
+ // Persistent metadata is a verified local pointer, not cached decision authority.
+ async function tfAiRestoreJobContext(expectedThread=tfActiveChatThreadId){
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  if(!expectedThread)return false;
+  try{
+   const context=await window.TradeFlowConversationStore.readJobContext(db,tfAiLocalScope,expectedThread);
+   if(tfActiveChatThreadId!==expectedThread||!context)return false;
+   const job=await get('jobs',context.jobId);
+   if(tfActiveChatThreadId!==expectedThread||!job||job.businessId&&job.businessId!=='local-business')return false;
+   tfAiReviewJobId=job.id;tfAiReviewThreadId=expectedThread;return true;
+  }catch{return false}
+ }
+ async function tfAiClearJobContext(){
+  const thread=tfActiveChatThreadId;
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  if(thread)await window.TradeFlowConversationStore.setJobContext(db,tfAiLocalScope,thread,null);
+ }
+ async function tfAiBindJobContext(jobId,savedTurn){
+  const thread=savedTurn?.threadId;
+  if(!thread||thread!==tfActiveChatThreadId)throw Error('Conversation switched before job context save');
+  await window.TradeFlowConversationStore.setJobContext(db,tfAiLocalScope,thread,{jobId,sourceTurnId:savedTurn.id});
+  if(thread!==tfActiveChatThreadId)throw Error('Conversation switched during job context save');
+  tfAiReviewJobId=jobId;tfAiReviewThreadId=thread;
+ }
+
 /* AI-owned adapter: UI motion consumes this public surface; app state remains authoritative. */
 function tfHostRead(){
  const selected=['jobs','tasks','quotes','customers'].includes(tab)&&tfRecordDetailId?
@@ -402,6 +427,7 @@ async function tfAiLoadHistory(){
   tfChatThreads=await store.listThreads(db,tfAiLocalScope);
   if(!tfChatThreads.some(t=>t.id===tfActiveChatThreadId))tfActiveChatThreadId=tfChatThreads[0]?.id||null;
   tfChatMessages=tfActiveChatThreadId?await store.listTurns(db,tfAiLocalScope,tfActiveChatThreadId):[];
+  await tfAiRestoreJobContext(tfActiveChatThreadId);
  }catch(error){tfChatMessages=[];tfChatError='Could not read local AI history. No messages were sent; inspect browser storage.'}
 }
 async function tfAiEnsureThread(title){
@@ -429,6 +455,7 @@ async function tfAiSwitchThread(threadId){
   if(!tfChatThreads.some(t=>t.id===threadId))throw Error('Conversation no longer available');
   const turns=await store.listTurns(db,tfAiLocalScope,threadId);
   tfActiveChatThreadId=threadId;tfChatMessages=turns;tfChatError='';
+  await tfAiRestoreJobContext(threadId);
  }catch(error){tfChatError='Could not open the selected local conversation.'}
  await tfAiUpdateChatUI();
 }
@@ -437,6 +464,7 @@ async function tfAiNewThread(){
  try{
   const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
   tfActiveChatThreadId=thread.id;tfChatMessages=[];tfChatError='';
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
   tfChatThreads=await window.TradeFlowConversationStore.listThreads(db,tfAiLocalScope);
  }catch(error){tfChatError='Could not create local conversation; no new thread was saved.'}
  await tfAiUpdateChatUI();
@@ -447,6 +475,7 @@ async function tfAiDeleteThread(){
  try{
   await window.TradeFlowConversationStore.deleteThread(db,tfAiLocalScope,tfActiveChatThreadId);
   tfActiveChatThreadId=null;tfChatError='';
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
   await tfAiLoadHistory();
  }catch(error){tfChatError='Could not delete conversation. Local history was not confirmed deleted.'}
  await tfAiUpdateChatUI();
@@ -693,12 +722,14 @@ async function tfAiLocalBusinessBriefing(content){
  await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
+  await tfAiClearJobContext();
   const snapshot=await tfPilotSnapshot();
   const evaluation=await window.TradeFlowPilot.evaluate();
   const result=createOperationalBriefing({data:snapshot,evaluation,businessId:'local-business'});
-  tfAiReviewJobId=result.blockedJobIds.length===1?result.blockedJobIds[0]:null;
-  tfAiReviewThreadId=tfAiReviewJobId?tfActiveChatThreadId:null;
-  await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:result.refs.slice(0,8).map(r=>r+'@0')});
+  const oneJob=result.blockedJobIds.length===1?result.blockedJobIds[0]:null;
+  const sourceRefs=[...new Set([...(oneJob?['jobs:'+oneJob+'@0']:[]),...result.refs.slice(0,8).map(r=>r+'@0')])].slice(0,8);
+  const saved=await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:sourceRefs});
+  if(oneJob)await tfAiBindJobContext(oneJob,saved);
  }catch(error){tfChatError='Business briefing unavailable: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
  return true;
@@ -711,7 +742,7 @@ async function tfAiLocalJobReview(content){
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
   let answer='',refs=[];
-  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  await tfAiClearJobContext();
   if(request.status==='empty')answer='No saved jobs are available in this local workspace. No action was taken.';
   else if(request.status==='too_many')answer='This review exceeds the 20-job safety limit. Narrow the question to a specific saved job. No action was taken.';
   else if(request.status==='ambiguous')answer='Which job should I investigate? '+request.jobs.map(x=>x.title).join('; ')+'. No action was taken.';
@@ -720,16 +751,18 @@ async function tfAiLocalJobReview(content){
    const summaries=[];
    const [invoiceRecords,quoteRecords]=await Promise.all([all('invoices'),all('quotes')]);
    for(const job of request.jobs){
-    const decision=await window.TradeFlowPilot.decisions.investigate(job.id);
+    const decision=await window.TradeFlowPilot.decisions.investigate(job.id,{threadId:tfActiveChatThreadId});
     const readiness=assessInvoiceReadiness({job,invoices:invoiceRecords,quotes:quoteRecords});
     const explanation=explainJobDecision(job,decision,readiness);
     summaries.push(explanation.content);refs.push(...explanation.refs);
    }
    answer='DEVICE-LOCAL EVIDENCE REVIEW (not an authenticated cloud tenant)\n'+summaries.join('\n\n');
-   if(request.jobs.length===1){tfAiReviewJobId=request.jobs[0].id;tfAiReviewThreadId=tfActiveChatThreadId;}
-  }
-  await tfAiSaveTurn({role:'assistant',content:answer.slice(0,2400),modality:'text',status:'committed',source:'device_local_evidence',refs:[...new Set(refs)].slice(0,8)});
- }catch(error){tfChatError='Local job investigation was not completed: '+String(error.message||error).slice(0,160)}
+   }
+  const oneJob=request.status==='selected'&&request.jobs.length===1?request.jobs[0].id:null;
+  const sourceRefs=[...new Set([...(oneJob?['jobs:'+oneJob+'@0']:[]),...refs])].slice(0,8);
+  const saved=await tfAiSaveTurn({role:'assistant',content:answer.slice(0,2400),modality:'text',status:'committed',source:'device_local_evidence',refs:sourceRefs});
+  if(oneJob)await tfAiBindJobContext(oneJob,saved);
+ }catch(error){tfAiReviewJobId=null;tfAiReviewThreadId=null;tfChatError='Local job investigation was not completed: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI();if(tfAiReviewJobId)await window.TradeFlowPilot?.decisions?.open(tfAiReviewJobId)}
  return true;
 }
