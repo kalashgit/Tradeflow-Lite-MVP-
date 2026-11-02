@@ -140,7 +140,9 @@ let browser,activePage;
   // A newer, empty thread may be selected after reload; reopen the exact original.
   await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
-  // Verify source-backed thread context survives a real browser reload.
+  // Wait for BOTH scoped turns and their asynchronous saved-context recovery.
+  // Displaying an earlier turn alone is not proof the job target has rehydrated.
+   await approvalPage.waitForFunction(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId==='job_01',null,{timeout:15000});
    assert.equal(await approvalPage.evaluate(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId),'job_01');
    const beforeFollowUp=await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count();
    await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');

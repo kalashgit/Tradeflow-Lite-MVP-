@@ -1,3 +1,7 @@
+## HYB-02B browser recovery regression — asynchronous hydration gate (2026-11-03)
+
+**Evidence:** On unchanged case-helper commit `5eaf2aa8b0d3ac71c64c58782f12869356c74106`, Actions 41544438792 passed, but parallel run 41544445796 FAILED its real Chromium decision journey while asserting `contextRecordId` immediately after thread selection. The transcript had reappeared before the asynchronous local context verification completed; the test used transcript visibility as its only wait. Replaced that immediate check with an explicit wait for the verified host context, while preserving the strict assert. An unavailable or incorrect source still times out/fails, not silently passes. Exact-head CI pending. No production changes.
+
 ## HYB-03B / #21 — Source-rechecked job blockers and owner next steps (2026-11-03)
 
 **Status:** Code committed on AI draft PR #16; exact-head CI to verify. Adds the natural question `What is blocking this job, and what should we do?` to the original saved TradeFlow AI thread. Extends the existing bounded case with a fresh read/validation of its complete local source fingerprints; case expiry, conversation and job scope, deleted/updated evidence and missing reader fail closed. Authenticated cloud refresh remains a separate unavailable gate. No new model provider, data store, custom agent runner, command or authority.
