@@ -2425,11 +2425,12 @@ function tfInitializePilot(){
 }
 if(window.TradeFlowHostLifecycleFactory){
  window.TradeFlowHostLifecycle=window.TradeFlowHostLifecycleFactory.createHostLifecycle({
+  isVisualOpen:()=>!!(tfAiPanelOpen||window.TradeFlowVoice?.view?.()),
   read:tfHostRead,readDraft:tfHostDraftRead,writeDraft:tfHostDraftWrite,
   stopMicrophone:()=>window.TradeFlowVoice?.stopMicrophoneNow?.(),
   recordExists:async ref=>!!(await get(ref.store,ref.id))&&(!((await get(ref.store,ref.id))?.businessId)||((await get(ref.store,ref.id))?.businessId)==='local-business'),
   navigate:async target=>{if(target.selected)await tfPilotOpenRecord(target.selected);else await tfNavigateWorkspace(target.screen)},
-  restoreFocus:target=>{const el=target.screen==='ai'?document.getElementById('tfAiPrompt'):document.querySelector('[data-tab="'+target.screen+'"]:visible');el?.focus?.()},
+  restoreFocus:target=>{const el=target.screen==='ai'?document.getElementById('tfAiPrompt'):[...document.querySelectorAll('[data-tab="'+target.screen+'"]')].find(node=>node.getClientRects().length);el?.focus?.()},
   closeVisual:()=>{tfAiPanelOpen=false;window.TradeFlowVoice?.close?.();tfAiRefreshOverlay()}
  });
 }

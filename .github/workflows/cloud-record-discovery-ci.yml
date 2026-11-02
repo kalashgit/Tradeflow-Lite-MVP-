@@ -46,6 +46,9 @@ jobs:
           node --check public/master-intelligence.js
           node --check public/presentation-motion.js
           node --check scripts/verify-motion-integration.cjs
+          node --check public/host-presentation.js
+          node --check public/host-lifecycle.js
+          node --check scripts/verify-host-presentation.cjs
           node --check public/adaptive-ui.js
           node --check scripts/verify-adaptive-ui.cjs
           node --check public/command-center.js

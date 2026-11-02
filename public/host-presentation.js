@@ -1,0 +1,39 @@
+/* Frontend consumer of AI-owned host lifecycle v1; no navigation/draft store. */
+(function(root){'use strict';
+const same=(a,b)=>a.actorId===b.actorId&&a.businessId===b.businessId&&a.threadId===b.threadId&&a.screen===b.screen;
+function createController({getHost,motion,notify=()=>{}}){
+ let serial=0,pending=null,animation=null,disposed=false;
+ const host=()=>{const h=getHost();if(h?.version!==1)throw Error('Host lifecycle unavailable');return h};
+ function cancel(){serial++;try{animation?.cancel()}catch{}animation=null;pending=null}
+ async function navigate(kind,from){cancel();const h=host();h.stopMicrophoneNow();const result=kind==='open'?await h.openFromOrigin({from:from||h.captureOrigin()}):await h.returnToOrigin(from?{from}:{});if(!['opened','already_open','returned'].includes(result.status))notify('Context navigation: '+result.status+'. No destination was assumed.');return result}
+ function close(panel,reason='dismiss'){
+  const h=host();h.stopMicrophoneNow();const state=panel?.querySelector?.('.tf-voice-state');if(state)state.textContent='Microphone stopped. Closing…';panel?.querySelector?.('.tf-voice-wave')?.classList.remove('is-listening');if(pending)return pending;
+  const token=++serial,before=h.getContext();animation=panel?motion.play(panel,'exit'):null;const effect=animation;
+  const operation=(async()=>{try{if(effect?.finished)await effect.finished;if(disposed||token!==serial||panel&&!panel.isConnected||!same(before,h.getContext()))return {status:'interrupted'};
+    const result=h.requestClose({reason});if(!['closed','already_closed'].includes(result.status)&&state)state.textContent='Microphone stopped. Close '+result.status+'.';if(!['closed','already_closed'].includes(result.status))notify('Close '+result.status+'. Microphone stopped.');return result;
+   }catch{return {status:'interrupted'}}finally{try{effect?.cancel()}catch{}if(token===serial)animation=null}
+  })();pending=operation;const clear=()=>{if(pending===operation)pending=null};void operation.then(clear,clear);return operation;
+ }
+ function invalidate(){cancel();host().invalidate()}
+ return Object.freeze({open:from=>navigate('open',from),returnToOrigin:from=>navigate('return',from),close,cancel,invalidate,dispose(){disposed=true;invalidate();motion.dispose()}});
+}
+function connect({document,getHost,motion,notify}){
+ const app=document.getElementById('app');if(!app)return;
+ const controller=createController({getHost,motion,notify});let focusPending=false;
+ function button(label,action){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.hostAction=action;b.className='tf-host-context';return b}
+ function decorate(){const h=getHost();if(h?.version!==1)return;let context;try{context=h.getContext()}catch{return}
+  const dossier=app.querySelector('.tf-record-dossier');if(dossier&&!dossier.querySelector('[data-host-action]'))dossier.prepend(button('Ask Intelligence about this record','open'));
+  const chat=app.querySelector('.tf-ai-chat-top');if(chat){const old=chat.querySelector('[data-host-action="return"]');if(context.origin&&!old)chat.append(button('Return to work','return'));if(!context.origin)old?.remove()}
+  if(focusPending&&!app.querySelector('.tf-voice-sheet,.tf-ai-mini-panel')){focusPending=false;const target=context.screen==='ai'?document.getElementById('tfAiPrompt'):app.querySelector('.tf-record-dossier h2')||[...app.querySelectorAll('[data-tab]')].find(n=>n.dataset.tab===context.screen&&n.getClientRects().length);if(target){if(!target.matches('button,input,textarea'))target.tabIndex=-1;target.focus()}}
+ }
+ const observer=new root.MutationObserver(decorate);observer.observe(app,{childList:true,subtree:true});decorate();
+ async function click(event){const b=event.target.closest?.('[data-host-action],.tf-command-center [data-tab="ai"],[data-voice="close"],[data-action="tfAiClose"]');if(!b)return;event.preventDefault();event.stopImmediatePropagation();if(b.disabled)return;
+  b.disabled=true;try{let result;if(b.dataset.voice==='close'||b.dataset.action==='tfAiClose')result=await controller.close(b.closest('.tf-voice-sheet,.tf-ai-mini-panel'));else result=await (b.dataset.hostAction==='return'?controller.returnToOrigin():controller.open());if(['closed','already_closed','returned','opened','already_open'].includes(result.status)){focusPending=true;decorate()}}catch{notify('Context operation unavailable. No success was verified.')}finally{b.disabled=false}
+ }
+ app.addEventListener('click',click,true);
+ function hide(){controller.invalidate()}
+ document.defaultView?.addEventListener('pagehide',hide);
+ return Object.freeze({controller,dispose(){observer.disconnect();app.removeEventListener('click',click,true);document.defaultView?.removeEventListener('pagehide',hide);controller.dispose()}});
+}
+const api=Object.freeze({createController,connect});if(typeof module==='object'&&module.exports)module.exports=api;else root.TradeFlowHostPresentation=api;
+})(typeof window==='object'?window:globalThis);

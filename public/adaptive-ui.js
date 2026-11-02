@@ -13,7 +13,7 @@ function createFeedback({enabled=false,nativeImpact}={}){
 // Fixed presentation presets only; callers cannot supply arbitrary keyframes or timing.
 function createMotion({media=root.matchMedia?.('(prefers-reduced-motion: reduce)'),document=root.document,style=e=>root.getComputedStyle?.(e)}={}){
  const active=new Map();let disposed=false;
- const presets={reveal:{token:'reveal',distance:4},panel:{token:'panel',distance:8},navigation:{token:'reveal',distance:4}};
+ const presets={reveal:{token:'reveal',distance:4},panel:{token:'panel',distance:8},navigation:{token:'reveal',distance:4},exit:{token:'panel',distance:8,exit:true}};
  function cancel(element){const animation=active.get(element);active.delete(element);try{animation?.cancel()}catch{}}
  function cancelAll(){for(const element of [...active.keys()])cancel(element)}
  const preference=()=>{if(media?.matches)cancelAll()},visibility=()=>{if(document?.hidden)cancelAll()};
@@ -24,7 +24,7 @@ function createMotion({media=root.matchMedia?.('(prefers-reduced-motion: reduce)
   const preset=presets[kind],raw=style(element)?.getPropertyValue('--tf-motion-'+preset.token)?.trim()||'',match=/^((?:\d+(?:\.\d+)?|\.\d+))(ms|s)$/.exec(raw);
   const duration=match?Math.min(320,Number(match[1])*(match[2]==='s'?1000:1)):preset.token==='panel'?240:180;
   if(!duration)return null;
-  try{const animation=element.animate([{opacity:.4,transform:'translateY(-'+preset.distance+'px)'},{opacity:1,transform:'translateY(0)'}],{duration,easing:'cubic-bezier(.2,.8,.2,1)'});active.set(element,animation);
+  try{const animation=element.animate(preset.exit?[{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY('+preset.distance+'px)'}]:[{opacity:.4,transform:'translateY(-'+preset.distance+'px)'},{opacity:1,transform:'translateY(0)'}],{duration,fill:preset.exit?'forwards':'none',easing:'cubic-bezier(.2,.8,.2,1)'});active.set(element,animation);
    const clear=()=>{if(active.get(element)===animation)active.delete(element)};
    if(animation.finished)void Promise.resolve(animation.finished).then(clear,clear);
    return animation;
@@ -68,6 +68,7 @@ function conversation({jobId,reviewThreadId,activeThreadId,messages,data,owner,r
 }
 function configure({document,readState,commands,notify}){
  registry.connect(document);
+ root.TradeFlowHostPresentation?.connect({document,getHost:()=>root.TradeFlowHostLifecycle,motion:createMotion({document}),notify});
  root.TradeFlowPresentationMotion?.connect({document,readState,motion:createMotion({document})});
  document.addEventListener('click',async e=>{const b=e.target.closest?.('[data-adaptive-source]'),card=b?.closest('[data-adaptive-owner]');if(!card||b.disabled)return;e.preventDefault();b.disabled=true;
  try{const current=readState(),key=JSON.parse(card.dataset.adaptiveOwner),ref=b.dataset.adaptiveSource;if(key[0]!==current.actor||key[1]!==current.businessId||key[2]!==current.threadId||!current.messages.some(m=>m.id===key[3]&&m.source==='device_local_evidence'&&m.refs?.includes(ref)))throw Error('Evidence context changed. Reopen this investigation.');

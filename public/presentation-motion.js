@@ -8,12 +8,13 @@ function connect({document,readState,motion,Observer=root.MutationObserver,frame
  function sync(){pending=null;if(disposed)return;if(drag&&!drag.node.isConnected)drag=null;
   const content=app.querySelector('.main > .content'),selected=app.querySelector('.sidebar .nav.active,.mobilebar .active');
   const dossier=content?.querySelector('.tf-record-dossier'),record=dossier?.querySelector('[data-action="tfDecisionExplain"],[data-action="tfRecordEdit"]')?.dataset.id||'';
-  const next=selected?.dataset.tab?selected.dataset.tab+':'+record:null;
+  let hostContext=null;try{hostContext=root.TradeFlowHostLifecycle?.getContext()}catch{}
+  const next=hostContext?hostContext.screen+':'+(hostContext.selected?.id||''):selected?.dataset.tab?selected.dataset.tab+':'+record:null;
   if(previousContent&&previousContent!==content)motion.cancel(previousContent);
   if(content&&route!==null&&next!==null&&next!==route)motion.play(content,'navigation');
   previousContent=content;route=next;
   for(const selector of panelSelectors){const old=panels.get(selector),node=app.querySelector(selector);if(old&&old!==node)motion.cancel(old);if(node&&!old&&drag?.node!==node)motion.play(node,'panel');if(node)panels.set(selector,node);else panels.delete(selector)}
-  const scope=readState(),owner=JSON.stringify([scope.actor,scope.businessId,scope.threadId]);const current=new Map();
+  const scope=hostContext?{actor:hostContext.actorId,businessId:hostContext.businessId,threadId:hostContext.threadId}:readState(),owner=JSON.stringify([scope.actor,scope.businessId,scope.threadId]);const current=new Map();
   for(const node of app.querySelectorAll('[data-decision-status],[data-decision-receipt]')){const job=node.closest('[data-decision-job]')?.dataset.decisionJob;if(!job)continue;const key=owner+':'+job+':'+(node.hasAttribute('data-decision-receipt')?'receipt':'status'),text=node.textContent.trim(),old=statuses.get(key);if(old?.node!==node&&old?.node)motion.cancel(old.node);if(old&&old.text!==text&&text)motion.play(node,'reveal');current.set(key,{node,text})}
   for(const [key,old]of statuses)if(!current.has(key))motion.cancel(old.node);statuses.clear();for(const [key,value]of current)statuses.set(key,value);
  }
