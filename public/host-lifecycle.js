@@ -43,7 +43,7 @@ function createHostLifecycle(ports){
   stopMicrophoneNow();
   await ports.navigate({screen:target.screen,selected:target.selected});
   if(token!==generation||!matches(snapshot(),target)||snapshot().threadId!==current.threadId)return {status:'interrupted'};
-  ports.writeDraft(current.draft);
+  ports.writeDraft(from&&current.draft===''?(typeof target.draft==='string'?target.draft.slice(0,1200):''):current.draft);
   origin=null;
   ports.restoreFocus?.(target);
   return {status:'returned',screen:target.screen,selected:target.selected};
