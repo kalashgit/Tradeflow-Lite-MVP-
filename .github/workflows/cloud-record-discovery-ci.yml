@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - feature/cloud-record-discovery
+      - feature/tf-ux-01-command-center
   pull_request:
     branches:
       - feature/library-universal-intake
+      - feature/cloud-record-discovery
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,6 +44,15 @@ jobs:
           node --check public/cloud-intelligence.js
           node --check public/intelligence-evidence.js
           node --check public/master-intelligence.js
+          node --check public/presentation-motion.js
+          node --check scripts/verify-motion-integration.cjs
+          node --check public/host-presentation.js
+          node --check public/host-lifecycle.js
+          node --check scripts/verify-host-presentation.cjs
+          node --check public/adaptive-ui.js
+          node --check scripts/verify-adaptive-ui.cjs
+          node --check public/command-center.js
+          node --check scripts/verify-command-center.cjs
           node --check public/decision-ui.js
           node --check scripts/verify-decision-journey.cjs
           node --check scripts/verify-intelligence-context.cjs

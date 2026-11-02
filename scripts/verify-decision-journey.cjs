@@ -35,6 +35,7 @@ let browser,activePage;
   const aiJob=page.locator('[data-action="tfAiReviewJob"][data-id="job_01"]');
   await aiJob.waitFor();
   await aiJob.click();
+  await page.locator('.tf-record-dossier').waitFor();
   await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').first().waitFor();
   assert.equal(await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').count()>0,true,'AI review shortcut must expose existing reviewed commands');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'AI review shortcut must not create horizontal overflow');

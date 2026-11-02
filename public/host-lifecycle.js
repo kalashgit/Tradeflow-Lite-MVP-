@@ -21,11 +21,14 @@ function createHostLifecycle(ports){
   const s=snapshot();if(s.screen==='ai')return {status:'already_open',context:getContext()};
   const selected=from||s;
   if(!selected||selected.version!==1||!matches(selected,s))return {status:'scope_changed'};
-  if(selected.selected&&!(await ports.recordExists(selected.selected)))return {status:'record_unavailable'};
+  if(selected.threadId&&selected.threadId!==s.threadId)return {status:'thread_changed'};
   const token=++generation;
+  const available=!selected.selected||await ports.recordExists(selected.selected);
+  if(token!==generation||!matches(snapshot(),s)||snapshot().threadId!==s.threadId)return {status:'interrupted'};
+  if(!available)return {status:'record_unavailable'};
   const next=Object.freeze(plain(selected));
   await ports.navigate({screen:'ai',selected:null});
-  if(token!==generation||!matches(snapshot(),next))return {status:'interrupted'};
+  if(token!==generation||!matches(snapshot(),next)||snapshot().threadId!==s.threadId)return {status:'interrupted'};
   origin=next;closed=false;ports.writeDraft(next.draft);
   return {status:'opened',context:getContext()};
  }
@@ -34,12 +37,14 @@ function createHostLifecycle(ports){
   const current=snapshot();
   if(target.version!==1||!matches(target,current))return {status:'scope_changed'};
   if(target.threadId&&current.threadId&&target.threadId!==current.threadId)return {status:'thread_changed'};
-  if(target.selected&&!(await ports.recordExists(target.selected)))return {status:'record_unavailable'};
   const token=++generation;
+  const available=!target.selected||await ports.recordExists(target.selected);
+  if(token!==generation||!matches(snapshot(),current)||snapshot().threadId!==current.threadId)return {status:'interrupted'};
+  if(!available)return {status:'record_unavailable'};
   stopMicrophoneNow();
   await ports.navigate({screen:target.screen,selected:target.selected});
-  if(token!==generation||!matches(snapshot(),target))return {status:'interrupted'};
-  ports.writeDraft(current.draft);
+  if(token!==generation||!matches(snapshot(),target)||snapshot().threadId!==current.threadId)return {status:'interrupted'};
+  ports.writeDraft(from&&current.draft===''?(typeof target.draft==='string'?target.draft.slice(0,1200):''):current.draft);
   origin=null;
   ports.restoreFocus?.(target);
   return {status:'returned',screen:target.screen,selected:target.selected};
@@ -47,7 +52,7 @@ function createHostLifecycle(ports){
  function requestClose({reason='dismiss'}={}){
   stopMicrophoneNow(); // Synchronous, even if the visual close is vetoed.
   if(closing)return {status:'already_closing'};
-  if(closed)return {status:'already_closed'};
+  if(closed&&ports.isVisualOpen?.()!==true)return {status:'already_closed'};
   closing=true;
   try{
    const current=getContext();
