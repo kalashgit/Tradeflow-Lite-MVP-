@@ -2,6 +2,13 @@
 
 This repository is an **existing**, offline-first, AI-native contractor operating system. Continue its working architecture; do not scaffold a replacement application.
 
+## Required founder roadmap addendum and worker start procedure (2026-11-03)
+
+- **Read first:** [TradeFlow Canonical Product / GUI / Engineering Control Center](https://app.notion.com/p/40cf639e237381be888be113c3d10565) and [Roadmap Addendum v1.2 — TRADEFLOW-RM-2026-11-03-01](https://app.notion.com/p/40cf639e2373817381c8ee70b7e68368). This is a controlled supplement to the authoritative **Master Development Roadmap v1.1**, not a replacement or evidence of implementation. GitHub-only worker mirror: [TF-SSOT #23](https://github.com/kalashgit/Tradeflow-Lite-MVP-/issues/23); targeted crew ⇄ office pilot [#25](https://github.com/kalashgit/Tradeflow-Lite-MVP-/issues/25).
+- **When the founder says "start working" or "continue TradeFlow":** follow the [enabled reusable Notion worker skill](https://app.notion.com/p/40cf639e23738198bb36c381a444433b) where connected; otherwise follow issue #23 and the roadmap. Recheck current PR heads, source, ledger, tests and decision blockers; select the highest-priority dependency-ready **unfinished** task for this worker's role, implement one safe increment, run exact-head verification and report actual SHA/results/next step. Do not claim background work, deployment or completion from an instruction alone.
+- **Product scope update:** one hybrid Master Intelligence, existing dark-only TradeFlow GUI, original records/authorized commands, one GUI/text/voice workflow, source-grounded owner / office / coordinator / crew **⇄** system exchanges, lightweight pilot role surfaces and minimal repeated inputs. No new disconnected app, automatic RNN/LSTM requirement, unverified speech/provider claims or unilateral live permissions.
+- **Ownership:** AI Principal owns server/data/voice/command contracts; Codex consumes these in dark-only UI; General App Engineer edits only assigned disjoint files; independent QA verifies user outcomes. Existing security/offline foundation and draft/unmerged/no-deploy rules remain unchanged.
+
 ## Start of every Codex session
 1. Inspect the current GitHub PR #16 and remote `feature/cloud-record-discovery` head before changing files. The base is `feature/library-universal-intake`. Do not reset, force-push, or overwrite newer commits.
 2. Read `docs/TRADEFLOW_ENGINEERING_TASK_LEDGER.md`, `docs/TRADEFLOW_ENGINEERING_HANDOFF_2026-10-30.md`, `docs/TRADEFLOW_UNIFIED_ARCHITECTURE_BACKLOG.md`, `docs/TRADEFLOW_V1_1_PRODUCT_EVIDENCE.md`, and `docs/H03_PHYSICAL_DEVICE_EVIDENCE_SHEET.md`.
