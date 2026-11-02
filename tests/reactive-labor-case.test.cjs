@@ -66,3 +66,17 @@ test('non-job events do not create fake labor cases and pending offline events a
  const c=(await snapshot(f.db)).commandLog.find(e=>e.ref?.store==='customers');
  assert.equal(c.result.reactiveLaborCase,undefined);
 });
+
+test('tampered saved finding or fake command cannot pass the existing journal proof guard',async()=>{
+ const f=await fixture();await events.drain({db:f.db,events:[f.event],commands:f.ports});
+ const data=await snapshot(f.db),row=data.commandLog.find(x=>x.kind==='domain.event');
+ const tampered={...row,result:{...row.result,reactiveLaborCase:{...row.result.reactiveLaborCase,findingId:'forged'}}};
+ assert.equal(events.inspectReactiveLaborCase({event:tampered,records:data}).status,'case_unavailable');
+ const changed={...row,result:{...row.result,reactiveLaborCase:{...row.result.reactiveLaborCase,proposedCommandId:'invoice.send'}}};
+ assert.equal(events.inspectReactiveLaborCase({event:changed,records:data}).status,'case_unavailable');
+});
+test('existing job dossier uses current-case guard before presenting new event evidence',()=>{
+ const fs=require('node:fs'),app=fs.readFileSync('public/app.js','utf8');
+ assert.match(app,/inspectReactiveLaborCase/);
+ assert.match(app,/verified\.reviewStatus!=='owner_review_available'/);
+});

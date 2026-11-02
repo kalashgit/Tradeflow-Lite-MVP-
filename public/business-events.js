@@ -101,6 +101,12 @@ function inspectReactiveLaborCase({event,records,businessId='local-business',act
  if(!event||event.kind!=='domain.event'||event.status!=='processed'||event.businessId!==businessId||event.actor!==actor||actor!=='local-owner')return {status:'access_or_event_unverified'};
  const saved=event.result?.reactiveLaborCase;
  if(!saved||saved.kind!=='tradeflow.intelligence.reactive-labor-case.v1'||saved.executionAuthority!==false||saved.businessId!==businessId||saved.eventId!==event.id||saved.actor!==actor)return {status:'case_unavailable'};
+ if(saved.status==='owner_review_available'){
+  const matched=(event.result?.laborFindings||[]).filter(f=>f?.id===saved.findingId&&f.jobId===saved.jobId&&f.sourceCostBinding===saved.sourceCostBinding&&f.executionAuthority===false);
+  if(matched.length!==1||saved.proposedCommandId!=='job.labor_review.schedule'||saved.approvalRequired!==true)return {status:'case_unavailable'};
+ }else if(saved.status!=='no_recorded_overrun'&&saved.status!=='evaluation_unverified'||saved.status==='no_recorded_overrun'&&(saved.findingId!==null||saved.proposedCommandId!==null)){
+  return {status:'case_unavailable'};
+ }
  if(!records||!Array.isArray(records.jobs)||!Array.isArray(records.jobCosts))return {status:'source_unavailable'};
  const found=records.jobCosts.filter(x=>x?.id===event.ref?.id);
  if(found.length!==1||found[0].businessId&&found[0].businessId!==businessId||found[0].jobId!==saved.jobId)return {status:'source_unavailable'};

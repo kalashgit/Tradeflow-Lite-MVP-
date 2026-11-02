@@ -1097,6 +1097,13 @@ function tfSavedProactiveLaborFinding(data,job){
  const sources=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&e.status==='processed'&&
   e.businessId==='local-business'&&e.actor==='local-owner'&&Array.isArray(e.result?.laborFindings));
  for(const event of sources.reverse()){
+  if(event.result?.reactiveLaborCase){
+   const verified=window.TradeFlowBusinessEvents?.inspectReactiveLaborCase?.({
+    event,records:{jobs:data.jobs||[],jobCosts:data.jobCosts||[]},
+    businessId:'local-business',actor:'local-owner'
+   });
+   if(verified?.status!=='current'||verified.reviewStatus!=='owner_review_available')continue;
+  }
   const matched=event.result.laborFindings.find(item=>item?.jobId===job.id&&
    item.detectorId==='job.labor_hours_variance_review'&&item.executionAuthority===false&&
    typeof item.sourceCostBinding==='string'&&item.sourceCostBinding===binding.proof&&
