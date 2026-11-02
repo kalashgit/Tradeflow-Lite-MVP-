@@ -47,3 +47,43 @@ test('only final bounded transcript text and labelled assistant replies are dura
  assert.equal(reply.source,'synthetic_mock');
  assert.equal(reply.refs[0],'jobs:synthetic_job_01@1');
 });
+
+const {createDB,put}=require('./helpers/local-db.cjs');
+function contextFixture(){
+ const db=createDB({},['aiConversationThreads','aiConversationTurns']);
+ const thread={id:'thread_01',scopeKey:store.scopeKey(local),revision:3,deletedAt:null};
+ const assistant={id:'turn_assistant',scopeKey:store.scopeKey(local),threadId:thread.id,role:'assistant',
+  status:'committed',source:'device_local_evidence',refs:['jobs:job_01@0'],content:'Job review'};
+ return {db,thread,assistant};
+}
+test('the saved job pointer is bound to a committed same-thread assistant source reference',async()=>{
+ const f=contextFixture();
+ await put(f.db,'aiConversationThreads',f.thread);await put(f.db,'aiConversationTurns',f.assistant);
+ assert.equal(await store.readJobContext(f.db,local,f.thread.id),null);
+ const pointer=await store.setJobContext(f.db,local,f.thread.id,{jobId:'job_01',sourceTurnId:'turn_assistant'});
+ assert.deepEqual(pointer,{jobId:'job_01',sourceTurnId:'turn_assistant'});
+ assert.deepEqual(await store.readJobContext(f.db,local,f.thread.id),{...pointer,trust:'device_local_pointer_only'});
+ assert.equal(f.db.dump().jobs.length,0,'A pointer cannot change business records');
+ await store.setJobContext(f.db,local,f.thread.id,null);
+ assert.equal(await store.readJobContext(f.db,local,f.thread.id),null);
+});
+test('fake sources and changed actor or tenant cannot gain a remembered job',async()=>{
+ const f=contextFixture();
+ await put(f.db,'aiConversationThreads',f.thread);await put(f.db,'aiConversationTurns',f.assistant);
+ for(const value of [{jobId:'other_job',sourceTurnId:'turn_assistant'},{jobId:'job_01',sourceTurnId:'missing'},{jobId:'../bad',sourceTurnId:'turn_assistant'}])
+  await assert.rejects(()=>store.setJobContext(f.db,local,f.thread.id,value));
+ await assert.rejects(()=>store.setJobContext(f.db,{...local,actorId:'foreign'},f.thread.id,{jobId:'job_01',sourceTurnId:'turn_assistant'}));
+ await assert.rejects(()=>store.readJobContext(f.db,{...local,businessId:'foreign'},f.thread.id));
+ await assert.rejects(()=>store.readJobContext(f.db,local,'missing'));
+ await put(f.db,'aiConversationTurns',{...f.assistant,source:'synthetic_mock'});
+ await assert.rejects(()=>store.setJobContext(f.db,local,f.thread.id,{jobId:'job_01',sourceTurnId:'turn_assistant'}));
+});
+test('missing, revoked and corrupted source turn invalidates job recovery on reload',async()=>{
+ const f=contextFixture();
+ await put(f.db,'aiConversationThreads',f.thread);await put(f.db,'aiConversationTurns',f.assistant);
+ await store.setJobContext(f.db,local,f.thread.id,{jobId:'job_01',sourceTurnId:'turn_assistant'});
+ await put(f.db,'aiConversationTurns',{...f.assistant,refs:['jobs:unrelated@0']});
+ assert.equal(await store.readJobContext(f.db,local,f.thread.id),null);
+ await put(f.db,'aiConversationThreads',{...f.thread,jobContext:{jobId:'job_01',sourceTurnId:'no_turn'}});
+ assert.equal(await store.readJobContext(f.db,local,f.thread.id),null);
+});

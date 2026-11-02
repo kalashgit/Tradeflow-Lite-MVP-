@@ -123,6 +123,52 @@
    };
   });
  }
+ // v1 device-local context: only a pointer to the specific saved assistant source
+ // turn, not an intelligence case, business fact or permission grant.
+ function jobProof(turn,key,threadId,jobId){
+  return !!turn&&turn.scopeKey===key&&turn.threadId===threadId&&turn.role==='assistant'&&
+   turn.status==='committed'&&turn.source==='device_local_evidence'&&
+   Array.isArray(turn.refs)&&turn.refs.some(ref=>typeof ref==='string'&&
+    ref.startsWith('jobs:'+jobId+'@')&&/^jobs:[A-Za-z0-9_-]{1,100}@[0-9]+$/.test(ref));
+ }
+ function setJobContext(db,scope,threadId,pointer){
+  const key=scopeKey(scope);
+  if(typeof threadId!=='string'||!threadId)throw Error('Conversation thread required');
+  if(pointer!==null&&(!pointer||typeof pointer!=='object'||typeof pointer.jobId!=='string'||
+    !/^[A-Za-z0-9_-]{1,100}$/.test(pointer.jobId)||typeof pointer.sourceTurnId!=='string'||
+    !/^[A-Za-z0-9_-]{1,120}$/.test(pointer.sourceTurnId)))throw Error('Source-linked job context required');
+  return transaction(db,[THREADS,TURNS],'readwrite',(tx,finish,fail)=>{
+   const threads=tx.objectStore(THREADS),req=threads.get(threadId);
+   req.onsuccess=()=>{
+    if(!ensureThread(req.result,key,fail))return;
+    if(pointer===null){threads.put({...req.result,jobContext:null});finish(null);return}
+    const proof=tx.objectStore(TURNS).get(pointer.sourceTurnId);
+    proof.onsuccess=()=>{
+     if(!jobProof(proof.result,key,threadId,pointer.jobId)){fail(Error('Job context requires a saved source-referenced assistant turn'));return}
+     const value={jobId:pointer.jobId,sourceTurnId:pointer.sourceTurnId};
+     threads.put({...req.result,jobContext:value});finish(value);
+    };
+   };
+  });
+ }
+ function readJobContext(db,scope,threadId){
+  const key=scopeKey(scope);
+  if(typeof threadId!=='string'||!threadId)throw Error('Conversation thread required');
+  return transaction(db,[THREADS,TURNS],'readonly',(tx,finish,fail)=>{
+   const req=tx.objectStore(THREADS).get(threadId);
+   req.onsuccess=()=>{
+    if(!ensureThread(req.result,key,fail))return;
+    const saved=req.result.jobContext;
+    if(!saved||typeof saved.jobId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(saved.jobId)||
+      typeof saved.sourceTurnId!=='string'||!/^[A-Za-z0-9_-]{1,120}$/.test(saved.sourceTurnId)){
+     finish(null);return;
+    }
+    const proof=tx.objectStore(TURNS).get(saved.sourceTurnId);
+    proof.onsuccess=()=>finish(jobProof(proof.result,key,threadId,saved.jobId)?
+     {jobId:saved.jobId,sourceTurnId:saved.sourceTurnId,trust:'device_local_pointer_only'}:null);
+   };
+  });
+ }
  function deleteThread(db, scope, threadId) {
   const key = scopeKey(scope);
   return transaction(db, [THREADS, TURNS], 'readwrite', (tx, finish, fail) => {
@@ -145,5 +191,5 @@
   });
  }
  return Object.freeze({VERSION, THREADS, TURNS, scopeKey, upgrade, sanitizeTurn, createThread,
-  listThreads, listTurns, appendTurn, deleteThread});
+  listThreads, listTurns, appendTurn, setJobContext, readJobContext, deleteThread});
 });
