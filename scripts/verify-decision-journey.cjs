@@ -88,6 +88,13 @@ let browser,activePage;
   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
   const inlineReview=approvalPage.locator('[data-decision-job="job_01"]');
   await inlineReview.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).waitFor({timeout:15000});
+  // Current evidence follow-up remains in the same saved conversation.
+  await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
+  await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Cause not established.'),null,{timeout:15000});
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/planned 8 hours; actual 12 hours; 4 hours above the estimate \(50%\)/);
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/explicit approval controls/);
+  assert.equal(await approvalPage.locator('.tf-ai-chat-error:visible').count(),0);
   let approvalPrompts=0;
   approvalPage.on('dialog',async dialog=>{approvalPrompts++;assert.equal(dialog.type(),'confirm');assert.match(dialog.message(),/No customer message, payment or cost correction/);await dialog.accept()});
   await inlineReview.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).click();

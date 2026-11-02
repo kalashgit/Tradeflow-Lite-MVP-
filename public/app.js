@@ -647,7 +647,17 @@ async function tfAiLocalBriefingFollowUp(content){
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
   let answer='',refs=['jobs:'+job.id+'@0'];
-  if(kind==='why_blocked'||kind==='who_approves'){
+  if(kind==='labor_cause'){
+    if(!window.TradeFlowPilot?.decisions?.investigate)throw Error('Existing job investigation unavailable');
+    const decision=await window.TradeFlowPilot.decisions.investigate(job.id,{threadId:tfActiveChatThreadId});
+    if(tfAiReviewThreadId!==tfActiveChatThreadId||tfAiReviewJobId!==job.id)throw Error('Conversation context changed during review');
+    const {inspectIntelligenceCase}=await import('./intelligence-case.js');
+    const freshness=inspectIntelligenceCase({caseFile:decision.case,decision,scope:decision.scope,threadId:tfActiveChatThreadId,accessGranted:true});
+    if(freshness.status!=='current')throw Error('Job evidence '+freshness.status+'; review the job again');
+    const {explainLaborFollowUp}=await import('./intelligence-briefing.js');
+    const explanation=explainLaborFollowUp(decision,job);
+    answer=explanation.content;refs=explanation.refs;
+   }else if(kind==='why_blocked'||kind==='who_approves'){
    const {assessInvoiceReadiness}=await import('./job-intelligence-request.js');
    const [invoices,quotes]=await Promise.all([all('invoices'),all('quotes')]);
    const readiness=assessInvoiceReadiness({job,invoices,quotes});

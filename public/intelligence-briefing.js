@@ -32,11 +32,43 @@ export function createOperationalBriefing({data,evaluation,businessId='local-bus
 /* Follow-up classification does not authorize action; the host must bind a thread-scoped record. */
 export function classifyBriefingFollowUp(s){
  if(typeof s!=='string'||s.length>240)return null;
- const v=s.trim().toLowerCase();
+ const v=s.trim().toLowerCase().replace(/[’]/g,"'");
+ if(/^why (?:are|were) (?:the |our )?labou?r (?:hours )?(?:over budget|over(?: the)? estimate)\??$/.test(v)||
+    /^what(?:'s| is| was) (?:causing|caused) (?:the |this )?labou?r (?:hours )?(?:overrun|variance)\??$/.test(v))return 'labor_cause';
  if(/^why (?:is|was) (?:that|this|the) job blocked\??$/.test(v))return 'why_blocked';
  if(/^who (?:needs to|has to|must|should) approv(?:e|e) (?:it|that|this)\??$/.test(v))return 'who_approves';
  if(/^(?:show me|show|inspect) (?:the|that|its) evidence\??$/.test(v))return 'show_evidence';
  if(/^(?:prepare|open) (?:the|that|its) review\??$/.test(v))return 'open_review';
  if(/^(?:go to|open) (?:that|this|the) job\??$/.test(v))return 'open_job';
  return null;
+}
+
+
+/* A freshly reviewed case explains recorded evidence; it cannot diagnose or execute. */
+export function explainLaborFollowUp(decision,job){
+ const unavailable=message=>Object.freeze({status:'unavailable',content:message+' Open the saved job review to check evidence; no action was taken.',refs:[],executionAuthority:false});
+ const c=decision?.case;
+ if(!job?.id||decision?.kind!=='tradeflow.decision.v1'||decision.status!=='ready_for_review'||c?.kind!=='tradeflow.intelligence.case.v1'||
+  c.sourceBinding!==decision.binding||c.jobId!==job.id||c.businessId!=='local-business'||c.sourceMode!=='device_local_unverified'||
+  c.executionAuthority!==false||decision.evidenceMode!=='device_local_unverified_identity')
+  return unavailable('The current job-scoped labor investigation is unavailable or incomplete.');
+ const findings=(decision.observations||[]).filter(o=>o?.detectorId==='job.labor_hours_variance_review'&&
+  o.refs?.some(r=>r.type==='jobs'&&r.id===job.id)&&c.findings?.some(f=>f.id===o.id&&f.detectorId===o.detectorId));
+ if(findings.length!==1)return unavailable('No supported labor overrun was found for the selected job.');
+ const o=findings[0],planned=o.evidence?.estimatedLaborHours,actual=o.evidence?.recordedLaborHours;
+ if(!Number.isFinite(planned)||planned<=0||!Number.isFinite(actual)||actual<=planned)return unavailable('Recorded labor quantities are inconsistent or incomplete.');
+ const sources=c.sources?.filter(r=>(r.type==='jobs'&&r.id===job.id)||r.type==='jobCosts')||[];
+ if(!sources.some(r=>r.type==='jobs'&&r.id===job.id)||!sources.some(r=>r.type==='jobCosts'))return unavailable('The labor finding lacks its source records.');
+ const delta=Math.round((actual-planned)*100)/100,percentage=Math.round((actual-planned)/planned*1000)/10;
+ const alternatives=(decision.inferences||[]).find(x=>x.findingId===o.id)?.alternatives;
+ const hypotheses=Array.isArray(alternatives)?alternatives.filter(v=>typeof v==='string'&&v.length<=200).slice(0,3):[];
+ const canReview=(decision.proposals||[]).some(p=>p.commandId==='job.labor_review.schedule'&&p.params?.ref?.store==='jobs'&&p.params.ref.id===job.id&&p.requiresApproval===true);
+ const content=[
+ 'Recorded labor for '+String(job.title||job.id).slice(0,110)+': planned '+planned+' hours; actual '+actual+' hours; '+delta+' hours above the estimate ('+percentage+'%).',
+ 'Cause not established. These are manually entered hours, not independently verified time clock or payroll evidence.',
+ hypotheses.length?'Possibilities to investigate, not proven causes: '+hypotheses.join(' '):'The recorded evidence does not establish the cause.',
+ canReview?'An internal labor review is available through existing explicit approval controls.':'No internal labor review can be prepared until missing evidence is checked.',
+ 'No business record was changed.'
+ ].join('\n');
+ return Object.freeze({status:'recorded_variance',content,refs:sources.slice(0,8).map(r=>r.type+':'+r.id+'@'+(r.revision||0)),executionAuthority:false});
 }
