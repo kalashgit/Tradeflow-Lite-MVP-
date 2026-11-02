@@ -2,16 +2,16 @@
 (function(root){'use strict';
 const same=(a,b)=>a.actorId===b.actorId&&a.businessId===b.businessId&&a.threadId===b.threadId&&a.screen===b.screen;
 function createController({getHost,motion,notify=()=>{}}){
- let serial=0,pending=null,animation=null,disposed=false;
+ let serial=0,pending=null,animation=null,activePanel=null,disposed=false;
  const host=()=>{const h=getHost();if(h?.version!==1)throw Error('Host lifecycle unavailable');return h};
- function cancel(){serial++;try{animation?.cancel()}catch{}animation=null;pending=null}
+ function cancel(){if(pending){const state=activePanel?.querySelector?.('.tf-voice-state');if(state)state.textContent='Close interrupted. Use the controls to continue.'}activePanel=null;serial++;try{animation?.cancel()}catch{}animation=null;pending=null}
  async function navigate(kind,from){cancel();const h=host();h.stopMicrophoneNow();const result=kind==='open'?await h.openFromOrigin({from:from||h.captureOrigin()}):await h.returnToOrigin(from?{from}:{});if(!['opened','already_open','returned'].includes(result.status))notify('Context navigation: '+result.status+'. No destination was assumed.');return result}
  function close(panel,reason='dismiss'){
   const h=host();h.stopMicrophoneNow();const state=panel?.querySelector?.('.tf-voice-state');if(state)state.textContent='Microphone stopped. Closing…';panel?.querySelector?.('.tf-voice-wave')?.classList.remove('is-listening');if(pending)return pending;
-  const token=++serial,before=h.getContext();animation=panel?motion.play(panel,'exit'):null;const effect=animation;
+  activePanel=panel;const token=++serial,before=h.getContext();animation=panel?motion.play(panel,'exit'):null;const effect=animation;
   const operation=(async()=>{try{if(effect?.finished)await effect.finished;if(disposed||token!==serial||panel&&!panel.isConnected||!same(before,h.getContext()))return {status:'interrupted'};
     const result=h.requestClose({reason});if(!['closed','already_closed'].includes(result.status)&&state)state.textContent='Microphone stopped. Close '+result.status+'.';if(!['closed','already_closed'].includes(result.status))notify('Close '+result.status+'. Microphone stopped.');return result;
-   }catch{return {status:'interrupted'}}finally{try{effect?.cancel()}catch{}if(token===serial)animation=null}
+   }catch{return {status:'interrupted'}}finally{try{effect?.cancel()}catch{}if(token===serial){animation=null;activePanel=null}}
   })();pending=operation;const clear=()=>{if(pending===operation)pending=null};void operation.then(clear,clear);return operation;
  }
  function invalidate(){cancel();host().invalidate()}
@@ -31,9 +31,11 @@ function connect({document,getHost,motion,notify}){
   b.disabled=true;try{let result;if(b.dataset.voice==='close'||b.dataset.action==='tfAiClose')result=await controller.close(b.closest('.tf-voice-sheet,.tf-ai-mini-panel'));else result=await (b.dataset.hostAction==='return'?controller.returnToOrigin():controller.open());if(['closed','already_closed','returned','opened','already_open'].includes(result.status)){focusPending=true;decorate()}}catch{notify('Context operation unavailable. No success was verified.')}finally{b.disabled=false}
  }
  app.addEventListener('click',click,true);
+ function interact(event){if(event.type==='keydown'&&!['Enter',' ','Escape'].includes(event.key))return;const panel=event.target.closest?.('.tf-voice-sheet,.tf-ai-mini-panel');if(!panel)return;if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();void controller.close(panel,'escape').then(result=>{if(['closed','already_closed'].includes(result.status)){focusPending=true;decorate()}},()=>notify('Close unavailable; microphone status must be checked.'));return}if(!event.target.closest?.('[data-voice="close"],[data-action="tfAiClose"]'))controller.cancel()}
+ app.addEventListener('pointerdown',interact,true);app.addEventListener('keydown',interact,true);
  function hide(){controller.invalidate()}
  document.defaultView?.addEventListener('pagehide',hide);
- return Object.freeze({controller,dispose(){observer.disconnect();app.removeEventListener('click',click,true);document.defaultView?.removeEventListener('pagehide',hide);controller.dispose()}});
+ return Object.freeze({controller,dispose(){observer.disconnect();app.removeEventListener('click',click,true);app.removeEventListener('pointerdown',interact,true);app.removeEventListener('keydown',interact,true);document.defaultView?.removeEventListener('pagehide',hide);controller.dispose()}});
 }
 const api=Object.freeze({createController,connect});if(typeof module==='object'&&module.exports)module.exports=api;else root.TradeFlowHostPresentation=api;
 })(typeof window==='object'?window:globalThis);
