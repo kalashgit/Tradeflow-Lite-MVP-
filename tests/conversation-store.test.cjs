@@ -70,8 +70,9 @@ test('the saved job pointer is bound to a committed same-thread assistant source
 test('fake sources and changed actor or tenant cannot gain a remembered job',async()=>{
  const f=contextFixture();
  await put(f.db,'aiConversationThreads',f.thread);await put(f.db,'aiConversationTurns',f.assistant);
- for(const value of [{jobId:'other_job',sourceTurnId:'turn_assistant'},{jobId:'job_01',sourceTurnId:'missing'},{jobId:'../bad',sourceTurnId:'turn_assistant'}])
+ for(const value of [{jobId:'other_job',sourceTurnId:'turn_assistant'},{jobId:'job_01',sourceTurnId:'missing'}])
   await assert.rejects(()=>store.setJobContext(f.db,local,f.thread.id,value));
+ assert.throws(()=>store.setJobContext(f.db,local,f.thread.id,{jobId:'../bad',sourceTurnId:'turn_assistant'}),/Source-linked job context/);
  await assert.rejects(()=>store.setJobContext(f.db,{...local,actorId:'foreign'},f.thread.id,{jobId:'job_01',sourceTurnId:'turn_assistant'}));
  await assert.rejects(()=>store.readJobContext(f.db,{...local,businessId:'foreign'},f.thread.id));
  await assert.rejects(()=>store.readJobContext(f.db,local,'missing'));
