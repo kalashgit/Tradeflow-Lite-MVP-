@@ -1,4 +1,5 @@
 import {canonical,digest,copy,freeze,validateEvidence} from './intelligence-evidence.js';
+import {createIntelligenceCase} from './intelligence-case.js';
 const goals={cost_control:['cost','costs','budget','budgets','profit'],labor_control:['labor','labour','hours','overtime'],cash_review:['cash','invoice','invoices','payment','payments','collection'],overview:['overview','business','attention','operations','status','job','review']};
 const focus={cost_control:['job.budget_overrun_review'],labor_control:['job.labor_hours_variance_review'],cash_review:['invoice.overdue','invoice.payment_integrity_review']};
 // Only expose existing detectors whose inputs are represented by the evidence projection.
@@ -17,7 +18,7 @@ export function interpretObjective(input){
 }
 export function createDecisionProtocol({engine,definitions,resolve}){
  if(typeof engine?.evaluate!=='function'||!Array.isArray(definitions)||typeof resolve!=='function')throw Error('Existing detectors and command definitions required');
- async function review({objective,context,scope,today}){
+ async function review({objective,context,scope,today,threadId=null}){
   const goal=interpretObjective(objective);if(goal.status!=='ready')return freeze({kind:'tradeflow.decision.v1',status:'clarification',objective:goal,executionAuthority:false});
   if(!/^\d{4}-\d{2}-\d{2}$/.test(today)||new Date(today+'T12:00:00Z').toISOString().slice(0,10)!==today||scope.today&&scope.today!==today)throw Error('Verified current local date required');
   const data=copy(context),host=copy(scope);if(Array.isArray(data.records))data.records.sort((a,b)=>(a.type+':'+a.id).localeCompare(b.type+':'+b.id));
@@ -45,11 +46,13 @@ export function createDecisionProtocol({engine,definitions,resolve}){
   }
   const recordSet=data.records.slice().sort((a,b)=>(a.type+':'+a.id).localeCompare(b.type+':'+b.id));
   const binding=await digest({scope:host,objective:goal,today,records:recordSet,problems});
-  return freeze({kind:'tradeflow.decision.v1',status:problems.length?'evidence_needs_review':'ready_for_review',binding,objective:goal,scope:host,today,evidenceMode:checked.local?'device_local_unverified_identity':'authenticated_cloud_read',
+  const decision={kind:'tradeflow.decision.v1',status:problems.length?'evidence_needs_review':'ready_for_review',binding,objective:goal,scope:host,today,evidenceMode:checked.local?'device_local_unverified_identity':'authenticated_cloud_read',
    workflow:{records:data.records.map(r=>references.get(r.type+':'+r.id)),edges:checked.links.edges},observations,inferences,
    options:[{id:'no_action',label:'Take no action',consequence:'Records and workflow remain unchanged; the exception may remain.'},{id:'inspect',label:'Inspect source records',consequence:'Validate scope, entries and missing evidence before deciding.'},...proposals.map(p=>({id:p.id,label:p.label,consequence:'Creates only an internal review task after explicit approval; does not resolve the financial or labor issue.'}))],
    recommendations:proposals.map(p=>({proposalId:p.id,status:'proposed_not_authorized'})),proposals,unknowns:[...problems,{code:'external_settlement_and_payroll_unverified'},{code:'cause_and_contractor_outcome_unverified'},{code:'context_coverage_limited'}],coverage:{supportedDetectors:[...supported],notAssessed:['full_schedule','closeout','external_communications','provider_settlement','payroll']},
-   consequences:{externalSettlementVerified:false,profitVerified:false,payrollVerified:false,taskCreationResolvesIssue:false},diagnostics:evaluated.diagnostics,executionAuthority:false});
+   consequences:{externalSettlementVerified:false,profitVerified:false,payrollVerified:false,taskCreationResolvesIssue:false},diagnostics:evaluated.diagnostics,executionAuthority:false};
+  decision.case=createIntelligenceCase({decision,scope:host,threadId});
+  return freeze(decision);
  }
  async function prepare({decision,proposalId,readCurrent,readScope,runtime,attemptId}){
   if(decision?.kind!=='tradeflow.decision.v1'||!Array.isArray(decision.proposals)||!/^[a-f0-9]{64}$/.test(decision.binding||'')||typeof readCurrent!=='function'||typeof readScope!=='function')throw Error('Reviewed decision and fresh evidence providers required');
