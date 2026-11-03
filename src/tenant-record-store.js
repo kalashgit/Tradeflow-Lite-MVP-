@@ -1,6 +1,7 @@
 import {mayWriteRecord,MANAGED_RECORD_TYPES} from '../public/record-permissions.js';
 import {linksForRecord,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
 import {AuthorizationError,tenantRecordQuery} from './tenant-security.js';
+import {assertTrustedCrewGrant} from './job-access.js';
 
 export const RECORD_WRITE_SQL =`INSERT INTO tenant_records
  (business_id,record_type,id,revision,payload,updated_by_issuer,updated_by_subject)
@@ -23,6 +24,20 @@ export const JOB_ASSIGNMENT_GUARD_SQL =`AND (role IN ('owner','admin') OR
  FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?),''))`;
 
 
+// Evaluated by SQLite in the same statement as the member role and job CAS.
+// Only an in-process verified crew grant may supply these bound predicates.
+export const JOB_GRANT_CAS_SQL=`AND EXISTS (
+ SELECT 1 FROM job_access_grants g
+ JOIN business_memberships m ON m.business_id=g.business_id
+  AND m.issuer=g.issuer AND m.subject=g.subject
+ JOIN tenant_records j ON j.business_id=g.business_id
+  AND j.record_type='jobs' AND j.id=g.job_id
+ WHERE g.business_id=? AND g.job_id=? AND g.issuer=? AND g.subject=?
+  AND g.scope='crew' AND g.status='active' AND g.grant_revision=?
+  AND m.status='active' AND m.role='member'
+  AND j.deleted_at IS NULL AND j.revision=?
+)`;
+
 export function validateRecordWrite(body) {
  if (!body || typeof body!=='object' || Array.isArray(body) ||
      !Number.isSafeInteger(body.revision) || body.revision<0 || body.revision>2147483646 ||
@@ -34,7 +49,7 @@ export function validateRecordWrite(body) {
  return {expectedRevision:body.revision,payload};
 }
 
-export async function writeTenantRecord(db,authorization,recordType,recordId,body) {
+export async function writeTenantRecord(db,authorization,recordType,recordId,body,{jobAccessProof}={}) {
  const {params}=tenantRecordQuery({authorization,table:recordType,recordId});
  if (!authorization?.subject || !authorization?.issuer || !['owner','admin','member'].includes(authorization.role))
    throw new AuthorizationError('Authenticated membership required',403);
@@ -43,6 +58,10 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
  if(body?.expectedActor!==undefined&&(!body.expectedActor||body.expectedActor.issuer!==authorization.issuer||body.expectedActor.subject!==authorization.subject))
   throw new AuthorizationError('Request actor changed; review again',403);
  const {expectedRevision,payload}=validateRecordWrite(body);
+ const scopedJob=jobAccessProof!==undefined;
+ const verifiedGrant=scopedJob?assertTrustedCrewGrant(jobAccessProof,authorization,recordId):null;
+ if(scopedJob&&(recordType!=='jobs'||expectedRevision!==verifiedGrant.jobRevision))
+  throw new AuthorizationError('Scoped job revision changed; review before saving',409);
  if(body.record.id!==undefined&&body.record.id!==recordId||body.record.businessId!==undefined&&body.record.businessId!==authorization.businessId)
   throw new AuthorizationError('Record identity does not match request',400);
  const relationshipArgs=[],guards=[],customers=new Set(body.record.customerId?[body.record.customerId]:[]);
@@ -60,13 +79,21 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
  }
  if(customers.size>1)throw new AuthorizationError('Linked records belong to different customers',400);
  const managed=financial||MANAGED_RECORD_TYPES.includes(recordType);
- const permissionGuard=managed?"AND role IN ('owner','admin')":recordType==='jobs'?JOB_ASSIGNMENT_GUARD_SQL:'';
+ const permissionGuard=managed?"AND role IN ('owner','admin')":recordType==='jobs'?
+  JOB_ASSIGNMENT_GUARD_SQL+(verifiedGrant?" AND role='member'":''):'';
  const permissionArgs=recordType==='jobs'?[payload,authorization.businessId,recordId]:[];
- const sql=RECORD_WRITE_SQL.replace('/* relationship-guards */',guards.join('\n')).replace('/* financial-guard */',permissionGuard);
+ const grantParams=verifiedGrant?[
+  verifiedGrant.businessId,verifiedGrant.jobId,
+  verifiedGrant.actor.issuer,verifiedGrant.actor.subject,
+  verifiedGrant.grantRevision,verifiedGrant.jobRevision
+ ]:[];
+ const sql=RECORD_WRITE_SQL.replace('/* relationship-guards */',
+  [verifiedGrant?JOB_GRANT_CAS_SQL:'',...guards].filter(Boolean).join('\n'))
+  .replace('/* financial-guard */',permissionGuard);
 
 
  const row=await db.prepare(sql).bind(...params,expectedRevision+1,payload,
-   authorization.issuer,authorization.subject,expectedRevision,...params,authorization.businessId,authorization.issuer,authorization.subject,...permissionArgs,...relationshipArgs,expectedRevision).first();
+   authorization.issuer,authorization.subject,expectedRevision,...params,authorization.businessId,authorization.issuer,authorization.subject,...permissionArgs,...grantParams,...relationshipArgs,expectedRevision).first();
  if (!row)throw new AuthorizationError('Revision or membership conflict; reload before saving',409);
  return {revision:row.revision,updatedAt:row.updated_at};
 }

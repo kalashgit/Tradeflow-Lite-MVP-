@@ -5,6 +5,7 @@
 import {authorizeBusiness,authorizedTenantReadQuery,AuthorizationError} from './tenant-security.js';
 import {recordIdentity} from '../public/record-model.js';
 import {writeTenantRecord} from './tenant-record-store.js';
+import {readJobAccess} from './job-access.js';
 const id=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const stamp=x=>typeof x==='string'&&Number.isFinite(Date.parse(x));
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -77,15 +78,15 @@ const attestedAssignment=(proof,auth,jobId,revision)=>proof?.verified===true&&
  proof.businessId===auth.businessId&&proof.jobId===jobId&&proof.jobRevision===revision;
 const boundedUpdates=x=>Array.isArray(x)&&x.length<=40&&
  x.every(v=>v&&typeof v==='object'&&!Array.isArray(v));
-const submissionResult=(e,status,revision,{attribution=false,readback=false}={})=>freeze({
+const submissionResult=(e,status,revision,{attribution=false,readback=false,commitGrantChecked=false}={})=>freeze({
  schemaVersion:1,businessId:e.businessId,jobId:e.subject.id,eventId:e.eventId,
  status,deliveryState:status,sourceRevision:e.subject.revision,
  observedServerRevision:revision,readbackVerified:readback,
  writeAttributionVerified:attribution,
- assignmentCheckedBeforeWrite:true,assignmentAtCommitVerified:false,
+ assignmentCheckedBeforeWrite:true,assignmentAtCommitVerified:commitGrantChecked,
  acknowledged:false,actionReceiptRef:null,executionAuthority:false
 });
-export async function submitAssignedCrewBlocker({db,principal,businessId,jobId,event,verifyAssignment}={}){
+export async function submitAssignedCrewBlocker({db,principal,businessId,jobId,event,verifyAssignment,jobAccessProof}={}){
  if(!db||typeof db.prepare!=='function'||!id(businessId)||!id(jobId)||
     typeof verifyAssignment!=='function')
   throw new AuthorizationError('Verified assignment service and job scope required',403);
@@ -112,12 +113,13 @@ export async function submitAssignedCrewBlocker({db,principal,businessId,jobId,e
  if(!attestedAssignment(proof,auth,jobId,row.revision))
   throw new AuthorizationError('Server-owned job assignment not verified',403);
  // Replays and idempotency collisions are NOT authenticated write receipts.
- const duplicates=job.fieldUpdates.filter(u=>u?.eventId===event.eventId||
+ const existingUpdates=Array.isArray(job.fieldUpdates)?job.fieldUpdates:[];
+ const duplicates=existingUpdates.filter(u=>u?.eventId===event.eventId||
   u?.idempotencyKey===event.idempotencyKey);
  if(duplicates.length)return submissionResult(event,'duplicate_unverified',row.revision);
  if(row.revision!==event.subject.revision)
   throw new AuthorizationError('Stale job source revision; do not replay blindly',409);
- if(job.fieldUpdates?.length>=40)
+ if(existingUpdates.length>=40)
   throw new AuthorizationError('Job field update history limit requires review',409);
  // Recheck before CAS; real commit-time assignment enforcement still requires
  // an approved server-owned actor→job predicate in the same SQL statement.
@@ -129,14 +131,16 @@ export async function submitAssignedCrewBlocker({db,principal,businessId,jobId,e
   kind:event.kind,note:event.note,eventAt:event.eventAt,
   actorId:auth.subject,actorIssuer:auth.issuer
  };
- const next={...job,fieldUpdates:[...(job.fieldUpdates||[]),update]};
+ const next={...job,fieldUpdates:[...existingUpdates,update]};
  const saved=await writeTenantRecord(db,auth,'jobs',jobId,{
   revision:row.revision,record:next,
   expectedActor:{issuer:auth.issuer,subject:auth.subject}
- });
+ },{jobAccessProof});
  // A successful CAS response is NOT an independently confirmed readback.
  // Losing the follow-up read is an uncertain delivery, never a retry signal.
- const uncertain=()=>submissionResult(event,'server_committed_unverified',saved.revision);
+ const uncertain=()=>submissionResult(event,'server_committed_unverified',saved.revision,{
+  commitGrantChecked:jobAccessProof!==undefined
+ });
  try{
   const auditSql=readQuery.sql.replace(
    'SELECT payload, revision, updated_at, deleted_at FROM tenant_records',
@@ -154,7 +158,33 @@ export async function submitAssignedCrewBlocker({db,principal,businessId,jobId,e
   if(matched.length!==1||JSON.stringify(matched[0])!==JSON.stringify(update))
    return uncertain();
   return submissionResult(event,'readback_verified',written.revision,{
-   attribution:true,readback:true
+   attribution:true,readback:true,commitGrantChecked:jobAccessProof!==undefined
   });
  }catch{return uncertain()}
+}
+
+
+/* R01-02D — non-routed crew blocker submission using durable D1 grants.
+ * The scoped preflight proof is a server-issued, in-process object. The same
+ * grant identity and revision MUST be rechecked by writeTenantRecord's SQL CAS.
+ * This does not expose a field API, enqueue sync or authorize external delivery.
+ */
+export async function submitGrantedCrewBlocker({db,principal,businessId,jobId,event}={}){
+ const initial=await readJobAccess({db,principal,businessId,jobId,scope:'crew'});
+ if(initial.accessClass!=='assigned_job')
+  throw new AuthorizationError('An explicit active technician job grant is required',403);
+ const verifyAssignment=async({authorization,jobId:target,revision})=>{
+  if(authorization?.role!=='member'||target!==jobId)return false;
+  const current=await readJobAccess({db,principal,businessId,jobId,scope:'crew'});
+  if(current.grantRevision!==initial.grantRevision||
+     current.jobRevision!==revision)return false;
+  return {
+   verified:true,source:'server_verified_job_assignment',
+   issuer:authorization.issuer,subject:authorization.subject,
+   businessId:authorization.businessId,jobId:target,jobRevision:revision
+  };
+ };
+ return submitAssignedCrewBlocker({
+  db,principal,businessId,jobId,event,verifyAssignment,jobAccessProof:initial
+ });
 }

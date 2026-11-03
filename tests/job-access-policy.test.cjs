@@ -59,6 +59,18 @@ test('R01-02 disposable D1 job grants are tenant/job/actor scoped and revocable'
   assert.equal(crew.grantRevision,1);
   assert.equal(crew.writeAuthorized,false);
   assert.equal(crew.jobRevision,1);
+  const {writeTenantRecord}=await import('../src/tenant-record-store.js');
+  const crewAuth={businessId:'business_001',issuer:'test-issuer',subject:'crew_01',role:'member'};
+  const submitted={revision:1,record:{id:'job_01',fieldUpdates:[]}};
+  await assert.rejects(writeTenantRecord(db,crewAuth,'jobs','job_01',submitted,
+   {jobAccessProof:{...crew}}),{status:403},
+   'a forged serialized proof must never authorize scoped mutation');
+  await assert.rejects(writeTenantRecord(db,crewAuth,'jobs','job_02',submitted,
+   {jobAccessProof:crew}),{status:403},
+   'a real grant cannot authorize a different job');
+  await assert.rejects(writeTenantRecord(db,crewAuth,'jobs','job_01',
+   {...submitted,revision:2},{jobAccessProof:crew}),{status:409},
+   'a stale job revision cannot be silently rewritten');
   await assert.rejects(readJobAccess({db,principal:{verified:false,issuer:'test-issuer',subject:'crew_01'},
    businessId:'business_001',jobId:'job_01',scope:'crew'}),{status:401});
   assert.equal((await read('owner_01','job_02')).accessClass,'company_member');

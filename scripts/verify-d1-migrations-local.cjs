@@ -179,6 +179,60 @@ async function main(){
    'SELECT status,grant_revision FROM job_access_grants WHERE business_id=? AND job_id=?',
    ['business_001','job_active']);
   assert.deepEqual(grants,[{status:'revoked',grant_revision:2}]);
+  // R01-02D: exercise the existing job writer with a server-minted grant,
+  // then revoke the grant at the mutation boundary to prove atomic denial.
+  await statement(db,
+   'INSERT INTO business_memberships(business_id,issuer,subject,role) VALUES (?,?,?,?)',
+   ['business_001','synthetic-issuer','synthetic-crew','member']);
+  await addGrant('job_active','synthetic-crew','crew');
+  const {createLocalCrewReport,submitGrantedCrewBlocker}=await import('../src/role-exchange.js');
+  const identity={verified:true,issuer:'synthetic-issuer',subject:'synthetic-crew'};
+  const makeEvent=(revision,eventId)=>createLocalCrewReport({
+   businessId:'business_001',actorId:'synthetic-crew',
+   jobId:'job_active',baseRevision:revision,note:'Missing panel breaker',
+   eventId,idempotencyKey:eventId+'_once',at:'2026-11-03T08:00:00Z'
+  });
+  const submit=(targetDb,event)=>submitGrantedCrewBlocker({
+   db:targetDb,principal:identity,businessId:'business_001',jobId:'job_active',event
+  });
+  const saved=await submit(db,makeEvent(8,'blocker_first'));
+  assert.equal(saved.status,'readback_verified');
+  assert.equal(saved.assignmentAtCommitVerified,true,
+   'new job grant must be enforced atomically by the existing CAS');
+  assert.equal(saved.acknowledged,false);
+  assert.equal(saved.observedServerRevision,9);
+  const written=await all(db,
+   "SELECT payload,revision,updated_by_subject FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']);
+  assert.equal(written[0].revision,9);
+  assert.equal(written[0].updated_by_subject,'synthetic-crew');
+  assert.equal(JSON.parse(written[0].payload).fieldUpdates[0].eventId,'blocker_first');
+  // Intercept only the final CAS in this disposable test. The grant is
+  // revoked AFTER trusted preflight and before mutation executes.
+  let intercepted=0;
+  const racedDb={prepare(sql){
+   const prepared=db.prepare(sql);
+   return {bind(...params){
+    const bound=prepared.bind(...params);
+    if(!sql.startsWith('INSERT INTO tenant_records'))return bound;
+    return {async first(){
+     intercepted++;
+     await statement(db,
+      "UPDATE job_access_grants SET status='revoked',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=?",
+      ['business_001','job_active','synthetic-crew']);
+     return bound.first();
+    }};
+   }};
+  }};
+  await assert.rejects(submit(racedDb,makeEvent(9,'blocker_raced')),{status:409},
+   'revoked grant at SQL commit denies write despite earlier valid preflight');
+  assert.equal(intercepted,1);
+  assert.equal((await all(db,
+   "SELECT revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']))[0].revision,9);
+  await assert.rejects(submit(db,makeEvent(9,'blocker_revoked')),{status:403});
+  console.log('R01-02D PASS: assigned crew blocker uses existing atomic CAS with');
+  console.log('  grant revision, membership, job revision and revocation-at-commit.');
   console.log('R01-02 PASS: source migration 0004 after 0001–0003; atomic rollback,');
   console.log('  FK denials, current revision/revocation and integrity on disposable D1.');
   console.log('H04-15c PASS: committed migrations 0001,0002,0003 on disposable local D1;');
