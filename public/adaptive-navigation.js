@@ -46,6 +46,8 @@
   });
   const GROUP_ORDER = Object.freeze(['Overview', 'Work', 'Operations', 'Finance', 'Intelligence', 'Administration']);
   const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+  const validProjections = new WeakSet();
+  const markProjection = projection => { const frozen = Object.freeze(projection); validProjections.add(frozen); return frozen; };
   const uniqueKnown = values => [...new Set(values.filter(value => typeof value === 'string' && own(ROUTES, value)))];
   const frozenItem = key => Object.freeze({ route: key, label: ROUTES[key].label, group: ROUTES[key].group });
   const freezeItems = keys => Object.freeze(keys.map(frozenItem));
@@ -68,7 +70,7 @@
     const verified = scopeStatus === 'verified';
     // Never infer access from a profile name, company preference, or crew display role.
     if (!legacy && (!verified || !Array.isArray(permittedRoutes))) {
-      return Object.freeze({ status: 'scope_unavailable', profile: null,
+      return markProjection({ status: 'scope_unavailable', profile: null,
         mobile: Object.freeze([]), secondary: Object.freeze([]), desktop: Object.freeze([]),
         selectedAllowed: false, selectedPrimary: false });
     }
@@ -86,10 +88,41 @@
       items: freezeItems(allowedKeys.filter(key => ROUTES[key].group === group))
     })).filter(group => group.items.length));
     const selectedAllowed = typeof selectedRoute === 'string' && allowed.has(selectedRoute);
-    return Object.freeze({ status: legacy ? 'local_legacy' : 'projected',
+    return markProjection({ status: legacy ? 'local_legacy' : 'projected',
       profile: legacy ? 'local_legacy' : safeProfile,
       mobile, secondary, desktop, selectedAllowed,
       selectedPrimary: selectedAllowed && mobileKeys.includes(selectedRoute) });
   }
-  return Object.freeze({ version: 1, projectNavigation, legacyMobileRoutes: LEGACY_MOBILE });
+  // Presentation-only route decision. Host must independently check authenticated
+  // scope on navigation and never treat this as an action authorization result.
+  function resolveRouteIntent({ navigation, route, cause = 'user_request' } = {}) {
+    if (!['user_request', 'current_route_revoked'].includes(cause)) {
+      throw new TypeError('Unknown navigation intent cause');
+    }
+    const result = (disposition, destination = null, reason = null) =>
+      Object.freeze({ disposition, destination, reason, authorization: 'not_evaluated' });
+    if (!navigation || !validProjections.has(navigation) ||
+        !['local_legacy', 'projected'].includes(navigation.status) ||
+        !Array.isArray(navigation.mobile) || !Array.isArray(navigation.secondary)) {
+      return result('blocked', null, 'scope_unavailable');
+    }
+    const permitted = [...navigation.mobile, ...navigation.secondary]
+      .map(item => item?.route)
+      .filter(item => typeof item === 'string' && own(ROUTES, item));
+    const allowed = new Set(permitted);
+    if (typeof route === 'string' && allowed.has(route)) {
+      return result('allowed', route, null);
+    }
+    if (cause === 'user_request') {
+      return result('denied', null, 'route_not_in_projection');
+    }
+    // An access change may require leaving a now-hidden page. Suggest only a
+    // route already in this projection; never fabricate Home/More permissions.
+    const fallback = navigation.mobile[0]?.route || navigation.secondary[0]?.route || null;
+    return fallback && allowed.has(fallback)
+      ? result('fallback_suggested', fallback, 'prior_route_no_longer_visible')
+      : result('blocked', null, 'no_permitted_destination');
+  }
+  return Object.freeze({ version: 1, projectNavigation, resolveRouteIntent,
+    legacyMobileRoutes: LEGACY_MOBILE });
 });
