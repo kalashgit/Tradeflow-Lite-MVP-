@@ -82,12 +82,12 @@
         ctx.save();
         ctx.clip(edge);
         // The center is dark and translucent; NO opaque sphere or radial gloss.
-        ctx.fillStyle='rgba(4,9,28,.20)';
+        ctx.fillStyle='rgba(4,9,28,.15)';
         ctx.fill(edge);
         const threads=size<170?102:150;
         const steps=size<170?64:78;
         const left=cx-r*.85,right=cx+r*.85;
-        ctx.lineWidth=clamp(size/205,.48,.73);
+        ctx.lineWidth=clamp(size/190,.62,.86);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         for(let j=0;j<=threads;j++){
@@ -96,13 +96,13 @@
           const upper=meshPoint(0,y0+.009,t)[1],lower=meshPoint(0,y0-.009,t)[1];
           const spacing=(upper-lower)/.018;
           const density=clamp(1.12-spacing,0,.8);
-          const alpha=clamp(.24+.10*density+.045*Math.abs(y0),.22,.38);
+          const alpha=clamp(.43+.14*density+.07*Math.abs(y0),.40,.62);
           const grad=ctx.createLinearGradient(left,0,right,0);
-          grad.addColorStop(0,'rgba(74,66,190,'+(alpha*.62).toFixed(3)+')');
-          grad.addColorStop(.25,'rgba(104,81,211,'+(alpha*.84).toFixed(3)+')');
-          grad.addColorStop(.57,'rgba(68,109,227,'+(alpha*.88).toFixed(3)+')');
-          grad.addColorStop(.84,'rgba(57,157,242,'+(alpha*.98).toFixed(3)+')');
-          grad.addColorStop(1,'rgba(64,201,250,'+(alpha*.78).toFixed(3)+')');
+          grad.addColorStop(0,'rgba(74,66,190,'+(alpha*.83).toFixed(3)+')');
+          grad.addColorStop(.25,'rgba(104,81,211,'+(alpha*1.00).toFixed(3)+')');
+          grad.addColorStop(.57,'rgba(68,109,227,'+(alpha*1.05).toFixed(3)+')');
+          grad.addColorStop(.84,'rgba(57,157,242,'+(alpha*1.09).toFixed(3)+')');
+          grad.addColorStop(1,'rgba(64,201,250,'+(alpha*.94).toFixed(3)+')');
           ctx.strokeStyle=grad;
           ctx.beginPath();
           for(let k=0;k<=steps;k++){
@@ -128,12 +128,12 @@
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(94,75,205,.66)');
-        rim.addColorStop(.32,'rgba(69,109,230,.76)');
-        rim.addColorStop(.67,'rgba(59,180,245,.79)');
-        rim.addColorStop(1,'rgba(99,212,250,.72)');
+        rim.addColorStop(0,'rgba(94,75,205,.80)');
+        rim.addColorStop(.32,'rgba(69,109,230,.86)');
+        rim.addColorStop(.67,'rgba(59,180,245,.87)');
+        rim.addColorStop(1,'rgba(99,212,250,.81)');
         ctx.strokeStyle=rim;
-        ctx.lineWidth=clamp(size/180,.62,.93);
+        ctx.lineWidth=clamp(size/172,.69,1.03);
         ctx.shadowColor='rgba(64,154,248,.40)';
         ctx.shadowBlur=Math.min(2,size*.016);
         ctx.stroke(edge);

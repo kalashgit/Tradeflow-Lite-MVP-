@@ -49,12 +49,12 @@ test('mesh renderer remains a visual layer and does not start voice or workflows
 test('app and offline precache reference exact new mesh artifacts',()=>{
   const html=fs.readFileSync('public/index.html','utf8');
   const sw=fs.readFileSync('public/sw.js','utf8');
-  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-02','intelligence-orb-idle.css?v=orb-idle-02']){
+  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-03','intelligence-orb-idle.css?v=orb-idle-03']){
     assert.ok(html.includes(asset),asset+' in index');
     assert.ok(sw.includes(asset),asset+' in offline cache');
   }
   assert.ok(fs.existsSync('public/intelligence-orb-idle.css'));
-  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-02')<html.indexOf('<script type="module" src="./app.js'));
+  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-03')<html.indexOf('<script type="module" src="./app.js'));
 });
 
 test('existing Intelligence action is preserved; only decorative icon becomes hidden',()=>{

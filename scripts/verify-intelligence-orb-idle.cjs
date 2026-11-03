@@ -22,7 +22,7 @@ let browser;
  const url='http://127.0.0.1:'+server.address().port;
  for(const [width,motion] of [[360,'no-preference'],[390,'no-preference'],[390,'reduce'],[1280,'no-preference']]){
   const recording=width===390&&motion==='no-preference';
-  const context=await browser.newContext({viewport:{width,height:844},reducedMotion:motion,...(recording?{recordVideo:{dir:out,size:{width:390,height:844}}}:{})});
+  const context=await browser.newContext({viewport:{width,height:844},deviceScaleFactor:width<850?2:1,reducedMotion:motion,...(recording?{recordVideo:{dir:out,size:{width:390,height:844}}}:{})});
   const page=await context.newPage();
   const exceptions=[];page.on('pageerror',e=>exceptions.push(e.message));
   await context.tracing.start({screenshots:true,snapshots:true,sources:true});
@@ -71,7 +71,7 @@ let browser;
    if(motion==='reduce')assert.equal(stats.observedFps,0,'reduced motion must not run a paint loop');
    else assert.ok(stats.observedFps>5&&stats.observedFps<=65,'observed cadence must reflect a live animation');
    if(recording)assert.ok(stats.frames>100,'full mobile idle recording must include actual live frames');
-   const proof={width,motion,placement,stats,recording,device:'Playwright Chromium desktop emulated mobile viewport'};
+   const proof={width,motion,placement,stats,recording,device:width<850?'Playwright Chromium mobile viewport DPR2':'Playwright Chromium desktop viewport DPR1'};
    fs.writeFileSync(out+'/performance-'+width+'-'+motion+'.json',JSON.stringify(proof,null,2));
    console.log('TF-MI-ORB-01 rendered measure '+JSON.stringify(proof));
    await orb.click();
