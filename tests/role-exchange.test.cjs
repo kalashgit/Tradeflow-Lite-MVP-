@@ -4,11 +4,33 @@ const report=()=>createLocalCrewReport({businessId:'business_01',actorId:'crew_0
 function fixture({role='member',subject='crew_01',revision=3,recordEvent=true,deleted=false,otherBusiness=false}={}){
  const e=report(),job={id:'job_01',businessId:otherBusiness?'business_02':'business_01',crewId:'crewTeam_01',fieldUpdates:recordEvent?[{eventId:e.eventId,actorId:e.actorId,idempotencyKey:e.idempotencyKey,note:e.note,kind:e.kind,eventAt:e.eventAt}]:[]};
  const db={prepare:sql=>({bind:(...args)=>({first:async()=>sql.includes('business_memberships WHERE')?{role}:sql.includes('tenant_records')?{revision,payload:JSON.stringify(job),deleted_at:deleted?'2026-11-03':null}:null})})};
- return {event:e,db,job,principal:{verified:true,issuer:'issuer',subject},businessId:'business_01',jobId:'job_01',assignmentCheck:async()=>true};
+ return {event:e,db,job,principal:{verified:true,issuer:'issuer',subject},businessId:'business_01',jobId:'job_01',assignmentCheck:async()=>true,officeAccessCheck:async()=>true};
 }
 test('local report is honest unshared draft, immutable and bounded',()=>{const e=report();assert.equal(e.deliveryState,'local_draft');assert.equal(e.readbackVerified,false);assert.equal(e.actionReceiptRef,null);assert.ok(Object.isFrozen(e.subject));assert.throws(()=>createLocalCrewReport({...{businessId:'business_01',actorId:'crew_01',jobId:'job_01',baseRevision:1,eventId:'x',idempotencyKey:'x',at:'2026-11-03',note:''}}))});
 test('crew receives source-backed readback only after server-protected job contains exact event',async()=>{const f=fixture();const r=await projectRoleExchange(f);assert.equal(r.sourceVerified,true);assert.equal(r.deliveryState,'readback_verified');assert.equal(r.acknowledgment,'unverified');assert.equal(r.action.status,'not_verified');assert.equal(r.executionAuthority,false)});
 test('office receives same scoped evidence without conferring completion',async()=>{const f=fixture({role:'admin',subject:'office_01'});const r=await projectRoleExchange(f);assert.equal(r.direction,'core_to_role');assert.equal(r.sourceVerified,true);assert.equal(r.action.status,'not_verified')});
+test('office principal cannot rely on reporter assignment for job visibility',async()=>{
+ const f=fixture({role:'member',subject:'office_02'});
+ let observed=null;
+ f.assignmentCheck=async({actorId})=>actorId==='crew_01';
+ f.officeAccessCheck=async({authorization,jobId,revision})=>{
+  observed={subject:authorization.subject,jobId,revision};return false;
+ };
+ await assert.rejects(projectRoleExchange(f),/Office job access not verified/);
+ assert.deepEqual(observed,{subject:'office_02',jobId:'job_01',revision:3});
+});
+test('office projection fails closed without independent access service',async()=>{
+ const f=fixture({role:'admin',subject:'office_01'});
+ delete f.officeAccessCheck;
+ await assert.rejects(projectRoleExchange(f),/office job access service/);
+});
+test('crew reads need no office authority and cannot gain an office receipt',async()=>{
+ const f=fixture();delete f.officeAccessCheck;
+ const r=await projectRoleExchange(f);
+ assert.equal(r.sourceVerified,true);
+ assert.equal(r.direction,'role_to_core');
+ assert.equal(r.action.status,'not_verified');
+});
 test('mismatched event timestamp never earns verified source status',async()=>{
  const f=fixture();
  f.job.fieldUpdates[0].eventAt='2026-11-03T07:59:59Z';

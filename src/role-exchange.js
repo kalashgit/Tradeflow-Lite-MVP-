@@ -21,7 +21,7 @@ export function createLocalCrewReport({businessId,actorId,jobId,baseRevision,not
  if(!validEvent(e))throw Error('Invalid crew report fields or source revision');
  return freeze({...e,deliveryState:'local_draft',serverRevision:null,readbackVerified:false,acknowledged:false,actionReceiptRef:null});
 }
-export async function projectRoleExchange({db,principal,businessId,jobId,event,assignmentCheck,readReceipt}={}){
+export async function projectRoleExchange({db,principal,businessId,jobId,event,assignmentCheck,officeAccessCheck,readReceipt}={}){
  if(!db||!principal||!id(jobId)||!id(businessId)||typeof assignmentCheck!=='function')throw new AuthorizationError('Verified job and assignment service required',403);
  // This must happen before accessing a business record; body-supplied roles do not authorize.
  const auth=await authorizeBusiness({db,principal,businessId,permission:'records:read'});
@@ -37,7 +37,15 @@ export async function projectRoleExchange({db,principal,businessId,jobId,event,a
  if(assignment!==true)throw new AuthorizationError('Crew assignment or office job access not verified',403);
  const isCrew=event.actorId===auth.subject;
  if(isCrew&&auth.role!=='member'&&auth.role!=='owner'&&auth.role!=='admin')throw new AuthorizationError('Crew report cannot be read by this role',403);
- if(!isCrew&&!['owner','admin','member'].includes(auth.role))throw new AuthorizationError('Office access unavailable',403);
+ if(!isCrew){
+  if(!['owner','admin','member'].includes(auth.role)||typeof officeAccessCheck!=='function')
+   throw new AuthorizationError('Verified office job access service required',403);
+  // A valid reporter assignment never confers permission on a different viewer.
+  // Resolve the office principal's own job access from a trusted server service.
+  const officeAllowed=await officeAccessCheck({authorization:auth,jobId,
+   revision:row.revision,job:freeze(copy(job))});
+  if(officeAllowed!==true)throw new AuthorizationError('Office job access not verified',403);
+ }
  const persisted=readback(job,event);
  const fresh=persisted&&row.revision>=event.subject.revision;
  // Owner-entered job data cannot prove remote delivery unless read from the
