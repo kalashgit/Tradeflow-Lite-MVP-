@@ -105,3 +105,47 @@ test('deterministic, de-duplicated output for duplicate and malformed grants',()
   assert.deepEqual(routes(a.mobile),['dashboard','jobs','calendar','settings']);
   assert.equal(new Set(routes(a.mobile)).size,a.mobile.length);
 });
+
+test('a denied deep link does not silently route into another page',()=>{
+  const navigation=projectNavigation({scopeStatus:'verified',profile:'technician',
+    permittedRoutes:['dashboard','jobs','tasks'],selectedRoute:'expenses'});
+  const intent=require('../public/adaptive-navigation.js').resolveRouteIntent({navigation,route:'expenses'});
+  assert.deepEqual(intent,{disposition:'denied',destination:null,reason:'route_not_in_projection',authorization:'not_evaluated'});
+});
+test('valid destination remains a presentation decision, not authorization',()=>{
+  const navigation=projectNavigation({scopeStatus:'verified',profile:'office',
+    permittedRoutes:['dashboard','calendar','jobs']});
+  const intent=require('../public/adaptive-navigation.js').resolveRouteIntent({navigation,route:'jobs'});
+  assert.equal(intent.disposition,'allowed');
+  assert.equal(intent.destination,'jobs');
+  assert.equal(intent.authorization,'not_evaluated');
+});
+test('revoked page provides a fallback only among permitted destinations',()=>{
+  const navigation=projectNavigation({scopeStatus:'verified',profile:'technician',
+    permittedRoutes:['jobs','tasks'],selectedRoute:'expenses'});
+  const intent=require('../public/adaptive-navigation.js').resolveRouteIntent({navigation,route:'expenses',cause:'current_route_revoked'});
+  assert.equal(intent.disposition,'fallback_suggested');
+  assert.equal(intent.destination,'jobs');
+  assert.equal(intent.authorization,'not_evaluated');
+});
+test('revocation with no permitted pages never guesses Home or Settings',()=>{
+  const navigation=projectNavigation({scopeStatus:'verified',profile:'owner',permittedRoutes:[]});
+  const intent=require('../public/adaptive-navigation.js').resolveRouteIntent({navigation,route:'dashboard',cause:'current_route_revoked'});
+  assert.equal(intent.disposition,'blocked');
+  assert.equal(intent.destination,null);
+});
+test('unverified or forged navigation cannot enable requested routes',()=>{
+  const decide=require('../public/adaptive-navigation.js').resolveRouteIntent;
+  for(const navigation of [null,{},projectNavigation({}),{status:'projected',mobile:null,secondary:[]},
+    {status:'projected',mobile:[{route:'expenses'}],secondary:[]}]){
+    const intent=decide({navigation,route:'jobs'});
+    assert.equal(intent.disposition,'blocked');
+    assert.equal(intent.authorization,'not_evaluated');
+  }
+});
+test('unsupported transition cause is rejected and frozen results are immutable',()=>{
+  const decide=require('../public/adaptive-navigation.js').resolveRouteIntent;
+  assert.throws(()=>decide({cause:'admin_override'}),TypeError);
+  const navigation=projectNavigation({scopeStatus:'verified',profile:'owner',permittedRoutes:['dashboard']});
+  assert.equal(Object.isFrozen(decide({navigation,route:'dashboard'})),true);
+});
