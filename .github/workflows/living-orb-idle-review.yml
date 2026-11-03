@@ -1,0 +1,55 @@
+name: TradeFlow Living Orb Idle Review
+on:
+  push:
+    branches:
+      - feature/tf-orb-idle-mesh-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  idle-orb-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Record and verify exact head
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p artifacts/orb-idle
+          git rev-parse HEAD > artifacts/orb-idle/exact-sha.txt
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Syntax and living mesh contract
+        shell: bash
+        run: |
+          set -o pipefail
+          node --check public/intelligence-orb-idle.js
+          node --check scripts/verify-intelligence-orb-idle.cjs
+          node --test tests/intelligence-orb-idle.test.cjs 2>&1 | tee artifacts/orb-idle/focused.log
+      - name: Full application Node suite
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/orb-idle/node.log
+      - name: Chromium dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Actual TradeFlow desktop/mobile orb and panel
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-intelligence-orb-idle.cjs 2>&1 | tee artifacts/orb-idle/browser.log
+      - name: Keep screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-living-orb-idle-exact-head
+          path: artifacts/orb-idle/
+          if-no-files-found: warn
