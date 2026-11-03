@@ -111,7 +111,12 @@ async function verify(viewport){
   const dialogs=[];page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
   const review=page.locator('[data-decision-action="review"]').filter({hasText:'Prepare internal labor review'});
   await review.waitFor();await review.click();
-  await page.locator('[data-decision-receipt]').waitFor();
+  try{await page.locator('[data-decision-receipt]').waitFor()}
+  catch(error){
+   const statuses=await page.locator('[data-decision-status]').allInnerTexts().catch(()=>[]);
+   const commandRows=(await read(page)).commandLog.filter(x=>x.kind==='pilot.command').map(x=>({id:x.id,status:x.status,commandId:x.commandId,error:x.error?.code}));
+   throw Error('Review receipt unavailable: '+error.message+'; review_status='+JSON.stringify(statuses)+'; command_status='+JSON.stringify(commandRows));
+  }
   const state=await read(page),tasks=state.tasks.filter(x=>x.taskKind==='job_labor_variance_review');
   assert.equal(tasks.length,1);
   assert.equal(tasks[0].laborEvidence.timesheetVerified,false);
