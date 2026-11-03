@@ -543,3 +543,5 @@ TF-GUI-F01 final hold acceptance: disposal guard now follows the cancelled point
 TF-GUI-F01 final asset/continuity polish: versioned JS/CSS/cache advanced to f01-r02 so an earlier development cache cannot retain pre-fix gesture logic. DOM-replacement settling carries the current rendered capsule position rather than restarting from its original release point. Existing router remains sole authority; final exact-head run required.
 
 TF-GUI-F01 CI c3acde9: all prior browser suites and pointer contact assertions passed, then new 200%-text last-metric check sampled immediately after scrolling. Kept exact visibility and overflow assertions; synchronized via condition-based rendered rectangle check after instant scroll (no tolerance increase or arbitrary sleep). Final rerun required; earlier failure retained.
+
+TF-GUI-F01 keyboard compatibility: Alt/Ctrl/Meta/default-prevented shortcuts are excluded from footer arrow handling, preserving browser/host shortcut authority. New browser negative checks Alt+Left is neither prevented nor routed by the helper. Cache advanced to f01-r03 for this final runtime change.
