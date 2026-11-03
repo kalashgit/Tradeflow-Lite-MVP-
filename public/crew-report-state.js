@@ -85,3 +85,14 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
  return frozen({...base,remoteRevision:row.remoteRevision,
   deliveryState:valid?'readback_verified':'delivery_uncertain',requiresReview:!valid});
 }
+
+// Read the existing IndexedDB commandLog through createSyncQueue().list().
+// No enqueue/drain/retry, no transport and no implied server verification.
+// Callers must construct the queue for the authenticated business scope.
+export async function readPersistedCrewReportState({queue,event,principal}={}){
+ if(!queue||typeof queue.list!=='function')
+  throw Error('Existing business-scoped sync queue required');
+ const queueRows=await queue.list();
+ if(!Array.isArray(queueRows))throw Error('Existing sync queue returned no valid snapshot');
+ return projectCrewReportState({event,principal,queueRows});
+}
