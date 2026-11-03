@@ -48,6 +48,12 @@ jobs:
         run: |
           set -o pipefail
           node scripts/verify-fluid-navigation.cjs 2>&1 | tee artifacts/fluid-adaptive-review/chromium.log
+      - name: Synthetic reduced-role footer gestures in real app Chromium
+        shell: bash
+        run: |
+          set -o pipefail
+          node --check scripts/verify-fluid-adaptive-role.cjs
+          node scripts/verify-fluid-adaptive-role.cjs 2>&1 | tee artifacts/fluid-adaptive-review/role-count-chromium.log
       - name: Preserve Chromium traces, screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
