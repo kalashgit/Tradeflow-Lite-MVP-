@@ -109,3 +109,27 @@ test('only an explicitly local draft may be reported without queue evidence',()=
   assert.equal(state.requiresReview,true);
  }
 });
+
+test('server readback for a deleted or foreign-identity job is not delivery proof',()=>{
+ const applied=row({status:'applied',verifiedBy:principal,result:'verified_write',
+  verification:'record_readback',remoteRevision:4});
+ assert.equal(project([applied],proof()).deliveryState,'readback_verified');
+ for(const bad of [
+  {...proof(),deletedAt:'2026-11-03T10:00:00.000Z'},
+  {...proof(),record:{...proof().record,id:'job_02'}},
+  {...proof(),record:{...proof().record,businessId:'business_other'}},
+  {...proof(),record:[]}
+ ]){
+  const projected=project([applied],bad);
+  assert.equal(projected.deliveryState,'delivery_uncertain');
+  assert.equal(projected.acknowledged,false);
+  assert.equal(projected.actionReceiptRef,null);
+ }
+});
+test('verified-write revisions must be exactly one more than the source revision',()=>{
+ const impossible=row({status:'applied',verifiedBy:principal,result:'verified_write',
+  verification:'record_readback',remoteRevision:6});
+ assert.equal(project([impossible],{...proof(),revision:6}).deliveryState,'delivery_uncertain');
+ const reconciled={...impossible,result:'already_current'};
+ assert.equal(project([reconciled],{...proof(),revision:6}).deliveryState,'readback_verified');
+});
