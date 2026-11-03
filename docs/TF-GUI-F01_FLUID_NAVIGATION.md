@@ -29,3 +29,7 @@ Known gates: physical iPhone touch/latency/battery, native haptics, VoiceOver an
 Read-only `git merge-tree` against inspected AI 23929a9 reports manifest conflicts in public/index.html and public/sw.js. No work discarded and neither PR merged. Coordinated reconciliation must keep the AI case/role assets and GUI fluid/adaptive/host assets; not a footer runtime blocker on the isolated PR #18 head. The long-lived AI branch is not silently overwritten to make the PR mergeable.
 
 Active disposal immediately removes visual/component state and motion. A document release guard survives a held cancelled press, then cleans up within 750ms after its pointer-up; a new actual pointer-down clears suppression, preserving immediate static fallback. Keyboard activation remains native.
+
+## Enlarged-text follow-up
+
+The legacy universal reduced-motion rule assigned a nonzero 1e-05s transition to html and metric controls. F01-A11Y removes those transitions so an accessibility text-size change is immediate. The regression doubles the actual computed root font size, checks it immediately, preserves original metric values and verifies last-metric scrolling plus keyboard focus. This addresses the observed font/layout timing race without adding a new state store or changing data.

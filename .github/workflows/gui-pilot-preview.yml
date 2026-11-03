@@ -1,4 +1,5 @@
 name: TradeFlow GUI Explicit Pilot Preview
+# Explicit GUI preview follow-up: immediate enlarged-text metrics (F01-A11Y).
 on:
   push:
     branches: [feature/tf-ux-01-command-center]
