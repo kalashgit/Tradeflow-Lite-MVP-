@@ -1,0 +1,57 @@
+name: TradeFlow Fluid Adaptive Footer Review
+on:
+  push:
+    branches:
+      - feature/tf-gui-fluid-adaptive-compat-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fluid-adaptive-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact GUI review commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact SHA
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p artifacts/fluid-adaptive-review
+          git rev-parse HEAD > artifacts/fluid-adaptive-review/sha.txt
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Syntax and fluid-navigation regression
+        shell: bash
+        run: |
+          set -o pipefail
+          node --check public/fluid-navigation.js
+          node --check tests/fluid-navigation.test.cjs
+          node --test tests/fluid-navigation.test.cjs 2>&1 | tee artifacts/fluid-adaptive-review/focused.log
+      - name: Full Node regression
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/fluid-adaptive-review/node.log
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Actual existing GUI fluid interactions on mobile and desktop
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-fluid-navigation.cjs 2>&1 | tee artifacts/fluid-adaptive-review/chromium.log
+      - name: Preserve Chromium traces, screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-fluid-adaptive-review
+          path: artifacts/
+          if-no-files-found: warn
