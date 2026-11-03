@@ -33,3 +33,5 @@ Active disposal immediately removes visual/component state and motion. A documen
 ## Enlarged-text follow-up
 
 The legacy universal reduced-motion rule assigned a nonzero 1e-05s transition to html and metric controls. F01-A11Y removes those transitions so an accessibility text-size change is immediate. The regression doubles the actual computed root font size, checks it immediately, preserves original metric values and verifies last-metric scrolling plus keyboard focus. This addresses the observed font/layout timing race without adding a new state store or changing data.
+
+Home refresh continuity is handled by home-metrics.js: one temporary scroll offset from native scroll events, scoped through the existing host actor/business context and cleared on identity loss/change. Notifications can re-render Home without resetting the pan. No values are cached and no business or conversation store is added. Reload starts fresh; instance.dispose() removes the helper.

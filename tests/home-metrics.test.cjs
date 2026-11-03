@@ -1,0 +1,5 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{createMemory}=require('../public/home-metrics.js');
+const owner={actorId:'actor_a',businessId:'business_a',screen:'dashboard'};
+test('Home metric position survives same-owner UI refreshes and navigation without a business write',()=>{const m=createMemory();m.save(owner,125);assert.equal(m.read(owner),125);assert.equal(m.read({...owner,screen:'settings'}),0);assert.equal(m.read(owner),125);m.clear();assert.equal(m.read(owner),0)});
+test('metric memory clears across actor/business changes and unknown identity',()=>{for(const change of [{actorId:'other'},{businessId:'other'},null]){const m=createMemory();m.save(owner,125);assert.equal(m.read(change?{...owner,...change}:null),0);assert.equal(m.read(owner),0)}});
+test('invalid offsets and non-Home updates cannot replace a saved position',()=>{const m=createMemory();m.save(owner,125);m.save(owner,NaN);m.save({...owner,screen:'map'},300);assert.equal(m.read(owner),125);m.save(owner,-1);assert.equal(m.read(owner),0)});
