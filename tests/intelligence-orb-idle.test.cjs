@@ -41,6 +41,7 @@ test('fold illumination is shaped by current geometry instead of a fixed halo',(
 test('mesh renderer remains a visual layer and does not start voice or workflows',()=>{
   const source=fs.readFileSync('public/intelligence-orb-idle.js','utf8');
   assert.equal(version,'idle-mesh-v2');
+  assert.equal(source.includes('createRadialGradient'),false,'no glossy sphere gradient');
   for(const term of ['getUserMedia(', 'SpeechRecognition(', 'speechSynthesis.speak(', 'navigator.vibrate(', 'fetch(', 'WebGLRenderingContext', 'localStorage.']){
     assert.equal(source.includes(term),false,'unexpected side effect: '+term);
   }
@@ -49,12 +50,12 @@ test('mesh renderer remains a visual layer and does not start voice or workflows
 test('app and offline precache reference exact new mesh artifacts',()=>{
   const html=fs.readFileSync('public/index.html','utf8');
   const sw=fs.readFileSync('public/sw.js','utf8');
-  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-03','intelligence-orb-idle.css?v=orb-idle-03']){
+  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-04','intelligence-orb-idle.css?v=orb-idle-04']){
     assert.ok(html.includes(asset),asset+' in index');
     assert.ok(sw.includes(asset),asset+' in offline cache');
   }
   assert.ok(fs.existsSync('public/intelligence-orb-idle.css'));
-  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-03')<html.indexOf('<script type="module" src="./app.js'));
+  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-04')<html.indexOf('<script type="module" src="./app.js'));
 });
 
 test('existing Intelligence action is preserved; only decorative icon becomes hidden',()=>{

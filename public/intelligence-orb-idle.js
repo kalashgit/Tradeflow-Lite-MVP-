@@ -82,9 +82,9 @@
         ctx.save();
         ctx.clip(edge);
         // The center is dark and translucent; NO opaque sphere or radial gloss.
-        ctx.fillStyle='rgba(4,9,28,.15)';
+        ctx.fillStyle='rgba(4,8,25,.94)';
         ctx.fill(edge);
-        const threads=size<170?102:150;
+        const threads=size<170?78:118;
         const steps=size<170?64:78;
         const left=cx-r*.85,right=cx+r*.85;
         ctx.lineWidth=clamp(size/190,.62,.86);
@@ -96,7 +96,7 @@
           const upper=meshPoint(0,y0+.009,t)[1],lower=meshPoint(0,y0-.009,t)[1];
           const spacing=(upper-lower)/.018;
           const density=clamp(1.12-spacing,0,.8);
-          const alpha=clamp(.43+.14*density+.07*Math.abs(y0),.40,.62);
+          const alpha=clamp(.51+.16*density+.06*Math.abs(y0),.48,.69);
           const grad=ctx.createLinearGradient(left,0,right,0);
           grad.addColorStop(0,'rgba(74,66,190,'+(alpha*.83).toFixed(3)+')');
           grad.addColorStop(.25,'rgba(104,81,211,'+(alpha*1.00).toFixed(3)+')');
