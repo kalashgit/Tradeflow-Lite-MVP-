@@ -142,3 +142,20 @@ test('HYB-04 cancellation after asynchronous evidence read wins over a ready pro
  assert.equal(outcome.status,'cancelled');assert.equal(reads,1);
  assert.equal(f.db.dump().tasks.length,0);assert.equal(f.db.dump().commandLog.length,0);
 });
+
+test('HYB-04 allows only an unchanged labor proposal while monetary units remain unverified',async()=>{
+ const f=fixture();
+ const row=f.db.dump().jobCosts[0];
+ await put(f.db,'jobCosts',{...row,currency:undefined});
+ const d=await f.review('Review labor hours');
+ assert.equal(d.status,'evidence_needs_review');
+ assert.equal(d.proposals.length,1,'Existing labor review remains an explicitly reviewable option');
+ const prior=d.proposals[0].id;
+ const permitted=await f.protocol.continuation({decision:d,proposalId:prior,readScope:f.readScope,readCurrent:f.readCurrent,ownerConfirmed:true});
+ assert.equal(permitted.status,'ready_for_runtime_checks');
+ assert.equal(permitted.executionAuthority,false);
+ await put(f.db,'jobCosts',{...f.db.dump().jobCosts[0],laborHours:13});
+ const stale=await f.protocol.continuation({decision:d,proposalId:prior,readScope:f.readScope,readCurrent:f.readCurrent,ownerConfirmed:true});
+ assert.equal(stale.status,'stale_case');
+ assert.equal(f.db.dump().tasks.length,0);
+});

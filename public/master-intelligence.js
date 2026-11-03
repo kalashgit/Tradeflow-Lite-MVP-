@@ -90,7 +90,11 @@ export function createDecisionProtocol({engine,definitions,resolve}){
    updated=await review({objective:decision.objective.text,context,scope,today:decision.today,threadId:decision.case.threadId});
   }catch{return blocked('source_unavailable')}
   if(isInterrupted())return stopped();
-  if(updated.binding!==decision.binding||updated.status!=='ready_for_review')
+  // A labor-hours review can remain eligible when unrelated money units are
+  // unverified. Preserve the EXACT decision status and proposal rather than
+  // converting uncertain financial evidence into either a denial or authority.
+  if(updated.binding!==decision.binding||updated.status!==decision.status||
+   !['ready_for_review','evidence_needs_review'].includes(updated.status))
    return blocked('stale_case');
   const previous=decision.proposals.find(p=>p.id===proposalId),fresh=updated.proposals.find(p=>p.id===proposalId);
   if(!previous||!fresh||canonical(previous)!==canonical(fresh))
