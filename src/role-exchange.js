@@ -4,6 +4,7 @@
  */
 import {authorizeBusiness,authorizedTenantReadQuery,AuthorizationError} from './tenant-security.js';
 import {recordIdentity} from '../public/record-model.js';
+import {writeTenantRecord} from './tenant-record-store.js';
 const id=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const stamp=x=>typeof x==='string'&&Number.isFinite(Date.parse(x));
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -51,4 +52,100 @@ export async function projectRoleExchange({db,principal,businessId,jobId,event,a
   note:copy(event.note),deliveryState,acknowledgment:'unverified',action:receipt||{status:'not_verified'},sourceVerified:fresh,
   // No push/email/provider/deliberative call; read-only projection.
   actorAttributionVerified:false,executionAuthority:false});
+}
+
+/* TF-RM-03 / v1.1 — Internal, NOT ROUTED authenticated submission adapter.
+ *
+ * R01-02 job-scoped user grants and an atomic assignment predicate are not
+ * approved or present in the live schema. Thus verifyAssignment MUST be a
+ * server-owned authenticated assignment service; this is a synthetic contract,
+ * not a field API or claim of commit-time staff assignment security.
+ * Never pass client-provided role, crewId or a callback from an HTTP payload.
+ */
+const attestedAssignment=(proof,auth,jobId,revision)=>proof?.verified===true&&
+ proof.source==='server_verified_job_assignment'&&
+ proof.issuer===auth.issuer&&proof.subject===auth.subject&&
+ proof.businessId===auth.businessId&&proof.jobId===jobId&&proof.jobRevision===revision;
+const boundedUpdates=x=>Array.isArray(x)&&x.length<=40&&
+ x.every(v=>v&&typeof v==='object'&&!Array.isArray(v));
+const submissionResult=(e,status,revision,{attribution=false,readback=false}={})=>freeze({
+ schemaVersion:1,businessId:e.businessId,jobId:e.subject.id,eventId:e.eventId,
+ status,deliveryState:status,sourceRevision:e.subject.revision,
+ observedServerRevision:revision,readbackVerified:readback,
+ writeAttributionVerified:attribution,
+ assignmentCheckedBeforeWrite:true,assignmentAtCommitVerified:false,
+ acknowledged:false,actionReceiptRef:null,executionAuthority:false
+});
+export async function submitAssignedCrewBlocker({db,principal,businessId,jobId,event,verifyAssignment}={}){
+ if(!db||typeof db.prepare!=='function'||!id(businessId)||!id(jobId)||
+    typeof verifyAssignment!=='function')
+  throw new AuthorizationError('Verified assignment service and job scope required',403);
+ if(!validEvent(event)||event.businessId!==businessId||event.subject.id!==jobId||
+    !['local_draft','queued'].includes(event.deliveryState))
+  throw new AuthorizationError('Invalid or untrusted crew report',400);
+ const auth=await authorizeBusiness({db,principal,businessId,permission:'records:write'});
+ if(auth.role!=='member'||event.actorId!==auth.subject)
+  throw new AuthorizationError('Authenticated crew actor or membership mismatch',403);
+ const readQuery=authorizedTenantReadQuery({authorization:auth,table:'jobs',recordId:jobId});
+ const row=await db.prepare(readQuery.sql).bind(...readQuery.params).first();
+ if(!row||row.deleted_at||!Number.isSafeInteger(row.revision)||row.revision<1)
+  throw new AuthorizationError('Current authorized job unavailable',404);
+ let job;try{job=JSON.parse(row.payload)}catch{
+  throw new AuthorizationError('Invalid server job payload',503);
+ }
+ recordIdentity({businessId,type:'jobs',id:jobId,record:job});
+ if(!boundedUpdates(job.fieldUpdates||[]))
+  throw new AuthorizationError('Unbounded or malformed job field history',409);
+ const check=()=>verifyAssignment({
+  authorization:auth,jobId,revision:row.revision,job:freeze(copy(job))
+ });
+ const proof=await check();
+ if(!attestedAssignment(proof,auth,jobId,row.revision))
+  throw new AuthorizationError('Server-owned job assignment not verified',403);
+ // Replays and idempotency collisions are NOT authenticated write receipts.
+ const duplicates=job.fieldUpdates.filter(u=>u?.eventId===event.eventId||
+  u?.idempotencyKey===event.idempotencyKey);
+ if(duplicates.length)return submissionResult(event,'duplicate_unverified',row.revision);
+ if(row.revision!==event.subject.revision)
+  throw new AuthorizationError('Stale job source revision; do not replay blindly',409);
+ if(job.fieldUpdates?.length>=40)
+  throw new AuthorizationError('Job field update history limit requires review',409);
+ // Recheck before CAS; real commit-time assignment enforcement still requires
+ // an approved server-owned actor→job predicate in the same SQL statement.
+ const prewrite=await check();
+ if(!attestedAssignment(prewrite,auth,jobId,row.revision))
+  throw new AuthorizationError('Job assignment changed before submission',403);
+ const update={
+  schemaVersion:1,eventId:event.eventId,idempotencyKey:event.idempotencyKey,
+  kind:event.kind,note:event.note,eventAt:event.eventAt,
+  actorId:auth.subject,actorIssuer:auth.issuer
+ };
+ const next={...job,fieldUpdates:[...(job.fieldUpdates||[]),update]};
+ const saved=await writeTenantRecord(db,auth,'jobs',jobId,{
+  revision:row.revision,record:next,
+  expectedActor:{issuer:auth.issuer,subject:auth.subject}
+ });
+ // A successful CAS response is NOT an independently confirmed readback.
+ // Losing the follow-up read is an uncertain delivery, never a retry signal.
+ const uncertain=()=>submissionResult(event,'server_committed_unverified',saved.revision);
+ try{
+  const auditSql=readQuery.sql.replace(
+   'SELECT payload, revision, updated_at, deleted_at FROM tenant_records',
+   'SELECT payload, revision, updated_at, deleted_at, updated_by_issuer, updated_by_subject FROM tenant_records');
+  const written=await db.prepare(auditSql).bind(...readQuery.params).first();
+  if(!written||written.deleted_at||written.revision!==saved.revision||
+     written.revision!==row.revision+1||
+     written.updated_by_issuer!==auth.issuer||written.updated_by_subject!==auth.subject)
+   return uncertain();
+  const latest=JSON.parse(written.payload);
+  recordIdentity({businessId,type:'jobs',id:jobId,record:latest});
+  const records=Array.isArray(latest.fieldUpdates)?latest.fieldUpdates:[];
+  const matched=records.filter(u=>u?.eventId===event.eventId||
+    u?.idempotencyKey===event.idempotencyKey);
+  if(matched.length!==1||JSON.stringify(matched[0])!==JSON.stringify(update))
+   return uncertain();
+  return submissionResult(event,'readback_verified',written.revision,{
+   attribution:true,readback:true
+  });
+ }catch{return uncertain()}
 }
