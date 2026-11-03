@@ -8,8 +8,8 @@ const event={schemaVersion:1,eventId:'event_01',idempotencyKey:'op_01',businessI
  subject:{type:'jobs',id:'job_01',revision:3},note:'Two required materials are missing'};
 const reportUpdate=()=>({eventId:event.eventId,idempotencyKey:event.idempotencyKey,actorId:principal.subject,
  actorIssuer:principal.issuer,kind:event.kind,note:event.note,eventAt:event.eventAt});
-const row=(overrides={})=>({kind:'sync.change',businessId:event.businessId,
- actor:principal,change:{type:'jobs',id:'job_01',operationId:'op_01',baseRevision:3,
+const row=(overrides={})=>({id:'sync:'+event.businessId+':'+event.idempotencyKey,
+ kind:'sync.change',businessId:event.businessId,actor:principal,change:{type:'jobs',id:'job_01',operationId:'op_01',baseRevision:3,
  record:{id:'job_01',businessId:event.businessId,fieldUpdates:[reportUpdate()]}},status:'pending',...overrides});
 const proof=()=>({authenticated:true,actor:principal,businessId:event.businessId,type:'jobs',id:'job_01',revision:4,
  record:{fieldUpdates:[reportUpdate()]}});
