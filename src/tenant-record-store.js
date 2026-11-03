@@ -1,7 +1,7 @@
 import {mayWriteRecord,MANAGED_RECORD_TYPES} from '../public/record-permissions.js';
 import {linksForRecord,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
 import {AuthorizationError,tenantRecordQuery} from './tenant-security.js';
-import {assertTrustedCrewGrant} from './job-access.js';
+import {assertTrustedJobGrant} from './job-access.js';
 
 export const RECORD_WRITE_SQL =`INSERT INTO tenant_records
  (business_id,record_type,id,revision,payload,updated_by_issuer,updated_by_subject)
@@ -25,7 +25,7 @@ export const JOB_ASSIGNMENT_GUARD_SQL =`AND (role IN ('owner','admin') OR
 
 
 // Evaluated by SQLite in the same statement as the member role and job CAS.
-// Only an in-process verified crew grant may supply these bound predicates.
+// Only an in-process verified job-scope grant may supply these bound predicates.
 export const JOB_GRANT_CAS_SQL=`AND EXISTS (
  SELECT 1 FROM job_access_grants g
  JOIN business_memberships m ON m.business_id=g.business_id
@@ -33,7 +33,7 @@ export const JOB_GRANT_CAS_SQL=`AND EXISTS (
  JOIN tenant_records j ON j.business_id=g.business_id
   AND j.record_type='jobs' AND j.id=g.job_id
  WHERE g.business_id=? AND g.job_id=? AND g.issuer=? AND g.subject=?
-  AND g.scope='crew' AND g.status='active' AND g.grant_revision=?
+  AND g.scope=? AND g.status='active' AND g.grant_revision=?
   AND m.status='active' AND m.role='member'
   AND j.deleted_at IS NULL AND j.revision=?
 )`;
@@ -59,7 +59,7 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
   throw new AuthorizationError('Request actor changed; review again',403);
  const {expectedRevision,payload}=validateRecordWrite(body);
  const scopedJob=jobAccessProof!==undefined;
- const verifiedGrant=scopedJob?assertTrustedCrewGrant(jobAccessProof,authorization,recordId):null;
+ const verifiedGrant=scopedJob?assertTrustedJobGrant(jobAccessProof,authorization,recordId,jobAccessProof.scope):null;
  if(scopedJob&&(recordType!=='jobs'||expectedRevision!==verifiedGrant.jobRevision))
   throw new AuthorizationError('Scoped job revision changed; review before saving',409);
  if(body.record.id!==undefined&&body.record.id!==recordId||body.record.businessId!==undefined&&body.record.businessId!==authorization.businessId)
@@ -85,7 +85,7 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
  const grantParams=verifiedGrant?[
   verifiedGrant.businessId,verifiedGrant.jobId,
   verifiedGrant.actor.issuer,verifiedGrant.actor.subject,
-  verifiedGrant.grantRevision,verifiedGrant.jobRevision
+  verifiedGrant.scope,verifiedGrant.grantRevision,verifiedGrant.jobRevision
  ]:[];
  const sql=RECORD_WRITE_SQL.replace('/* relationship-guards */',
   [verifiedGrant?JOB_GRANT_CAS_SQL:'',...guards].filter(Boolean).join('\n'))

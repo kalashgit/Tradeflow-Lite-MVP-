@@ -56,15 +56,23 @@ export async function readJobAccess({db,principal,businessId,jobId,scope}={}){
 
 // Only same-process server-issued grants can parameterize the scoped CAS.
 // This is not a request-body token or a durable authorization credential.
-export function assertTrustedCrewGrant(proof,authorization,jobId){
+// A single server-issued proof can authorize one narrowly scoped internal
+// role exchange CAS; no serialized/client-created proof is accepted.
+export function assertTrustedJobGrant(proof,authorization,jobId,scope){
  if(!proof||!issuedJobGrants.has(proof)||
-    proof.accessClass!=='assigned_job'||proof.scope!=='crew'||
+    proof.accessClass!=='assigned_job'||proof.scope!==scope||
+    !validScope(scope)||
     proof.actor?.issuer!==authorization?.issuer||
     proof.actor?.subject!==authorization?.subject||
     proof.businessId!==authorization?.businessId||
     proof.jobId!==jobId||authorization?.role!=='member'||
     !Number.isSafeInteger(proof.grantRevision)||proof.grantRevision<1||
     !Number.isSafeInteger(proof.jobRevision)||proof.jobRevision<1)
-  throw new AuthorizationError('Fresh authenticated crew job grant required',403);
+  throw new AuthorizationError('Fresh authenticated scoped job grant required',403);
  return proof;
+}
+
+// Preserve the existing crew-only public contract for its established callers.
+export function assertTrustedCrewGrant(proof,authorization,jobId){
+ return assertTrustedJobGrant(proof,authorization,jobId,'crew');
 }

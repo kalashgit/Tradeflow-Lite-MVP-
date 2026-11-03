@@ -36,6 +36,18 @@ function validStoredBlocker(x){
   x.note.trim().length>0&&x.note.length<=500;
 }
 
+const validOfficeResponse=e=>e&&e.schemaVersion===1&&
+ e.kind==='job_blocker_office_response'&&id(e.eventId)&&id(e.idempotencyKey)&&
+ id(e.reportEventId)&&id(e.actorId)&&typeof e.actorIssuer==='string'&&
+ e.actorIssuer.trim().length>0&&validStamp(e.eventAt)&&
+ typeof e.text==='string'&&e.text.trim().length>0&&e.text.length<=500;
+const validCrewAcknowledgment=e=>e&&e.schemaVersion===1&&
+ e.kind==='job_blocker_response_acknowledged'&&
+ id(e.eventId)&&id(e.idempotencyKey)&&id(e.reportEventId)&&
+ id(e.responseEventId)&&id(e.actorId)&&
+ typeof e.actorIssuer==='string'&&e.actorIssuer.trim().length>0&&
+ validStamp(e.eventAt)&&e.status==='received';
+
 /* Only durable job records are evidence. A client-supplied crew report,
  * claimed role, callback or local chat string is never a read source.
  * A stored event does not alone cryptographically prove historical authorship.
@@ -78,10 +90,26 @@ export async function reviewOfficeJobBlocker({
  const report=matches[0];
  if(updates.some(x=>x!==report&&x?.idempotencyKey===report.idempotencyKey))
   throw new AuthorizationError('Conflicting report idempotency key',409);
- // This is deliberately a source-linked explanation, not freeform generation
- // or a claimed durable conversation turn. Treat note as untrusted user content.
- const reply=`A crew blocker is recorded for job ${jobId}: “${report.note}” The job record does not establish the schedule impact, required materials or resolution. Confirm the blocker with the crew and review an internal follow-up task before making changes.`;
- const title='Review reported job blocker';
+ const replies=updates.filter(e=>e?.kind==='job_blocker_office_response'&&e.reportEventId===eventId);
+ if(replies.length>1||replies.length===1&&!validOfficeResponse(replies[0]))
+  throw new AuthorizationError('Office response evidence ambiguous',409);
+ const officeReply=replies[0]||null;
+ const acknowledgments=updates.filter(e=>e?.kind==='job_blocker_response_acknowledged'&&
+   e.reportEventId===eventId);
+ if(acknowledgments.length>1||acknowledgments.length===1&&
+    (!officeReply||!validCrewAcknowledgment(acknowledgments[0])||
+     acknowledgments[0].responseEventId!==officeReply.eventId))
+  throw new AuthorizationError('Crew acknowledgment evidence ambiguous',409);
+ const crewAck=acknowledgments[0]||null;
+ // Event history is persisted evidence, but it is not historical proof of
+ // original actor authentication. No fake delivery or completion assertion.
+ const reply=`A crew blocker is recorded for job ${jobId}: “${report.note}”`+
+  (officeReply?` An office response is recorded: “${officeReply.text}”`:
+   ' The office response has not been recorded.')+
+  (crewAck?' A crew acknowledgment event is recorded.':
+   ' No crew acknowledgment event has been verified.')+
+  ' The report does not establish schedule impact, materials availability, or resolution.';
+ const title=officeReply?'Review crew acknowledgment':'Review reported job blocker';
  return freeze({
   kind:'tradeflow.intelligence.job_blocker_review.v1',
   status:'advisory_review_ready',intent:'job_blocker_review',
@@ -95,11 +123,23 @@ export async function reviewOfficeJobBlocker({
    reportedNote:report.note,
    reportedActor:{issuer:report.actorIssuer,subject:report.actorId},
    persistedEventPresent:true,actorAttributionVerified:false,
-   acknowledgment:'unverified'},
+   acknowledgment:crewAck?'persisted_event_unattributed':'unverified'},
+  roleExchange:{
+   officeResponse:officeReply?{
+    eventId:officeReply.eventId,reportedAt:officeReply.eventAt,
+    text:officeReply.text,persistedEventPresent:true,
+    actorAttributionVerified:false
+   }:{status:'not_recorded'},
+   crewAcknowledgment:crewAck?{
+    eventId:crewAck.eventId,reportedAt:crewAck.eventAt,
+    persistedEventPresent:true,actorAttributionVerified:false
+   }:{status:'not_recorded'},
+   externallyDelivered:false
+  },
   response:{text:reply,basis:'persisted_job_report',unknowns:[
    'schedule_impact','material_requirements','resolution_status'
   ]},
-  suggestedNextAction:{
+  suggestedNextAction:crewAck?null:{
    status:'proposal_only',requiresHumanReview:true,
    commandId:'draft.prepare',
    params:{kind:'task',ref:{store:'jobs',id:jobId},

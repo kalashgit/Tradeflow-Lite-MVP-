@@ -74,7 +74,16 @@ test('R01-02 disposable D1 job grants are tenant/job/actor scoped and revocable'
   await assert.rejects(readJobAccess({db,principal:{verified:false,issuer:'test-issuer',subject:'crew_01'},
    businessId:'business_001',jobId:'job_01',scope:'crew'}),{status:401});
   assert.equal((await read('owner_01','job_02')).accessClass,'company_member');
-  assert.equal((await read('office_01','job_01','office')).scope,'office');
+  const officeProof=await read('office_01','job_01','office');
+  assert.equal(officeProof.scope,'office');
+  const officeAuth={businessId:'business_001',issuer:'test-issuer',subject:'office_01',role:'member'};
+  await assert.rejects(writeTenantRecord(db,officeAuth,'jobs','job_01',submitted,
+   {jobAccessProof:{...officeProof}}),{status:403},
+   'serialized office proof cannot authorize a job mutation');
+  await assert.rejects(writeTenantRecord(db,officeAuth,'jobs','job_02',submitted,
+   {jobAccessProof:officeProof}),{status:403},
+   'office proof is limited to its exact job');
+
   // TF-RM-03-E: the actual office evidence SELECT must independently gate
   // the job payload on current office scope, not on crew grant or job.crewId.
   const persisted={

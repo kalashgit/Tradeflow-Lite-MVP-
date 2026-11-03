@@ -288,6 +288,128 @@ async function main(){
    "SELECT revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
    ['business_001','job_active']))[0].revision,9);
   await assert.rejects(submit(db,makeEvent(9,'blocker_revoked')),{status:403});
+  // TF-RM-03-F: use the exact same authoritative job and atomic writer for
+  // one office response and an explicit crew acknowledgment. These internal
+  // writes do NOT send or deliver a notification.
+  await statement(db,
+   "UPDATE job_access_grants SET status='active',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='crew'",
+   ['business_001','job_active','synthetic-crew']);
+  await statement(db,
+   "UPDATE job_access_grants SET status='active',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='office'",
+   ['business_001','job_active','synthetic-office']);
+  const {respondToCrewBlocker,acknowledgeOfficeBlockerResponse}=
+   await import('../src/role-exchange-actions.js');
+  const officeArgs={principal:officePrincipal,businessId:'business_001',jobId:'job_active',
+   reportEventId:'blocker_first',eventId:'response_first',idempotencyKey:'response_first_once',
+   expectedJobRevision:9,text:'Confirm delivery date and offer a substitute breaker.'};
+  const respond=(targetDb=db,overrides={})=>
+   respondToCrewBlocker({db:targetDb,...officeArgs,...overrides});
+  const officeRaceDb={prepare(sql){
+   const prepared=db.prepare(sql);
+   if(!sql.startsWith('INSERT INTO tenant_records'))return prepared;
+   return {bind(...params){
+    const bound=prepared.bind(...params);
+    return {async first(){
+     await statement(db,
+      "UPDATE job_access_grants SET status='revoked',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='office'",
+      ['business_001','job_active','synthetic-office']);
+     return bound.first();
+    }};
+   }};
+  }};
+  await assert.rejects(respond(officeRaceDb),{status:409},
+   'office grant revoked AFTER preflight must deny CAS without creating response');
+  assert.equal((await all(db,
+   "SELECT revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']))[0].revision,9);
+  await assert.rejects(respond(),{status:403},
+   'revoked office member cannot append a response');
+  await statement(db,
+   "UPDATE job_access_grants SET status='active',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='office'",
+   ['business_001','job_active','synthetic-office']);
+  const response=await respond();
+  assert.equal(response.status,'readback_verified');
+  assert.equal(response.observedRevision,10);
+  assert.equal(response.recordWriteReceipt.status,'verified_internal_record_write');
+  assert.equal(response.acknowledged,false);
+  assert.equal(response.transported,false);
+  assert.equal(response.externalEffects,false);
+  const repeatedResponse=await respond();
+  assert.equal(repeatedResponse.status,'duplicate_unverified');
+  assert.equal(repeatedResponse.readbackVerified,false);
+  await assert.rejects(respond(db,{eventId:'response_wrong',
+   idempotencyKey:'response_wrong_once',expectedJobRevision:10,reportEventId:'missing_report'}),{status:409});
+  await assert.rejects(respond(db,{eventId:'response_stale',
+   idempotencyKey:'response_stale_once',expectedJobRevision:9}),{status:409});
+  const ackArgs={principal:identity,businessId:'business_001',jobId:'job_active',
+   reportEventId:'blocker_first',responseEventId:'response_first',
+   eventId:'crew_ack_first',idempotencyKey:'crew_ack_first_once',expectedJobRevision:10};
+  const ack=await acknowledgeOfficeBlockerResponse({db,...ackArgs});
+  assert.equal(ack.status,'readback_verified');
+  assert.equal(ack.acknowledged,true);
+  assert.equal(ack.recordWriteReceipt.actor.subject,'synthetic-crew');
+  assert.equal(ack.observedRevision,11);
+  assert.equal(ack.transported,false);
+  const completedCase=await reviewOfficeJobBlocker({
+   db,principal:officePrincipal,businessId:'business_001',
+   jobId:'job_active',eventId:'blocker_first',expectedJobRevision:11
+  });
+  assert.equal(completedCase.roleExchange.officeResponse.eventId,'response_first');
+  assert.equal(completedCase.roleExchange.crewAcknowledgment.eventId,'crew_ack_first');
+  assert.equal(completedCase.report.acknowledgment,'persisted_event_unattributed');
+  assert.equal(completedCase.suggestedNextAction,null,
+   'completed exchange should not keep proposing the same draft task');
+  assert.equal(completedCase.roleExchange.externallyDelivered,false);
+
+  assert.equal((await acknowledgeOfficeBlockerResponse({db,...ackArgs})).status,
+   'duplicate_unverified');
+  await assert.rejects(acknowledgeOfficeBlockerResponse({db,...ackArgs,
+   principal:officePrincipal,eventId:'spoof_ack',idempotencyKey:'spoof_ack_once',
+   expectedJobRevision:11}),{status:403});
+  await assert.rejects(acknowledgeOfficeBlockerResponse({db,...ackArgs,
+   eventId:'bad_ref_ack',idempotencyKey:'bad_ref_ack_once',
+   responseEventId:'nonexistent',expectedJobRevision:11}),{status:409});
+  const persistedF=await all(db,
+   "SELECT payload,revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']);
+  assert.equal(persistedF[0].revision,11);
+  assert.deepEqual(JSON.parse(persistedF[0].payload).fieldUpdates.map(x=>x.kind),
+   ['job_blocker_reported','job_blocker_office_response','job_blocker_response_acknowledged']);
+  // Uncertain acknowledgment: the writer commits to D1 but loses the
+  // independently authorized readback. Never fabricate a verified receipt
+  // or automatically replay the action.
+  const second=await submit(db,makeEvent(11,'blocker_second'));
+  assert.equal(second.status,'readback_verified');
+  assert.equal(second.observedServerRevision,12);
+  let sourceReads=0;
+  const lostReadbackDb={prepare(sql){
+   const prepared=db.prepare(sql);
+   if(!sql.includes('t.payload AS job_payload'))return prepared;
+   return {bind(...params){
+    const bound=prepared.bind(...params);
+    return {async first(){
+     sourceReads++;
+     return sourceReads===2?null:bound.first();
+    }};
+   }};
+  }};
+  const secondArgs={...officeArgs,
+   reportEventId:'blocker_second',eventId:'response_second',
+   idempotencyKey:'response_second_once',expectedJobRevision:12};
+  const uncertainReply=await respondToCrewBlocker({db:lostReadbackDb,...secondArgs});
+  assert.equal(uncertainReply.status,'server_committed_unverified');
+  assert.equal(uncertainReply.recordWriteReceipt,null);
+  assert.equal(uncertainReply.readbackVerified,false);
+  assert.equal(sourceReads,2);
+  assert.equal((await all(db,
+   "SELECT revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']))[0].revision,13);
+  assert.equal((await respondToCrewBlocker({db,...secondArgs})).status,
+   'duplicate_unverified','uncertain write must be reconciled, not blindly repeated');
+  console.log('TF-RM-03-F PASS: bounded office response -> crew ack via existing');
+  console.log('  job CAS, scoped grant revocation-at-write and internal readback receipt.');
+  console.log('  No transport, notification, automatic approval or external action.');
+
   console.log('R01-02D PASS: assigned crew blocker uses existing atomic CAS with');
   console.log('  grant revision, membership, job revision and revocation-at-commit.');
   console.log('R01-02 PASS: source migration 0004 after 0001–0003; atomic rollback,');
