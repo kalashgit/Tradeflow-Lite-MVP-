@@ -147,10 +147,13 @@ test('HYB-04 allows only an unchanged labor proposal while monetary units remain
  const f=fixture();
  const row=f.db.dump().jobCosts[0];
  await put(f.db,'jobCosts',{...row,currency:undefined});
- const d=await f.review('Review labor hours');
+ // The *overview* has money uncertainty; a labor-only proposal may remain
+ // valid even though a precise currency-based cost conclusion is not.
+ const d=await f.review('Review business');
  assert.equal(d.status,'evidence_needs_review');
- assert.equal(d.proposals.length,1,'Existing labor review remains an explicitly reviewable option');
- const prior=d.proposals[0].id;
+ const eligible=d.proposals.filter(p=>p.commandId==='job.labor_review.schedule');
+ assert.equal(eligible.length,1,'Existing labor review remains explicitly reviewable');
+ const prior=eligible[0].id;
  const permitted=await f.protocol.continuation({decision:d,proposalId:prior,readScope:f.readScope,readCurrent:f.readCurrent,ownerConfirmed:true});
  assert.equal(permitted.status,'ready_for_runtime_checks');
  assert.equal(permitted.executionAuthority,false);
