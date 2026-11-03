@@ -6,12 +6,25 @@ const id=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const actor=x=>x&&typeof x.issuer==='string'&&x.issuer.length>0&&typeof x.subject==='string'&&x.subject.length>0;
 const equal=(a,b)=>a?.issuer===b?.issuer&&a?.subject===b?.subject;
 const frozen=x=>Object.freeze(x);
+// Require the queued record itself to contain the exact report; an operation ID
+// alone cannot correlate a generic job edit with a crew-originated event.
+const exactReport=(updates,event,principal)=>{
+ if(!Array.isArray(updates))return false;
+ const matches=updates.filter(u=>u?.eventId===event.eventId||u?.idempotencyKey===event.idempotencyKey);
+ return matches.length===1&&matches[0].eventId===event.eventId&&
+  matches[0].idempotencyKey===event.idempotencyKey&&
+  matches[0].actorId===principal.subject&&matches[0].actorIssuer===principal.issuer&&
+  matches[0].kind===event.kind&&matches[0].note===event.note&&
+  matches[0].eventAt===event.eventAt;
+};
 export function projectCrewReportState({event,queueRows,principal,serverReadback=null}={}){
  if(!event||event.schemaVersion!==1||event.kind!=='job_blocker_reported'||
   event.direction!=='role_to_core'||!id(event.eventId)||!id(event.idempotencyKey)||
   !id(event.businessId)||!id(event.actorId)||event.subject?.type!=='jobs'||
   !id(event.subject.id)||!Number.isSafeInteger(event.subject.revision)||
-  event.subject.revision<1||!Array.isArray(queueRows)||!actor(principal)||
+  event.subject.revision<1||typeof event.eventAt!=='string'||
+  !Number.isFinite(Date.parse(event.eventAt))||typeof event.note!=='string'||
+  !event.note.trim()||event.note.length>500||!Array.isArray(queueRows)||!actor(principal)||
   principal.subject!==event.actorId)throw Error('Invalid report or actor scope');
  const correlationId=event.eventId;
  const matches=queueRows.filter(r=>r?.kind==='sync.change'&&
@@ -24,13 +37,18 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
   jobId:event.subject.id,sourceRevision:event.subject.revision,
   actor:frozen({issuer:principal.issuer,subject:principal.subject}),
   remoteRevision:null,acknowledged:false,actionReceiptRef:null,executionAuthority:false};
- if(!row)return frozen({...base,deliveryState:'local_draft',requiresReview:false});
+ if(!row)return frozen({...base,deliveryState:event.deliveryState==='queued'||
+  event.deliveryState==='sending'?'delivery_uncertain':'local_draft',
+  requiresReview:event.deliveryState==='queued'||event.deliveryState==='sending'});
  // Fresh pending queue rows are intentionally actor-unbound until first claim.
  // Never imply server attribution from such a local snapshot.
  const bound=row.approvedBy||row.actor;
  if((bound&&!equal(bound,principal))||
   row.change.baseRevision!==event.subject.revision||
   row.change.record?.businessId&&row.change.record.businessId!==event.businessId)
+  return frozen({...base,deliveryState:'identity_or_revision_mismatch',requiresReview:true});
+ // Fail closed when the queued job snapshot does not contain this precise event.
+ if(!exactReport(row.change.record?.fieldUpdates,event,principal))
   return frozen({...base,deliveryState:'identity_or_revision_mismatch',requiresReview:true});
  if(row.writeUncertain===true)return frozen({...base,deliveryState:'delivery_uncertain',requiresReview:true});
  if(row.status==='conflict'||row.status==='failed')
@@ -47,15 +65,11 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
  // Require authenticated, tenant-scoped, exact tuple readback supplied by caller.
  const proof=serverReadback;
  const updates=proof?.record?.fieldUpdates;
- const found=Array.isArray(updates)?updates.filter(u=>u?.eventId===event.eventId||
-  u?.idempotencyKey===event.idempotencyKey):[];
  const valid=proof?.authenticated===true&&proof.actor?.issuer===principal.issuer&&
   proof.actor?.subject===principal.subject&&proof.businessId===event.businessId&&
   proof.type==='jobs'&&proof.id===event.subject.id&&
-  proof.revision===row.remoteRevision&&found.length===1&&
-  found[0].eventId===event.eventId&&found[0].idempotencyKey===event.idempotencyKey&&
-  found[0].actorId===principal.subject&&found[0].actorIssuer===principal.issuer&&
-  found[0].kind===event.kind&&found[0].note===event.note;
+  Number.isSafeInteger(proof.revision)&&proof.revision>=row.remoteRevision&&
+  exactReport(updates,event,principal);
  return frozen({...base,remoteRevision:row.remoteRevision,
   deliveryState:valid?'readback_verified':'delivery_uncertain',requiresReview:!valid});
 }
