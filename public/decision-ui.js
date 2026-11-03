@@ -3,7 +3,7 @@ const unknown={context_coverage_limited:'Only available record fields are assess
 export function createDecisionController({document:doc,protocol,readScope,readCurrent,runtime,confirm,onOutcome=async()=>{},uid=()=>crypto.randomUUID()}){
  const states=new Map(),region=id=>[...doc.querySelectorAll('[data-decision-job]')].find(el=>el.dataset.decisionJob===id);
  function view(id){const s=states.get(id);if(!s)return '';const d=s.decision;
-  return '<div class="tf-decision-review"><button type="button" class="tf-decision-close" data-decision-action="close" data-job-id="'+esc(id)+'"'+(s.busy?' disabled':'')+'>Hide explanation</button><p role="status" data-decision-status>'+esc(s.message)+'</p>'+(d?.status==='clarification'?'<p>'+esc(d.objective.message)+'</p>':d?'<p>Based on records saved on this device. Payments and profit are not independently verified.</p><h4>Observed</h4>'+(d.observations.length?'<ul>'+d.observations.map(o=>'<li>'+esc(o.text)+(Object.keys(o.evidence).length?'<br><small>'+esc(Object.entries(o.evidence).filter(([,v])=>typeof v==='number').map(([k,v])=>({budget:'Saved estimate',recordedCosts:'Recorded costs',estimatedLaborHours:'Estimated hours',recordedLaborHours:'Recorded hours'}[k]||k)+': '+v).join(' · '))+'</small>':'')+'</li>').join('')+'</ul>':'<p>No eligible exception was found in the available records. This is not a complete business audit.</p>')+
+  return '<div class="tf-decision-review"><button type="button" class="tf-decision-close" data-decision-action="close" data-job-id="'+esc(id)+'"'+(s.busy?' disabled':'')+'>Hide explanation</button>'+(s.busy&&s.phase==='preparing'?'<button type="button" class="tf-record-dossier-primary tf-decision-secondary" data-decision-action="cancel" data-job-id="'+esc(id)+'"'+(s.cancelRequested?' disabled':'')+'>Cancel pending review</button>':'')+'<p role="status" data-decision-status>'+esc(s.message)+'</p>'+(d?.status==='clarification'?'<p>'+esc(d.objective.message)+'</p>':d?'<p>Based on records saved on this device. Payments and profit are not independently verified.</p><h4>Observed</h4>'+(d.observations.length?'<ul>'+d.observations.map(o=>'<li>'+esc(o.text)+(Object.keys(o.evidence).length?'<br><small>'+esc(Object.entries(o.evidence).filter(([,v])=>typeof v==='number').map(([k,v])=>({budget:'Saved estimate',recordedCosts:'Recorded costs',estimatedLaborHours:'Estimated hours',recordedLaborHours:'Recorded hours'}[k]||k)+': '+v).join(' · '))+'</small>':'')+'</li>').join('')+'</ul>':'<p>No eligible exception was found in the available records. This is not a complete business audit.</p>')+
   '<h4>Possible explanations</h4><ul>'+d.inferences.flatMap(i=>i.alternatives).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p>These are alternatives to investigate, not established causes.</p><h4>Unknowns</h4><ul>'+[...new Set(d.unknowns.map(x=>unknown[x.code]||'Some source evidence requires review.'))].map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Options</h4><button type="button" class="tf-record-dossier-primary tf-decision-secondary" data-decision-action="none" data-job-id="'+esc(id)+'"'+(s.busy?' disabled':'')+'>Take no action</button>'+d.proposals.map(p=>'<button type="button" class="tf-record-dossier-primary" data-decision-action="review" data-job-id="'+esc(id)+'" data-proposal-id="'+esc(p.id)+'"'+(s.busy||s.receipt||s.uncertain?' disabled':'')+'>'+esc(p.label)+'</button>').join('')+'<p>Internal review tasks require your approval. Creating one does not resolve the exception or verify payments.</p>':'')+
   (s.receipt?'<p data-decision-receipt>'+esc(s.receipt.status==='recorded_task_verified'?'Review task saved and checked against its command receipt. The financial or labor issue is not marked resolved.':'Result could not be verified; inspect the task and receipt before retrying.')+'</p>':'')+
   (s.uncertain&&s.planId?'<button type="button" class="tf-record-dossier-primary" data-decision-action="inspect" data-job-id="'+esc(id)+'">Inspect prior command receipt</button>':'')+
@@ -13,10 +13,15 @@ export function createDecisionController({document:doc,protocol,readScope,readCu
  async function open(id){const old=states.get(id),ticket=(old?.ticket||0)+1,state={ticket,busy:true,message:'Reading saved job evidence…'};states.set(id,state);paint(id);
   try{const scope=await readScope(id),context=await readCurrent(scope),d=await protocol.review({objective:'Review job operations',context,scope,today:scope.today});if(states.get(id)!==state)return;state.decision=d;state.message='Review this recorded snapshot. Proposals are checked again before approval.'}catch(error){state.message=error.message}finally{if(states.get(id)===state){state.busy=false;paint(id)}}
  }
- async function act(id,action,proposalId){const state=states.get(id);if(!state||state.busy)return;
+ async function act(id,action,proposalId){const state=states.get(id);if(!state)return;
+  if(action==='cancel'){
+   if(state.busy&&state.phase==='preparing'){state.cancelRequested=true;state.message='Review cancellation requested. No new business action is authorized.';paint(id)}
+   return;
+  }
+  if(state.busy)return;
   if(action==='close'){states.delete(id);paint(id);return}
   if(action==='none'){state.message='No action taken. Business records are unchanged.';paint(id);return}
-  state.busy=true;paint(id);
+  state.busy=true;state.phase=action==='review'?'preparing':null;state.cancelRequested=false;paint(id);
   try{
    if(action==='inspect'){const result=await runtime.reconcile(state.planId);if(result.status!=='succeeded')throw Error(result.error?.message||'Prior receipt remains unverified; no action was replayed');state.receipt={status:'recorded_task_verified',recordRef:result.result?.id?{type:'tasks',id:result.result.id}:null};state.uncertain=false;state.message='Prior command receipt reconciled. No business action was replayed.';return}
    if(action==='task'){const plan=await runtime.prepare({commandId:'record.open',params:{ref:{store:'tasks',id:state.receipt.recordRef.id}}});if(plan.status!=='ready')throw Error(plan.error?.message||'Task unavailable');const result=await runtime.execute(plan.id);if(result.status!=='succeeded')throw Error(result.error?.message||'Task could not be opened');return}
@@ -24,11 +29,28 @@ export function createDecisionController({document:doc,protocol,readScope,readCu
    const providers={readScope:()=>readScope(id),readCurrent,runtime};
    const plan=await protocol.prepare({decision,proposalId,...providers,attemptId:uid()});
    if(plan.status!=='needs_review')throw Error(plan.error?.message||'Prepare a new review before approval');
-   if(!region(id)||await confirm('Save or reuse this internal review task for '+proposal.params.due+'? Review the saved evidence first. No customer message, payment or cost correction will be made. Profit, bank settlement and payroll remain unverified.')!==true){await runtime.reject(plan.id);state.message='Review cancelled. No business task was created.';await onOutcome({jobId:id,status:'cancelled'});return}
-   const approval=await runtime.approve(plan.id);if(approval.status!=='approved')throw Error(approval.error?.message||'Evidence changed; refresh the explanation');
-   state.planId=plan.id;const result=await runtime.execute(plan.id);state.uncertain=['indeterminate','in_progress'].includes(result.status);if(result.status!=='succeeded')throw Error(result.error?.message||'Execution is unverified; inspect the receipt');
+   const interrupted=()=>state.cancelRequested||states.get(id)!==state||!region(id);
+   if(interrupted()||await confirm('Save or reuse this internal review task for '+proposal.params.due+'? Review the saved evidence first. No customer message, payment or cost correction will be made. Profit, bank settlement and payroll remain unverified.')!==true){
+    await runtime.reject(plan.id);state.message='Review cancelled. No business task was created.';await onOutcome({jobId:id,status:'cancelled'});return;
+   }
+   // Re-read the complete intelligence case AFTER the owner's confirmation.
+   // The shared runtime still owns approval, scope, effect and audit receipts.
+   const gate=()=>protocol.continuation({decision,proposalId,readScope:providers.readScope,readCurrent,ownerConfirmed:true,isInterrupted:interrupted});
+   const first=await gate();
+   if(first.status!=='ready_for_runtime_checks'){
+    await runtime.reject(plan.id);throw Error('Review interrupted or evidence changed ('+first.status+'). Refresh the explanation.');
+   }
+   if(interrupted()){await runtime.reject(plan.id);throw Error('Review cancelled before approval.')}
+   const approval=await runtime.approve(plan.id);
+   if(approval.status!=='approved')throw Error(approval.error?.message||'Evidence changed; refresh the explanation');
+   const second=await gate();
+   if(second.status!=='ready_for_runtime_checks'||interrupted()){
+    await runtime.reject(plan.id);throw Error('Review interrupted or evidence changed after approval ('+second.status+'). No execution attempted.');
+   }
+   state.phase='executing';state.planId=plan.id;paint(id);
+   const result=await runtime.execute(plan.id);state.uncertain=['indeterminate','in_progress'].includes(result.status);if(result.status!=='succeeded')throw Error(result.error?.message||'Execution is unverified; inspect the receipt');
    state.receipt=await protocol.receipt({decision,proposalId,planId:plan.id,...providers});state.message=state.receipt.status==='recorded_task_verified'?'Internal review task verified.':'Result requires inspection.';await onOutcome({jobId:id,status:state.receipt.status==='recorded_task_verified'?'verified':'unverified'});
-  }catch(error){if(error.pendingIds?.length===1){state.planId=error.pendingIds[0];state.uncertain=true}state.message=String(error.message)}finally{state.busy=false;paint(id)}
+  }catch(error){if(error.pendingIds?.length===1){state.planId=error.pendingIds[0];state.uncertain=true}state.message=String(error.message)}finally{state.busy=false;state.phase=null;paint(id)}
  }
  doc.addEventListener('click',e=>{const button=e.target.closest?.('[data-decision-action]');if(!button||!region(button.dataset.jobId)?.contains(button))return;e.preventDefault();void act(button.dataset.jobId,button.dataset.decisionAction,button.dataset.proposalId)});
  return Object.freeze({open,view});

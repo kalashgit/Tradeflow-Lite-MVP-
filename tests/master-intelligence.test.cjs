@@ -104,3 +104,41 @@ test('conversation-thread cases stay bound to the reviewed thread and are read-o
  assert.equal(inspectIntelligenceCase({caseFile:decision.case,decision,scope,threadId:'different_thread',accessGranted:true}).status,'thread_changed');
  assert.equal(f.calls(),0);assert.equal(f.db.dump().tasks.length,0);
 });
+
+test('HYB-04 priority never lets urgent work bypass cancellation, safety or human review',async()=>{
+ const {arbitrateDecisionContinuation}=await import('../public/master-intelligence.js');
+ const decide=arbitrateDecisionContinuation;
+ assert.equal(decide({cancelled:true,accessVerified:false,caseCurrent:false,ownerConfirmed:true,urgency:'critical'}).status,'cancelled');
+ assert.equal(decide({accessVerified:false,caseCurrent:true,ownerConfirmed:true,urgency:'critical'}).status,'access_unverified');
+ assert.equal(decide({accessVerified:true,caseCurrent:false,ownerConfirmed:true,urgency:'critical'}).status,'stale_case');
+ assert.equal(decide({accessVerified:true,caseCurrent:true,ownerConfirmed:false,urgency:'critical'}).status,'awaiting_approval');
+ const approved=decide({accessVerified:true,caseCurrent:true,ownerConfirmed:true});
+ assert.equal(approved.status,'ready_for_runtime_checks');assert.equal(approved.executionAuthority,false);
+ assert.ok(Object.isFrozen(approved));
+});
+test('HYB-04 continuation gates the verified decision and all runtime effects remain separate',async()=>{
+ const f=fixture(),d=await f.review(),proposalId=d.proposals[0].id;
+ const check=x=>f.protocol.continuation({decision:d,proposalId,readScope:f.readScope,readCurrent:f.readCurrent,ownerConfirmed:true,...x});
+ assert.equal((await check()).status,'ready_for_runtime_checks');
+ assert.equal((await check({ownerConfirmed:false})).status,'awaiting_approval');
+ assert.equal((await check({isInterrupted:()=>true})).status,'cancelled');
+ assert.equal((await check({readScope:async()=>({...scope,actor:'other_owner'})})).status,'scope_changed');
+ assert.equal((await check({readCurrent:async()=>{throw Error('offline')}})).status,'source_unavailable');
+ assert.equal(f.db.dump().commandLog.length,0);assert.equal(f.db.dump().tasks.length,0);assert.equal(f.calls(),0);
+});
+test('HYB-04 stale unrelated evidence blocks a review after owner confirmation',async()=>{
+ const f=fixture(),d=await f.review(),proposalId=d.proposals[0].id;
+ await put(f.db,'customers',{...f.db.dump().customers[0],name:'Updated synthetic company'});
+ const outcome=await f.protocol.continuation({decision:d,proposalId,readScope:f.readScope,readCurrent:f.readCurrent,ownerConfirmed:true});
+ assert.equal(outcome.status,'stale_case');
+ assert.equal(f.db.dump().tasks.length,0);assert.equal(f.db.dump().commandLog.length,0);
+});
+test('HYB-04 cancellation after asynchronous evidence read wins over a ready proposal',async()=>{
+ const f=fixture(),d=await f.review(),proposalId=d.proposals[0].id;
+ let cancel=false,reads=0;
+ const original=f.readCurrent;
+ const readCurrent=async s=>{reads++;const ctx=await original(s);cancel=true;return ctx};
+ const outcome=await f.protocol.continuation({decision:d,proposalId,readScope:f.readScope,readCurrent,ownerConfirmed:true,isInterrupted:()=>cancel});
+ assert.equal(outcome.status,'cancelled');assert.equal(reads,1);
+ assert.equal(f.db.dump().tasks.length,0);assert.equal(f.db.dump().commandLog.length,0);
+});

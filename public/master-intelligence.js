@@ -1,5 +1,5 @@
 import {canonical,digest,copy,freeze,validateEvidence} from './intelligence-evidence.js';
-import {createIntelligenceCase} from './intelligence-case.js';
+import {createIntelligenceCase,inspectIntelligenceCase} from './intelligence-case.js';
 const goals={cost_control:['cost','costs','budget','budgets','profit'],labor_control:['labor','labour','hours','overtime'],cash_review:['cash','invoice','invoices','payment','payments','collection'],overview:['overview','business','attention','operations','status','job','review']};
 const focus={cost_control:['job.budget_overrun_review'],labor_control:['job.labor_hours_variance_review'],cash_review:['invoice.overdue','invoice.payment_integrity_review']};
 // Only expose existing detectors whose inputs are represented by the evidence projection.
@@ -16,6 +16,18 @@ export function interpretObjective(input){
  const kind=matches[0]||tokens.includes('overrun')&&'cost_control'||goals.overview.some(w=>tokens.includes(w))&&'overview';
  return kind?{status:'ready',kind,text:input.trim(),effect:'read'}:{status:'clarification',message:'Choose costs, labor hours, cash or a business overview. No action was executed.'};
 }
+/* HYB-04: hard stop signals outrank operational priority. This is ONLY a
+ * decision-continuation gate; never a permission or execution authority.
+ */
+export function arbitrateDecisionContinuation({cancelled=false,accessVerified=false,caseCurrent=false,ownerConfirmed=false,urgency='normal'}={}){
+ const result=(status,priority)=>Object.freeze({status,priority,executionAuthority:false});
+ if(cancelled===true)return result('cancelled','user_interrupt');
+ if(accessVerified!==true)return result('access_unverified','security');
+ if(caseCurrent!==true)return result('stale_case','source_safety');
+ if(ownerConfirmed!==true)return result('awaiting_approval','human_review');
+ return result('ready_for_runtime_checks','existing_command_runtime');
+}
+
 export function createDecisionProtocol({engine,definitions,resolve}){
  if(typeof engine?.evaluate!=='function'||!Array.isArray(definitions)||typeof resolve!=='function')throw Error('Existing detectors and command definitions required');
  async function review({objective,context,scope,today,threadId=null}){
@@ -54,6 +66,41 @@ export function createDecisionProtocol({engine,definitions,resolve}){
   decision.case=createIntelligenceCase({decision,scope:host,threadId});
   return freeze(decision);
  }
+ async function continuation({decision,proposalId,readScope,readCurrent,ownerConfirmed=false,isInterrupted=()=>false}={}){
+  const stopped=()=>arbitrateDecisionContinuation({cancelled:true});
+  const blocked=status=>Object.freeze({status,priority:'security_or_source_safety',executionAuthority:false});
+  if(typeof isInterrupted!=='function'||typeof readScope!=='function'||typeof readCurrent!=='function')
+   return blocked('continuation_ports_unavailable');
+  if(isInterrupted())return stopped();
+  if(decision?.kind!=='tradeflow.decision.v1'||!Array.isArray(decision.proposals)||
+   !decision.proposals.some(p=>p.id===proposalId)||typeof decision.binding!=='string'||
+   !/^[a-f0-9]{64}$/.test(decision.binding)||decision.case?.kind!=='tradeflow.intelligence.case.v1')
+   return blocked('invalid_review');
+  if(ownerConfirmed!==true)return arbitrateDecisionContinuation({accessVerified:true,caseCurrent:true,ownerConfirmed:false});
+  let scope,context,updated;
+  try{scope=await readScope()}catch{return blocked('access_unverified')}
+  if(isInterrupted())return stopped();
+  if(canonical(scope)!==canonical(decision.scope)||scope?.mode!=='local')
+   return blocked('scope_changed');
+  const expired=inspectIntelligenceCase({caseFile:decision.case,decision,scope,threadId:decision.case.threadId,accessGranted:true});
+  if(expired.status!=='current')return blocked(expired.status);
+  try{
+   context=await readCurrent(scope);
+   if(isInterrupted())return stopped();
+   updated=await review({objective:decision.objective.text,context,scope,today:decision.today,threadId:decision.case.threadId});
+  }catch{return blocked('source_unavailable')}
+  if(isInterrupted())return stopped();
+  if(updated.binding!==decision.binding||updated.status!=='ready_for_review')
+   return blocked('stale_case');
+  const previous=decision.proposals.find(p=>p.id===proposalId),fresh=updated.proposals.find(p=>p.id===proposalId);
+  if(!previous||!fresh||canonical(previous)!==canonical(fresh))
+   return blocked('stale_proposal');
+  let confirmedScope;
+  try{confirmedScope=await readScope()}catch{return blocked('access_unverified')}
+  if(isInterrupted())return stopped();
+  if(canonical(confirmedScope)!==canonical(scope))return blocked('scope_changed');
+  return arbitrateDecisionContinuation({accessVerified:true,caseCurrent:true,ownerConfirmed:true});
+ }
  async function prepare({decision,proposalId,readCurrent,readScope,runtime,attemptId}){
   if(decision?.kind!=='tradeflow.decision.v1'||!Array.isArray(decision.proposals)||!/^[a-f0-9]{64}$/.test(decision.binding||'')||typeof readCurrent!=='function'||typeof readScope!=='function')throw Error('Reviewed decision and fresh evidence providers required');
   if(attemptId!==undefined&&(typeof attemptId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(attemptId)))throw Error('Explicit review attempt identifier invalid');
@@ -81,5 +128,5 @@ export function createDecisionProtocol({engine,definitions,resolve}){
   const verified=plan.status==='succeeded'&&history.some(e=>e.type==='approved'&&e.actor===scope.actor)&&history.some(e=>e.type==='succeeded')&&task?.record.jobId===proposal.params.ref.id&&task.record.taskKind===proposal.taskKind&&task.record.due===proposal.params.due;
   return freeze({status:verified?'recorded_task_verified':'unverified',planId,recordRef:verified?{type:'tasks',id}:null,executionReplayed:false,financialIssueResolved:false,contractorOutcomeVerified:false,externalSettlementVerified:false});
  }
- return Object.freeze({review,prepare,receipt});
+ return Object.freeze({review,prepare,continuation,receipt});
 }
