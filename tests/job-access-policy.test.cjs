@@ -75,6 +75,69 @@ test('R01-02 disposable D1 job grants are tenant/job/actor scoped and revocable'
    businessId:'business_001',jobId:'job_01',scope:'crew'}),{status:401});
   assert.equal((await read('owner_01','job_02')).accessClass,'company_member');
   assert.equal((await read('office_01','job_01','office')).scope,'office');
+  // TF-RM-03-E: the actual office evidence SELECT must independently gate
+  // the job payload on current office scope, not on crew grant or job.crewId.
+  const persisted={
+   schemaVersion:1,eventId:'blocker_01',idempotencyKey:'blocker_01_once',
+   kind:'job_blocker_reported',note:'Panel delivery has not arrived.',
+   eventAt:'2026-11-03T08:00:00Z',actorId:'crew_01',actorIssuer:'test-issuer'
+  };
+  const setJob=async updates=>run(
+   'UPDATE tenant_records SET payload=? WHERE business_id=? AND record_type=? AND id=?',
+   [JSON.stringify({id:'job_01',businessId:'business_001',title:'Service upgrade',
+    fieldUpdates:updates,privateHourlyRate:17000}), 'business_001','jobs','job_01']);
+  await setJob([persisted]);
+  const {reviewOfficeJobBlocker}=await import('../src/office-job-intelligence.js');
+  const officeReview=(subject='office_01',options={})=>reviewOfficeJobBlocker({
+   db,principal:principal(subject),businessId:'business_001',
+   jobId:'job_01',eventId:'blocker_01',...options
+  });
+  const before=await db.prepare(
+   "SELECT revision,payload FROM tenant_records WHERE business_id='business_001' AND record_type='jobs' AND id='job_01'"
+  ).first();
+  const review=await officeReview('office_01',{threadId:'thread_01',expectedJobRevision:1});
+  assert.equal(review.source.revision,1);
+  assert.equal(review.source.grantRevision,1);
+  assert.equal(review.report.persistedEventPresent,true);
+  assert.equal(review.report.actorAttributionVerified,false);
+  assert.equal(review.report.acknowledgment,'unverified');
+  assert.equal(review.memory.status,'not_saved');
+  assert.equal(review.suggestedNextAction.commandId,'draft.prepare');
+  assert.equal(review.suggestedNextAction.params.kind,'task');
+  assert.equal(review.suggestedNextAction.status,'proposal_only');
+  assert.equal(review.executionAuthority,false);
+  assert.equal(review.externalEffects,false);
+  assert.equal(Object.isFrozen(review),true);
+  assert.doesNotMatch(JSON.stringify(review),/privateHourlyRate|17000/,
+   'office advisory must not leak unrelated financial job payload');
+  assert.equal((await officeReview('owner_01')).source.grantRevision,null,
+   'owner can review within same tenant without an office job grant');
+  await assert.rejects(officeReview('crew_01'),{status:403},
+   'crew scope is NOT an office viewer grant');
+  await assert.rejects(officeReview('viewer_01'),{status:403});
+  await assert.rejects(officeReview('office_01',{jobId:'job_02'}),{status:403});
+  await assert.rejects(officeReview('office_01',{businessId:'business_002'}),{status:403});
+  await assert.rejects(officeReview('office_01',{expectedJobRevision:2}),{status:409});
+  await assert.rejects(officeReview('office_01',{eventId:'not_found'}),{status:404});
+  await assert.rejects(officeReview('office_01',{threadId:'invalid thread'}),{status:400});
+  await setJob([persisted,{...persisted,eventId:'another_event'}]);
+  await assert.rejects(officeReview('office_01'),{status:409},
+   'idempotency collision cannot be explained as a verified unique report');
+  await setJob([{...persisted,note:'a'.repeat(501)}]);
+  await assert.rejects(officeReview('office_01'),{status:404},
+   'unbounded or malformed crew payload is not a verified blocker');
+  await setJob([persisted]);
+  await run("UPDATE job_access_grants SET status='revoked',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='office'",
+   ['business_001','job_01','office_01']);
+  await assert.rejects(officeReview('office_01'),{status:403},
+   'revoked office grant fails in the evidence read itself');
+  await run("UPDATE job_access_grants SET status='active',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='office'",
+   ['business_001','job_01','office_01']);
+  assert.equal((await officeReview()).source.grantRevision,3);
+  const after=await db.prepare(
+   "SELECT revision,payload FROM tenant_records WHERE business_id='business_001' AND record_type='jobs' AND id='job_01'"
+  ).first();
+  assert.deepEqual(after,before,'advisory cannot mutate job or issue task');
   await assert.rejects(read('office_01','job_01','crew'),/Assigned job/);
   await assert.rejects(read('crew_01','job_02'),/Assigned job/);
   await assert.rejects(read('viewer_01'),/Assigned job/);

@@ -207,6 +207,63 @@ async function main(){
   assert.equal(written[0].revision,9);
   assert.equal(written[0].updated_by_subject,'synthetic-crew');
   assert.equal(JSON.parse(written[0].payload).fieldUpdates[0].eventId,'blocker_first');
+  // TF-RM-03-E: end-to-end internal D1 path, actual committed crew report
+  // -> independently granted office principal -> read-only Intelligence advice.
+  await statement(db,
+   'INSERT INTO business_memberships(business_id,issuer,subject,role) VALUES (?,?,?,?)',
+   ['business_001','synthetic-issuer','synthetic-office','member']);
+  const officePrincipal={verified:true,issuer:'synthetic-issuer',subject:'synthetic-office'};
+  const {reviewOfficeJobBlocker}=await import('../src/office-job-intelligence.js');
+  const reviewOffice=(targetDb=db)=>reviewOfficeJobBlocker({
+   db:targetDb,principal:officePrincipal,businessId:'business_001',
+   jobId:'job_active',eventId:'blocker_first',expectedJobRevision:9
+  });
+  await assert.rejects(reviewOffice(),{status:403},
+   'ungranted office member must not see a crew report');
+  await addGrant('job_active','synthetic-office','office');
+  const officeCase=await reviewOffice();
+  assert.equal(officeCase.source.revision,9);
+  assert.equal(officeCase.source.grantRevision,1);
+  assert.equal(officeCase.report.reportedNote,'Missing panel breaker');
+  assert.equal(officeCase.report.persistedEventPresent,true);
+  assert.equal(officeCase.report.actorAttributionVerified,false);
+  assert.equal(officeCase.memory.status,'not_saved');
+  assert.equal(officeCase.suggestedNextAction.commandId,'draft.prepare');
+  assert.equal(officeCase.suggestedNextAction.status,'proposal_only');
+  assert.equal(officeCase.executionAuthority,false);
+  assert.equal(officeCase.externalEffects,false);
+  // Deliberately revoke between authorization preflight and the guarded
+  // evidence SELECT: no stale grant proof can leak the job payload.
+  let interceptedOfficeRead=0;
+  const raceOfficeDb={prepare(sql){
+   const prepared=db.prepare(sql);
+   if(!sql.includes('t.payload AS job_payload'))return prepared;
+   return {bind(...params){
+    const bound=prepared.bind(...params);
+    return {async first(){
+     interceptedOfficeRead++;
+     await statement(db,
+      "UPDATE job_access_grants SET status='revoked',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=? AND scope='office'",
+      ['business_001','job_active','synthetic-office']);
+     return bound.first();
+    }};
+   }};
+  }};
+  await assert.rejects(reviewOffice(raceOfficeDb),{status:403},
+   'office grant revoked at evidence read must prevent leakage');
+  assert.equal(interceptedOfficeRead,1);
+  await assert.rejects(reviewOffice(),{status:403});
+  const ownerCase=await reviewOfficeJobBlocker({
+   db,principal:{verified:true,issuer:'synthetic-issuer',subject:'synthetic-owner'},
+   businessId:'business_001',jobId:'job_active',eventId:'blocker_first'
+  });
+  assert.equal(ownerCase.source.grantRevision,null);
+  assert.equal((await all(db,
+   "SELECT revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']))[0].revision,9,
+   'office Intelligence must neither mutate the job nor create a task');
+  console.log('TF-RM-03-E PASS: real D1 crew write -> independent office grant ->');
+  console.log('  read-only source-linked Intelligence; revocation at evidence read denied.');
   // Intercept only the final CAS in this disposable test. The grant is
   // revoked AFTER trusted preflight and before mutation executes.
   let intercepted=0;
