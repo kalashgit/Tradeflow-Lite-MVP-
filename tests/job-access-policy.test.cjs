@@ -44,6 +44,12 @@ test('R01-02 disposable D1 job grants are tenant/job/actor scoped and revocable'
     [business,job,'test-issuer',subject,scope,'test-issuer','owner_01']);
   await grant('business_001','job_01','crew_01','crew');
   await grant('business_001','job_01','office_01','office');
+  // Composite foreign keys and CHECKs reject grants to absent members,
+  // missing/cross-business jobs or an invented scope.
+  await assert.rejects(grant('business_001','missing_job','crew_01','crew'));
+  await assert.rejects(grant('business_002','job_02','crew_01','crew'));
+  await assert.rejects(grant('business_001','job_01','forged_actor','crew'));
+  await assert.rejects(grant('business_001','job_01','crew_01','supervisor'));
   const {readJobAccess}=await import('../src/job-access.js');
   const principal=subject=>({verified:true,issuer:'test-issuer',subject});
   const read=(subject,job='job_01',scope='crew',business='business_001')=>
@@ -53,6 +59,8 @@ test('R01-02 disposable D1 job grants are tenant/job/actor scoped and revocable'
   assert.equal(crew.grantRevision,1);
   assert.equal(crew.writeAuthorized,false);
   assert.equal(crew.jobRevision,1);
+  await assert.rejects(readJobAccess({db,principal:{verified:false,issuer:'test-issuer',subject:'crew_01'},
+   businessId:'business_001',jobId:'job_01',scope:'crew'}),{status:401});
   assert.equal((await read('owner_01','job_02')).accessClass,'company_member');
   assert.equal((await read('office_01','job_01','office')).scope,'office');
   await assert.rejects(read('office_01','job_01','crew'),/Assigned job/);
@@ -75,6 +83,12 @@ test('R01-02 disposable D1 job grants are tenant/job/actor scoped and revocable'
    ['business_001','job_01']);
   await assert.rejects(read('crew_01'),/Assigned job/);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM job_access_grants').first()).n,3);
+  await run("UPDATE business_memberships SET status='suspended' WHERE business_id=? AND subject=?",
+   ['business_001','office_01']);
+  await assert.rejects(read('office_01','job_01','office'),{status:403});
+  await run('DROP TABLE job_access_grants');
+  await assert.rejects(read('owner_01'),{status:503},
+   'missing grant schema must fail closed even for company-wide job scope');
  }finally{
   if(dispose)await dispose();
   fs.rmSync(tmp,{recursive:true,force:true});

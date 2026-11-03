@@ -10,7 +10,8 @@ const path=require('node:path');
 const migrationPaths=[
  '0001_tenant_foundation.sql',
  '0002_record_audit.sql',
- '0003_extended_business_records.sql'
+ '0003_extended_business_records.sql',
+ '0004_job_access_grants.sql'
 ];
 const scriptRoot=path.resolve(__dirname,'..');
 const file=name=>fs.readFileSync(path.join(scriptRoot,'migrations',name),'utf8');
@@ -148,6 +149,38 @@ async function main(){
    ['not-existing-tenant','jobs','bad','{}']));
   assert.equal(await count(db,'tenant_records'),3,
    'invalid record/foreign key must not write');
+  // R01-02 development-only migration is applied AFTER the full 0001–0003
+  // chain. DDL rollback and referential integrity are tested in disposable D1.
+  const migration4=splitCommittedMigration(file(migrationPaths[3]));
+  assert.ok(migration4.length>=2,'grant table and principal index exist');
+  await assert.rejects(db.batch([...migration4,
+   "INSERT INTO businesses(id,name) VALUES ('business_001','duplicate-to-rollback-grants')"
+  ].map(x=>db.prepare(x))),'forced schema migration failure must roll back grant table');
+  assert.equal((await all(db,
+   "SELECT name FROM sqlite_master WHERE type='table' AND name='job_access_grants'")).length,0);
+  await db.batch(migration4.map(x=>db.prepare(x)));
+  assert.equal((await all(db,
+   "SELECT name FROM sqlite_master WHERE type='table' AND name='job_access_grants'")).length,1);
+  const addGrant=(job,member,scope)=>statement(db,
+   'INSERT INTO job_access_grants(business_id,job_id,issuer,subject,scope,granted_by_issuer,granted_by_subject) VALUES (?,?,?,?,?,?,?)',
+   ['business_001',job,'synthetic-issuer',member,scope,'synthetic-issuer','synthetic-owner']);
+  await addGrant('job_active','synthetic-owner','office');
+  await assert.rejects(addGrant('missing-job','synthetic-owner','office'),
+   'cannot authorize a nonexistent job');
+  await assert.rejects(addGrant('job_active','missing-member','crew'),
+   'cannot authorize an unknown membership');
+  assert.equal((await all(db,'PRAGMA foreign_key_check')).length,0,
+   'job grants must preserve foreign key integrity');
+  assert.equal((await count(db,'job_access_grants')),1);
+  await statement(db,
+   "UPDATE job_access_grants SET status='revoked',grant_revision=grant_revision+1 WHERE business_id=? AND job_id=? AND subject=?",
+   ['business_001','job_active','synthetic-owner']);
+  const grants=await all(db,
+   'SELECT status,grant_revision FROM job_access_grants WHERE business_id=? AND job_id=?',
+   ['business_001','job_active']);
+  assert.deepEqual(grants,[{status:'revoked',grant_revision:2}]);
+  console.log('R01-02 PASS: source migration 0004 after 0001–0003; atomic rollback,');
+  console.log('  FK denials, current revision/revocation and integrity on disposable D1.');
   console.log('H04-15c PASS: committed migrations 0001,0002,0003 on disposable local D1;');
   console.log('  injected atomic rollback, row/tombstone/audit preservation,');
   console.log('  expanded type, constraint, foreign key, index and trigger checks passed.');
