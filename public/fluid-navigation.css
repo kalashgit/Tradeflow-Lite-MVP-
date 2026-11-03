@@ -1,9 +1,9 @@
 /* One matte indicator; existing routes, content and logo remain untouched. */
 @media(max-width:850px){
 body .mobilebar.tf-fluid-nav{background:var(--tf-panel)!important;isolation:isolate;touch-action:pan-y pinch-zoom;overflow:hidden;box-shadow:none!important}
-body .mobilebar.tf-fluid-nav button{position:relative;z-index:1;min-width:0;min-height:44px;touch-action:pan-y pinch-zoom;background:transparent!important;border-color:transparent!important;box-shadow:none!important;user-select:none}
+body .mobilebar.tf-fluid-nav button{position:relative;z-index:1;min-width:0;min-height:44px;touch-action:pan-y pinch-zoom;background:transparent!important;border-color:transparent!important;box-shadow:none!important;user-select:none;transform:none!important;filter:none!important}
 body .mobilebar.tf-fluid-nav button.active{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
-.tf-fluid-capsule{position:absolute;left:0;top:8px;bottom:calc(9px + env(safe-area-inset-bottom));background:var(--tf-graphite-raised);border:1px solid var(--tf-border);border-radius:14px;pointer-events:none;transform-origin:center;z-index:0;will-change:transform}
+.tf-fluid-capsule{box-sizing:border-box;position:absolute;left:0;top:8px;bottom:calc(9px + env(safe-area-inset-bottom));background:var(--tf-graphite-raised);border:1px solid var(--tf-border);border-radius:14px;pointer-events:none;transform-origin:center;z-index:0;will-change:transform}
 .tf-fluid-capsule[hidden]{display:none}.tf-fluid-nav[data-fluid-dragging] button[data-fluid-candidate]{text-decoration:underline;text-underline-offset:5px}
 body .mobilebar.tf-fluid-nav button:focus-visible{outline:2px solid var(--tf-focus);outline-offset:-3px}
 .tf-home-v2 .tf-home-stats{grid-template-columns:repeat(4,minmax(4em,1fr));gap:6px;padding:10px;overflow-x:auto;max-width:100%;box-sizing:border-box;scroll-padding:10px}
