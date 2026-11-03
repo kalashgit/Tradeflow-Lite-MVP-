@@ -8,12 +8,14 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const ROOT=path.resolve(__dirname,'..');
-const MIGRATIONS=['0001_tenant_foundation.sql','0002_record_audit.sql','0003_extended_business_records.sql'];
+const MIGRATIONS=['0001_tenant_foundation.sql','0002_record_audit.sql','0003_extended_business_records.sql','0004_job_access_grants.sql'];
 const TABLES=Object.freeze({
  businesses:['id','name','created_at'],
  business_memberships:['business_id','issuer','subject','role','status','created_at'],
  tenant_records:['business_id','record_type','id','revision','payload','updated_at','deleted_at','updated_by_issuer','updated_by_subject'],
- tenant_audit_events:['id','business_id','issuer','subject','action','record_type','record_id','created_at']
+ tenant_audit_events:['id','business_id','issuer','subject','action','record_type','record_id','created_at'],
+ job_access_grants:['business_id','record_type','job_id','issuer','subject','scope',
+  'status','grant_revision','created_at','updated_at','granted_by_issuer','granted_by_subject']
 });
 const readMigration=name=>fs.readFileSync(path.join(ROOT,'migrations',name),'utf8');
 function splitCommittedSql(sql){
@@ -98,6 +100,18 @@ async function seed(db){
  }
  await run(db,'UPDATE tenant_records SET revision=8 WHERE business_id=? AND id=?',
   ['business_001','job_001']);
+ // Preserve active, revoked and soft-deleted-job grant histories across
+ // synthetic backup/restore. They are not authority when the job is deleted.
+ for(const [business,job,scope,status,revision] of [
+  ['business_001','job_001','crew','active',3],
+  ['business_001','job_deleted','office','revoked',2],
+  ['business_002','job_001','office','active',1]
+ ]){
+  await run(db,
+   'INSERT INTO job_access_grants(business_id,job_id,issuer,subject,scope,status,grant_revision,granted_by_issuer,granted_by_subject) VALUES (?,?,?,?,?,?,?,?,?)',
+   [business,job,'synthetic-issuer','synthetic-owner',scope,status,revision,
+    'synthetic-issuer','synthetic-owner']);
+ }
 }
 async function compareData(db,backup){
  for(const name of Object.keys(TABLES)){
@@ -128,6 +142,7 @@ async function main(){
   const backup=await capture(source);
   assert.equal(backup.data.tables.tenant_records.length,4);
   assert.equal(backup.data.tables.tenant_audit_events.length,5);
+  assert.equal(backup.data.tables.job_access_grants.length,3);
   const corrupt=structuredClone(backup);
   corrupt.data.tables.tenant_records[0].payload='{"tampered":true}';
   assert.throws(()=>prepareRestore(target,corrupt),/digest mismatch/);
@@ -143,6 +158,10 @@ async function main(){
    "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'tenant_record_%_audit'")).length,2);
   await target.batch(prepareRestore(target,backup));
   await compareData(target,backup);
+  assert.deepEqual((await all(target,
+   "SELECT scope,status,grant_revision FROM job_access_grants WHERE business_id='business_001' AND job_id='job_deleted'")),
+   [{scope:'office',status:'revoked',grant_revision:2}],
+   'revoked grant history is preserved, not silently reactivated');
   assert.equal((await all(target,'PRAGMA foreign_key_check')).length,0);
   assert.equal((await all(target,
    "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'tenant_record_%_audit'")).length,2);
@@ -155,7 +174,7 @@ async function main(){
   assert.equal((await all(target,'SELECT * FROM tenant_audit_events')).length,before+2);
   await compareData(source,backup); // No change to source.
   console.log('H04-15d PASS: synthetic logical digest, corruption denial, atomic failed restore,');
-  console.log('  exact cross-tenant rows/tombstones/revisions/audit restore, FK and reinstalled triggers.');
+  console.log('  exact cross-tenant rows/tombstones/revisions/audit/grants restore, FK and reinstalled triggers.');
   console.log('  No remote backup, point-in-time restore, or production readiness claimed.');
  }finally{
   if(dispose)await dispose();
