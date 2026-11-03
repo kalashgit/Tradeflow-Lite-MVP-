@@ -4,20 +4,22 @@ let projectCrewReportState;
 before(async()=>({projectCrewReportState}=await import('../public/crew-report-state.js')));
 const principal={issuer:'oidc',subject:'crew_01'};
 const event={schemaVersion:1,eventId:'event_01',idempotencyKey:'op_01',businessId:'business_123',
- actorId:'crew_01',direction:'role_to_core',kind:'job_blocker_reported',
+ actorId:'crew_01',direction:'role_to_core',kind:'job_blocker_reported',eventAt:'2026-11-03T08:00:00.000Z',
  subject:{type:'jobs',id:'job_01',revision:3},note:'Two required materials are missing'};
+const reportUpdate=()=>({eventId:event.eventId,idempotencyKey:event.idempotencyKey,actorId:principal.subject,
+ actorIssuer:principal.issuer,kind:event.kind,note:event.note,eventAt:event.eventAt});
 const row=(overrides={})=>({kind:'sync.change',businessId:event.businessId,
  actor:principal,change:{type:'jobs',id:'job_01',operationId:'op_01',baseRevision:3,
- record:{id:'job_01',businessId:event.businessId}},status:'pending',...overrides});
+ record:{id:'job_01',businessId:event.businessId,fieldUpdates:[reportUpdate()]}},status:'pending',...overrides});
 const proof=()=>({authenticated:true,actor:principal,businessId:event.businessId,type:'jobs',id:'job_01',revision:4,
- record:{fieldUpdates:[{eventId:'event_01',idempotencyKey:'op_01',actorId:'crew_01',
- actorIssuer:'oidc',kind:'job_blocker_reported',note:event.note}]}});
+ record:{fieldUpdates:[reportUpdate()]}});
 const project=(rows=[],serverReadback=null,changes={})=>projectCrewReportState({event,queueRows:rows,principal,serverReadback,...changes});
 test('local draft and queued are not remotely committed',()=>{
  assert.equal(project().deliveryState,'local_draft');
  const queued=project([row()]);
  assert.equal(queued.deliveryState,'queued_local');
  assert.equal(project([row({actor:undefined})]).deliveryState,'queued_local');
+ assert.equal(project([],null,{event:{...event,deliveryState:'queued'}}).deliveryState,'delivery_uncertain');
  assert.equal(queued.remoteRevision,null);
  assert.equal(queued.acknowledged,false);
  assert.equal(queued.executionAuthority,false);
@@ -52,4 +54,28 @@ test('verified actor is required even with an otherwise valid readback',()=>{
  const applied=row({status:'applied',result:'verified_write',verification:'record_readback',remoteRevision:4});
  assert.equal(project([applied],proof()).deliveryState,'delivery_uncertain');
  assert.equal(project([row({...applied,verifiedBy:principal})],{...proof(),actor:{issuer:'oidc',subject:'other'}}).deliveryState,'delivery_uncertain');
+});
+
+test('unrelated job write with same operation ID does not become report delivery',()=>{
+ const unrelated=row({change:{...row().change,record:{id:'job_01',businessId:event.businessId,fieldUpdates:[]}}});
+ assert.equal(project([unrelated]).deliveryState,'identity_or_revision_mismatch');
+ const applied={...unrelated,status:'applied',verifiedBy:principal,result:'verified_write',verification:'record_readback',remoteRevision:4};
+ assert.equal(project([applied],proof()).deliveryState,'identity_or_revision_mismatch');
+});
+test('duplicate or mismatched report content fails closed',()=>{
+ for(const updates of [[reportUpdate(),reportUpdate()],[{...reportUpdate(),note:'tampered'}],
+   [{...reportUpdate(),eventAt:'2026-11-03T09:00:00.000Z'}]]){
+  const bad=row({change:{...row().change,record:{...row().change.record,fieldUpdates:updates}}});
+  assert.equal(project([bad]).deliveryState,'identity_or_revision_mismatch');
+ }
+});
+test('later authenticated readback revision retains verified immutable event',()=>{
+ const applied=row({status:'applied',verifiedBy:principal,result:'verified_write',verification:'record_readback',remoteRevision:4});
+ assert.equal(project([applied],{...proof(),revision:6}).deliveryState,'readback_verified');
+ assert.equal(project([applied],{...proof(),revision:3}).deliveryState,'delivery_uncertain');
+});
+test('readback cannot contain duplicate event or altered timestamp',()=>{
+ const applied=row({status:'applied',verifiedBy:principal,result:'verified_write',verification:'record_readback',remoteRevision:4});
+ assert.equal(project([applied],{...proof(),record:{fieldUpdates:[reportUpdate(),reportUpdate()]}}).deliveryState,'delivery_uncertain');
+ assert.equal(project([applied],{...proof(),record:{fieldUpdates:[{...reportUpdate(),eventAt:'2026-11-03T10:00:00.000Z'}]}}).deliveryState,'delivery_uncertain');
 });
