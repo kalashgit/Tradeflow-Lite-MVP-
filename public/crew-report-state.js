@@ -67,15 +67,19 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
   !equal(row.verifiedBy,principal)||
   !['verified_write','already_current'].includes(row.result)||
   !Number.isSafeInteger(row.remoteRevision)||row.remoteRevision<=event.subject.revision||
+  (row.result==='verified_write'&&row.remoteRevision!==row.change.baseRevision+1)||
   row.verification!=='record_readback')
   return frozen({...base,deliveryState:'delivery_uncertain',requiresReview:true});
  // A generic record sync receipt is insufficient to prove THIS event was delivered.
  // Require authenticated, tenant-scoped, exact tuple readback supplied by caller.
  const proof=serverReadback;
  const updates=proof?.record?.fieldUpdates;
- const valid=proof?.authenticated===true&&proof.actor?.issuer===principal.issuer&&
-  proof.actor?.subject===principal.subject&&proof.businessId===event.businessId&&
-  proof.type==='jobs'&&proof.id===event.subject.id&&
+ const valid=proof?.authenticated===true&&proof.deletedAt==null&&
+  proof.record&&typeof proof.record==='object'&&!Array.isArray(proof.record)&&
+  (proof.record.id==null||proof.record.id===event.subject.id)&&
+  (proof.record.businessId==null||proof.record.businessId===event.businessId)&&
+  proof.actor?.issuer===principal.issuer&&proof.actor?.subject===principal.subject&&
+  proof.businessId===event.businessId&&proof.type==='jobs'&&proof.id===event.subject.id&&
   Number.isSafeInteger(proof.revision)&&proof.revision>=row.remoteRevision&&
   exactReport(updates,event,principal);
  return frozen({...base,remoteRevision:row.remoteRevision,
