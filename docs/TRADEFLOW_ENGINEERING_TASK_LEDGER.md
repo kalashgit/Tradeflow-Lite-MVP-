@@ -1,3 +1,11 @@
+## 2026-11-03 — Verified TF-RM-03 readback event timestamp binding (AI Principal)
+
+**Exact code commit:** `b1bbbd13c96d4df24242f1ffecd607cc51dc5537` on draft AI PR #16. Exact-code GitHub Actions [41598845005](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41598845005) **SUCCESS**: Node **713/713**, Chromium **28/28**, focused authorization/offline, contractor/storage, proactive labor, disposable D1 advisory/migrations/restore all passed. Synthetic code and browser evidence only.
+
+**Increment:** `src/role-exchange.js` read-only `projectRoleExchange` evidence matching now checks persisted `eventAt` as well as event ID, actor, idempotency, kind and note. `tests/role-exchange.test.cjs` adds a mismatch negative and updates the authenticated readback fixture. A falsified timestamp cannot claim `readback_verified`; the report remains local/unverified and never gains an action receipt. No routed endpoint, migration, permission grant, model call, UI rewrite or business effect.
+
+**Outstanding:** R01-02 authenticated actor→job binding and atomic commit-time assignment are still approval blocked. Office response and crew acknowledgment are not operational; physical devices and contractor outcomes unverified. PR #16 remains draft/unmerged/undeployed, PR #18 untouched, production untouched, 0/62 field pains retired. This ledger-only follow-up itself requires exact-head CI after commit.
+
 ## 2026-11-03 — Verified TF-RM-03 internal assigned-crew blocker submission (AI Principal)
 
 **Exact implementation + focused tests HEAD:** `23929a985f26af0e01f72d45f384268376093e99`, AI draft PR #16. Exact-head GitHub Actions [41590319723](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41590319723) and [41590328317](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41590328317) both **SUCCESS**: 156/156 focused authorization/offline, **705/705 full Node** (10 new synthetic internal adapter cases), **28/28 desktop/mobile Chromium**, proactive labor 2/2, storage/contractor and disposable local D1 migration/restore. Browser and D1 suites cover existing application paths, NOT an exposed role-exchange API.
