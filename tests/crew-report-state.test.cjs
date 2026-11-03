@@ -1,6 +1,7 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {projectCrewReportState} from '../public/crew-report-state.js';
+const {test,before}=require('node:test');
+const assert=require('node:assert/strict');
+let projectCrewReportState;
+before(async()=>({projectCrewReportState}=await import('../public/crew-report-state.js')));
 const principal={issuer:'oidc',subject:'crew_01'};
 const event={schemaVersion:1,eventId:'event_01',idempotencyKey:'op_01',businessId:'business_123',
  actorId:'crew_01',direction:'role_to_core',kind:'job_blocker_reported',
