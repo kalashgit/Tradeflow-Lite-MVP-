@@ -15,7 +15,8 @@ const proof=()=>({authenticated:true,actor:principal,businessId:event.businessId
  record:{fieldUpdates:[reportUpdate()]}});
 const project=(rows=[],serverReadback=null,changes={})=>projectCrewReportState({event,queueRows:rows,principal,serverReadback,...changes});
 test('local draft and queued are not remotely committed',()=>{
- assert.equal(project().deliveryState,'local_draft');
+ assert.equal(project([],null,{event:{...event,deliveryState:'local_draft'}}).deliveryState,'local_draft');
+ assert.equal(project().deliveryState,'delivery_uncertain');
  const queued=project([row()]);
  assert.equal(queued.deliveryState,'queued_local');
  assert.equal(project([row({actor:undefined})]).deliveryState,'queued_local');
@@ -78,4 +79,33 @@ test('readback cannot contain duplicate event or altered timestamp',()=>{
  const applied=row({status:'applied',verifiedBy:principal,result:'verified_write',verification:'record_readback',remoteRevision:4});
  assert.equal(project([applied],{...proof(),record:{fieldUpdates:[reportUpdate(),reportUpdate()]}}).deliveryState,'delivery_uncertain');
  assert.equal(project([applied],{...proof(),record:{fieldUpdates:[{...reportUpdate(),eventAt:'2026-11-03T10:00:00.000Z'}]}}).deliveryState,'delivery_uncertain');
+});
+
+test('operation ID reused for another job or record type fails closed',()=>{
+ const badJob=row({change:{...row().change,id:'job_02'}});
+ const badType=row({change:{...row().change,type:'tasks'}});
+ const badKey=row({id:'sync:business_123:forged'});
+ for(const bad of [badJob,badType,badKey]){
+  assert.equal(project([bad]).deliveryState,'identity_or_revision_mismatch');
+  assert.equal(project([bad]).requiresReview,true);
+ }
+});
+test('contradictory queue actor identities cannot be verified',()=>{
+ const applied=row({status:'applied',verifiedBy:principal,result:'verified_write',verification:'record_readback',remoteRevision:4});
+ for(const overrides of [
+  {approvedBy:{issuer:'oidc',subject:'other'}},
+  {verifiedBy:{issuer:'oidc',subject:'other'}},
+  {actor:undefined,approvedBy:undefined}
+ ]){
+  const state=project([{...applied,...overrides}],proof());
+  assert.notEqual(state.deliveryState,'readback_verified');
+  assert.equal(state.requiresReview,true);
+ }
+});
+test('only an explicitly local draft may be reported without queue evidence',()=>{
+ for(const deliveryState of ['queued','sending','readback_verified','server_committed_unverified','other']){
+  const state=project([],null,{event:{...event,deliveryState}});
+  assert.equal(state.deliveryState,'delivery_uncertain');
+  assert.equal(state.requiresReview,true);
+ }
 });
