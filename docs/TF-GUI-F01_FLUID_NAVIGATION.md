@@ -23,3 +23,9 @@ At normal 360/390 widths the four metrics fit. At 200% root text sizing their **
 `node --test tests/fluid-navigation.test.cjs` tests candidate logic; `node scripts/verify-fluid-navigation.cjs` exercises actual Chromium pointer capture, contact position, all candidates, commit counts, cancellation, keyboard, repeated navigation, rollback, offline reload, enlarged text and four metrics. It is part of test:browser. Screenshots (rest, pressed, between, settled, enlarged text and reduced) and Playwright interaction ZIP traces are under artifacts/fluid-navigation/. Inspect traces with `npx playwright show-trace artifacts/fluid-navigation/interaction-390-no-preference.zip`.
 
 Known gates: physical iPhone touch/latency/battery, native haptics, VoiceOver and uncoached contractor validation remain unverified. Mouse pointer interaction and synthetic cancellation/visibility events do not prove those gates. Existing host/thread/approval/receipt suites remain required. No claims that the unfinished crew transport or full voice system works.
+
+## Integration checkpoint
+
+Read-only `git merge-tree` against inspected AI 23929a9 reports manifest conflicts in public/index.html and public/sw.js. No work discarded and neither PR merged. Coordinated reconciliation must keep the AI case/role assets and GUI fluid/adaptive/host assets; not a footer runtime blocker on the isolated PR #18 head. The long-lived AI branch is not silently overwritten to make the PR mergeable.
+
+Active disposal immediately removes visual/component state and motion. A maximum 750ms document release guard suppresses the cancelled press's native click; a new actual pointer-down clears suppression, preserving immediate static fallback. Keyboard activation remains native.
