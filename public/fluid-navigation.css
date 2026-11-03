@@ -12,3 +12,16 @@ body .mobilebar.tf-fluid-nav button:focus-visible{outline:2px solid var(--tf-foc
 }
 @media(prefers-reduced-motion:reduce){.tf-fluid-capsule{will-change:auto}}
 @media(max-width:850px){body .mobilebar.tf-fluid-nav button.active .navicon,body .mobilebar.tf-fluid-nav button .navicon{filter:none!important;text-shadow:none!important}}
+
+/* Role-adaptive footer: maintain the original five-slot look unchanged, but
+   distribute 1–4 *authorized* destinations without blank fixed-width slots. */
+@media(max-width:850px){
+ body .mobilebar.tf-fluid-nav[data-fluid-adaptive="true"]{
+  display:grid!important;
+  grid-template-columns:repeat(var(--tf-fluid-count),minmax(0,1fr))!important;
+  overflow:hidden;
+ }
+ body .mobilebar.tf-fluid-nav[data-fluid-adaptive="true"] button{
+  width:100%;flex:none!important;min-width:0;
+ }
+}
