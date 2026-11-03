@@ -1,3 +1,19 @@
+## 2026-11-03 — TF-MI-CONV-01A verified bounded conversation projection from authorized job evidence (AI Principal)
+
+**Exact implementation commit:** `be5aa4de2146c98c6743bea41616211b973f353b` on existing draft PR #16. [Push Actions run](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41702790951) and [PR Actions run](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41702801656) both **SUCCESS** at the same commit. Node **747/747**, Chromium **28/28**, migration, recovery, contractor/proactive labor and disposable Wrangler D1 checks passed. Synthetic automated evidence; no real business user/device or production validation.
+
+**Increment:** New internal/not-routed `src/office-blocker-conversation.js` implements `classifyOfficeBlockerQuestion` and `answerOfficeBlockerQuestion`. Bounded natural questions about a specific job's blocker, next review action, recorded office response or recorded crew acknowledgment resolve solely through the existing `reviewOfficeJobBlocker` atomic authorized D1 job read. Response carries current job revision, event IDs, source access and grant revision; uses no browser-supplied facts, model completion, chat writer, background worker or command executor. Absent or revoked scoped access, wrong company/job, unverified identity and stale source revision reject. Unknown prompts cannot become arbitrary business-record requests.
+
+**Truth and consent boundary:** The assistant turn is explicitly `proposed_not_persisted`; thread binding `bindingVerified:false`, persistence `not_saved`, sync `not_synced`, memory `not_saved`. Persisted office replies and crew acknowledgments are evidence of stored events, **not** signed historical actor identity, device delivery or operational resolution. Once an acknowledgment is recorded, the adapter suppresses the repeated follow-up task; any other action remains `proposal_only` and requires human review. No external effects.
+
+**Test proof:** Four new `tests/office-blocker-conversation.test.cjs` cases exercise classifier, source-linked projection and task, office/crew response cases and denials. `scripts/verify-d1-migrations-local.cjs` now checks full real disposable D1 report → office response → acknowledgment → question/answer at job revision 11, source references, no false repeat proposal and unchanged record revision after questioning.
+
+**Still blocked:** No authenticated HTTP routing of this adapter; existing local device conversation UI and `/api/ai/chat` are not connected to these D1 job facts. No consented cross-device memory, user-provided knowledge ingestion, ongoing proactive watcher, real device notification or independently verified physical actor delivery. Never forward scoped job data to unauthenticated general model paths. PR #16 remains draft/unmerged; production and PR #18 untouched.
+
+**Next bounded step:** Design/verify a signed-in conversation-to-evidence adapter using the existing thread store and an already verified company identity boundary; then add user-controlled source-linked business knowledge with retention, correction and deletion semantics. Only after that safely connect proactive observations to reviewable suggestions.
+
+---
+
 ## 2026-11-03 — TF-RM-03-F verified internal office response → crew acknowledgment (AI Principal)
 
 **Exact implementation commit:** `42cf9c00d8b33d9e98d39f8a2a4a065b31cce7ee`, existing AI draft PR #16. [Actions run #963](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41656968637) **SUCCESS**: Node **743/743**, Chromium **28/28**, storage and contractor checks, proactive labor, disposable D1 migration and logical restore. Synthetic automated evidence only; no physical role-device or contractor acceptance.
