@@ -1,0 +1,67 @@
+name: TradeFlow Adaptive Navigation Review
+on:
+  push:
+    branches:
+      - feature/tf-gui-adapt-nav-foundation-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  navigation-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact review SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact head and clean checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p artifacts/adaptive-navigation
+          git rev-parse HEAD > artifacts/adaptive-navigation/sha.txt
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Syntax and focused role-navigation regression
+        shell: bash
+        run: |
+          set -o pipefail
+          node --check public/adaptive-navigation.js
+          node --check tests/adaptive-navigation.test.cjs
+          node --test tests/adaptive-navigation.test.cjs 2>&1 | tee artifacts/adaptive-navigation/focused.log
+      - name: Complete Node test suite
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/adaptive-navigation/node.log
+      - name: Storage migrations
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:storage 2>&1 | tee artifacts/adaptive-navigation/storage.log
+      - name: Contractor workflow regression
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:contractors 2>&1 | tee artifacts/adaptive-navigation/contractors.log
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Existing real-browser workflows
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:browser 2>&1 | tee artifacts/adaptive-navigation/browser.log
+      - name: Preserve logs and browser artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-adaptive-nav-review
+          path: artifacts/
+          if-no-files-found: warn
