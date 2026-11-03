@@ -375,6 +375,31 @@ async function main(){
   assert.equal(persistedF[0].revision,11);
   assert.deepEqual(JSON.parse(persistedF[0].payload).fieldUpdates.map(x=>x.kind),
    ['job_blocker_reported','job_blocker_office_response','job_blocker_response_acknowledged']);
+  // TF-MI-CONV-01A: the same authenticated D1 role exchange can answer
+  // bounded natural-language job questions without a model or chat write.
+  const {answerOfficeBlockerQuestion}=await import('../src/office-blocker-conversation.js');
+  const ask=question=>answerOfficeBlockerQuestion({
+   db,principal:officePrincipal,businessId:'business_001',
+   jobId:'job_active',eventId:'blocker_first',
+   expectedJobRevision:11,threadId:'thread_demo_01',question
+  });
+  const firstAnswer=await ask('What is blocking the job and what should we do?');
+  assert.equal(firstAnswer.mode,'deterministic_authenticated_evidence');
+  assert.equal(firstAnswer.assistantTurn.refs[0].revision,11);
+  assert.equal(firstAnswer.assistantTurn.source,'authenticated_record_evidence');
+  assert.equal(firstAnswer.proposal,null,'already acknowledged blocker should not re-propose');
+  assert.equal(firstAnswer.thread.persistence,'not_saved');
+  assert.equal(firstAnswer.externalEffects,false);
+  const officeAnswer=await ask('What did the office say?');
+  assert.match(officeAnswer.assistantTurn.content,/Confirm delivery date/);
+  const ackAnswer=await ask('Has the crew acknowledged?');
+  assert.match(ackAnswer.assistantTurn.content,/acknowledgment event is recorded/);
+  assert.equal((await all(db,
+   "SELECT revision FROM tenant_records WHERE business_id=? AND record_type='jobs' AND id=?",
+   ['business_001','job_active']))[0].revision,11,
+   'conversation projection must not mutate source or persist a chat turn');
+  console.log('TF-MI-CONV-01A PASS: authenticated D1 role events -> bounded');
+  console.log('  conversational answer + revision references, no write/model/memory.');
   // Uncertain acknowledgment: the writer commits to D1 but loses the
   // independently authorized readback. Never fabricate a verified receipt
   // or automatically replay the action.
