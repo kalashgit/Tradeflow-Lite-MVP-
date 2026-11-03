@@ -13,7 +13,8 @@ const validEvent=e=>e&&e.schemaVersion===1&&id(e.eventId)&&id(e.businessId)&&id(
 function readback(job,e){
  const updates=Array.isArray(job?.fieldUpdates)?job.fieldUpdates:[];
  const matches=updates.filter(u=>u?.eventId===e.eventId);
- return matches.length===1&&matches[0].actorId===e.actorId&&matches[0].idempotencyKey===e.idempotencyKey&&matches[0].note===e.note&&matches[0].kind===e.kind;
+ return matches.length===1&&matches[0].actorId===e.actorId&&matches[0].idempotencyKey===e.idempotencyKey&&matches[0].note===e.note&&matches[0].kind===e.kind&&
+  matches[0].eventAt===e.eventAt;
 }
 export function createLocalCrewReport({businessId,actorId,jobId,baseRevision,note,eventId,idempotencyKey,at}={}){
  const e={schemaVersion:1,eventId,businessId,actorId,direction:'role_to_core',kind:'job_blocker_reported',subject:{type:'jobs',id:jobId,revision:baseRevision},note,eventAt:at,idempotencyKey};

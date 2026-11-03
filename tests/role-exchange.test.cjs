@@ -2,13 +2,22 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {createLocalCrewReport,projectRoleExchange}=require('../src/role-exchange.js');
 const report=()=>createLocalCrewReport({businessId:'business_01',actorId:'crew_01',jobId:'job_01',baseRevision:3,note:'Two required materials are missing',eventId:'event_01',idempotencyKey:'crew_01_job_01_01',at:'2026-11-03T08:00:00Z'});
 function fixture({role='member',subject='crew_01',revision=3,recordEvent=true,deleted=false,otherBusiness=false}={}){
- const e=report(),job={id:'job_01',businessId:otherBusiness?'business_02':'business_01',crewId:'crewTeam_01',fieldUpdates:recordEvent?[{eventId:e.eventId,actorId:e.actorId,idempotencyKey:e.idempotencyKey,note:e.note,kind:e.kind}]:[]};
+ const e=report(),job={id:'job_01',businessId:otherBusiness?'business_02':'business_01',crewId:'crewTeam_01',fieldUpdates:recordEvent?[{eventId:e.eventId,actorId:e.actorId,idempotencyKey:e.idempotencyKey,note:e.note,kind:e.kind,eventAt:e.eventAt}]:[]};
  const db={prepare:sql=>({bind:(...args)=>({first:async()=>sql.includes('business_memberships WHERE')?{role}:sql.includes('tenant_records')?{revision,payload:JSON.stringify(job),deleted_at:deleted?'2026-11-03':null}:null})})};
  return {event:e,db,job,principal:{verified:true,issuer:'issuer',subject},businessId:'business_01',jobId:'job_01',assignmentCheck:async()=>true};
 }
 test('local report is honest unshared draft, immutable and bounded',()=>{const e=report();assert.equal(e.deliveryState,'local_draft');assert.equal(e.readbackVerified,false);assert.equal(e.actionReceiptRef,null);assert.ok(Object.isFrozen(e.subject));assert.throws(()=>createLocalCrewReport({...{businessId:'business_01',actorId:'crew_01',jobId:'job_01',baseRevision:1,eventId:'x',idempotencyKey:'x',at:'2026-11-03',note:''}}))});
 test('crew receives source-backed readback only after server-protected job contains exact event',async()=>{const f=fixture();const r=await projectRoleExchange(f);assert.equal(r.sourceVerified,true);assert.equal(r.deliveryState,'readback_verified');assert.equal(r.acknowledgment,'unverified');assert.equal(r.action.status,'not_verified');assert.equal(r.executionAuthority,false)});
 test('office receives same scoped evidence without conferring completion',async()=>{const f=fixture({role:'admin',subject:'office_01'});const r=await projectRoleExchange(f);assert.equal(r.direction,'core_to_role');assert.equal(r.sourceVerified,true);assert.equal(r.action.status,'not_verified')});
+test('mismatched event timestamp never earns verified source status',async()=>{
+ const f=fixture();
+ f.job.fieldUpdates[0].eventAt='2026-11-03T07:59:59Z';
+ f.db={prepare:sql=>({bind:()=>({first:async()=>sql.includes('business_memberships WHERE')?{role:'member'}:{revision:3,payload:JSON.stringify(f.job),deleted_at:null}})})};
+ const r=await projectRoleExchange(f);
+ assert.equal(r.sourceVerified,false);
+ assert.equal(r.deliveryState,'local_draft');
+ assert.equal(r.action.status,'not_verified');
+});
 test('offline local event does not invent cloud delivery',async()=>{const f=fixture({recordEvent:false});assert.equal((await projectRoleExchange(f)).deliveryState,'local_draft')});
 test('unverified queued state never reports success',async()=>{const f=fixture({recordEvent:false});f.event={...f.event,deliveryState:'queued'};assert.equal((await projectRoleExchange(f)).deliveryState,'unverified')});
 test('foreign business record fails closed',async()=>{const f=fixture({otherBusiness:true});await assert.rejects(projectRoleExchange(f),/identity conflicts/)});
