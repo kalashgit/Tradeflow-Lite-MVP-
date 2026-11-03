@@ -21,7 +21,8 @@ let browser;
  browser=await chromium.launch({args:['--no-sandbox']});
  const url='http://127.0.0.1:'+server.address().port;
  for(const [width,motion] of [[390,'no-preference'],[390,'reduce'],[1280,'no-preference']]){
-  const context=await browser.newContext({viewport:{width,height:844},reducedMotion:motion});
+  const recording=width===390&&motion==='no-preference';
+  const context=await browser.newContext({viewport:{width,height:844},reducedMotion:motion,...(recording?{recordVideo:{dir:out,size:{width:390,height:844}}}:{})});
   const page=await context.newPage();
   const exceptions=[];page.on('pageerror',e=>exceptions.push(e.message));
   await context.tracing.start({screenshots:true,snapshots:true,sources:true});
@@ -50,6 +51,7 @@ let browser;
    if(motion==='reduce')assert.equal(before,after,'reduced-motion orb must stay still');
    else assert.notEqual(before,after,'living mesh must move between frames');
    await page.screenshot({path:out+'/tradeflow-orb-'+width+'-'+motion+'.png',fullPage:true});
+   if(recording){await orb.screenshot({path:out+'/tradeflow-orb-mesh-detail.png'});await page.waitForTimeout(3500)}
    await orb.click();
    await page.locator('.tf-voice-sheet').waitFor();
    assert.equal(await page.locator('.tf-voice-sheet #tfVoiceText').count(),1,'existing voice sheet text input must remain reachable');
@@ -62,7 +64,9 @@ let browser;
    console.log('PASS: current TradeFlow app orb '+width+' '+motion+' with real canvas motion, original composer and lifecycle');
   }finally{
    await context.tracing.stop({path:out+'/tradeflow-orb-trace-'+width+'-'+motion+'.zip'});
+   const video=page.video();
    await context.close();
+   if(recording&&video)await video.saveAs(out+'/tradeflow-live-orb-idle-390.webm');
   }
  }
 })().catch(err=>{console.error(err);process.exitCode=1}).finally(async()=>{await browser?.close();server.close()});
