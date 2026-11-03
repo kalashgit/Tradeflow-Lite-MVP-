@@ -4,7 +4,7 @@
  */
 const id=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const actor=x=>x&&typeof x.issuer==='string'&&x.issuer.length>0&&typeof x.subject==='string'&&x.subject.length>0;
-const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const equal=(a,b)=>a?.issuer===b?.issuer&&a?.subject===b?.subject;
 const frozen=x=>Object.freeze(x);
 export function projectCrewReportState({event,queueRows,principal,serverReadback=null}={}){
  if(!event||event.schemaVersion!==1||event.kind!=='job_blocker_reported'||
@@ -25,7 +25,10 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
   actor:frozen({issuer:principal.issuer,subject:principal.subject}),
   remoteRevision:null,acknowledged:false,actionReceiptRef:null,executionAuthority:false};
  if(!row)return frozen({...base,deliveryState:'local_draft',requiresReview:false});
- if(!equal(row.actor||row.approvedBy||null,principal)||
+ // Fresh pending queue rows are intentionally actor-unbound until first claim.
+ // Never imply server attribution from such a local snapshot.
+ const bound=row.approvedBy||row.actor;
+ if((bound&&!equal(bound,principal))||
   row.change.baseRevision!==event.subject.revision||
   row.change.record?.businessId&&row.change.record.businessId!==event.businessId)
   return frozen({...base,deliveryState:'identity_or_revision_mismatch',requiresReview:true});
@@ -34,7 +37,9 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
   return frozen({...base,deliveryState:row.status==='conflict'?'conflict_needs_review':'failed_needs_review',requiresReview:true});
  if(row.status==='pending'||row.status==='sending')
   return frozen({...base,deliveryState:row.status==='pending'?'queued_local':'sending_unverified',requiresReview:false});
- if(row.status!=='applied'||!['verified_write','already_current'].includes(row.result)||
+ if(row.status!=='applied'||!equal(bound,principal)||
+  !equal(row.verifiedBy,principal)||
+  !['verified_write','already_current'].includes(row.result)||
   !Number.isSafeInteger(row.remoteRevision)||row.remoteRevision<=event.subject.revision||
   row.verification!=='record_readback')
   return frozen({...base,deliveryState:'delivery_uncertain',requiresReview:true});
@@ -44,7 +49,8 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
  const updates=proof?.record?.fieldUpdates;
  const found=Array.isArray(updates)?updates.filter(u=>u?.eventId===event.eventId||
   u?.idempotencyKey===event.idempotencyKey):[];
- const valid=proof?.authenticated===true&&proof.businessId===event.businessId&&
+ const valid=proof?.authenticated===true&&proof.actor?.issuer===principal.issuer&&
+  proof.actor?.subject===principal.subject&&proof.businessId===event.businessId&&
   proof.type==='jobs'&&proof.id===event.subject.id&&
   proof.revision===row.remoteRevision&&found.length===1&&
   found[0].eventId===event.eventId&&found[0].idempotencyKey===event.idempotencyKey&&
