@@ -27,9 +27,10 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
   !event.note.trim()||event.note.length>500||!Array.isArray(queueRows)||!actor(principal)||
   principal.subject!==event.actorId)throw Error('Invalid report or actor scope');
  const correlationId=event.eventId;
+ // Operation IDs belong to the existing business queue, not to an individual
+ // record type. A reused ID for another job/type is a collision, not a draft.
  const matches=queueRows.filter(r=>r?.kind==='sync.change'&&
-  r.businessId===event.businessId&&r.change?.type==='jobs'&&
-  r.change?.id===event.subject.id&&r.change?.operationId===event.idempotencyKey);
+  r.businessId===event.businessId&&r.change?.operationId===event.idempotencyKey);
  if(matches.length>1)throw Error('Ambiguous queued operation');
  const row=matches[0]||null;
  const base={schemaVersion:1,eventId:event.eventId,correlationId,
@@ -37,13 +38,20 @@ export function projectCrewReportState({event,queueRows,principal,serverReadback
   jobId:event.subject.id,sourceRevision:event.subject.revision,
   actor:frozen({issuer:principal.issuer,subject:principal.subject}),
   remoteRevision:null,acknowledged:false,actionReceiptRef:null,executionAuthority:false};
- if(!row)return frozen({...base,deliveryState:event.deliveryState==='queued'||
-  event.deliveryState==='sending'?'delivery_uncertain':'local_draft',
-  requiresReview:event.deliveryState==='queued'||event.deliveryState==='sending'});
+ if(!row){
+  const draft=event.deliveryState==='local_draft';
+  return frozen({...base,deliveryState:draft?'local_draft':'delivery_uncertain',
+   requiresReview:!draft});
+ }
+ if(row.change.type!=='jobs'||row.change.id!==event.subject.id||
+  row.id!=='sync:'+event.businessId+':'+event.idempotencyKey)
+  return frozen({...base,deliveryState:'identity_or_revision_mismatch',requiresReview:true});
  // Fresh pending queue rows are intentionally actor-unbound until first claim.
  // Never imply server attribution from such a local snapshot.
  const bound=row.approvedBy||row.actor;
  if((bound&&!equal(bound,principal))||
+  (row.actor&&row.approvedBy&&!equal(row.actor,row.approvedBy))||
+  (row.verifiedBy&&!equal(row.verifiedBy,principal))||
   row.change.baseRevision!==event.subject.revision||
   row.change.record?.businessId&&row.change.record.businessId!==event.businessId)
   return frozen({...base,deliveryState:'identity_or_revision_mismatch',requiresReview:true});
