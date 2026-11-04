@@ -17,21 +17,29 @@
   const TAU = Math.PI * 2;
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
   const MEAN_RADIUS = .90;
+  // Wrapped Gaussian packets make fold activity local rather than imposing
+  // a regular pentagonal / hexagonal silhouette on the whole membrane.
+  const edgePacket=(angle,center,width)=>{
+    const d=Math.sin((angle-center)/2);
+    return Math.exp(-2*d*d/(width*width));
+  };
   // Zero-mean angular modes keep the diameter stable while localized folds
   // pass around the edge. None of the modes scales the orb as a whole.
   function surfaceRadius(angle, t) {
     const a=Number(angle),time=Number(t);
     if(!Number.isFinite(a)||!Number.isFinite(time))return MEAN_RADIUS;
-    return MEAN_RADIUS+.024*Math.sin(5*a+.25*time)
-      +.013*Math.sin(8*a-.19*time+.2)
-      +.008*Math.sin(11*a+.14*time)
-      +.004*Math.sin(16*a-.11*time);
+    return MEAN_RADIUS+.009*Math.sin(6*a+.24*time)
+      +.005*Math.sin(13*a-.13*time+.3)
+      +.030*(edgePacket(a,.35+.16*time,.33)-edgePacket(a,3.15-.11*time,.33))
+      +.015*(edgePacket(a,-1.45+.12*time,.22)-edgePacket(a,1.7+.09*time,.22));
   }
   // A single advected displacement field drives every neighboring strand.
   // The boundary term draws internal threads into the SAME moving edge folds.
   function meshPoint(x,y,t){
-    const angle=Math.atan2(y,x),distance=Math.min(1,Math.hypot(x,y));
-    const boundaryCoupling=(surfaceRadius(angle,t)/MEAN_RADIUS-1)*distance*distance*.78;
+    const distance=Math.min(1,Math.hypot(x,y));
+    const boundaryCoupling=distance>.55
+      ?(surfaceRadius(Math.atan2(y,x),t)/MEAN_RADIUS-1)*distance*distance*.78
+      :0;
     const xx=x+.013*Math.sin(y*8.7+x*3.8-t*.28)
       +.007*Math.sin(y*14.1-x*7.3+t*.16);
     const yy=y+.046*Math.sin(x*7.4+y*2.7-t*.35)
@@ -143,14 +151,14 @@
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(51,117,235,.83)');
-        rim.addColorStop(.32,'rgba(60,150,253,.88)');
-        rim.addColorStop(.67,'rgba(83,198,255,.90)');
-        rim.addColorStop(1,'rgba(103,219,255,.83)');
+        rim.addColorStop(0,'rgba(51,117,235,.45)');
+        rim.addColorStop(.32,'rgba(60,150,253,.50)');
+        rim.addColorStop(.67,'rgba(83,198,255,.55)');
+        rim.addColorStop(1,'rgba(103,219,255,.48)');
         ctx.strokeStyle=rim;
-        ctx.lineWidth=clamp(size/144,.85,1.45);
-        ctx.shadowColor='rgba(38,136,255,.75)';
-        ctx.shadowBlur=clamp(size*.043,3.4,8);
+        ctx.lineWidth=clamp(size/195,.64,1.10);
+        ctx.shadowColor='rgba(38,136,255,.42)';
+        ctx.shadowBlur=clamp(size*.022,1.8,4.5);
         ctx.stroke(edge);
         ctx.shadowBlur=0;
         // Localized curvature glints and near-edge folded-sheet contours.
@@ -158,10 +166,10 @@
         for(let i=0;i<edgeSteps;i++){
           const a=TAU*i/edgeSteps,b=TAU*(i+1)/edgeSteps;
           const light=foldLight((a+b)/2,t);
-          if(light<.28)continue;
+          if(light<.37)continue;
           const ra=r*surfaceRadius(a,t),rb=r*surfaceRadius(b,t);
-          ctx.globalAlpha=clamp((light-.16)*.92,0,.82);
-          ctx.lineWidth=clamp(size/172,.72,1.16);
+          ctx.globalAlpha=clamp((light-.28)*.86,0,.67);
+          ctx.lineWidth=clamp(size/220,.58,.99);
           ctx.strokeStyle=light>.68?'#b9edff':'#66c7ff';
           ctx.beginPath();
           ctx.moveTo(cx+ra*Math.cos(a),cy+ra*Math.sin(a));
