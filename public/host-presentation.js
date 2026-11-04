@@ -36,7 +36,7 @@ function connect({document,getHost,motion,notify}){
  const controller=createController({getHost,motion,notify:report});let focusPending=false;
  function button(label,action){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.hostAction=action;b.className='tf-host-context';return b}
  function decorate(){const h=getHost();if(h?.version!==1)return;let context;try{context=h.getContext()}catch{return}
-  const voice=app.querySelector('.tf-voice-sheet');if(voice&&!voice.querySelector('[data-host-action="open"]'))voice.querySelector('.tf-voice-top')?.append(button('Open conversation','open'));
+  const voice=app.querySelector('.tf-voice-sheet');if(voice&&!voice.querySelector('[data-host-action="open"]'))voice.querySelector('.tf-voice-top')?.after(button('Open conversation','open'));
   const dossier=app.querySelector('.tf-record-dossier');if(dossier&&!dossier.querySelector('[data-host-action]'))dossier.prepend(button('Ask Intelligence about this record','open'));
   const chat=app.querySelector('.tf-ai-chat-top');if(chat){const old=chat.querySelector('[data-host-action="return"]');if(context.origin&&!old)chat.append(button('Return to work','return'));if(!context.origin)old?.remove()}
   if(focusPending&&!app.querySelector('.tf-voice-sheet,.tf-ai-mini-panel')){focusPending=false;const target=context.screen==='ai'?document.getElementById('tfAiPrompt'):app.querySelector('.tf-record-dossier h2')||[...app.querySelectorAll('[data-tab]')].find(n=>n.dataset.tab===context.screen&&n.getClientRects().length);if(target){if(!target.matches('button,input,textarea'))target.tabIndex=-1;target.focus()}}
