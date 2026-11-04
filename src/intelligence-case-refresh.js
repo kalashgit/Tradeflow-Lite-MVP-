@@ -5,6 +5,7 @@
  * permission, raw-record signature or executable command.
  */
 import {readIntelligenceContext} from './intelligence-context.js';
+import {readJobScopedIntelligenceContext} from './job-scoped-intelligence-context.js';
 import {inspectIntelligenceCase,CASE_KIND} from '../public/intelligence-case.js';
 import {canonical,digest,validateEvidence,freeze} from '../public/intelligence-evidence.js';
 import {requireVerifiedPrincipal} from './tenant-security.js';
@@ -40,6 +41,7 @@ function trustedBinding(binding,caseFile,scope,principal,threadId){
   binding.sourceBinding===caseFile.sourceBinding&&
   binding.scopeSignature===caseFile.scopeSignature&&
   binding.businessId===scope.businessId&&binding.jobId===(scope.jobId||null)&&
+  binding.jobAccessScope===(scope.role==='member'?scope.jobAccessScope:null)&&
   binding.threadId===threadId&&
   binding.actor?.issuer===principal.issuer&&binding.actor.subject===principal.subject&&
   binding.executionAuthority===false&&binding.readOnly===true&&
@@ -63,14 +65,20 @@ async function revalidate({db,principal,caseFile,decision,scope,
   caseFile,decision,scope,threadId,asOf,accessGranted:true
  });
  if(initial.status!=='current')return {result:status(initial.status)};
- // readIntelligenceContext is company-membership scoped, NOT job-grant scoped.
- // Do not expose a successful field/office case while it lacks an atomic
- // job_access_grants predicate in its evidence SELECT.
- if(!['owner','admin'].includes(scope.role))
+ // Members require a decision made for the same explicitly scoped job
+ // grant. A company-membership snapshot is not a field-job permission.
+ if(scope.role==='member'&&(
+   !scope.jobId||!['crew','office'].includes(scope.jobAccessScope)||
+   !decision?.scope||canonical(decision.scope)!==canonical(scope)
+  ))return {result:status('scoped_member_context_unavailable')};
+ if(!['owner','admin','member'].includes(scope.role))
   return {result:status('scoped_member_context_unavailable')};
  let current;
  try{
-  current=await readIntelligenceContext({
+  current=scope.role==='member'?await readJobScopedIntelligenceContext({
+   db,principal,businessId:scope.businessId,jobId:scope.jobId,
+   grantScope:scope.jobAccessScope
+  }):await readIntelligenceContext({
    db,principal,businessId:scope.businessId,
    ...(scope.jobId?{jobId:scope.jobId}:{})
   });
@@ -102,7 +110,8 @@ export async function captureCloudCaseContentBinding(options={}){
   caseId:caseFile.id,sourceBinding:caseFile.sourceBinding,
   scopeSignature:caseFile.scopeSignature,businessId:scope.businessId,
   actor:{issuer:verified.issuer,subject:verified.subject},
-  jobId:scope.jobId||null,threadId,observedAt:asOf,
+  jobId:scope.jobId||null,jobAccessScope:scope.role==='member'?scope.jobAccessScope:null,
+  threadId,observedAt:asOf,
   projectedContentDigest:'sha256:'+await contentDigest(current.records),
   sourceCount:current.records.length,
   evidenceScope:'allowlisted_projection',readOnly:true,
