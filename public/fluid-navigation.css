@@ -11,3 +11,5 @@ body .mobilebar.tf-fluid-nav button.active .navicon{filter:drop-shadow(0 0 5px c
 body .mobilebar.tf-fluid-nav button:focus-visible{outline:2px solid var(--tf-focus);outline-offset:-3px}
 }
 @media(prefers-reduced-motion:reduce){.tf-fluid-capsule{will-change:auto}}
+/* The existing desktop sidebar remains the sole desktop navigation surface. */
+@media(min-width:851px){body .mobilebar.tf-fluid-nav{display:none}}
