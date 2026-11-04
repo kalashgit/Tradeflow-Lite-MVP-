@@ -36,6 +36,7 @@ function connect({document,getHost,motion,notify}){
  const controller=createController({getHost,motion,notify:report});let focusPending=false;
  function button(label,action){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.hostAction=action;b.className='tf-host-context';return b}
  function decorate(){const h=getHost();if(h?.version!==1)return;let context;try{context=h.getContext()}catch{return}
+  const orb=app.querySelector('.tf-ai-orb[data-orb-material="fallback"]');if(orb){orb.title='Intelligence — orb graphic unavailable';orb.setAttribute('aria-label','Open Intelligence; orb graphic unavailable')}
   const voice=app.querySelector('.tf-voice-sheet');if(voice&&!voice.querySelector('[data-host-action="open"]'))voice.querySelector('.tf-voice-top')?.after(button('Open conversation','open'));
   const dossier=app.querySelector('.tf-record-dossier');if(dossier&&!dossier.querySelector('[data-host-action]'))dossier.prepend(button('Ask Intelligence about this record','open'));
   const chat=app.querySelector('.tf-ai-chat-top');if(chat){const old=chat.querySelector('[data-host-action="return"]');if(context.origin&&!old)chat.append(button('Return to work','return'));if(!context.origin)old?.remove()}

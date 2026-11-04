@@ -55,5 +55,5 @@ test('missing or contradictory evidence cannot be smuggled into the case',()=>{
 });
 test('offline application precaches the added source module',()=>{
  const sw=fs.readFileSync('public/sw.js','utf8');
- assert.match(sw,/intelligence-case\.js/);assert.match(sw,/tradeflow-lite-home-founder-r01/);
+ assert.match(sw,/intelligence-case\.js/);assert.match(sw,/tradeflow-lite-home-visual-r01/);
 });

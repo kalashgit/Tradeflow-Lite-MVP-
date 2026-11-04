@@ -111,77 +111,40 @@ button:active, .btn:active, [role=button]:active {
   box-shadow: none !important;
   filter: none;
 }
-/* Home — three distinct levels: canvas, enclosing sections, raised KPI cards. */
-.tf-home-v2 { gap: var(--tf-gap-section); color: var(--tf-text); }
-.tf-home-v2 .tf-home-intro h1 { color: var(--tf-text); font-size: clamp(26px, 5.6vw, 36px); }
-.tf-home-v2 .tf-home-intro p { color: var(--tf-muted); font-size: 14px; }
-.tf-home-v2 .tf-home-stats {
-  padding: var(--tf-space-panel);
-  gap: var(--tf-gap-card);
-  background: var(--tf-panel);
-  border: 1px solid var(--tf-hairline);
-  border-radius: var(--tf-radius-panel);
-}
-.tf-home-v2 .tf-home-stat {
-  background: var(--tf-graphite-raised);
-  border: 1px solid var(--tf-border);
-  border-radius: var(--tf-radius-card);
-  padding: var(--tf-space-card);
-  box-shadow: none;
-  min-height: 112px;
-  color: var(--tf-text);
-}
-.tf-home-v2 .tf-home-stat strong { font-size: clamp(30px, 7.2vw, 40px); font-weight: 650; font-variant-numeric: tabular-nums; }
-.tf-home-v2 .tf-home-stat > span:last-child { color: var(--tf-muted); font-size: 13px; }
-.tf-home-v2 .tf-stat-icon { top: 16px; right: 14px; filter: none; color: var(--tf-accent-text, var(--tf-focus)); }
-.tf-home-v2 .tf-stat-icon svg { width: var(--tf-icon-size); height: var(--tf-icon-size); stroke-width: var(--tf-icon-stroke); }
-.tf-home-v2 :is(.tf-home-finance, .tf-home-trade, .tf-home-activity) {
-  background: var(--tf-panel);
-  border: 1px solid var(--tf-hairline);
-  border-radius: var(--tf-radius-panel);
-  box-shadow: none;
-  padding: var(--tf-space-panel);
-}
-.tf-home-v2 :is(.tf-home-kicker, .tf-home-sectionhead h2, .tf-home-event-text) { color: var(--tf-text); }
-.tf-home-v2 :is(.tf-home-growth, .tf-home-empty, .tf-home-sectionhead > span, .tf-home-trade-label small, .tf-home-trade-metrics small, .tf-home-progress-caption, .tf-home-event time) { color: var(--tf-muted); }
-.tf-home-v2 .tf-home-sectionhead > button { color: var(--tf-accent-text, var(--tf-focus)); }
-.tf-home-v2 .tf-home-period { border-color: var(--tf-border); color: var(--tf-text); border-radius: var(--tf-radius-control); }
-.tf-home-v2 :is(.tf-home-trade-icon, .tf-home-event-icon) { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-accent-text, var(--tf-focus)); }
-.tf-home-v2 :is(.tf-home-trade-metrics > div, .tf-home-event) { border-color: var(--tf-hairline); }
-.tf-home-v2 .tf-home-progress { background: var(--tf-graphite-raised); }
-.tf-chart-tooltip { background: var(--tf-graphite-raised); border-color: var(--tf-border); color: var(--tf-text); }
-.tf-chart-tooltip small { color: var(--tf-muted); }
-/* Five existing navigation destinations retain their geometry and handlers. */
-body .mobilebar, body:has(.tf-home-v2) .mobilebar {
-  background: var(--tf-panel) !important;
-  border: 1px solid var(--tf-hairline) !important;
-  border-bottom: 0 !important;
-  border-radius: var(--tf-radius-panel) var(--tf-radius-panel) 0 0 !important;
-  box-shadow: none !important;
-}
-body .mobilebar button { color: var(--tf-muted) !important; border-radius: var(--tf-radius-nav); }
-body .mobilebar button.active, body:has(.tf-home-v2) .mobilebar button.active {
-  background: var(--tf-selected-fill) !important;
-  border-color: var(--tf-selected-border) !important;
-  color: var(--tf-accent-text, var(--tf-focus)) !important;
-  box-shadow: none !important;
-}
-body .mobilebar button .navicon { filter: none !important; }
-body .mobilebar button .navicon svg { width: var(--tf-icon-size); height: var(--tf-icon-size); stroke-width: var(--tf-icon-stroke); }
-@media (hover: hover) {
-  .tf-home-v2 .tf-home-stat:hover, .sidebar .nav:hover { background: var(--tf-graphite-hover); }
-  .tf-unified-header :is(.tf-home-alert, .tf-intel-summary):hover { background: var(--tf-graphite-hover); }
-}
-@media (max-width: 480px) {
-  :root { --tf-space-panel: 16px; --tf-space-card: 14px; --tf-gap-section: 20px; }
-  .tf-home-v2 .tf-home-stat { min-height: 108px; }
-}
-@media (max-width: 360px) {
-  .tf-home-v2 .tf-home-stats { padding: 12px; gap: 10px; }
-  .tf-home-v2 .tf-home-stat { padding: 12px; }
-  .tf-home-v2 .tf-stat-icon { right: 10px; top: 12px; }
-}
-
+/* Home presentation has one owner here; gesture CSS owns only the dock. */
+:root { --tf-home-canvas:#050505; --tf-home-surface:#080b0c; --tf-home-edge:#23292b; }
+:root:has(.tf-home) { --tf-bg:var(--tf-home-canvas); }
+.tf-home-v2 { gap:20px; color:var(--tf-text); }
+.tf-home-v2 .tf-home-intro { padding:8px 0 2px; }
+.tf-home-v2 .tf-home-intro h1 { color:var(--tf-text); font-size:clamp(30px,7.7vw,38px); font-weight:700; letter-spacing:-.035em;line-height:1.18; }
+.tf-home-v2 .tf-home-intro p { color:var(--tf-muted); font-size:14px; margin-top:7px; }
+.tf-home-v2 .tf-home-stats {display:grid;grid-template-columns:repeat(4,minmax(4em,1fr));gap:8px;padding:0;background:transparent;border:0;border-radius:0;overflow-x:auto;max-width:100%;box-sizing:border-box;scroll-padding:0;}
+.tf-home-v2 .tf-home-stat {display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:6px;min-width:0;min-height:112px;padding:12px 10px;background:var(--tf-home-surface);border:1px solid var(--tf-home-edge);border-radius:14px;color:var(--tf-text);box-shadow:none;overflow-wrap:anywhere;}
+.tf-home-v2 .tf-home-stat:first-child {border-color:color-mix(in srgb,var(--tf-focus) 55%,var(--tf-home-edge));box-shadow:inset 0 0 16px color-mix(in srgb,var(--tf-focus) 5%,transparent),0 0 10px color-mix(in srgb,var(--tf-focus) 10%,transparent);}
+.tf-home-v2 .tf-home-stat strong {font-size:1.625rem;line-height:1.1;font-weight:650;font-variant-numeric:tabular-nums;}
+.tf-home-v2 .tf-home-stat > span:last-child {color:var(--tf-muted);font-size:.6875rem;line-height:1.35;margin:0;}
+.tf-home-v2 .tf-stat-icon {position:static;display:block;line-height:0;filter:none;color:var(--tf-text);}
+.tf-home-v2 .tf-stat-icon svg {width:24px;height:24px;stroke-width:1.7;}
+.tf-home-v2 :is(.tf-home-finance,.tf-home-trade,.tf-home-activity) {background:var(--tf-home-surface);border:1px solid var(--tf-home-edge);border-radius:16px;box-shadow:none;padding:18px;}
+.tf-home-v2 .tf-home-kicker {font-size:18px;font-weight:650;color:var(--tf-text);}
+.tf-home-finance {--tf-graphite-raised:var(--tf-home-surface);}
+.tf-home-v2 .tf-home-period {font-size:11px;min-height:32px;padding:5px 9px;max-width:47%;border:1px solid var(--tf-home-edge);background:var(--tf-home-surface);color:var(--tf-text);border-radius:10px;}
+.tf-home-v2 .tf-home-revenue {font-size:32px;line-height:1.15;margin-top:10px;color:var(--tf-text);}
+.tf-home-v2 .tf-home-growth {font-size:12px;color:var(--tf-muted);margin-top:4px;}
+.tf-home-v2 .tf-home-chart {margin-top:16px;}
+.tf-home-v2 .tf-home-chart svg {height:auto;aspect-ratio:720/190;filter:none;}
+.tf-home-header {--tf-panel:var(--tf-home-canvas);border-bottom:0;}
+.tf-home-header .tf-unified-inner {justify-content:space-between;gap:8px;}
+.tf-home-header .tf-unified-brand {gap:7px;}
+.tf-home-header .tf-home-logo {width:30px;height:32px;}
+.tf-home-header .tf-unified-wordmark {font-size:13px;letter-spacing:.16em;font-weight:750;}
+.tf-home-header-actions {display:flex;align-items:center;gap:8px;margin-left:auto;}
+.tf-home-header .tf-header-action,.tf-home-header .tf-home-alert {display:inline-flex;align-items:center;justify-content:center;width:44px;min-width:44px;height:44px;min-height:44px;border:1px solid var(--tf-home-edge);border-radius:12px;background:var(--tf-home-surface);color:var(--tf-text);box-shadow:none;padding:0;cursor:pointer;}
+.tf-home-header .tf-home-alert i {background:var(--tf-focus);border-color:var(--tf-home-surface);}
+.tf-home-header button:focus-visible {outline:2px solid var(--tf-focus);outline-offset:2px;}
+@media(max-width:370px){.tf-home-header-actions{gap:5px}.tf-home-header .tf-unified-wordmark{font-size:12px;letter-spacing:.12em}.tf-home-v2 .tf-home-stat{padding:12px 8px}.tf-home-v2 .tf-home-stat>span:last-child{font-size:.625rem}}
+/* Legacy static footer remains available when the gesture enhancement is disabled. */
+body .mobilebar:not(.tf-fluid-nav){background:var(--tf-panel);border:1px solid var(--tf-hairline);}
 /* Calendar — neutral chrome; category colors and warnings keep their own roles. */
 .tf-cal-page {
   --cal-border: var(--tf-hairline);
