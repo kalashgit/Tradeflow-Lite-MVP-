@@ -105,7 +105,7 @@
         const threads=clamp(Math.round(size*.79),78,192);
         const steps=clamp(Math.round(size*.79),96,240);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/355,.36,.72);
+        ctx.lineWidth=clamp(size/270,.47,.78);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -124,9 +124,9 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.16+.43*Math.pow(radial,2.25);
+            const grazing=.34+.43*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
-            const alpha=clamp(grazing+localRidge,.10,.77);
+            const alpha=clamp(grazing+localRidge,.24,.87);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
             const red=Math.round(32+12*u+10*foldTilt);

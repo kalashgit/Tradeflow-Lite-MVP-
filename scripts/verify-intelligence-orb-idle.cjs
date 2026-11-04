@@ -68,9 +68,11 @@ let browser;
      return {meanRed:+(totalRed/count).toFixed(1),meanBlue:+(totalBlue/count).toFixed(1),
        brightFraction:+(bright/count).toFixed(3),pixels:count};
    });
+   console.log('TF-MI-ORB-01 native material '+width+' '+motion+' '+JSON.stringify(material));
+   await page.screenshot({path:out+'/tradeflow-orb-'+width+'-'+motion+'.png',fullPage:true});
+   if(width===360)await orb.screenshot({path:out+'/tradeflow-orb-360-native.png'});
    assert.ok(material.meanBlue>material.meanRed*1.55,'founder palette must remain recognizably blue');
    assert.ok(material.brightFraction>.10,'fine blue strands must remain visible at native phone size');
-   await page.screenshot({path:out+'/tradeflow-orb-'+width+'-'+motion+'.png',fullPage:true});
    if(recording){
      await orb.screenshot({path:out+'/tradeflow-orb-mesh-detail.png'});
      // Material study from the IDENTICAL production renderer, at a larger
