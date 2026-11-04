@@ -37,7 +37,7 @@ let browser;
     db.close();
    });
    await page.reload();
-   await page.locator('.tf-ai-orb[data-orb-material="fine-mesh-v2"]').waitFor();
+   await page.locator('.tf-ai-orb[data-orb-material="woven-blue-v3"]').waitFor();
    await page.waitForTimeout(350);
    const orb=page.locator('.tf-ai-orb');
    assert.equal(await orb.locator('canvas.tf-orb-mesh').count(),1);
@@ -53,9 +53,40 @@ let browser;
    const after=await page.locator('.tf-orb-mesh').evaluate(c=>c.toDataURL('image/png'));
    if(motion==='reduce')assert.equal(before,after,'reduced-motion orb must stay still');
    else assert.notEqual(before,after,'living mesh must move between frames');
+   const material=await page.locator('.tf-orb-mesh').evaluate(canvas=>{
+     const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+     const pixels=ctx.getImageData(0,0,w,h).data;
+     let count=0,bright=0,totalRed=0,totalBlue=0;
+     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+       const nx=(x-w/2)/(w/2),ny=(y-h/2)/(h/2);
+       if(nx*nx+ny*ny>.50)continue;
+       const p=(y*w+x)*4;
+       totalRed+=pixels[p];totalBlue+=pixels[p+2];
+       if(pixels[p+2]>92)bright++;
+       count++;
+     }
+     return {meanRed:+(totalRed/count).toFixed(1),meanBlue:+(totalBlue/count).toFixed(1),
+       brightFraction:+(bright/count).toFixed(3),pixels:count};
+   });
+   assert.ok(material.meanBlue>material.meanRed*1.55,'founder palette must remain recognizably blue');
+   assert.ok(material.brightFraction>.10,'fine blue strands must remain visible at native phone size');
    await page.screenshot({path:out+'/tradeflow-orb-'+width+'-'+motion+'.png',fullPage:true});
    if(recording){
      await orb.screenshot({path:out+'/tradeflow-orb-mesh-detail.png'});
+     // Material study from the IDENTICAL production renderer, at a larger
+     // comparison raster, not a separate invented design or demo app.
+     for(const t of [5,14]){
+       const encoded=await page.evaluate(time=>{
+         const c=document.createElement('canvas');
+         c.getBoundingClientRect=()=>({width:144,height:144});
+         const test=window.TradeFlowOrbIdle.createRenderer(c,{root:window,document});
+         test.renderAt(time);
+         const png=c.toDataURL('image/png');
+         test.dispose();
+         return png;
+       },t);
+       fs.writeFileSync(out+'/tradeflow-orb-material-study-'+t+'.png',Buffer.from(encoded.split(',')[1],'base64'));
+     }
      // Real in-app recording: >12 seconds of unobscured idle before opening
      // the existing voice sheet. These are browser captures, not mock frames.
      await page.waitForTimeout(4000);
@@ -71,7 +102,7 @@ let browser;
    if(motion==='reduce')assert.equal(stats.observedFps,0,'reduced motion must not run a paint loop');
    else assert.ok(stats.observedFps>5&&stats.observedFps<=65,'observed cadence must reflect a live animation');
    if(recording)assert.ok(stats.frames>100,'full mobile idle recording must include actual live frames');
-   const proof={width,motion,placement,stats,recording,device:width<850?'Playwright Chromium mobile viewport DPR2':'Playwright Chromium desktop viewport DPR1'};
+   const proof={width,motion,placement,material,stats,recording,device:width<850?'Playwright Chromium mobile viewport DPR2':'Playwright Chromium desktop viewport DPR1'};
    fs.writeFileSync(out+'/performance-'+width+'-'+motion+'.json',JSON.stringify(proof,null,2));
    console.log('TF-MI-ORB-01 rendered measure '+JSON.stringify(proof));
    await orb.click();

@@ -9,7 +9,7 @@ test('living orb has bounded, non-uniform local folds without a large global pul
     const radius=[];
     for(let i=0;i<360;i++){
       const r=surfaceRadius(i*Math.PI/180,time);
-      assert.ok(r>.76&&r<.85,JSON.stringify({i,time,r}));
+      assert.ok(r>.84&&r<.97,JSON.stringify({i,time,r}));
       radius.push(r);
     }
     samples.push(radius.reduce((a,b)=>a+b,0)/radius.length);
@@ -25,8 +25,8 @@ test('fine threads move coherently but change over time',()=>{
   for(const x of [-.8,0,.8]) for(const y of [-.8,0,.8]){
     const [xx,yy]=meshPoint(x,y,3.7);
     assert.ok(Number.isFinite(xx)&&Number.isFinite(yy));
-    assert.ok(Math.abs(xx-x)<.045);
-    assert.ok(Math.abs(yy-y)<.085);
+    assert.ok(Math.abs(xx-x)<.065);
+    assert.ok(Math.abs(yy-y)<.12);
   }
 });
 
@@ -40,8 +40,10 @@ test('fold illumination is shaped by current geometry instead of a fixed halo',(
 
 test('mesh renderer remains a visual layer and does not start voice or workflows',()=>{
   const source=fs.readFileSync('public/intelligence-orb-idle.js','utf8');
-  assert.equal(version,'idle-mesh-v2');
+  assert.equal(version,'woven-blue-v3');
   assert.equal(source.includes('createRadialGradient'),false,'no glossy sphere gradient');
+  assert.ok(source.includes('37+28*u+23*foldTilt'),'threads must use the founder-approved blue palette');
+  assert.equal(source.includes('rgba(104,81,211'),false,'do not bring back violet material');
   for(const term of ['getUserMedia(', 'SpeechRecognition(', 'speechSynthesis.speak(', 'navigator.vibrate(', 'fetch(', 'WebGLRenderingContext', 'localStorage.']){
     assert.equal(source.includes(term),false,'unexpected side effect: '+term);
   }
@@ -50,12 +52,12 @@ test('mesh renderer remains a visual layer and does not start voice or workflows
 test('app and offline precache reference exact new mesh artifacts',()=>{
   const html=fs.readFileSync('public/index.html','utf8');
   const sw=fs.readFileSync('public/sw.js','utf8');
-  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-04','intelligence-orb-idle.css?v=orb-idle-04']){
+  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-05','intelligence-orb-idle.css?v=orb-idle-05']){
     assert.ok(html.includes(asset),asset+' in index');
     assert.ok(sw.includes(asset),asset+' in offline cache');
   }
   assert.ok(fs.existsSync('public/intelligence-orb-idle.css'));
-  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-04')<html.indexOf('<script type="module" src="./app.js'));
+  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-05')<html.indexOf('<script type="module" src="./app.js'));
 });
 
 test('existing Intelligence action is preserved; only decorative icon becomes hidden',()=>{
@@ -65,5 +67,5 @@ test('existing Intelligence action is preserved; only decorative icon becomes hi
   assert.ok(app.includes('tfAiOverlayView'));
   assert.ok(css.includes('.tf-ai-orb-icon'));
   assert.ok(css.includes('display:none!important'));
-  assert.ok(css.includes('fine-mesh-v2'));
+  assert.ok(css.includes('woven-blue-v3'));
 });
