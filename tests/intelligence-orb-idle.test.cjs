@@ -40,7 +40,7 @@ test('fold illumination is shaped by current geometry instead of a fixed halo',(
 
 test('mesh renderer remains a visual layer and does not start voice or workflows',()=>{
   const source=fs.readFileSync('public/intelligence-orb-idle.js','utf8');
-  assert.equal(version,'woven-blue-v8');
+  assert.equal(version,'woven-blue-v9');
   assert.ok(source.includes('drawFoldVeil(.35+.14*t,.72,.091,1)'), 'fold material must overlap nearby fibers');
   assert.equal(source.includes('createRadialGradient'),false,'no glossy sphere gradient');
   assert.ok(source.includes('32+12*u+10*foldTilt'),'threads must use the founder-requested blue palette');
@@ -56,12 +56,12 @@ test('mesh renderer remains a visual layer and does not start voice or workflows
 test('app and offline precache reference exact new mesh artifacts',()=>{
   const html=fs.readFileSync('public/index.html','utf8');
   const sw=fs.readFileSync('public/sw.js','utf8');
-  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-13','intelligence-orb-idle.css?v=orb-idle-13']){
+  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-14','intelligence-orb-idle.css?v=orb-idle-14']){
     assert.ok(html.includes(asset),asset+' in index');
     assert.ok(sw.includes(asset),asset+' in offline cache');
   }
   assert.ok(fs.existsSync('public/intelligence-orb-idle.css'));
-  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-13')<html.indexOf('<script type="module" src="./app.js'));
+  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-14')<html.indexOf('<script type="module" src="./app.js'));
 });
 
 test('existing Intelligence action is preserved; only decorative icon becomes hidden',()=>{
@@ -71,5 +71,5 @@ test('existing Intelligence action is preserved; only decorative icon becomes hi
   assert.ok(app.includes('tfAiOverlayView'));
   assert.ok(css.includes('.tf-ai-orb-icon'));
   assert.ok(css.includes('display:none!important'));
-  assert.ok(css.includes('woven-blue-v8'));
+  assert.ok(css.includes('woven-blue-v9'));
 });

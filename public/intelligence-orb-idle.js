@@ -202,7 +202,7 @@
           };
           ctx.save();
           ctx.globalCompositeOperation='source-over';
-          ctx.fillStyle=`rgba(2,8,31,${(.16*strength).toFixed(3)})`;
+          ctx.fillStyle=`rgba(1,5,23,${(.42*strength).toFixed(3)})`;
           ctx.beginPath();
           for(let i=0;i<=n;i++){
             const p=shape(i/n,false);
@@ -211,13 +211,27 @@
           for(let i=n;i>=0;i--){const p=shape(i/n,true);ctx.lineTo(p[0],p[1]);}
           ctx.closePath();ctx.fill();
           ctx.globalCompositeOperation='screen';
-          ctx.lineWidth=clamp(size/235,.5,.94);
-          ctx.strokeStyle='#4ca9ff';
+          // A single blurred continuous crest supplies the source's soft
+          // folded-sheet illumination; per-fiber details stay sharp beneath.
+          ctx.globalAlpha=.26*strength;
+          ctx.lineWidth=clamp(size/145,.8,1.7);
+          ctx.strokeStyle='#367df4';
+          ctx.shadowColor='rgba(52,133,255,.38)';
+          ctx.shadowBlur=clamp(size*.025,1.5,5);
+          ctx.beginPath();
+          for(let i=7;i<=n-7;i++){
+            const p=shape(i/n,true);
+            if(i===7)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
+          }
+          ctx.stroke();
+          ctx.shadowBlur=0;
+          ctx.lineWidth=clamp(size/220,.56,.97);
+          ctx.strokeStyle='#7bcfff';
           for(let i=0;i<n;i++){
             const a=shape(i/n,true),b=shape((i+1)/n,true);
             const local=(a[2]+b[2])/2;
             if(local<.045)continue;
-            ctx.globalAlpha=clamp(local*.40*strength,0,.44);
+            ctx.globalAlpha=clamp(local*.74*strength,0,.68);
             ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
           }
           ctx.restore();
@@ -359,11 +373,11 @@
       const canvas = document.createElement('canvas');
       canvas.className = 'tf-orb-mesh';
       canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v8');
+      canvas.setAttribute('data-idle-material', 'woven-blue-v9');
       // Decorative child only: parent button's data-action owns the click.
       button.appendChild(canvas);
       renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v8' : 'fallback';
+      button.dataset.orbMaterial = renderer ? 'woven-blue-v9' : 'fallback';
     }
     const observer = new root.MutationObserver(() => sync());
     const host = document.querySelector('#app');
@@ -379,6 +393,6 @@
     activeController=controller;
     return controller;
   }
-  return Object.freeze({ version: 'woven-blue-v8', surfaceRadius, meshPoint, foldLight,
+  return Object.freeze({ version: 'woven-blue-v9', surfaceRadius, meshPoint, foldLight,
     createRenderer, attach, stats:()=>activeController?.stats()||null });
 });
