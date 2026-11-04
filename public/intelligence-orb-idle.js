@@ -31,9 +31,9 @@
     return MEAN_RADIUS+.014*Math.sin(3*a-.09*time+1.1)
       +.009*Math.sin(7*a+.16*time)
       +.003*Math.sin(14*a-.11*time+.3)
-      +.051*(edgePacket(a,.35+.14*time,.39)-edgePacket(a,3.15-.12*time,.39))
-      +.029*(edgePacket(a,-1.45+.11*time,.30)-edgePacket(a,1.7+.09*time,.30))
-      +.011*(edgePacket(a,-2.6+.08*time,.27)-edgePacket(a,.95-.09*time,.27));
+      +.059*(edgePacket(a,.35+.14*time,.43)-edgePacket(a,3.15-.12*time,.43))
+      +.041*(edgePacket(a,-1.45+.11*time,.39)-edgePacket(a,1.7+.09*time,.39))
+      +.020*(edgePacket(a,-2.6+.08*time,.35)-edgePacket(a,.95-.09*time,.35));
   }
   // A bounded per-time angular table prevents thousands of extra Gaussian
   // evaluations when the mobile weave follows the same folded perimeter.
@@ -72,10 +72,12 @@
     const tangentFold=nearEdge?nearEdge*clamp(sampleContour(rimSlopes,angle)*.27,-.037,.037):0;
     // The low-frequency field carries the whole fabric; finer oscillations
     // ride on it as tiny woven creases, instead of repeating rigid stripes.
-    const xx=x+.014*Math.sin(y*5.4+x*3.2-t*.20)
+    const xx=x+.047*Math.sin(y*3.2+x*2.4-t*.18)
+      +.014*Math.sin(y*5.4+x*3.2-t*.20)
       +.008*Math.sin(y*15.1-x*6.3+t*.16)
       +.003*Math.sin(y*30+x*11-t*.07)-Math.sin(angle)*tangentFold;
-    const yy=y+.012*Math.sin(x*3.5+y*2.1+t*.11)
+    const yy=y+.059*Math.sin(x*3.1+y*1.8-t*.16)
+      +.012*Math.sin(x*3.5+y*2.1+t*.11)
       +.026*Math.sin(x*7.4+y*2.7-t*.28)
       +.013*Math.sin(x*14.8-y*5.4+t*.20)
       +.005*Math.sin(x*28.2+y*10.1-t*.13)
@@ -153,9 +155,15 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.47+.33*Math.pow(radial,2.25);
+            const grazing=.39+.31*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
-            const alpha=clamp(grazing+localRidge,.36,.91);
+            // This broad, slowly advected fold field shades entire groups of
+            // adjacent filaments, creating a continuous sheet rather than a
+            // uniform illuminated contour map. It is not a radial ball glow.
+            const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
+            const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
+            const materialShade=.16*sheetWave+.10*sheetCrest;
+            const alpha=clamp(grazing+localRidge+materialShade,.24,.92);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
             const red=Math.round(32+12*u+10*foldTilt);
@@ -236,9 +244,9 @@
           }
           ctx.restore();
         }
-        drawFoldVeil(.35+.14*t,.72,.091,1);
-        drawFoldVeil(-1.45+.11*t,.57,.073,.85);
-        drawFoldVeil(-2.6+.08*t,.52,.062,.72);
+        drawFoldVeil(.35+.14*t,.91,.13,1);
+        drawFoldVeil(-1.45+.11*t,.83,.115,.85);
+        drawFoldVeil(-2.6+.08*t,.68,.095,.72);
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
@@ -373,11 +381,11 @@
       const canvas = document.createElement('canvas');
       canvas.className = 'tf-orb-mesh';
       canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v9');
+      canvas.setAttribute('data-idle-material', 'woven-blue-v10');
       // Decorative child only: parent button's data-action owns the click.
       button.appendChild(canvas);
       renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v9' : 'fallback';
+      button.dataset.orbMaterial = renderer ? 'woven-blue-v10' : 'fallback';
     }
     const observer = new root.MutationObserver(() => sync());
     const host = document.querySelector('#app');
@@ -393,6 +401,6 @@
     activeController=controller;
     return controller;
   }
-  return Object.freeze({ version: 'woven-blue-v9', surfaceRadius, meshPoint, foldLight,
+  return Object.freeze({ version: 'woven-blue-v10', surfaceRadius, meshPoint, foldLight,
     createRenderer, attach, stats:()=>activeController?.stats()||null });
 });
