@@ -419,6 +419,18 @@ function tfHostRead(){
   selected,threadId:tfActiveChatThreadId,contextRecordId:tfAiReviewThreadId===tfActiveChatThreadId?tfAiReviewJobId:null};
 }
 window.TradeFlowSpeech?.connect({readContext:tfHostRead,readTurn:id=>tfChatMessages.find(turn=>turn.id===id),getCode:tfAiKey});
+window.TradeFlowConversationVoice?.connect({readContext:tfHostRead,ensureThread:()=>tfAiEnsureThread('Voice conversation'),getCode:tfAiKey,
+ unlockAudio:()=>window.TradeFlowSpeech?.unlock()?.catch(()=>{}),releaseAudio:()=>window.TradeFlowSpeech?.releaseAudio(),
+ stopPlayback:()=>window.TradeFlowSpeech?.stop('Voice interrupted playback.'),cancelInference:()=>{},
+ onDraft:text=>{tfHostDraftWrite(text)},
+ submit:async(text,signal)=>{const previous=tfChatMessages.at(-1)?.id;await tfAISend(text,{modality:'voice',signal});const reply=tfChatMessages.at(-1);return reply?.id!==previous&&reply?.role==='assistant'?reply:null},
+ play:async(reply,signal,onStarted)=>{
+  if(!window.TradeFlowSpeech?.has(reply.id))return false;
+  await window.TradeFlowSpeech.speak(reply.id);if(signal.aborted||window.TradeFlowSpeech.getState().status!=='speaking')return false;
+  onStarted();while(!signal.aborted&&['preparing','speaking'].includes(window.TradeFlowSpeech.getState().status))await new Promise(resolve=>setTimeout(resolve,40));
+  return !signal.aborted&&window.TradeFlowSpeech.getState().message==='Reply finished.';
+ }
+});
 function tfHostDraftRead(){return document.getElementById('tfAiPrompt')?.value??document.getElementById('tfAiQuickPrompt')?.value??tfAiPanelDraft??''}
 function tfHostDraftWrite(value){tfAiPanelDraft=value;const prompt=document.getElementById('tfAiPrompt')||document.getElementById('tfAiQuickPrompt');if(prompt)prompt.value=value}
 async function tfAiLoadHistory(){
@@ -501,6 +513,7 @@ function tfAiHistoryView(){
   '<button type="button" data-action="tfAiExportThread" '+(!tfActiveChatThreadId?'disabled':'')+'>Export</button>'+
   '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
 }
+function tfVoiceEnabled(){try{return !!tfAiKey()&&sessionStorage.getItem('tf-local-voice-enabled')==='1'}catch{return false}}
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
@@ -529,7 +542,7 @@ function tfAIChatView(data){
  const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
  const conversationReview=tfAiReviewJobId&&tfAiReviewThreadId===tfActiveChatThreadId?'<section class="tf-ai-preview-gate" aria-label="Conversation job approval"><strong>Job review and approval</strong><p>Local evidence only. Internal review actions require explicit approval; invoice preparation remains blocked where billing evidence is missing.</p><div data-decision-job="'+esc(tfAiReviewJobId)+'">'+(window.TradeFlowPilot?.decisions?.view(tfAiReviewJobId)||'')+'</div></section>':'';
  const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
- return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer">'+(tfVoiceEnabled()?(window.TradeFlowConversationVoice?.controls()||''):'')+'<label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
 }
 
 /* TradeFlow Intelligence node: screen-aware preview UI, no silent data access/actions. */
@@ -557,20 +570,21 @@ function tfAiOverlayView(){
  const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+(m.role==='assistant'?(window.TradeFlowSpeech?.controls(m.id)||''):'')+'</div>').join('');
  const promptButtons=tfAiCurrentPrompts().map(([title,prompt])=>'<button type="button" data-action="tfAiPanelPrompt" data-prompt="'+esc(prompt)+'" '+(tfChatBusy?'disabled':'')+'>'+esc(title)+'</button>').join('');
  const gate=!unlocked?'<form id="tfAiUnlockForm" class="tf-ai-mini-gate"><label for="tfAiPreviewCode">Private AI preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter your existing code" required><button type="submit">Unlock</button></div><small>Use the same private preview code. No account is created.</small></form>':'';
- return orb+'<section class="tf-ai-mini-panel" id="tfAiPanel" role="dialog" aria-modal="false" aria-labelledby="tfAiPanelTitle"><header class="tf-ai-mini-head"><span class="tf-ai-mini-grip" aria-hidden="true"></span><div class="tf-ai-mini-mark">'+emblem+'</div><div><small>TRADEFLOW / INTELLIGENCE</small><h2 id="tfAiPanelTitle">AI command panel</h2></div><button type="button" class="tf-ai-mini-close" data-action="tfAiClose" aria-label="Close AI panel">×</button></header><div class="tf-ai-mini-context"><span class="tf-ai-mini-live" aria-hidden="true"></span>Viewing '+esc(tfAiScreenTitles[tab]||'TradeFlow')+' <span>· Preview'+(tfAiPreviewMode?' · SYNTHETIC DEMO':'')+'</span></div><div class="tf-ai-mini-thread" id="tfAiMiniThread" role="log" aria-live="polite">'+(msgs||'<div class="tf-ai-mini-empty">How can I help you on this screen?</div>')+(tfChatBusy?'<div class="tf-ai-mini-thinking">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-mini-error" role="alert">'+esc(tfChatError)+'</p>':'')+gate+'<div class="tf-ai-mini-suggestions">'+promptButtons+'</div><form id="tfAiQuickForm" class="tf-ai-mini-compose"><label for="tfAiQuickPrompt">Ask TradeFlow AI</label><div><textarea id="tfAiQuickPrompt" name="prompt" rows="2" maxlength="1200" placeholder="'+(unlocked?'Ask a question or describe a task…':'Unlock the preview to send a message')+'" '+(unlocked&&!tfChatBusy?'':'disabled')+' required>'+esc(tfAiPanelDraft)+'</textarea><button type="submit" aria-label="Send to TradeFlow AI" '+(unlocked&&!tfChatBusy?'':'disabled')+'>➤</button></div><label class="tf-ai-mini-optin"><input type="checkbox" id="tfAiQuickContext" '+(tfChatWithSummary?'checked':'')+' '+(unlocked&&!tfChatBusy?'':'disabled')+'> Share anonymous business totals</label></form><footer class="tf-ai-mini-foot"><span>'+(tfAiPreviewMode?'Synthetic records only. No business actions.':'Screen name is shared; records stay private unless totals are enabled.')+'</span><button type="button" data-action="tfAiOpenFull">Expand ↗</button></footer><label class="tf-ai-haptic-setting"><input type="checkbox" switch id="tfAiHaptics" '+(tfUiHapticsEnabled?'checked':'')+'> Tactile feedback <small>(supported devices)</small></label></section>';
+ return orb+'<section class="tf-ai-mini-panel" id="tfAiPanel" role="dialog" aria-modal="false" aria-labelledby="tfAiPanelTitle"><header class="tf-ai-mini-head"><span class="tf-ai-mini-grip" aria-hidden="true"></span><div class="tf-ai-mini-mark">'+emblem+'</div><div><small>TRADEFLOW / INTELLIGENCE</small><h2 id="tfAiPanelTitle">AI command panel</h2></div><button type="button" class="tf-ai-mini-close" data-action="tfAiClose" aria-label="Close AI panel">×</button></header><div class="tf-ai-mini-context"><span class="tf-ai-mini-live" aria-hidden="true"></span>Viewing '+esc(tfAiScreenTitles[tab]||'TradeFlow')+' <span>· Preview'+(tfAiPreviewMode?' · SYNTHETIC DEMO':'')+'</span></div><div class="tf-ai-mini-thread" id="tfAiMiniThread" role="log" aria-live="polite">'+(msgs||'<div class="tf-ai-mini-empty">How can I help you on this screen?</div>')+(tfChatBusy?'<div class="tf-ai-mini-thinking">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-mini-error" role="alert">'+esc(tfChatError)+'</p>':'')+gate+'<div class="tf-ai-mini-suggestions">'+promptButtons+'</div><form id="tfAiQuickForm" class="tf-ai-mini-compose">'+(tfVoiceEnabled()?(window.TradeFlowConversationVoice?.controls()||''):'')+'<label for="tfAiQuickPrompt">Ask TradeFlow AI</label><div><textarea id="tfAiQuickPrompt" name="prompt" rows="2" maxlength="1200" placeholder="'+(unlocked?'Ask a question or describe a task…':'Unlock the preview to send a message')+'" '+(unlocked&&!tfChatBusy?'':'disabled')+' required>'+esc(tfAiPanelDraft)+'</textarea><button type="submit" aria-label="Send to TradeFlow AI" '+(unlocked&&!tfChatBusy?'':'disabled')+'>➤</button></div><label class="tf-ai-mini-optin"><input type="checkbox" id="tfAiQuickContext" '+(tfChatWithSummary?'checked':'')+' '+(unlocked&&!tfChatBusy?'':'disabled')+'> Share anonymous business totals</label></form><footer class="tf-ai-mini-foot"><span>'+(tfAiPreviewMode?'Synthetic records only. No business actions.':'Screen name is shared; records stay private unless totals are enabled.')+'</span><button type="button" data-action="tfAiOpenFull">Expand ↗</button></footer><label class="tf-ai-haptic-setting"><input type="checkbox" switch id="tfAiHaptics" '+(tfUiHapticsEnabled?'checked':'')+'> Tactile feedback <small>(supported devices)</small></label></section>';
 }
 function tfAiRefreshOverlay(){
  const host=document.getElementById('tfAiOverlayRoot');
  if(!host)return;
  host.innerHTML=tfAiOverlayView();
+ window.TradeFlowSpeech?.refresh();window.TradeFlowConversationVoice?.refresh();
  const log=host.querySelector('#tfAiMiniThread');
  if(log)log.scrollTop=log.scrollHeight;
 }
 async function tfAiUpdateChatUI(){
- if(tab==='ai'){await render();window.TradeFlowSpeech?.refresh();const log=document.getElementById('tfAiThread');if(log)log.scrollTop=log.scrollHeight}
+ if(tab==='ai'){await render();window.TradeFlowSpeech?.refresh();window.TradeFlowConversationVoice?.refresh();const log=document.getElementById('tfAiThread');if(log)log.scrollTop=log.scrollHeight}
  else tfAiRefreshOverlay();
 }
-function tfAiClosePanel(){if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
+function tfAiClosePanel(){window.TradeFlowConversationVoice?.stop();window.TradeFlowSpeech?.releaseAudio();if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
 /* Haptics are progressive enhancement: iOS Safari doesn't provide arbitrary web vibration.
    The native switch may provide its own system feedback; an eventual iOS native wrapper
    would use UIFeedbackGenerator/Core Haptics for custom event feedback. */
@@ -668,13 +682,13 @@ async function tfAiDescribeError(err){
   return 'Network error: the browser could not reach /api/ai/chat or /api/ai/health ('+message.slice(0,60)+'). Open the preview directly in Safari, disable content blockers/VPN if applicable, and retry.';
  }
 }
-async function tfAiLocalBriefingFollowUp(content){
+async function tfAiLocalBriefingFollowUp(content,{modality='text',signal}={}){
  const {classifyBriefingFollowUp}=await import('./intelligence-briefing.js');
  const kind=classifyBriefingFollowUp(content);
  if(!kind||!tfAiReviewJobId||tfAiReviewThreadId!==tfActiveChatThreadId)return false;
  const job=await get('jobs',tfAiReviewJobId);
  if(!job||job.businessId&&job.businessId!=='local-business'){tfAiReviewJobId=null;tfAiReviewThreadId=null;return false}
- await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ await tfAiSaveTurn({role:'user',content,modality,status:'committed',source:'user'});
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
   let answer='',refs=['jobs:'+job.id+'@0'];
@@ -729,16 +743,17 @@ async function tfAiLocalBriefingFollowUp(content){
    if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Could not open job');
    answer='Opened the saved job through the shared navigation command. No business record was changed.';
   }
+  if(signal?.aborted)return true;
   await tfAiSaveTurn({role:'assistant',content:answer,modality:'text',status:'committed',source:'device_local_evidence',refs});
  }catch(error){tfChatError='Follow-up unavailable: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
  return true;
 }
-async function tfAiLocalBusinessBriefing(content){
+async function tfAiLocalBusinessBriefing(content,{modality='text',signal}={}){
  const {isBusinessBriefingRequest,createOperationalBriefing}=await import('./intelligence-briefing.js');
  if(!isBusinessBriefingRequest(content))return false;
  if(!window.TradeFlowPilot?.evaluate)throw Error('Existing local operational detectors unavailable');
- await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ await tfAiSaveTurn({role:'user',content,modality,status:'committed',source:'user'});
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
   await tfAiClearJobContext();
@@ -747,17 +762,18 @@ async function tfAiLocalBusinessBriefing(content){
   const result=createOperationalBriefing({data:snapshot,evaluation,businessId:'local-business'});
   const oneJob=result.blockedJobIds.length===1?result.blockedJobIds[0]:null;
   const sourceRefs=[...new Set([...(oneJob?['jobs:'+oneJob+'@0']:[]),...result.refs.slice(0,8).map(r=>r+'@0')])].slice(0,8);
+  if(signal?.aborted)return true;
   const saved=await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:sourceRefs});
   if(oneJob)await tfAiBindJobContext(oneJob,saved);
  }catch(error){tfChatError='Business briefing unavailable: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
  return true;
 }
-async function tfAiLocalJobReview(content){
+async function tfAiLocalJobReview(content,{modality='text',signal}={}){
  const {resolveJobReviewIntent,explainJobDecision,assessInvoiceReadiness}=await import('./job-intelligence-request.js');
  const jobs=await all('jobs'),request=resolveJobReviewIntent(content,jobs);
  if(request.status==='not_job_review')return false;
- await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ await tfAiSaveTurn({role:'user',content,modality,status:'committed',source:'user'});
  tfChatBusy=true;await tfAiUpdateChatUI();
  try{
   let answer='',refs=[];
@@ -779,41 +795,47 @@ async function tfAiLocalJobReview(content){
    }
   const oneJob=request.status==='selected'&&request.jobs.length===1?request.jobs[0].id:null;
   const sourceRefs=[...new Set([...(oneJob?['jobs:'+oneJob+'@0']:[]),...refs])].slice(0,8);
+  if(signal?.aborted)return true;
   const saved=await tfAiSaveTurn({role:'assistant',content:answer.slice(0,2400),modality:'text',status:'committed',source:'device_local_evidence',refs:sourceRefs});
   if(oneJob)await tfAiBindJobContext(oneJob,saved);
  }catch(error){tfAiReviewJobId=null;tfAiReviewThreadId=null;tfChatError='Local job investigation was not completed: '+String(error.message||error).slice(0,160)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI();if(tfAiReviewJobId)await window.TradeFlowPilot?.decisions?.open(tfAiReviewJobId)}
  return true;
 }
-async function tfAISend(text){
+async function tfAISend(text,options={}){
+ const {modality='text',signal}=options;if(signal?.aborted)return;
  window.TradeFlowSpeech?.stop('New question; playback stopped.');
  const content=String(text||'').trim().slice(0,1200);
  if(!content||tfChatBusy)return;
- if(await tfAiLocalBriefingFollowUp(content))return;
-  if(await tfAiLocalBusinessBriefing(content))return;
-  if(await tfAiLocalJobReview(content))return;
+ if(await tfAiLocalBriefingFollowUp(content,options))return;
+  if(await tfAiLocalBusinessBriefing(content,options))return;
+  if(await tfAiLocalJobReview(content,options))return;
  if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
+ let requestScope;
  const assistantTurnId=crypto.randomUUID();
  tfChatError='';
- try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
+ try{await tfAiSaveTurn({role:'user',content,modality,status:'committed',source:'user'})}
  catch(error){tfChatError='Your message could not be saved locally; nothing was sent. Check available device storage.';await tfAiUpdateChatUI();return}
+ if(signal?.aborted)return;
+ requestScope=JSON.stringify(tfHostRead());
  tfChatBusy=true;
  await tfAiUpdateChatUI();
  try{
   let business=null;
   if(tfChatWithSummary){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
   const messages=tfChatMessages.slice(-8).map(({role,content})=>({role,content}));
-  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen,threadId:tfActiveChatThreadId,assistantTurnId}),cache:'no-store'});
+  const response=await fetch('/api/ai/chat',{signal,method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen,threadId:tfActiveChatThreadId,assistantTurnId}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
+  if(signal?.aborted||modality==='voice'&&JSON.stringify(tfHostRead())!==requestScope)return;
   tfAiPreviewMode=payload.syntheticDemo?String(payload.source||'mock'):tfAiPreviewMode;
   const spokenTurn=await tfAiSaveTurn({id:assistantTurnId,role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
    source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable'].includes(payload.source)?payload.source:'unverified_model',
    refs:payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
   if(payload.speech)window.TradeFlowSpeech?.register(spokenTurn,payload.speech);
- }catch(err){tfChatError=await tfAiDescribeError(err)}
+ }catch(err){if(err.name!=='AbortError')tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
 }
 document.addEventListener('submit',async e=>{
@@ -825,7 +847,7 @@ document.addEventListener('submit',async e=>{
    const response=await fetch('/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code}),cache:'no-store'});
    const result=await response.json().catch(()=>({}));
    if(!response.ok||!result.authorized)throw Error((result.error||'Cannot verify this access code')+' (HTTP '+response.status+')');
-   try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){throw Error('This browser does not allow session storage.')}
+   try{sessionStorage.setItem('tf-ai-preview-code',code);sessionStorage.setItem('tf-local-voice-enabled',result.voiceEnabled?'1':'0')}catch(err){throw Error('This browser does not allow session storage.')}
    tfAiPreviewMode=result.syntheticDemo?String(result.modelMode||'mock'):'';
    tfChatError='';tfAiStatus=result.syntheticDemo?'Synthetic development preview unlocked. No real business records are accessible.':'Access verified. AI connection available.';
   }catch(err){tfChatError=await tfAiDescribeError(err);tfAiStatus='Access verification unsuccessful.';}
@@ -1443,7 +1465,11 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   tfAiCancelHold();
   tfAiPanelOpen=false;
   tfUiHaptic('selection');
-  if(window.TradeFlowVoice?.startListening)window.TradeFlowVoice.startListening();
+  if(tfVoiceEnabled()&&window.TradeFlowConversationVoice){
+   tfAiPanelOpen=true;tfAiRefreshOverlay();
+   void window.TradeFlowConversationVoice.start();
+   void window.TradeFlowSpeech?.unlock()?.catch(()=>{});
+  }else if(window.TradeFlowVoice?.startListening)window.TradeFlowVoice.startListening();
   else notify('Voice assistant is loading. Please refresh this preview.');
   return;
  }
@@ -2498,7 +2524,7 @@ function tfInitializePilot(){
 if(window.TradeFlowHostLifecycleFactory){
  window.TradeFlowHostLifecycle=window.TradeFlowHostLifecycleFactory.createHostLifecycle({
   read:tfHostRead,readDraft:tfHostDraftRead,writeDraft:tfHostDraftWrite,
-  stopMicrophone:()=>window.TradeFlowVoice?.stopMicrophoneNow?.(),
+  stopMicrophone:()=>{window.TradeFlowConversationVoice?.stop();window.TradeFlowSpeech?.releaseAudio();window.TradeFlowVoice?.stopMicrophoneNow?.()},
   recordExists:async ref=>!!(await get(ref.store,ref.id))&&(!((await get(ref.store,ref.id))?.businessId)||((await get(ref.store,ref.id))?.businessId)==='local-business'),
   navigate:async target=>{if(target.selected)await tfPilotOpenRecord(target.selected);else await tfNavigateWorkspace(target.screen)},
   restoreFocus:target=>{const el=target.screen==='ai'?document.getElementById('tfAiPrompt'):document.querySelector('[data-tab="'+target.screen+'"]:visible');el?.focus?.()},
@@ -3359,7 +3385,7 @@ async function render(){if(tab!=='map')window.TradeFlowMapExperience?.close();co
   tfLastOpenedPageKey=nextPageKey;
   tfScrollOpenedPageToTop();
  }
- window.TradeFlowSpeech?.refresh();
+ window.TradeFlowSpeech?.refresh();window.TradeFlowConversationVoice?.refresh();
  if(tab==='map')setTimeout(()=>initializeMap(data),0)}
 // Touch acknowledgement uses transform/opacity only. Never delays an action or a data write.
 const tfPressTarget='button:not(:disabled),a[href],label[for]';

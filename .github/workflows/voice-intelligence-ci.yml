@@ -109,6 +109,8 @@ jobs:
           npm run test:browser 2>&1 | tee artifacts/browser.log
       - name: Speech playback browser regression (fixture-only, no model readiness claim)
         run: node scripts/verify-speech-playback-browser.cjs
+      - name: Conversation microphone lifecycle regression (stubbed ASR/inference)
+        run: node scripts/verify-conversation-voice-browser.cjs
       - name: Synthetic mobile and desktop proactive labor workflow
         shell: bash
         run: |

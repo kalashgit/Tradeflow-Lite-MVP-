@@ -2,14 +2,18 @@
 // Explicitly configured loopback developer runtime, never a business-action authority.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const {spawn}=require('node:child_process');
-const PINNED={kokoro:{model:'ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c',voices:'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d'},piper:{model:'6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22'}};
+const {checkRuntime}=require('./private-speech-runtime.cjs');
+const PINNED={kokoro:{model:'ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c',voices:'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d'},piper:{model:'6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22',config:'141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860'}};
 const digest=text=>crypto.createHash('sha256').update(text).digest('hex');
 function createLocalTtsProvider({config,python,timeoutMs=60000,spawnImpl=spawn}={}){
- let active=null,validated=false;
+ config=config?Object.freeze({...config}):config;
+ let active=null,validated=false,signature='';
  async function health(){
   if(!config||!python)return {ready:false,status:'disabled',executionAuthority:false};
   try{
    if(!['kokoro','piper'].includes(config.provider)||!path.isAbsolute(python)||!['am_michael','af_heart'].includes(config.voice)&&config.provider==='kokoro')throw Error();
+   const states=await Promise.all(Object.keys(PINNED[config.provider]).map(async field=>{const stat=await fs.stat(config[field]);return [field,stat.size,stat.mtimeMs,stat.ino]}));
+   const nextSignature=JSON.stringify(states);if(nextSignature!==signature)validated=false;
    if(!validated){
     await fs.access(python);
     for(const [field,expected] of Object.entries(PINNED[config.provider])){
@@ -20,9 +24,10 @@ function createLocalTtsProvider({config,python,timeoutMs=60000,spawnImpl=spawn}=
      const metadata=JSON.parse(await fs.readFile(config.config,'utf8'));
      if(metadata.audio?.sample_rate!==22050)throw Error();
     }
-    validated=true;
+    await checkRuntime(python,config.provider==='kokoro'?{'kokoro-onnx':'0.6.1','onnxruntime':'1.31.1'}:{'piper-tts':'1.8.0'});
+    signature=nextSignature;validated=true;
    }
-   return {ready:true,status:'weights_verified',provider:config.provider,voice:config.voice||'ljspeech',modelSha256:PINNED[config.provider].model,executionAuthority:false};
+   return {ready:true,status:'preflight_verified',modelLoaded:false,provider:config.provider,voice:config.voice||'ljspeech',modelSha256:PINNED[config.provider].model,executionAuthority:false};
   }catch{return {ready:false,status:'model_missing_or_checksum_mismatch',executionAuthority:false}}
  }
  async function synthesize(text,{signal}={}){

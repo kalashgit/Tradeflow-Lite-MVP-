@@ -15,8 +15,9 @@ function asMessages(messages){
     return {role:m.role,content:m.content};
   });
 }
-async function completeLocal({messages,enabled=false,baseUrl=DEFAULT_URL,timeoutMs=60000,maxTokens=320,fetchImpl=globalThis.fetch}={}){
-  if(!enabled)return {status:'disabled',answer:null,executionAuthority:false};
+async function completeLocal({messages,enabled=false,baseUrl=DEFAULT_URL,timeoutMs=60000,maxTokens=320,fetchImpl=globalThis.fetch,signal}={}){
+  if(signal?.aborted)return {status:'cancelled',answer:null,executionAuthority:false};
+ if(!enabled)return {status:'disabled',answer:null,executionAuthority:false};
   const url=endpointFor(baseUrl),safeMessages=asMessages(messages);
   if(!Number.isSafeInteger(timeoutMs)||timeoutMs<100||timeoutMs>180000)throw Error('Invalid timeout');
   if(!Number.isSafeInteger(maxTokens)||maxTokens<16||maxTokens>2048)throw Error('Invalid token budget');
@@ -25,14 +26,15 @@ async function completeLocal({messages,enabled=false,baseUrl=DEFAULT_URL,timeout
     response=await fetchImpl(url,{
       method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({messages:safeMessages,chat_template_kwargs:{enable_thinking:false},temperature:0.1,max_tokens:maxTokens,stream:false}),
-      signal:AbortSignal.timeout(timeoutMs)
+      signal:signal?AbortSignal.any([signal,AbortSignal.timeout(timeoutMs)]):AbortSignal.timeout(timeoutMs)
     });
   } catch(error){
-    return {status:'unavailable',answer:null,reason:error?.name==='TimeoutError'?'timeout':'transport_error',executionAuthority:false};
+    return {status:signal?.aborted?'cancelled':'unavailable',answer:null,reason:error?.name==='TimeoutError'?'timeout':'transport_error',executionAuthority:false};
   }
   if(!response.ok)return {status:'unavailable',answer:null,reason:'http_'+response.status,executionAuthority:false};
   let output;
   try{output=await response.json()}catch{return {status:'invalid_response',answer:null,executionAuthority:false}}
+  if(signal?.aborted)return {status:'cancelled',answer:null,executionAuthority:false};
   const choice=output?.choices?.[0],answer=choice?.message?.content;
   if(typeof answer!=='string'||!answer.trim()||answer.length>20000)return {status:'invalid_response',answer:null,reason:'empty_or_invalid_content',executionAuthority:false};
   if(choice.finish_reason!=='stop')return {status:'incomplete',answer:null,reason:choice.finish_reason||'missing_finish_reason',executionAuthority:false};

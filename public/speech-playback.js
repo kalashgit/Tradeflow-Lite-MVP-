@@ -3,13 +3,13 @@
  'use strict';
  const scopeKey=value=>JSON.stringify(value||null);
  function createPlayback({readContext,readTurn,getCode,fetchImpl=fetch,AudioContextImpl,emit=()=>{},onFeatures=()=>{}}){
-  const tickets=new Map();let generation=0,active=null,state={status:'idle',turnId:null,message:''},disposed=false;
+  const tickets=new Map();let generation=0,active=null,unlockedAudio=null,state={status:'idle',turnId:null,message:''},disposed=false;
   const current=(operation=active)=>!disposed&&operation&&active===operation&&active.generation===generation&&active.scope===scopeKey(readContext())&&readTurn(active.turnId)?.status==='committed';
   function update(status,message='',turnId=state.turnId){state={status,message,turnId};emit(Object.freeze({...state}))}
   function stop(reason='Playback stopped.'){
    generation++;
    const old=active;active=null;
-   if(old){old.abort.abort();clearInterval(old.meter);try{old.source?.stop()}catch{}try{old.source?.disconnect();old.analyser?.disconnect()}catch{}void old.audio.close().catch(()=>{})}
+   if(old){old.abort.abort();clearInterval(old.meter);try{old.source?.stop()}catch{}try{old.source?.disconnect();old.analyser?.disconnect()}catch{}if(old.audio!==unlockedAudio)void old.audio.close().catch(()=>{})}
    onFeatures(Object.freeze({version:1,source:'assistant_playback',active:false,rms:0,peak:0,spectralCentroidHz:0,at:Date.now()}));
    update('idle',reason);
   }
@@ -27,7 +27,7 @@
    let audio;
    try{
     // Runs synchronously from the click, before network awaits: explicit iOS audio unlock.
-    audio=new AudioContextImpl();const unlocking=audio.resume();
+    audio=unlockedAudio||new AudioContextImpl();const unlocking=audio.resume();
     const operation={generation,scope:scopeKey(context),turnId,audio,abort:new AbortController()};active=operation;
     update('preparing','Preparing local speech…',turnId);
     await unlocking;if(!current(operation))return;
@@ -63,7 +63,7 @@
     stop('');if(error.name!=='AbortError')update('unavailable',error.message||'Speech unavailable; use text.',turnId);
    }
   }
-  return {register,speak,stop,getState:()=>({...state}),has:id=>tickets.has(id),contextChanged(){if(active&&!current())stop('Context changed; playback cancelled.')},dispose(){disposed=true;stop('');tickets.clear()}};
+  return {register,speak,stop,unlock(){if(!AudioContextImpl)return Promise.reject(Error('Audio unavailable'));try{unlockedAudio=unlockedAudio||new AudioContextImpl();return unlockedAudio.resume()}catch(error){return Promise.reject(error)}},releaseAudio(){stop('');const old=unlockedAudio;unlockedAudio=null;if(old)void old.close().catch(()=>{})},getState:()=>({...state}),has:id=>tickets.has(id),contextChanged(){if(active&&!current())stop('Context changed; playback cancelled.')},dispose(){disposed=true;stop('');const old=unlockedAudio;unlockedAudio=null;if(old)void old.close().catch(()=>{});tickets.clear()}};
  }
  let playback=null,readContext=null;
  function paint(state){
@@ -96,5 +96,5 @@
  }
  return {version:1,createPlayback,connect,register:(...args)=>playback?.register(...args),refresh(){playback?.contextChanged();if(playback)paint(playback.getState())},stop:reason=>playback?.stop(reason),
   controls(turnId){return /^[\w-]{1,120}$/.test(turnId)&&playback?.has(turnId)?'<div class="tf-speech-controls" data-speech-controls="'+turnId+'"><button type="button" data-speech-speak="'+turnId+'">Listen to reply</button><button type="button" data-speech-stop hidden>Stop speech</button><span role="status" aria-live="polite"></span></div>':''},
-  getState:()=>playback?.getState()||{status:'disabled'}};
+  speak:turnId=>playback?.speak(turnId),has:turnId=>playback?.has(turnId),unlock:()=>playback?.unlock(),releaseAudio:()=>playback?.releaseAudio(),getState:()=>playback?.getState()||{status:'disabled'}};
 });
