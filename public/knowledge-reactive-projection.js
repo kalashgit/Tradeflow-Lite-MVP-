@@ -75,6 +75,14 @@ export async function projectLocalLaborSourceChange({
   sourceBinding,status:'detector_unavailable',sources,finding:null,
   invalidatedPrevious:previous!==null,modelCalls:0,
   readbackVerified:false,executionAuthority:false})}
+ if(evaluated?.version!==1||!Array.isArray(evaluated.findings)||
+    !Array.isArray(evaluated.coverage?.detectors)||
+    !evaluated.coverage.detectors.includes('job.labor_hours_variance_review'))
+  return freeze({kind:LABOR_PROJECTION_KIND,businessId:scope.businessId,
+   scopeBinding,jobId,sourceEventId:event.id,correlationId:event.correlationId,
+   sourceBinding,status:'detector_unavailable',sources,finding:null,
+   invalidatedPrevious:previous!==null,modelCalls:0,
+   readbackVerified:false,executionAuthority:false});
  const matching=Array.isArray(evaluated?.findings)?
   evaluated.findings.filter(f=>f?.detectorId==='job.labor_hours_variance_review'&&
     f.recordRefs?.some(r=>r.store==='jobs'&&r.id===jobId)):[];
@@ -102,7 +110,7 @@ export async function projectLocalLaborSourceChange({
   sourceEventId:event.id,correlationId:event.correlationId,
   sourceBinding,sources,
   status:replayChanged?'replayed_event_against_changed_source':
-   unchanged?'unchanged':finding?'candidate_finding':'no_current_recorded_overrun',
+   unchanged?'unchanged':finding?'candidate_finding':found?'source_or_detector_needs_review':'no_current_recorded_overrun',
   finding:replayChanged?null:finding,
   invalidatedPrevious:previous!==null&&!unchanged,
   derivedFrom:'existing_job_labor_detector',
