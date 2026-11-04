@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "actualSynthesis": true,
+  "hardware": "3 vCPU quota / 9.7 GiB RAM, Linux x86_64 CPU, two inference threads",
+  "measurement": "Fresh worker per utterance. modelLoadMs includes imports and initialization; processTotalMs is full-WAV latency, not first audible browser latency. No streaming claim.",
+  "results": [
+    {
+      "provider": "kokoro",
+      "phrase": 1,
+      "transcript": "TradeFlow is ready. What would you like to review?",
+      "file": "kokoro-1.wav",
+      "audioSha256": "e00db095039b6768532f85d0c589c6a04a71b57a72dba35041a3182266c140e0",
+      "processTotalMs": 9987,
+      "modelLoadMs": 2391,
+      "synthesisMs": 7124,
+      "durationMs": 3221,
+      "sampleRate": 24000,
+      "peakRssKiB": 315936
+    },
+    {
+      "provider": "kokoro",
+      "phrase": 2,
+      "transcript": "The recorded labor is fifty two hours. The estimate is missing, so a budget overrun is not verified.",
+      "file": "kokoro-2.wav",
+      "audioSha256": "47f54640041ff92f06266535382a4ea062d6486f1e86a5564edfaf20b77588ab",
+      "processTotalMs": 15518,
+      "modelLoadMs": 1647,
+      "synthesisMs": 13739,
+      "durationMs": 7445,
+      "sampleRate": 24000,
+      "peakRssKiB": 413352
+    },
+    {
+      "provider": "kokoro",
+      "phrase": 3,
+      "transcript": "Before invoicing, review the change order evidence and confirm approval. No invoice has been sent.",
+      "file": "kokoro-3.wav",
+      "audioSha256": "1d28c0019eae955a968f22c62f1a79f751cc6603fb31e060351be8853c457b8a",
+      "processTotalMs": 12533,
+      "modelLoadMs": 1378,
+      "synthesisMs": 11022,
+      "durationMs": 6993,
+      "sampleRate": 24000,
+      "peakRssKiB": 406396
+    },
+    {
+      "provider": "kokoro",
+      "phrase": 4,
+      "transcript": "Check the panel schedule, conduit route, and material list before returning to the job site.",
+      "file": "kokoro-4.wav",
+      "audioSha256": "63c9d0ab76994fbf40def18820070211542e5661a16fda59cdf0e6733a7f5b18",
+      "processTotalMs": 11762,
+      "modelLoadMs": 1572,
+      "synthesisMs": 10072,
+      "durationMs": 6080,
+      "sampleRate": 24000,
+      "peakRssKiB": 393396
+    },
+    {
+      "provider": "piper",
+      "phrase": 1,
+      "transcript": "TradeFlow is ready. What would you like to review?",
+      "file": "piper-1.wav",
+      "audioSha256": "cd036b6f927e2a29b93d8a47043ea5de11f828e827f768a6ccb0036b2c71b2bb",
+      "processTotalMs": 2604,
+      "modelLoadMs": 2268,
+      "synthesisMs": 227,
+      "durationMs": 2833,
+      "sampleRate": 22050,
+      "peakRssKiB": 184820
+    },
+    {
+      "provider": "piper",
+      "phrase": 2,
+      "transcript": "The recorded labor is fifty two hours. The estimate is missing, so a budget overrun is not verified.",
+      "file": "piper-2.wav",
+      "audioSha256": "9afa2fe87aee5ed90f44338b91a5c62846e356e5e3cf7cd0977968975ce23ec1",
+      "processTotalMs": 2846,
+      "modelLoadMs": 2219,
+      "synthesisMs": 536,
+      "durationMs": 6873,
+      "sampleRate": 22050,
+      "peakRssKiB": 239592
+    },
+    {
+      "provider": "piper",
+      "phrase": 3,
+      "transcript": "Before invoicing, review the change order evidence and confirm approval. No invoice has been sent.",
+      "file": "piper-3.wav",
+      "audioSha256": "c302cace85e8fbeec76fdc471f1c8275780d68a6b31cb16fda1d93b55fec4d61",
+      "processTotalMs": 2840,
+      "modelLoadMs": 2255,
+      "synthesisMs": 486,
+      "durationMs": 6374,
+      "sampleRate": 22050,
+      "peakRssKiB": 244624
+    },
+    {
+      "provider": "piper",
+      "phrase": 4,
+      "transcript": "Check the panel schedule, conduit route, and material list before returning to the job site.",
+      "file": "piper-4.wav",
+      "audioSha256": "b5abd5e7ecaad47c0f4a1be67ef093d08761c6119d0536b1729bff8ec158e7bc",
+      "processTotalMs": 3154,
+      "modelLoadMs": 2491,
+      "synthesisMs": 529,
+      "durationMs": 5642,
+      "sampleRate": 22050,
+      "peakRssKiB": 261864
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "actualQwen": true,
+  "actualModelTts": true,
+  "results": [
+    {
+      "viewport": "mobile",
+      "question": "Give two ways an electrician can reduce return trips.",
+      "actualGeneratedAnswer": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan tasks** to reduce the need for on-site visits.",
+      "source": "general_advice",
+      "inferenceMs": 4485,
+      "clickToWebAudioStartMs": 35621,
+      "actualAudioSha256": "2d99a70758f3e4117616402b89caa8716423a88184d7ea71317bc2e1b564d7fb",
+      "nonzeroFrames": 5,
+      "overflow": false,
+      "zeroBusinessWrites": true,
+      "physicalAudibilityVerified": false
+    },
+    {
+      "viewport": "desktop",
+      "question": "Give two ways an electrician can reduce return trips.",
+      "actualGeneratedAnswer": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan tasks** to reduce the need for on-site visits.",
+      "source": "general_advice",
+      "inferenceMs": 2241,
+      "clickToWebAudioStartMs": 24411,
+      "actualAudioSha256": "f00292633eee389cd5cc84a77d312d8691a6b260bcdbe5062e2d51b8eccce701",
+      "nonzeroFrames": 6,
+      "overflow": false,
+      "zeroBusinessWrites": true,
+      "physicalAudibilityVerified": false
+    }
+  ],
+  "videoAudio": "Play separate actual-answer.wav alongside silent browser video; Playwright does not record audio.",
+  "physicalIphoneVerified": false
+}

@@ -1,0 +1,6 @@
+.tf-speech-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tf-speech-controls button{min-height:44px;padding:8px 14px;border:1px solid var(--card-border,#34373d);border-radius:12px;background:var(--section-panel,#17181b);color:var(--text-primary,#f5f5f5);font:inherit;cursor:pointer}
+.tf-speech-controls button:focus-visible{outline:2px solid var(--accent,#65d3e1);outline-offset:3px}
+.tf-speech-controls button[hidden]{display:none}
+.tf-speech-controls button:disabled{opacity:.65;cursor:wait}
+.tf-speech-controls [role=status]{font-size:.85em;color:var(--text-secondary,#a9adb2);overflow-wrap:anywhere}

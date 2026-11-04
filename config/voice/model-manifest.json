@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "status": "private_development_only",
+  "defaultActivation": "disabled",
+  "audioRetention": "none",
+  "executionAuthority": false,
+  "providers": [
+    {
+      "id": "kokoro",
+      "runtime": "kokoro-onnx==0.6.1 / onnxruntime==1.31.1",
+      "runtimeLicense": "MIT (phonemizer/espeak dependencies have additional GPL obligations; review redistribution)",
+      "weightsLicense": "Apache-2.0",
+      "model": "Kokoro-82M v1.0 int8",
+      "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
+      "upstreamModelRevision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+      "sha256": "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c",
+      "voicesSha256": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+      "voice": "am_michael",
+      "selection": "Natural male evaluation candidate; real playback verified, CPU latency not conversational. Persona unapproved."
+    },
+    {
+      "id": "piper",
+      "runtime": "piper-tts==1.8.0",
+      "runtimeLicense": "GPL-3.0-only; separate private developer process, no commercial deployment clearance claimed",
+      "weightsLicense": "LJSpeech public-domain dataset, trained from scratch per source model card; upstream repository model MIT metadata. Review redistribution separately.",
+      "model": "en_US-ljspeech-medium",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/e7229f7d33a10e145e109b886d661984201ac3c4/en/en_US/ljspeech/medium",
+      "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+      "configSha256": "141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860",
+      "selection": "Provisional CPU development latency baseline. Female voice, not founder-approved persona."
+    }
+  ],
+  "llm": {
+    "name": "Qwen3-0.6B Q8_0",
+    "license": "Apache-2.0",
+    "source": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/tree/23749fefcc72300e3a2ad315e1317431b06b590a",
+    "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "runtime": "llama.cpp b12099 CPU, loopback-only port8088",
+    "note": "Constrained development model; general advice remains untrusted, not business evidence."
+  }
+}
