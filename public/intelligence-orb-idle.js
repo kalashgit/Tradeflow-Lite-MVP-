@@ -98,14 +98,14 @@
         ctx.clip(edge);
         // Near-black membrane backing: the Home cards must never show through.
         // No opaque colored disc, radial glass gradient, or baked-in highlight.
-        ctx.fillStyle='rgba(2,7,22,.95)';
+        ctx.fillStyle='rgba(4,12,34,.95)';
         ctx.fill(edge);
         // At native 66 CSS px, 57 broad lines looked like stripes; recover a
         // finer membrane using raster-adaptive hairlines, not a resized ball.
         const threads=clamp(Math.round(size*.79),78,192);
         const steps=clamp(Math.round(size*.79),96,240);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/270,.47,.78);
+        ctx.lineWidth=clamp(size/220,.56,.81);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -124,9 +124,9 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.34+.43*Math.pow(radial,2.25);
+            const grazing=.47+.33*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
-            const alpha=clamp(grazing+localRidge,.24,.87);
+            const alpha=clamp(grazing+localRidge,.36,.91);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
             const red=Math.round(32+12*u+10*foldTilt);
@@ -161,10 +161,10 @@
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(40,109,224,.25)');
-        rim.addColorStop(.32,'rgba(63,147,242,.33)');
-        rim.addColorStop(.67,'rgba(77,185,251,.45)');
-        rim.addColorStop(1,'rgba(99,214,255,.28)');
+        rim.addColorStop(0,'rgba(40,109,224,.38)');
+        rim.addColorStop(.32,'rgba(63,147,242,.43)');
+        rim.addColorStop(.67,'rgba(77,185,251,.57)');
+        rim.addColorStop(1,'rgba(99,214,255,.40)');
         ctx.strokeStyle=rim;
         ctx.lineWidth=clamp(size/260,.48,.93);
         ctx.shadowColor='rgba(36,120,242,.37)';
