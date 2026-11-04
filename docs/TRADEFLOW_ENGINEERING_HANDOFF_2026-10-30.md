@@ -348,3 +348,9 @@ Evidence: [exact runtime CI `41789192994`](https://github.com/kalashgit/Tradeflo
 
 Next gate: founder reviews native mobile recording and material-study captures; refine any outstanding density, edge, fold or glow discrepancies before approving idle and permitting speech-reactive implementation. PRs #16/#18/#29 remain draft/unmerged; production untouched. This documentation-only follow-up must itself pass exact-head CI.
 
+### Blue idle material V4 — finer threads and local fold study (4 November 2026)
+
+Continuation on draft PR #29: runtime commit `47fa0f093e8e0f2e0ba4613d15e131b6fa5ea04a` replaces V3's relatively broad stripes with approximately 82 thin blue strands at 132px DPR2 raster, additional low-contrast crossing fibers, and smoother multi-scale material advection. Perimeter uses small moving paired fold packets and locally linked highlights; the orb remains a 66px bottom-right control and keeps its existing click, voice sheet, navigation, reduced-motion freeze and offline cache via `orb-idle-06`. This is an iterative visual reconstruction; the founder has **not** approved the idle standard.
+
+Evidence: [exact V4 CI `41791587899`](https://github.com/kalashgit/Tradeflow-Lite-MVP-/actions/runs/41791587899) **SUCCESS**, artifact `13303865999`; 732/732 Node, 6/6 focused, browser mobile 360/390 DPR2, reduced-motion and desktop. At 390px: 465 painted frames / 15.61s, observed 30 FPS, average paint 6.69ms, p95 6.9ms, max 8ms; inner-surface mean blue 85.8 vs red 15 and visible blue fraction 48%. Increased density costs ~2.3ms additional p95 versus V3, to monitor on lower-powered physical phones. Actual 16.12s rendered mobile recording and same-renderer enlarged images retained for founder review. A real Safari/device performance/battery test and visual approval are still outstanding. No speech-reactive renderer, merge, deployment or production changes.
+
