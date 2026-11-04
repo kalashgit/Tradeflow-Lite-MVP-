@@ -28,11 +28,12 @@
   function surfaceRadius(angle, t) {
     const a=Number(angle),time=Number(t);
     if(!Number.isFinite(a)||!Number.isFinite(time))return MEAN_RADIUS;
-    return MEAN_RADIUS+.008*Math.sin(3*a-.09*time+1.1)
-      +.006*Math.sin(7*a+.16*time)
+    return MEAN_RADIUS+.014*Math.sin(3*a-.09*time+1.1)
+      +.009*Math.sin(7*a+.16*time)
       +.003*Math.sin(14*a-.11*time+.3)
-      +.049*(edgePacket(a,.35+.14*time,.39)-edgePacket(a,3.15-.12*time,.39))
-      +.029*(edgePacket(a,-1.45+.11*time,.30)-edgePacket(a,1.7+.09*time,.30));
+      +.051*(edgePacket(a,.35+.14*time,.39)-edgePacket(a,3.15-.12*time,.39))
+      +.029*(edgePacket(a,-1.45+.11*time,.30)-edgePacket(a,1.7+.09*time,.30))
+      +.011*(edgePacket(a,-2.6+.08*time,.27)-edgePacket(a,.95-.09*time,.27));
   }
   // A single advected displacement field drives every neighboring strand.
   // The boundary term draws internal threads into the SAME moving edge folds.
@@ -161,10 +162,10 @@
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(40,109,224,.38)');
-        rim.addColorStop(.32,'rgba(63,147,242,.43)');
-        rim.addColorStop(.67,'rgba(77,185,251,.57)');
-        rim.addColorStop(1,'rgba(99,214,255,.40)');
+        rim.addColorStop(0,'rgba(40,109,224,.24)');
+        rim.addColorStop(.32,'rgba(63,147,242,.29)');
+        rim.addColorStop(.67,'rgba(77,185,251,.38)');
+        rim.addColorStop(1,'rgba(99,214,255,.27)');
         ctx.strokeStyle=rim;
         ctx.lineWidth=clamp(size/260,.48,.93);
         ctx.shadowColor='rgba(36,120,242,.37)';
@@ -178,23 +179,32 @@
           const light=foldLight((a+b)/2,t);
           if(light<.28)continue;
           const ra=r*surfaceRadius(a,t),rb=r*surfaceRadius(b,t);
-          ctx.globalAlpha=clamp((light-.19)*.95,0,.70);
+          ctx.globalAlpha=clamp((light-.15)*1.23,0,.89);
           ctx.lineWidth=clamp(size/260,.48,.94);
           ctx.strokeStyle=light>.68?'#acebff':'#57beff';
           ctx.beginPath();
           ctx.moveTo(cx+ra*Math.cos(a),cy+ra*Math.sin(a));
           ctx.lineTo(cx+rb*Math.cos(b),cy+rb*Math.sin(b));
           ctx.stroke();
-          if(light>.48){
+          if(light>.43){
             // An inner displaced sheet is visible ONLY beside a fold, not as
             // an always-on concentric neon ring. Both contours travel.
-            const inset=r*(.022+.014*light);
-            ctx.globalAlpha=(light-.41)*.47;
+            const inset=r*(.031+.014*light);
+            ctx.globalAlpha=(light-.38)*.69;
             ctx.strokeStyle='#7ed1ff';
             ctx.beginPath();
             ctx.moveTo(cx+(ra-inset)*Math.cos(a),cy+(ra-inset)*Math.sin(a));
             ctx.lineTo(cx+(rb-inset)*Math.cos(b),cy+(rb-inset)*Math.sin(b));
             ctx.stroke();
+            if(light>.72){
+              const innerInset=r*(.061+.008*light);
+              ctx.globalAlpha=(light-.66)*.28;
+              ctx.strokeStyle='#438eff';
+              ctx.beginPath();
+              ctx.moveTo(cx+(ra-innerInset)*Math.cos(a),cy+(ra-innerInset)*Math.sin(a));
+              ctx.lineTo(cx+(rb-innerInset)*Math.cos(b),cy+(rb-innerInset)*Math.sin(b));
+              ctx.stroke();
+            }
           }
         }
         ctx.restore();
@@ -274,11 +284,11 @@
       const canvas = document.createElement('canvas');
       canvas.className = 'tf-orb-mesh';
       canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v5');
+      canvas.setAttribute('data-idle-material', 'woven-blue-v6');
       // Decorative child only: parent button's data-action owns the click.
       button.appendChild(canvas);
       renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v5' : 'fallback';
+      button.dataset.orbMaterial = renderer ? 'woven-blue-v6' : 'fallback';
     }
     const observer = new root.MutationObserver(() => sync());
     const host = document.querySelector('#app');
@@ -294,6 +304,6 @@
     activeController=controller;
     return controller;
   }
-  return Object.freeze({ version: 'woven-blue-v5', surfaceRadius, meshPoint, foldLight,
+  return Object.freeze({ version: 'woven-blue-v6', surfaceRadius, meshPoint, foldLight,
     createRenderer, attach, stats:()=>activeController?.stats()||null });
 });
