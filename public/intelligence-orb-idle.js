@@ -37,32 +37,39 @@
   }
   // A bounded per-time angular table prevents thousands of extra Gaussian
   // evaluations when the mobile weave follows the same folded perimeter.
-  const rimResolution=256, rimValues=new Float32Array(rimResolution);
+  const rimResolution=256, rimValues=new Float32Array(rimResolution),rimSlopes=new Float32Array(rimResolution);
   let rimTime=NaN;
-  function sampledRadius(angle,t){
+  function prepareContour(t){
     if(t!==rimTime){
       for(let i=0;i<rimResolution;i++)rimValues[i]=surfaceRadius(i*TAU/rimResolution,t);
+      for(let i=0;i<rimResolution;i++){
+        // Six sample intervals approximate the original symmetric .08-radian
+        // derivative while requiring zero extra exponentials per thread.
+        rimSlopes[i]=(rimValues[(i+3)%rimResolution]-rimValues[(i+rimResolution-3)%rimResolution])/(6*TAU/rimResolution);
+      }
       rimTime=t;
     }
-    const at=((angle%TAU+TAU)%TAU)*rimResolution/TAU;
-    const i=Math.floor(at)%rimResolution,f=at-Math.floor(at);
-    return rimValues[i]*(1-f)+rimValues[(i+1)%rimResolution]*f;
+  }
+  function sampleContour(values,angle){
+    // atan2 supplies [-pi,pi]; avoid modulo in the inner rendering loop.
+    const raw=angle*rimResolution/TAU,at=raw<0?raw+rimResolution:raw;
+    const i=Math.floor(at),f=at-i;
+    return values[i]*(1-f)+values[(i+1)&255]*f;
   }
   // A single advected displacement field drives every neighboring strand.
   // The boundary term draws internal threads into the SAME moving edge folds.
   function meshPoint(x,y,t){
     const distance=Math.min(1,Math.hypot(x,y));
     const angle=Math.atan2(y,x);
+    if(distance>.55)prepareContour(t);
     const boundaryCoupling=distance>.55
-      ?(sampledRadius(angle,t)/MEAN_RADIUS-1)*distance*distance*.78
+      ?(sampleContour(rimValues,angle)/MEAN_RADIUS-1)*distance*distance*.78
       :0;
     // Rolling surface folds pull the adjacent weave along the edge tangent.
     // This uses the derivative of the same silhouette, so crease/mesh/rim
     // cannot drift independently or turn into an unrelated looping particle.
     const nearEdge=clamp((distance-.60)/.31,0,1);
-    const tangentFold=nearEdge?nearEdge*clamp(
-      (sampledRadius(angle+.08,t)-sampledRadius(angle-.08,t))/.16*.27,
-      -.037,.037):0;
+    const tangentFold=nearEdge?nearEdge*clamp(sampleContour(rimSlopes,angle)*.27,-.037,.037):0;
     // The low-frequency field carries the whole fabric; finer oscillations
     // ride on it as tiny woven creases, instead of repeating rigid stripes.
     const xx=x+.014*Math.sin(y*5.4+x*3.2-t*.20)
