@@ -55,7 +55,8 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
    await execute('INSERT INTO businesses(id,name) VALUES (?,?)',[id,name]);
   for(const [tenant,subject,role] of [
    [businessId,'owner_01','owner'],[businessId,'crew_01','member'],
-   [businessId,'office_01','member'],[businessId,'viewer_01','viewer'],
+   [businessId,'office_01','member'],[businessId,'crew_02','member'],
+   [businessId,'viewer_01','viewer'],
    ['business_999','office_01','member']
   ])await execute(
    'INSERT INTO business_memberships(business_id,issuer,subject,role) VALUES (?,?,?,?)',
@@ -70,6 +71,7 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
    'INSERT INTO job_access_grants(business_id,job_id,issuer,subject,scope,granted_by_issuer,granted_by_subject) VALUES (?,?,?,?,?,?,?)',
    [businessId,jobId,issuer,subject,scope,issuer,'owner_01']);
   await grant('crew_01','crew');
+  await grant('crew_02','crew');
   await grant('office_01','office');
   const record=()=>db.prepare(
    'SELECT revision,payload,updated_by_issuer,updated_by_subject FROM tenant_records WHERE business_id=? AND record_type=? AND id=?'
@@ -77,6 +79,7 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
 
   const {createLocalCrewReport,submitGrantedCrewBlocker}=await import('../src/role-exchange.js');
   const {readOfficeCrewBlocker}=await import('../src/crew-office-inbox.js');
+  const {readAssignedCrewOfficeResponse}=await import('../src/crew-office-response.js');
   const {respondToCrewBlocker,acknowledgeOfficeBlockerResponse}=await import('../src/role-exchange-actions.js');
   const {reviewOfficeJobBlocker}=await import('../src/office-job-intelligence.js');
   const report=createLocalCrewReport({
@@ -98,6 +101,14 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
   assert.equal(officeRead.actorAttributionVerified,false);
   assert.equal(officeRead.officeAcknowledged,false);
   assert.equal(officeRead.observedJobRevision,2);
+  const waiting=await readAssignedCrewOfficeResponse({...crew,
+   reportEventId:report.eventId,expectedJobRevision:2});
+  assert.equal(waiting.state,'awaiting_office_response');
+  assert.equal(waiting.officeResponse.status,'not_recorded');
+  assert.equal(waiting.externalDeliveryVerified,false);
+  await assert.rejects(readAssignedCrewOfficeResponse({...crew,
+   principal:principal('crew_02'),reportEventId:report.eventId}),{status:403},
+   'another crew member with the same job grant cannot claim the reporter identity');
 
   // Reuse a real office grant rather than granting generic job access.
   const response=await respondToCrewBlocker({...office,
@@ -112,6 +123,17 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
   assert.equal(response.acknowledged,false);
   assert.equal(response.externalEffects,false);
   assert.equal((await record()).revision,3);
+  const returned=await readAssignedCrewOfficeResponse({...crew,
+   reportEventId:report.eventId,expectedJobRevision:3});
+  assert.equal(returned.state,'office_response_recorded');
+  assert.equal(returned.officeResponse.eventId,'office_response_01');
+  assert.match(returned.officeResponse.text,/supplier ETA/);
+  assert.equal(returned.crewAcknowledgment.status,'not_recorded');
+  assert.equal(returned.officeTaskReceipt,null);
+  assert.equal(returned.commandExecuted,false);
+  assert.equal(returned.executionAuthority,false);
+  await assert.rejects(readAssignedCrewOfficeResponse({...crew,
+   reportEventId:report.eventId,expectedJobRevision:2}),{status:409});
 
   const acknowledgment=await acknowledgeOfficeBlockerResponse({...crew,
    eventId:'crew_ack_01',idempotencyKey:'crew_ack_op_01',
@@ -125,6 +147,12 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
   assert.equal(acknowledgment.externalEffects,false);
   assert.equal((await record()).revision,4);
   assert.equal((await record()).updated_by_subject,'crew_01');
+  const observedAck=await readAssignedCrewOfficeResponse({...crew,
+   reportEventId:report.eventId,expectedJobRevision:4});
+  assert.equal(observedAck.state,'acknowledgment_recorded');
+  assert.equal(observedAck.crewAcknowledgment.persistedEventPresent,true);
+  assert.equal(observedAck.externalDeliveryVerified,false);
+  assert.equal(observedAck.materialsResolved,false);
 
   const review=await reviewOfficeJobBlocker({
    ...office,eventId:report.eventId,expectedJobRevision:4
@@ -184,6 +212,8 @@ test('disposable D1: assigned crew blocker -> authorized office response -> same
    expectedJobRevision:4,reportEventId:report.eventId,
    responseEventId:'office_response_01'
   }),{status:403});
+  await assert.rejects(readAssignedCrewOfficeResponse({...crew,
+   reportEventId:report.eventId}),{status:403});
   assert.equal((await record()).revision,4);
  }finally{
   if(dispose)await dispose();
