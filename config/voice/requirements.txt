@@ -1,0 +1,8 @@
+# Private developer environment only. No automatic download / production dependency.
+kokoro-onnx==0.6.1
+onnxruntime==1.31.1
+# Evaluation baseline only: GPL-3.0 runtime, not bundled into TradeFlow.
+piper-tts==1.8.0
+
+# Local English CPU recognition, private cache / offline inference.
+faster-whisper==1.2.1

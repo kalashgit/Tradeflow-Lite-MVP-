@@ -8,6 +8,8 @@ const http=require('node:http'),fs=require('node:fs/promises'),path=require('nod
 const crypto=require('node:crypto');
 const {briefFromAuthorizedSource}=require('../src/local-ai-context-bridge.cjs');
 const {adviseGenerally}=require('../src/local-ai-general-advice.cjs');
+const {createLocalAsrProvider}=require('../src/local-asr-provider.cjs');
+const {createLocalTtsProvider,createSpeechTickets}=require('../src/local-tts-provider.cjs');
 const STATIC_ROOT=path.resolve(__dirname,'../public');
 const principal=Object.freeze({verified:true,issuer:'https://synthetic.preview.invalid',subject:'synthetic_owner'});
 const businessId='synthetic_demo_business';
@@ -26,8 +28,8 @@ function authorized(code,secret){
  const a=crypto.createHash('sha256').update(code).digest(),b=crypto.createHash('sha256').update(secret).digest();
  return crypto.timingSafeEqual(a,b);
 }
-async function bodyJson(req){
- const limit=20000,chunks=[];let n=0;
+async function bodyJson(req,limit=20000){
+ const chunks=[];let n=0;
  for await(const chunk of req){n+=chunk.length;if(n>limit)throw Object.assign(Error('Request too large'),{status:413});chunks.push(chunk)}
  try{return JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{throw Object.assign(Error('Invalid JSON'),{status:400})}
 }
@@ -83,9 +85,11 @@ function mockOutOfScope(question){
   return 'Synthetic demo: This fixed test dataset does not answer that question. This is not a real AI-generated analysis; use live Qwen when it is available. No business action was taken.';
  return null;
 }
-function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0}}={}){
+function createPreviewServer({secret,mode='mock',localFetch,speechProvider=createLocalTtsProvider(),asrProvider=createLocalAsrProvider(),metrics={reads:0,writes:0}}={}){
  if(typeof secret!=='string'||secret.length<12)throw Error('Development preview token must be at least 12 characters');
  if(!['mock','live','unavailable'].includes(mode))throw Error('Invalid preview model mode');
+ const tickets=createSpeechTickets();
+ let speechWindow=Date.now(),speechRequests=0;
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   try{
@@ -98,11 +102,40 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      }
      return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady});
     }
-    if((url.pathname==='/api/ai/verify'||url.pathname==='/api/ai/chat')&&req.method==='POST'){
+    if(['/api/ai/verify','/api/ai/chat','/api/ai/speech/health','/api/ai/speech/synthesize','/api/ai/speech/recognize','/api/ai/speech/input-health'].includes(url.pathname)&&req.method==='POST'){
      if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON required'});
-     const data=await bodyJson(req);
+     const data=await bodyJson(req,url.pathname==='/api/ai/speech/recognize'?1300000:20000);
      if(!authorized(data.code,secret))return send(res,401,{authorized:false,error:'Invalid preview code'});
-     if(url.pathname==='/api/ai/verify')return send(res,200,{authorized:true,syntheticDemo:true,modelMode:mode});
+     if(url.pathname==='/api/ai/verify')return send(res,200,{authorized:true,syntheticDemo:true,modelMode:mode,voiceEnabled:(await asrProvider.health()).ready&&(await speechProvider.health()).ready});
+     if(url.pathname==='/api/ai/speech/input-health')return send(res,200,await asrProvider.health());
+     if(url.pathname==='/api/ai/speech/recognize'){
+      if(typeof data.wav!=='string'||data.wav.length>1280060||! /^[A-Za-z0-9+/]*={0,2}$/.test(data.wav))return send(res,400,{error:'Invalid bounded audio payload'});
+      if(Date.now()-speechWindow>60000){speechWindow=Date.now();speechRequests=0}
+      if(++speechRequests>12)return send(res,429,{error:'Local speech request limit reached'});
+      const controller=new AbortController();const cancel=()=>{if(!res.writableEnded)controller.abort()};res.on('close',cancel);
+      try{const result=await asrProvider.transcribe(Buffer.from(data.wav,'base64'),{signal:controller.signal});if(!controller.signal.aborted)send(res,200,result)}finally{res.removeListener('close',cancel)}
+      return;
+     }
+     if(url.pathname==='/api/ai/speech/health')return send(res,200,await speechProvider.health());
+     if(url.pathname==='/api/ai/speech/synthesize'){
+      const text=tickets.read(data);
+      if(!text)return send(res,403,{error:'Speech answer expired or context does not match; send a new question'});
+      if(Date.now()-speechWindow>60000){speechWindow=Date.now();speechRequests=0}
+      if(++speechRequests>12)return send(res,429,{error:'Local speech request limit reached'});
+      const controller=new AbortController();
+      const cancel=()=>{if(!res.writableEnded)controller.abort()};res.on('close',cancel);
+      try{
+       const result=await speechProvider.synthesize(text,{signal:controller.signal});
+       if(controller.signal.aborted)return;
+       res.writeHead(200,{'Content-Type':'audio/wav',...headers,'Content-Length':result.audio.length,
+        'X-TradeFlow-Text-SHA256':result.textSha256,'X-TradeFlow-Speech-Provider':result.provider});
+       res.end(result.audio);
+      }finally{res.removeListener('close',cancel)}
+      return;
+     }
+     const withSpeech=reply=>({...reply,...(mode==='live'&&['general_advice','local_qwen'].includes(reply.source)?
+      {speech:tickets.issue({text:reply.reply.trim().slice(0,2500),threadId:data.threadId,turnId:data.assistantTurnId})}:{})});
+     const inferenceAbort=new AbortController();res.once('close',()=>{if(!res.writableEnded)inferenceAbort.abort()});
      const question=Array.isArray(data.messages)?[...data.messages].reverse().find(m=>m?.role==='user')?.content:null;
      if(typeof question!=='string'||question.trim().length<3||question.length>500)return send(res,400,{error:'Question must contain 3–500 characters'});
      // Intentionally ignore the browser's "business", "screen" and claimed identity fields.
@@ -117,18 +150,18 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      // a separate, zero-record, opt-in general-advice inference path in LIVE mode.
      // In mock mode the explicit missing-evidence response above remains authoritative.
      if(mode==='live' && mockOutOfScope(question)){
-      const result=await adviseGenerally({question:question.trim(),enabled:true,timeoutMs:45000,...(localFetch?{fetchImpl:localFetch}:{})});
+      const result=await adviseGenerally({question:question.trim(),enabled:true,timeoutMs:45000,signal:inferenceAbort.signal,history:data.messages.slice(0,-1),...(localFetch?{fetchImpl:localFetch}:{})});
       if(result.status!=='completed')return send(res,200,{reply:'Qwen could not complete general guidance ('+result.status+'). No business action was taken.',refs:[],source:'unavailable',syntheticDemo:true,executionAuthority:false});
-      return send(res,200,{reply:result.answer,refs:[],source:'general_advice',syntheticDemo:true,executionAuthority:false,readReverified:false});
+      return send(res,200,withSpeech({reply:result.answer,refs:[],source:'general_advice',syntheticDemo:true,executionAuthority:false,readReverified:false}));
      }
      const {readIntelligenceContext}=await import('../src/intelligence-context.js');
      const result=await briefFromAuthorizedSource({
       db:syntheticDb(metrics),principal,businessId,question:question.trim(),enabled:true,synthetic:true,
-      contextReader:readIntelligenceContext,timeoutMs:45000,
+      contextReader:readIntelligenceContext,timeoutMs:45000,signal:inferenceAbort.signal,
       ...(mode==='mock'?{fetchImpl:localFetch||deterministicModelFetch}:localFetch?{fetchImpl:localFetch}:{})
      });
      if(result.status!=='completed')return send(res,200,{reply:'The local model could not complete a verified briefing ('+result.status+'). No business action was taken.',refs:[],source:'unavailable',syntheticDemo:true,executionAuthority:false});
-     return send(res,200,{reply:result.answer,refs:result.refs,source:mode==='mock'?'synthetic_mock':'local_qwen',syntheticDemo:true,executionAuthority:false,readReverified:result.readReverified});
+     return send(res,200,withSpeech({reply:result.answer,refs:result.refs,source:mode==='mock'?'synthetic_mock':'local_qwen',syntheticDemo:true,executionAuthority:false,readReverified:result.readReverified}));
     }
     return send(res,404,{error:'No such development AI endpoint'});
    }
@@ -144,13 +177,16 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
    res.end(req.method==='HEAD'?null:content);
   }catch(error){send(res,error?.status||503,{error:error?.status?error.message:'Development preview request could not be completed'})}
  });
+ server.on('close',()=>{tickets.clear();speechProvider.close?.();asrProvider.close?.()});
  return {server,metrics};
 }
 if(require.main===module){
  const secret=process.env.TF_AI_DEV_PREVIEW_TOKEN||crypto.randomBytes(24).toString('base64url');
  const mode=process.env.TF_AI_DEV_MODEL||'mock';
  const port=Number(process.env.TF_AI_DEV_PORT||4188);
- const {server}=createPreviewServer({secret,mode});
+ const speechProvider=createLocalTtsProvider({python:process.env.TF_TTS_PYTHON,config:process.env.TF_TTS_CONFIG?JSON.parse(require('node:fs').readFileSync(process.env.TF_TTS_CONFIG,'utf8')):undefined});
+ const asrProvider=createLocalAsrProvider({python:process.env.TF_TTS_PYTHON,model:process.env.TF_ASR_MODEL});
+ const {server}=createPreviewServer({secret,mode,speechProvider,asrProvider});
  server.listen(port,'127.0.0.1',()=>{
   console.log('TradeFlow SYNTHETIC AI development preview — no real accounts or business writes.');
   console.log('Preview: http://127.0.0.1:'+port+' | Mode: '+mode+' | local only');

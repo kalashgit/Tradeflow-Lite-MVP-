@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "physicalDeviceVerified": false,
+  "humanSpeechAccuracyVerified": false,
+  "results": [
+    {
+      "viewport": "mobile",
+      "actualLocalASR": true,
+      "actualQwen": true,
+      "actualModelTTS": true,
+      "microphoneSource": "synthetic Piper test speech via Chromium fake device, NOT human",
+      "canonicalThread": "9b8cedf2-d523-456e-b1d4-d283f4a0ebbb",
+      "turns": [
+        {
+          "id": "22003ab1-aa38-423c-a214-6dc3fcda8393",
+          "role": "user",
+          "modality": "voice",
+          "status": "committed",
+          "content": "Give two ways an electrician can reduce return trips."
+        },
+        {
+          "id": "becdc17a-3f1e-43c5-b253-1232790835e1",
+          "role": "assistant",
+          "modality": "text",
+          "status": "committed",
+          "content": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan work schedules** to reduce idle time and improve efficiency."
+        },
+        {
+          "id": "d0413b99-1700-47d9-9426-0168817c1980",
+          "role": "user",
+          "modality": "voice",
+          "status": "committed",
+          "content": "What should I put on that material checklist?"
+        },
+        {
+          "id": "22793db2-e714-4378-9fe3-e7b6e04ef6d3",
+          "role": "assistant",
+          "modality": "text",
+          "status": "committed",
+          "content": "- **Material specifications** (e.g., type, quantity, dimensions).  \n- **Tool and equipment** (e.g., tools, safety gear, certifications).  \n- **Work area requirements** (e.g., space, tools available)."
+        }
+      ],
+      "transcripts": [
+        {
+          "version": 1,
+          "text": "Give two ways an electrician can reduce return trips.",
+          "confidence": "model_transcript_unverified",
+          "metrics": {
+            "modelLoadMs": 641,
+            "recognitionMs": 729,
+            "audioDurationMs": 4690
+          },
+          "executionAuthority": false
+        },
+        {
+          "version": 1,
+          "text": "What should I put on that material checklist?",
+          "confidence": "model_transcript_unverified",
+          "metrics": {
+            "modelLoadMs": 289,
+            "recognitionMs": 709,
+            "audioDurationMs": 3762
+          },
+          "executionAuthority": false
+        }
+      ],
+      "audio": [
+        {
+          "file": "mobile-reply-1.wav",
+          "sha256": "5d89ccaffb6b823aabe601b17f89fb6d7f14c877ebc4628995fc701b5d7febff"
+        },
+        {
+          "file": "mobile-reply-2.wav",
+          "sha256": "1191ec469e3a8bfa36e975f81ef0830036e9b37de98220dc0f165d66f693ca0a"
+        }
+      ],
+      "vadEndToFirstWebAudioMs": 8406,
+      "zeroBusinessWrites": true,
+      "stateSequence": [
+        "idle",
+        "requesting_permission",
+        "listening",
+        "capturing",
+        "transcribing",
+        "reasoning",
+        "preparing",
+        "speaking",
+        "listening",
+        "capturing",
+        "transcribing",
+        "reasoning",
+        "preparing",
+        "speaking",
+        "idle"
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "actualLocalASR": true,
+      "actualQwen": true,
+      "actualModelTTS": true,
+      "microphoneSource": "synthetic Piper test speech via Chromium fake device, NOT human",
+      "canonicalThread": "b9e90466-824f-42c1-9bf3-a1827f827d9d",
+      "turns": [
+        {
+          "id": "3d6e602e-9862-4184-be01-ff7225957cff",
+          "role": "user",
+          "modality": "voice",
+          "status": "committed",
+          "content": "Give two ways an electrician can reduce return trips."
+        },
+        {
+          "id": "b46e8f2d-d26f-40b6-87fd-4a1a80f88c59",
+          "role": "assistant",
+          "modality": "text",
+          "status": "committed",
+          "content": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan tasks** to reduce idle time and improve efficiency."
+        },
+        {
+          "id": "20d92003-04c0-4f20-bcb9-4165e85b677f",
+          "role": "user",
+          "modality": "voice",
+          "status": "committed",
+          "content": "What should I put on that material checklist?"
+        },
+        {
+          "id": "f61044f0-34bf-4222-bdd8-3095f11cb224",
+          "role": "assistant",
+          "modality": "text",
+          "status": "committed",
+          "content": "- **Check for proper documentation** and ensure all necessary records are complete.  \n- **Verify material specifications** against the order to avoid discrepancies."
+        }
+      ],
+      "transcripts": [
+        {
+          "version": 1,
+          "text": "Give two ways an electrician can reduce return trips.",
+          "confidence": "model_transcript_unverified",
+          "metrics": {
+            "modelLoadMs": 317,
+            "recognitionMs": 572,
+            "audioDurationMs": 4737
+          },
+          "executionAuthority": false
+        },
+        {
+          "version": 1,
+          "text": "What should I put on that material checklist?",
+          "confidence": "model_transcript_unverified",
+          "metrics": {
+            "modelLoadMs": 417,
+            "recognitionMs": 777,
+            "audioDurationMs": 3808
+          },
+          "executionAuthority": false
+        }
+      ],
+      "audio": [
+        {
+          "file": "desktop-reply-1.wav",
+          "sha256": "4d48e9fc84e8cbd9f9e322d265939a7081072ac283062cefa693600ffe27cad0"
+        },
+        {
+          "file": "desktop-reply-2.wav",
+          "sha256": "6588e033517a97943b12eea5054dcadb4240192a2f47c00214daac6ead446b11"
+        }
+      ],
+      "vadEndToFirstWebAudioMs": 11642,
+      "zeroBusinessWrites": true,
+      "stateSequence": [
+        "idle",
+        "requesting_permission",
+        "listening",
+        "capturing",
+        "transcribing",
+        "reasoning",
+        "preparing",
+        "speaking",
+        "capturing",
+        "transcribing",
+        "reasoning",
+        "preparing",
+        "speaking",
+        "idle"
+      ]
+    }
+  ],
+  "testedSourceSha": "b92d1351e5a912f45a26193dcf2e04d0e7539213"
+}

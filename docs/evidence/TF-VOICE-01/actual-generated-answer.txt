@@ -1,0 +1,8 @@
+Actual Qwen answer synthesized with Piper in the real TradeFlow app.
+Tested source: b92d1351e5a912f45a26193dcf2e04d0e7539213
+WAV SHA256: 5d89ccaffb6b823aabe601b17f89fb6d7f14c877ebc4628995fc701b5d7febff
+Synthetic microphone input; not human/device acceptance.
+No business action executed.
+
+1. **Optimize tool usage** to minimize unnecessary trips.  
+2. **Pre-plan work schedules** to reduce idle time and improve efficiency.
