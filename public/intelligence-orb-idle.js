@@ -159,7 +159,7 @@
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
             const red=Math.round(32+12*u+10*foldTilt);
-            const green=Math.round(108+53*u+20*density);
+            const green=Math.round(86+54*u+20*density);
             const blue=Math.round(213+34*u);
             grad.addColorStop(u,`rgba(${red},${green},${blue},${alpha.toFixed(3)})`);
           }
@@ -187,13 +187,51 @@
           }
           ctx.stroke();
         }
+        // Three shallow translucent sheets fold over the woven surface.
+        // Their shaded troughs and thin luminous crests are both derived from
+        // the moving outer geometry; unlike an outline echo they occlude the
+        // underlying fibers for a few pixels, as the reference membrane does.
+        function drawFoldVeil(center,width,depth,strength){
+          const n=56;
+          const shape=(u,inner)=>{
+            const angle=center+(2*u-1)*width;
+            const envelope=Math.pow(Math.sin(Math.PI*u),2);
+            const base=surfaceRadius(angle,t);
+            const radius=r*(base-(inner?depth*envelope:0));
+            return [cx+radius*Math.cos(angle),cy+radius*Math.sin(angle),envelope];
+          };
+          ctx.save();
+          ctx.globalCompositeOperation='source-over';
+          ctx.fillStyle=`rgba(2,8,31,${(.16*strength).toFixed(3)})`;
+          ctx.beginPath();
+          for(let i=0;i<=n;i++){
+            const p=shape(i/n,false);
+            if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
+          }
+          for(let i=n;i>=0;i--){const p=shape(i/n,true);ctx.lineTo(p[0],p[1]);}
+          ctx.closePath();ctx.fill();
+          ctx.globalCompositeOperation='screen';
+          ctx.lineWidth=clamp(size/235,.5,.94);
+          ctx.strokeStyle='#4ca9ff';
+          for(let i=0;i<n;i++){
+            const a=shape(i/n,true),b=shape((i+1)/n,true);
+            const local=(a[2]+b[2])/2;
+            if(local<.045)continue;
+            ctx.globalAlpha=clamp(local*.40*strength,0,.44);
+            ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+          }
+          ctx.restore();
+        }
+        drawFoldVeil(.35+.14*t,.72,.091,1);
+        drawFoldVeil(-1.45+.11*t,.57,.073,.85);
+        drawFoldVeil(-2.6+.08*t,.52,.062,.72);
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(40,109,224,.24)');
-        rim.addColorStop(.32,'rgba(63,147,242,.29)');
-        rim.addColorStop(.67,'rgba(77,185,251,.38)');
-        rim.addColorStop(1,'rgba(99,214,255,.27)');
+        rim.addColorStop(0,'rgba(40,109,224,.15)');
+        rim.addColorStop(.32,'rgba(63,147,242,.20)');
+        rim.addColorStop(.67,'rgba(77,185,251,.28)');
+        rim.addColorStop(1,'rgba(99,214,255,.18)');
         ctx.strokeStyle=rim;
         ctx.lineWidth=clamp(size/260,.48,.93);
         ctx.shadowColor='rgba(36,120,242,.37)';
@@ -321,11 +359,11 @@
       const canvas = document.createElement('canvas');
       canvas.className = 'tf-orb-mesh';
       canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v7');
+      canvas.setAttribute('data-idle-material', 'woven-blue-v8');
       // Decorative child only: parent button's data-action owns the click.
       button.appendChild(canvas);
       renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v7' : 'fallback';
+      button.dataset.orbMaterial = renderer ? 'woven-blue-v8' : 'fallback';
     }
     const observer = new root.MutationObserver(() => sync());
     const host = document.querySelector('#app');
@@ -341,6 +379,6 @@
     activeController=controller;
     return controller;
   }
-  return Object.freeze({ version: 'woven-blue-v7', surfaceRadius, meshPoint, foldLight,
+  return Object.freeze({ version: 'woven-blue-v8', surfaceRadius, meshPoint, foldLight,
     createRenderer, attach, stats:()=>activeController?.stats()||null });
 });

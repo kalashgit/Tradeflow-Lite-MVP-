@@ -1,7 +1,7 @@
 /* TF-MI-ORB-01-A — only the persistent button's material.
  * Leave TradeFlow's Intelligence click, panel, permissions and branding untouched.
  */
-.tf-ai-orb[data-orb-material="woven-blue-v7"]{
+.tf-ai-orb[data-orb-material="woven-blue-v8"]{
   box-sizing:border-box;
   display:grid!important;
   place-items:center;
@@ -19,10 +19,10 @@
   isolation:isolate;
   touch-action:manipulation;
 }
-.tf-ai-orb[data-orb-material="woven-blue-v7"]::before,
-.tf-ai-orb[data-orb-material="woven-blue-v7"]::after{display:none!important}
-.tf-ai-orb[data-orb-material="woven-blue-v7"] .tf-ai-orb-icon,
-.tf-ai-orb[data-orb-material="woven-blue-v7"] .tf-ai-orb-signal{display:none!important}
+.tf-ai-orb[data-orb-material="woven-blue-v8"]::before,
+.tf-ai-orb[data-orb-material="woven-blue-v8"]::after{display:none!important}
+.tf-ai-orb[data-orb-material="woven-blue-v8"] .tf-ai-orb-icon,
+.tf-ai-orb[data-orb-material="woven-blue-v8"] .tf-ai-orb-signal{display:none!important}
 .tf-ai-orb .tf-orb-mesh{
   display:block;
   position:absolute;
@@ -35,23 +35,23 @@
   background:transparent;
   transform:translateZ(0);
 }
-.tf-ai-orb[data-orb-material="woven-blue-v7"]:hover{
+.tf-ai-orb[data-orb-material="woven-blue-v8"]:hover{
   box-shadow:none!important;
   filter:none!important;
 }
-.tf-ai-orb[data-orb-material="woven-blue-v7"]:active,
-.tf-ai-orb[data-orb-material="woven-blue-v7"].tf-ai-liquid-pressed{
+.tf-ai-orb[data-orb-material="woven-blue-v8"]:active,
+.tf-ai-orb[data-orb-material="woven-blue-v8"].tf-ai-liquid-pressed{
   transform:translateY(1px) scale(.98);
   border-radius:50%!important;
   box-shadow:none!important;
   filter:none!important;
 }
-.tf-ai-orb[data-orb-material="woven-blue-v7"]:focus-visible{
+.tf-ai-orb[data-orb-material="woven-blue-v8"]:focus-visible{
   outline:2px solid var(--tf-focus,#68e8fc);
   outline-offset:3px;
 }
 @media(max-width:850px){
-  .tf-ai-orb[data-orb-material="woven-blue-v7"]{
+  .tf-ai-orb[data-orb-material="woven-blue-v8"]{
     width:66px;
     height:66px;
     right:10px;
@@ -59,14 +59,14 @@
   }
 }
 @media(prefers-reduced-motion:reduce){
-  .tf-ai-orb[data-orb-material="woven-blue-v7"],
-  .tf-ai-orb[data-orb-material="woven-blue-v7"]:active{
+  .tf-ai-orb[data-orb-material="woven-blue-v8"],
+  .tf-ai-orb[data-orb-material="woven-blue-v8"]:active{
     transform:none!important;
     transition:none!important;
   }
 }
 @media(forced-colors:active){
-  .tf-ai-orb[data-orb-material="woven-blue-v7"]{
+  .tf-ai-orb[data-orb-material="woven-blue-v8"]{
     border:2px solid ButtonText!important;
     background:ButtonFace!important;
   }
