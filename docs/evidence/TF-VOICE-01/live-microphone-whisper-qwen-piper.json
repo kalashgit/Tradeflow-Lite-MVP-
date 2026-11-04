@@ -9,35 +9,35 @@
       "actualQwen": true,
       "actualModelTTS": true,
       "microphoneSource": "synthetic Piper test speech via Chromium fake device, NOT human",
-      "canonicalThread": "bd77357d-35c7-45a5-9f2e-7fc79eeaad36",
+      "canonicalThread": "9b8cedf2-d523-456e-b1d4-d283f4a0ebbb",
       "turns": [
         {
-          "id": "7c28990b-0faa-4256-a176-abc33d7a4303",
+          "id": "22003ab1-aa38-423c-a214-6dc3fcda8393",
           "role": "user",
           "modality": "voice",
           "status": "committed",
           "content": "Give two ways an electrician can reduce return trips."
         },
         {
-          "id": "cc7f1540-d2f4-44c5-8d97-e0ec9105060e",
+          "id": "becdc17a-3f1e-43c5-b253-1232790835e1",
           "role": "assistant",
           "modality": "text",
           "status": "committed",
           "content": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan work schedules** to reduce idle time and improve efficiency."
         },
         {
-          "id": "9f86be75-bdaf-4163-98a5-c367c04e2372",
+          "id": "d0413b99-1700-47d9-9426-0168817c1980",
           "role": "user",
           "modality": "voice",
           "status": "committed",
           "content": "What should I put on that material checklist?"
         },
         {
-          "id": "b7220544-3f33-443d-b8a1-c67968688440",
+          "id": "22793db2-e714-4378-9fe3-e7b6e04ef6d3",
           "role": "assistant",
           "modality": "text",
           "status": "committed",
-          "content": "- **Check for proper tools and equipment**.  \n- **Verify material specifications** and availability."
+          "content": "- **Material specifications** (e.g., type, quantity, dimensions).  \n- **Tool and equipment** (e.g., tools, safety gear, certifications).  \n- **Work area requirements** (e.g., space, tools available)."
         }
       ],
       "transcripts": [
@@ -46,9 +46,9 @@
           "text": "Give two ways an electrician can reduce return trips.",
           "confidence": "model_transcript_unverified",
           "metrics": {
-            "modelLoadMs": 305,
-            "recognitionMs": 435,
-            "audioDurationMs": 4737
+            "modelLoadMs": 641,
+            "recognitionMs": 729,
+            "audioDurationMs": 4690
           },
           "executionAuthority": false
         },
@@ -57,9 +57,9 @@
           "text": "What should I put on that material checklist?",
           "confidence": "model_transcript_unverified",
           "metrics": {
-            "modelLoadMs": 444,
-            "recognitionMs": 598,
-            "audioDurationMs": 3715
+            "modelLoadMs": 289,
+            "recognitionMs": 709,
+            "audioDurationMs": 3762
           },
           "executionAuthority": false
         }
@@ -67,14 +67,14 @@
       "audio": [
         {
           "file": "mobile-reply-1.wav",
-          "sha256": "58039ac1efa13a3bb7359f5bcfc3dd41cc6252d76e12cacfca860128be21768e"
+          "sha256": "5d89ccaffb6b823aabe601b17f89fb6d7f14c877ebc4628995fc701b5d7febff"
         },
         {
           "file": "mobile-reply-2.wav",
-          "sha256": "ecdc1deb3623dd5418af835c2892852a6685f682e5599dda603515c9a93a167d"
+          "sha256": "1191ec469e3a8bfa36e975f81ef0830036e9b37de98220dc0f165d66f693ca0a"
         }
       ],
-      "vadEndToFirstWebAudioMs": 8442,
+      "vadEndToFirstWebAudioMs": 8406,
       "zeroBusinessWrites": true,
       "stateSequence": [
         "idle",
@@ -100,35 +100,35 @@
       "actualQwen": true,
       "actualModelTTS": true,
       "microphoneSource": "synthetic Piper test speech via Chromium fake device, NOT human",
-      "canonicalThread": "fc496b37-4ba5-49aa-bf0d-85d4b6915121",
+      "canonicalThread": "b9e90466-824f-42c1-9bf3-a1827f827d9d",
       "turns": [
         {
-          "id": "8a188116-12d8-4695-abb5-4c4c06542a16",
+          "id": "3d6e602e-9862-4184-be01-ff7225957cff",
           "role": "user",
           "modality": "voice",
           "status": "committed",
           "content": "Give two ways an electrician can reduce return trips."
         },
         {
-          "id": "dcd6dec4-b057-418d-90cd-692bc7e17a05",
+          "id": "b46e8f2d-d26f-40b6-87fd-4a1a80f88c59",
           "role": "assistant",
           "modality": "text",
           "status": "committed",
-          "content": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan and schedule** tasks to reduce idle time."
+          "content": "1. **Optimize tool usage** to minimize unnecessary trips.  \n2. **Pre-plan tasks** to reduce idle time and improve efficiency."
         },
         {
-          "id": "eb501510-d2b7-466e-883d-dfe8c9a86a95",
+          "id": "20d92003-04c0-4f20-bcb9-4165e85b677f",
           "role": "user",
           "modality": "voice",
           "status": "committed",
           "content": "What should I put on that material checklist?"
         },
         {
-          "id": "c8d823d9-3971-4a2f-a7ca-b4f88849dc92",
+          "id": "f61044f0-34bf-4222-bdd8-3095f11cb224",
           "role": "assistant",
           "modality": "text",
           "status": "committed",
-          "content": "- **Check for defects and issues** before delivery.  \n- **Verify material specifications** and quality."
+          "content": "- **Check for proper documentation** and ensure all necessary records are complete.  \n- **Verify material specifications** against the order to avoid discrepancies."
         }
       ],
       "transcripts": [
@@ -137,8 +137,8 @@
           "text": "Give two ways an electrician can reduce return trips.",
           "confidence": "model_transcript_unverified",
           "metrics": {
-            "modelLoadMs": 815,
-            "recognitionMs": 1059,
+            "modelLoadMs": 317,
+            "recognitionMs": 572,
             "audioDurationMs": 4737
           },
           "executionAuthority": false
@@ -148,9 +148,9 @@
           "text": "What should I put on that material checklist?",
           "confidence": "model_transcript_unverified",
           "metrics": {
-            "modelLoadMs": 976,
-            "recognitionMs": 950,
-            "audioDurationMs": 3762
+            "modelLoadMs": 417,
+            "recognitionMs": 777,
+            "audioDurationMs": 3808
           },
           "executionAuthority": false
         }
@@ -158,14 +158,14 @@
       "audio": [
         {
           "file": "desktop-reply-1.wav",
-          "sha256": "a312005307b1f781176b6f777440dc72a4a71a5da4d800010fd499b9d06217d8"
+          "sha256": "4d48e9fc84e8cbd9f9e322d265939a7081072ac283062cefa693600ffe27cad0"
         },
         {
           "file": "desktop-reply-2.wav",
-          "sha256": "96cf153ad9fe177c19e1f25b023c9429d28c0bbcf2dc1c2d4c51c2b7253af7fb"
+          "sha256": "6588e033517a97943b12eea5054dcadb4240192a2f47c00214daac6ead446b11"
         }
       ],
-      "vadEndToFirstWebAudioMs": 16474,
+      "vadEndToFirstWebAudioMs": 11642,
       "zeroBusinessWrites": true,
       "stateSequence": [
         "idle",
@@ -184,5 +184,6 @@
         "idle"
       ]
     }
-  ]
+  ],
+  "testedSourceSha": "b92d1351e5a912f45a26193dcf2e04d0e7539213"
 }
