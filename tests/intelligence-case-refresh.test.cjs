@@ -9,7 +9,8 @@ const scope=()=>({mode:'cloud',businessId,role:'owner',identity:{issuer,subject}
 const row=(type,id,revision=2)=>({
  record_type:type,id,revision,updated_at:'2026-11-04 08:00:00',
  payload:JSON.stringify({id,businessId,title:type==='jobs'?'Service upgrade':undefined,
-  ...type==='jobCosts'?{jobId:'job_01',category:'Labor',type:'actual',laborHours:24}:{}})
+  ...type==='jobCosts'?{jobId:'job_01',category:'Labor',type:'actual',laborHours:24}:
+  type==='tasks'?{jobId:'job_01',status:'Open'}:{}})
 });
 const source=(type,id,revision=2)=>({
  type,id,revision,contentHash:null,provenance:'tenant_record'
