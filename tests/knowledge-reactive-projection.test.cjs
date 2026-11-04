@@ -16,7 +16,8 @@ const actual=(n=25)=>cost('actual_01','actual',n);
 const job=()=>({id:'job_01',businessId,title:'Synthetic electrical service job',status:'In Progress'});
 const engine=intelligence.createEngine({commands,
  calendar:{conflicts:()=>[]},
- revenue:{totals:()=>({total:0}),collected:()=>0}
+ revenue:{totals:()=>({total:0}),collected:()=>0},
+ detectors:[...intelligence.builtinDetectors,...intelligence.optimizationDetectors]
 });
 const event=(record=actual(),key='commit_01')=>events.make({
  store:'jobCosts',record,previous:record,key,
