@@ -16,7 +16,7 @@
   'use strict';
   const TAU = Math.PI * 2;
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-  const MEAN_RADIUS = .90;
+  const MEAN_RADIUS = .895;
   // Wrapped Gaussian packets make fold activity local rather than imposing
   // a regular pentagonal / hexagonal silhouette on the whole membrane.
   const edgePacket=(angle,center,width)=>{
@@ -28,11 +28,11 @@
   function surfaceRadius(angle, t) {
     const a=Number(angle),time=Number(t);
     if(!Number.isFinite(a)||!Number.isFinite(time))return MEAN_RADIUS;
-    return MEAN_RADIUS+.006*Math.sin(3*a-.09*time+1.1)
-      +.007*Math.sin(9*a+.19*time)
-      +.003*Math.sin(16*a-.14*time+.3)
-      +.041*(edgePacket(a,.35+.16*time,.35)-edgePacket(a,3.15-.11*time,.35))
-      +.019*(edgePacket(a,-1.45+.12*time,.24)-edgePacket(a,1.7+.09*time,.24));
+    return MEAN_RADIUS+.008*Math.sin(3*a-.09*time+1.1)
+      +.006*Math.sin(7*a+.16*time)
+      +.003*Math.sin(14*a-.11*time+.3)
+      +.049*(edgePacket(a,.35+.14*time,.39)-edgePacket(a,3.15-.12*time,.39))
+      +.029*(edgePacket(a,-1.45+.11*time,.30)-edgePacket(a,1.7+.09*time,.30));
   }
   // A single advected displacement field drives every neighboring strand.
   // The boundary term draws internal threads into the SAME moving edge folds.
@@ -41,12 +41,16 @@
     const boundaryCoupling=distance>.55
       ?(surfaceRadius(Math.atan2(y,x),t)/MEAN_RADIUS-1)*distance*distance*.78
       :0;
-    const xx=x+.013*Math.sin(y*8.7+x*3.8-t*.28)
-      +.007*Math.sin(y*14.1-x*7.3+t*.16);
-    const yy=y+.013*Math.sin(x*3.5+y*2.1+t*.11)
-      +.036*Math.sin(x*7.4+y*2.7-t*.35)
-      +.012*Math.sin(x*15.8-y*5.4+t*.29)
-      +.005*Math.sin(x*24.0+y*8.8-t*.13);
+    // The low-frequency field carries the whole fabric; finer oscillations
+    // ride on it as tiny woven creases, instead of repeating rigid stripes.
+    const xx=x+.014*Math.sin(y*5.4+x*3.2-t*.20)
+      +.008*Math.sin(y*15.1-x*6.3+t*.16)
+      +.003*Math.sin(y*30+x*11-t*.07);
+    const yy=y+.012*Math.sin(x*3.5+y*2.1+t*.11)
+      +.026*Math.sin(x*7.4+y*2.7-t*.28)
+      +.013*Math.sin(x*14.8-y*5.4+t*.20)
+      +.005*Math.sin(x*28.2+y*10.1-t*.13)
+      +.002*Math.sin(x*43-y*17+t*.09);
     return [xx*(1+boundaryCoupling),yy*(1+boundaryCoupling)];
   }
   // Light is a differential of the actual deforming contour, never a rotating halo.
@@ -94,14 +98,14 @@
         ctx.clip(edge);
         // Near-black membrane backing: the Home cards must never show through.
         // No opaque colored disc, radial glass gradient, or baked-in highlight.
-        ctx.fillStyle='rgba(3,9,26,.975)';
+        ctx.fillStyle='rgba(2,7,22,.95)';
         ctx.fill(edge);
         // At native 66 CSS px, 57 broad lines looked like stripes; recover a
         // finer membrane using raster-adaptive hairlines, not a resized ball.
-        const threads=clamp(Math.round(size*.62),60,174);
-        const steps=clamp(Math.round(size*.68),78,230);
+        const threads=clamp(Math.round(size*.79),78,192);
+        const steps=clamp(Math.round(size*.79),96,240);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/230,.48,.95);
+        ctx.lineWidth=clamp(size/355,.36,.72);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -110,21 +114,24 @@
           // Every bright interval is derived from actual local thread
           // compression and tilt. Brightness moves WITH the woven material.
           const grad=ctx.createLinearGradient(left,0,right,0);
-          for(let m=0;m<=8;m++){
-            const u=m/8,x0=(u*2-1)*.88;
+          for(let m=0;m<=10;m++){
+            const u=m/10,x0=(u*2-1)*.88;
             const upper=meshPoint(x0,y0+.008,t)[1],lower=meshPoint(x0,y0-.008,t)[1];
             const spacing=(upper-lower)/.016;
-            const density=clamp((1.04-spacing)*2.5,-.35,.65);
+            const density=clamp((1.02-spacing)*2.6,-.5,.65);
             const before=meshPoint(x0-.008,y0,t)[1],after=meshPoint(x0+.008,y0,t)[1];
             const foldTilt=clamp(Math.abs(after-before)/.016,0,.9);
-            const radial=Math.min(1,Math.hypot(x0,y0));
-            const edgeGlow=.15*Math.pow(radial,2.5);
-            const alpha=clamp(.66+.15*density+.065*foldTilt+edgeGlow,.55,.95);
+            const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
+            // A translucent center and densely lit grazing surface are
+            // essential: the reference is a membrane, not a blue disc.
+            const grazing=.16+.43*Math.pow(radial,2.25);
+            const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
+            const alpha=clamp(grazing+localRidge,.10,.77);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
-            const red=Math.round(29+25*u+13*foldTilt);
-            const green=Math.round(91+104*u+18*density);
-            const blue=Math.round(208+44*u);
+            const red=Math.round(32+12*u+10*foldTilt);
+            const green=Math.round(108+53*u+20*density);
+            const blue=Math.round(213+34*u);
             grad.addColorStop(u,`rgba(${red},${green},${blue},${alpha.toFixed(3)})`);
           }
           ctx.strokeStyle=grad;
@@ -139,10 +146,10 @@
         // Subtle cross-woven fibers share the same displaced surface.
         // Very low contrast keeps them from becoming a rigid latitude grid.
         ctx.globalCompositeOperation='source-over';
-        ctx.lineWidth=clamp(size/380,.34,.60);
-        ctx.strokeStyle='rgba(66,168,255,.07)';
-        for(let i=0;i<=42;i++){
-          const x0=(2*i/42-1)*.85;
+        ctx.lineWidth=clamp(size/430,.30,.55);
+        ctx.strokeStyle='rgba(70,164,245,.10)';
+        for(let i=0;i<=54;i++){
+          const x0=(2*i/54-1)*.85;
           ctx.beginPath();
           for(let k=0;k<=64;k++){
             const y0=(2*k/64-1)*.89,p=meshPoint(x0,y0,t);
@@ -154,13 +161,13 @@
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(51,117,235,.45)');
-        rim.addColorStop(.32,'rgba(60,150,253,.50)');
-        rim.addColorStop(.67,'rgba(83,198,255,.55)');
-        rim.addColorStop(1,'rgba(103,219,255,.48)');
+        rim.addColorStop(0,'rgba(40,109,224,.25)');
+        rim.addColorStop(.32,'rgba(63,147,242,.33)');
+        rim.addColorStop(.67,'rgba(77,185,251,.45)');
+        rim.addColorStop(1,'rgba(99,214,255,.28)');
         ctx.strokeStyle=rim;
-        ctx.lineWidth=clamp(size/195,.64,1.10);
-        ctx.shadowColor='rgba(38,136,255,.42)';
+        ctx.lineWidth=clamp(size/260,.48,.93);
+        ctx.shadowColor='rgba(36,120,242,.37)';
         ctx.shadowBlur=clamp(size*.022,1.8,4.5);
         ctx.stroke(edge);
         ctx.shadowBlur=0;
@@ -169,19 +176,21 @@
         for(let i=0;i<edgeSteps;i++){
           const a=TAU*i/edgeSteps,b=TAU*(i+1)/edgeSteps;
           const light=foldLight((a+b)/2,t);
-          if(light<.37)continue;
+          if(light<.28)continue;
           const ra=r*surfaceRadius(a,t),rb=r*surfaceRadius(b,t);
-          ctx.globalAlpha=clamp((light-.28)*.86,0,.67);
-          ctx.lineWidth=clamp(size/220,.58,.99);
-          ctx.strokeStyle=light>.68?'#b9edff':'#66c7ff';
+          ctx.globalAlpha=clamp((light-.19)*.95,0,.70);
+          ctx.lineWidth=clamp(size/260,.48,.94);
+          ctx.strokeStyle=light>.68?'#acebff':'#57beff';
           ctx.beginPath();
           ctx.moveTo(cx+ra*Math.cos(a),cy+ra*Math.sin(a));
           ctx.lineTo(cx+rb*Math.cos(b),cy+rb*Math.sin(b));
           ctx.stroke();
-          if(light>.66){
-            const inset=r*(.018+.009*light);
-            ctx.globalAlpha=(light-.55)*.32;
-            ctx.strokeStyle='#8fcfff';
+          if(light>.48){
+            // An inner displaced sheet is visible ONLY beside a fold, not as
+            // an always-on concentric neon ring. Both contours travel.
+            const inset=r*(.022+.014*light);
+            ctx.globalAlpha=(light-.41)*.47;
+            ctx.strokeStyle='#7ed1ff';
             ctx.beginPath();
             ctx.moveTo(cx+(ra-inset)*Math.cos(a),cy+(ra-inset)*Math.sin(a));
             ctx.lineTo(cx+(rb-inset)*Math.cos(b),cy+(rb-inset)*Math.sin(b));
@@ -265,11 +274,11 @@
       const canvas = document.createElement('canvas');
       canvas.className = 'tf-orb-mesh';
       canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v4');
+      canvas.setAttribute('data-idle-material', 'woven-blue-v5');
       // Decorative child only: parent button's data-action owns the click.
       button.appendChild(canvas);
       renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v4' : 'fallback';
+      button.dataset.orbMaterial = renderer ? 'woven-blue-v5' : 'fallback';
     }
     const observer = new root.MutationObserver(() => sync());
     const host = document.querySelector('#app');
@@ -285,6 +294,6 @@
     activeController=controller;
     return controller;
   }
-  return Object.freeze({ version: 'woven-blue-v4', surfaceRadius, meshPoint, foldLight,
+  return Object.freeze({ version: 'woven-blue-v5', surfaceRadius, meshPoint, foldLight,
     createRenderer, attach, stats:()=>activeController?.stats()||null });
 });

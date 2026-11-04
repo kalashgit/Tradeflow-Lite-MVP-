@@ -37,7 +37,7 @@ let browser;
     db.close();
    });
    await page.reload();
-   await page.locator('.tf-ai-orb[data-orb-material="woven-blue-v4"]').waitFor();
+   await page.locator('.tf-ai-orb[data-orb-material="woven-blue-v5"]').waitFor();
    await page.waitForTimeout(350);
    const orb=page.locator('.tf-ai-orb');
    assert.equal(await orb.locator('canvas.tf-orb-mesh').count(),1);
