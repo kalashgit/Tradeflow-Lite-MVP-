@@ -35,23 +35,44 @@
       +.029*(edgePacket(a,-1.45+.11*time,.30)-edgePacket(a,1.7+.09*time,.30))
       +.011*(edgePacket(a,-2.6+.08*time,.27)-edgePacket(a,.95-.09*time,.27));
   }
+  // A bounded per-time angular table prevents thousands of extra Gaussian
+  // evaluations when the mobile weave follows the same folded perimeter.
+  const rimResolution=256, rimValues=new Float32Array(rimResolution);
+  let rimTime=NaN;
+  function sampledRadius(angle,t){
+    if(t!==rimTime){
+      for(let i=0;i<rimResolution;i++)rimValues[i]=surfaceRadius(i*TAU/rimResolution,t);
+      rimTime=t;
+    }
+    const at=((angle%TAU+TAU)%TAU)*rimResolution/TAU;
+    const i=Math.floor(at)%rimResolution,f=at-Math.floor(at);
+    return rimValues[i]*(1-f)+rimValues[(i+1)%rimResolution]*f;
+  }
   // A single advected displacement field drives every neighboring strand.
   // The boundary term draws internal threads into the SAME moving edge folds.
   function meshPoint(x,y,t){
     const distance=Math.min(1,Math.hypot(x,y));
+    const angle=Math.atan2(y,x);
     const boundaryCoupling=distance>.55
-      ?(surfaceRadius(Math.atan2(y,x),t)/MEAN_RADIUS-1)*distance*distance*.78
+      ?(sampledRadius(angle,t)/MEAN_RADIUS-1)*distance*distance*.78
       :0;
+    // Rolling surface folds pull the adjacent weave along the edge tangent.
+    // This uses the derivative of the same silhouette, so crease/mesh/rim
+    // cannot drift independently or turn into an unrelated looping particle.
+    const nearEdge=clamp((distance-.60)/.31,0,1);
+    const tangentFold=nearEdge?nearEdge*clamp(
+      (sampledRadius(angle+.08,t)-sampledRadius(angle-.08,t))/.16*.27,
+      -.037,.037):0;
     // The low-frequency field carries the whole fabric; finer oscillations
     // ride on it as tiny woven creases, instead of repeating rigid stripes.
     const xx=x+.014*Math.sin(y*5.4+x*3.2-t*.20)
       +.008*Math.sin(y*15.1-x*6.3+t*.16)
-      +.003*Math.sin(y*30+x*11-t*.07);
+      +.003*Math.sin(y*30+x*11-t*.07)-Math.sin(angle)*tangentFold;
     const yy=y+.012*Math.sin(x*3.5+y*2.1+t*.11)
       +.026*Math.sin(x*7.4+y*2.7-t*.28)
       +.013*Math.sin(x*14.8-y*5.4+t*.20)
       +.005*Math.sin(x*28.2+y*10.1-t*.13)
-      +.002*Math.sin(x*43-y*17+t*.09);
+      +.002*Math.sin(x*43-y*17+t*.09)+Math.cos(angle)*tangentFold;
     return [xx*(1+boundaryCoupling),yy*(1+boundaryCoupling)];
   }
   // Light is a differential of the actual deforming contour, never a rotating halo.
@@ -189,15 +210,24 @@
           if(light>.43){
             // An inner displaced sheet is visible ONLY beside a fold, not as
             // an always-on concentric neon ring. Both contours travel.
-            const inset=r*(.031+.014*light);
-            ctx.globalAlpha=(light-.38)*.69;
+            const crease=r*(.020+.006*light);
+            ctx.globalAlpha=(light-.36)*.52;
+            ctx.lineWidth=clamp(size/215,.55,1.0);
+            ctx.strokeStyle='#020b29';
+            ctx.beginPath();
+            ctx.moveTo(cx+(ra-crease)*Math.cos(a),cy+(ra-crease)*Math.sin(a));
+            ctx.lineTo(cx+(rb-crease)*Math.cos(b),cy+(rb-crease)*Math.sin(b));
+            ctx.stroke();
+            const inset=r*(.041+.015*light);
+            ctx.globalAlpha=(light-.38)*.76;
+            ctx.lineWidth=clamp(size/275,.46,.85);
             ctx.strokeStyle='#7ed1ff';
             ctx.beginPath();
             ctx.moveTo(cx+(ra-inset)*Math.cos(a),cy+(ra-inset)*Math.sin(a));
             ctx.lineTo(cx+(rb-inset)*Math.cos(b),cy+(rb-inset)*Math.sin(b));
             ctx.stroke();
             if(light>.72){
-              const innerInset=r*(.061+.008*light);
+              const innerInset=r*(.081+.009*light);
               ctx.globalAlpha=(light-.66)*.28;
               ctx.strokeStyle='#438eff';
               ctx.beginPath();
@@ -284,11 +314,11 @@
       const canvas = document.createElement('canvas');
       canvas.className = 'tf-orb-mesh';
       canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v6');
+      canvas.setAttribute('data-idle-material', 'woven-blue-v7');
       // Decorative child only: parent button's data-action owns the click.
       button.appendChild(canvas);
       renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v6' : 'fallback';
+      button.dataset.orbMaterial = renderer ? 'woven-blue-v7' : 'fallback';
     }
     const observer = new root.MutationObserver(() => sync());
     const host = document.querySelector('#app');
@@ -304,6 +334,6 @@
     activeController=controller;
     return controller;
   }
-  return Object.freeze({ version: 'woven-blue-v6', surfaceRadius, meshPoint, foldLight,
+  return Object.freeze({ version: 'woven-blue-v7', surfaceRadius, meshPoint, foldLight,
     createRenderer, attach, stats:()=>activeController?.stats()||null });
 });
