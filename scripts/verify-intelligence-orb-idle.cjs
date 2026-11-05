@@ -20,7 +20,7 @@ let browser;
  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
  browser=await chromium.launch({args:['--no-sandbox']});
  const url='http://127.0.0.1:'+server.address().port;
- for(const [width,motion] of [[360,'no-preference'],[390,'no-preference'],[390,'reduce'],[1280,'no-preference']]){
+ for(const [width,motion] of [[360,'no-preference'],[390,'no-preference'],[390,'reduce'],[430,'no-preference'],[1280,'no-preference']]){
   const recording=width===390&&motion==='no-preference';
   const context=await browser.newContext({viewport:{width,height:844},deviceScaleFactor:width<850?2:1,reducedMotion:motion,...(recording?{recordVideo:{dir:out,size:{width:390,height:844}}}:{})});
   const page=await context.newPage();
@@ -89,14 +89,15 @@ let browser;
        },t);
        fs.writeFileSync(out+'/tradeflow-orb-material-study-'+t+'.png',Buffer.from(encoded.split(',')[1],'base64'));
      }
-     // Real in-app recording: >12 seconds of unobscured idle before opening
-     // the existing voice sheet. These are browser captures, not mock frames.
-     await page.waitForTimeout(4000);
-     await orb.screenshot({path:out+'/tradeflow-orb-mesh-t5.png'});
-     await page.waitForTimeout(4000);
-     await orb.screenshot({path:out+'/tradeflow-orb-mesh-t9.png'});
-     await page.waitForTimeout(4700);
-     await orb.screenshot({path:out+'/tradeflow-orb-mesh-t14.png'});
+     // Uninterrupted 15 seconds of the ACTUAL application, including a
+     // consistent native-size sequence every three seconds for visual review.
+     const frames=[];
+     for(const t of [0,3,6,9,12]){
+       if(t)await page.waitForTimeout(3000);
+       frames.push(await orb.screenshot({path:out+'/tradeflow-orb-mesh-t'+t+'.png'}));
+     }
+     await page.waitForTimeout(3000);
+     assert.ok(frames.some((frame,i)=>i>0&&!frame.equals(frames[0])), 'orb mesh must change across the timed reference sequence');
    }
    const stats=await page.evaluate(()=>window.TradeFlowOrbIdle?.stats?.());
    assert.ok(stats&&stats.frames>0,'renderer must expose actual measurements');
@@ -115,6 +116,26 @@ let browser;
    await page.locator('.tf-voice-sheet [data-voice="close"]').click();
    await page.locator('.tf-voice-sheet').waitFor({state:'detached'});
    assert.equal(await page.locator('.tf-ai-orb .tf-orb-mesh').count(),1,'no leaked/duplicated canvases after panel toggle');
+   if(width===390&&motion==='no-preference'){
+     // The host re-renders on navigation. Confirm the living mesh reattaches,
+     // does not duplicate, and remains clickable when returning Home.
+     await page.locator('.mobilebar button[data-tab="settings"]').click();
+     await page.locator('.tf-ai-orb canvas.tf-orb-mesh').waitFor();
+     await page.locator('.mobilebar button[data-tab="dashboard"]').click();
+     await page.locator('.tf-ai-orb canvas.tf-orb-mesh').waitFor();
+     const navStart=await page.evaluate(()=>window.TradeFlowOrbIdle.stats().frames);
+     await page.waitForTimeout(200);
+     assert.ok((await page.evaluate(()=>window.TradeFlowOrbIdle.stats().frames))>navStart,'idle mesh must resume after navigation');
+     // Simulated visibility toggling exercises the document lifecycle even in
+     // headless Chromium (physical iPhone backgrounding remains a separate gate).
+     await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'))});
+     const hiddenFrames=await page.evaluate(()=>window.TradeFlowOrbIdle.stats().frames);
+     await page.waitForTimeout(170);
+     assert.equal(await page.evaluate(()=>window.TradeFlowOrbIdle.stats().frames),hiddenFrames,'hidden page must stop painting');
+     await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'))});
+     await page.waitForTimeout(250);
+     assert.ok((await page.evaluate(()=>window.TradeFlowOrbIdle.stats().frames))>hiddenFrames,'visible page must resume painting');
+   }
    assert.deepEqual(exceptions,[],'no uncaught application errors');
    console.log('PASS: current TradeFlow app orb '+width+' '+motion+' with measured fine-mesh motion, original composer and lifecycle');
   }finally{
