@@ -134,10 +134,10 @@
         ctx.fill(edge);
         // At native 66 CSS px, 57 broad lines looked like stripes; recover a
         // finer membrane using raster-adaptive hairlines, not a resized ball.
-        const threads=clamp(Math.round(size*.98),100,210);
+        const threads=clamp(Math.round(size*.92),100,205);
         const steps=clamp(Math.round(size*.95),112,256);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/230,.54,.79);
+        ctx.lineWidth=clamp(size/180,.64,.86);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -156,7 +156,7 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.40+.19*Math.pow(radial,2.25);
+            const grazing=.51+.09*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
             // This broad, slowly advected fold field shades entire groups of
             // adjacent filaments, creating a continuous sheet rather than a
@@ -164,7 +164,7 @@
             const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
             const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
             const materialShade=.09*sheetWave+.08*sheetCrest;
-            const alpha=clamp(grazing+localRidge+materialShade,.30,.82);
+            const alpha=clamp(grazing+localRidge+materialShade,.40,.86);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
             const red=Math.round(25+13*u+10*foldTilt);
