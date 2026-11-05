@@ -1,5 +1,5 @@
 name: TradeFlow GUI Explicit Pilot Preview
-# Explicit GUI preview follow-up: enlarged-text metrics and scoped refresh continuity (F01-A11Y).
+# Founder-authorized preview release: Home visual correction from b9523ff (5 November 2026).
 on:
   push:
     branches: [feature/tf-ux-01-command-center]
