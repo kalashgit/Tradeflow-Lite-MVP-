@@ -143,7 +143,7 @@
         const threads=clamp(Math.round(size*.92),100,205);
         const steps=clamp(Math.round(size*.95),112,256);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/180,.64,.86);
+        ctx.lineWidth=clamp(size/195,.60,.82);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -162,7 +162,7 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.51+.09*Math.pow(radial,2.25);
+            const grazing=.42+.14*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
             // This broad, slowly advected fold field shades entire groups of
             // adjacent filaments, creating a continuous sheet rather than a
@@ -170,7 +170,7 @@
             const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
             const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
             const materialShade=.09*sheetWave+.08*sheetCrest;
-            const alpha=clamp(grazing+localRidge+materialShade,.40,.86);
+            const alpha=clamp(grazing+localRidge+materialShade,.30,.80);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
             const red=Math.round(25+13*u+10*foldTilt);
@@ -217,7 +217,7 @@
           };
           ctx.save();
           ctx.globalCompositeOperation='source-over';
-          ctx.fillStyle=`rgba(1,5,23,${(.16*strength).toFixed(3)})`;
+          ctx.fillStyle=`rgba(1,5,23,${(.10*strength).toFixed(3)})`;
           ctx.beginPath();
           for(let i=0;i<=n;i++){
             const p=shape(i/n,false);
@@ -285,7 +285,7 @@
             // An inner displaced sheet is visible ONLY beside a fold, not as
             // an always-on concentric neon ring. Both contours travel.
             const crease=r*(.020+.006*light);
-            ctx.globalAlpha=(light-.36)*.52;
+            ctx.globalAlpha=(light-.36)*.32;
             ctx.lineWidth=clamp(size/215,.55,1.0);
             ctx.strokeStyle='#020b29';
             ctx.beginPath();
