@@ -82,7 +82,13 @@
       +.013*Math.sin(x*14.8-y*5.4+t*.20)
       +.005*Math.sin(x*28.2+y*10.1-t*.13)
       +.002*Math.sin(x*43-y*17+t*.09)+Math.cos(angle)*tangentFold;
-    return [xx*(1+boundaryCoupling),yy*(1+boundaryCoupling)];
+    // The source membrane has a calm fine weave through its center and
+    // stronger bends as it turns into the moving outer folds. Applying the
+    // full high-frequency field at the center made the surface look like a
+    // fingerprint/topographic ball instead of a shallow draped membrane.
+    const warp=.38+.62*distance*distance;
+    return [(x+(xx-x)*warp)*(1+boundaryCoupling),
+      (y+(yy-y)*warp)*(1+boundaryCoupling)];
   }
   // Light is a differential of the actual deforming contour, never a rotating halo.
   function foldLight(angle,t){
