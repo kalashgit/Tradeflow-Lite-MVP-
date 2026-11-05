@@ -127,16 +127,17 @@
         edge.closePath();
         ctx.save();
         ctx.clip(edge);
-        // Near-black membrane backing: the Home cards must never show through.
-        // No opaque colored disc, radial glass gradient, or baked-in highlight.
-        ctx.fillStyle='rgba(4,12,34,.95)';
+        // The reference is light carried by a thin membrane against the app's
+        // dark backdrop. An opaque navy disk made the previous weave read as a
+        // patterned solid ball, especially at 66 CSS pixels.
+        ctx.fillStyle='rgba(4,12,34,.18)';
         ctx.fill(edge);
         // At native 66 CSS px, 57 broad lines looked like stripes; recover a
         // finer membrane using raster-adaptive hairlines, not a resized ball.
-        const threads=clamp(Math.round(size*.79),78,192);
-        const steps=clamp(Math.round(size*.79),96,240);
+        const threads=clamp(Math.round(size*1.05),100,224);
+        const steps=clamp(Math.round(size*.95),112,256);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/220,.56,.81);
+        ctx.lineWidth=clamp(size/270,.42,.72);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -155,20 +156,20 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.39+.31*Math.pow(radial,2.25);
+            const grazing=.24+.27*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
             // This broad, slowly advected fold field shades entire groups of
             // adjacent filaments, creating a continuous sheet rather than a
             // uniform illuminated contour map. It is not a radial ball glow.
             const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
             const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
-            const materialShade=.16*sheetWave+.10*sheetCrest;
-            const alpha=clamp(grazing+localRidge+materialShade,.24,.92);
+            const materialShade=.15*sheetWave+.12*sheetCrest;
+            const alpha=clamp(grazing+localRidge+materialShade,.12,.78);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
-            const red=Math.round(32+12*u+10*foldTilt);
-            const green=Math.round(86+54*u+20*density);
-            const blue=Math.round(213+34*u);
+            const red=Math.round(24+20*u+10*foldTilt);
+            const green=Math.round(106+72*u+20*density);
+            const blue=Math.round(207+40*u);
             grad.addColorStop(u,`rgba(${red},${green},${blue},${alpha.toFixed(3)})`);
           }
           ctx.strokeStyle=grad;
@@ -184,7 +185,7 @@
         // Very low contrast keeps them from becoming a rigid latitude grid.
         ctx.globalCompositeOperation='source-over';
         ctx.lineWidth=clamp(size/430,.30,.55);
-        ctx.strokeStyle='rgba(70,164,245,.10)';
+        ctx.strokeStyle='rgba(70,164,245,.055)';
         for(let i=0;i<=54;i++){
           const x0=(2*i/54-1)*.85;
           ctx.beginPath();
