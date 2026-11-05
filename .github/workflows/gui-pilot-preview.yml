@@ -1,5 +1,5 @@
 name: TradeFlow GUI Explicit Pilot Preview
-# Founder-authorized preview release: Home visual correction from b9523ff (5 November 2026).
+# Founder-authorized preview release: Home visual correction from b9523ff (5 November 2026; deterministic notification fixture clock).
 on:
   push:
     branches: [feature/tf-ux-01-command-center]

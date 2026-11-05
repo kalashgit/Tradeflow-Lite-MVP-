@@ -3,6 +3,9 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const source=fs.readFileSync('public/notifications.js','utf8');
 const app=fs.readFileSync('public/app.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),
  sw=fs.readFileSync('public/sw.js','utf8'),css=fs.readFileSync('public/notifications.css','utf8');
+// Keep both VM defaults and host-side follow-up events on the fixture clock.
+const RealDate=globalThis.Date,fixtureNow=new RealDate('2026-10-16T12:00:00').getTime();
+class Date extends RealDate{constructor(...args){super(...(args.length?args:[fixtureNow]))}static now(){return fixtureNow}}
 const events={},win={};
 const document={
  addEventListener:(type,handler)=>{(events[type]||(events[type]=[])).push(handler)},
