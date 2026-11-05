@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - qa/orb-reference-refinement-20261105
+  pull_request:
+    branches:
+      - feature/tf-orb-idle-mesh-20261103
   workflow_dispatch:
 permissions:
   contents: read
