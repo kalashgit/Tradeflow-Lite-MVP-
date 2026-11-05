@@ -30,6 +30,19 @@ test('fine threads move coherently but change over time',()=>{
   }
 });
 
+test('local fold displacement is stronger at the membrane edge than its calm center',()=>{
+  const meanDrift=radius=>{
+    let total=0;
+    for(let i=0;i<72;i++){
+      const a=i*Math.PI/36,x=radius*Math.cos(a),y=radius*Math.sin(a);
+      const p=meshPoint(x,y,5.3);
+      total+=Math.hypot(p[0]-x,p[1]-y);
+    }
+    return total/72;
+  };
+  assert.ok(meanDrift(.78)>meanDrift(.12)*1.3,'center must not inherit the full peripheral fold field');
+});
+
 test('fold illumination is shaped by current geometry instead of a fixed halo',()=>{
   const {foldLight}=require('../public/intelligence-orb-idle.js');
   const light=[0,.25,.5,1,2,3,4,5].map(a=>foldLight(a,3));
