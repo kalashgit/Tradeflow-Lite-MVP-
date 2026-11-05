@@ -44,9 +44,9 @@ test('mesh renderer remains a visual layer and does not start voice or workflows
   assert.ok(source.includes('drawFoldVeil(.35+.14*t,.91,.075,.8)'), 'fold material must overlap nearby fibers without a hard opaque crest');
   assert.equal(source.includes('createRadialGradient'),false,'no glossy sphere gradient');
   assert.ok(source.includes('25+13*u+10*foldTilt'),'threads must use the founder-requested blue palette');
-  assert.ok(source.includes('Math.round(size*.98)'),'mesh must retain reference-like fine threads at native size');
-  assert.ok(source.includes('clamp(size/230,.54,.79)'),'dense threads must remain hairlines');
-  assert.ok(source.includes('const grazing=.40+.19*Math.pow(radial,2.25)'),'membrane must remain visibly woven through the center');
+  assert.ok(source.includes('Math.round(size*.92)'),'mesh must retain reference-like fine threads at native size');
+  assert.ok(source.includes('clamp(size/180,.64,.86)'),'dense threads must remain raster-visible hairlines');
+  assert.ok(source.includes('const grazing=.51+.09*Math.pow(radial,2.25)'),'membrane must remain visibly woven through the center');
   assert.ok(source.includes("ctx.fillStyle='rgba(4,12,34,.18)'"),'backing must remain translucent rather than a solid blue sphere');
   assert.equal(source.includes('rgba(104,81,211'),false,'do not bring back violet material');
   for(const term of ['getUserMedia(', 'SpeechRecognition(', 'speechSynthesis.speak(', 'navigator.vibrate(', 'fetch(', 'WebGLRenderingContext', 'localStorage.']){
