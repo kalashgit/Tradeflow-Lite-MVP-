@@ -134,10 +134,10 @@
         ctx.fill(edge);
         // At native 66 CSS px, 57 broad lines looked like stripes; recover a
         // finer membrane using raster-adaptive hairlines, not a resized ball.
-        const threads=clamp(Math.round(size*1.05),100,224);
+        const threads=clamp(Math.round(size*.98),100,210);
         const steps=clamp(Math.round(size*.95),112,256);
         const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/270,.42,.72);
+        ctx.lineWidth=clamp(size/230,.54,.79);
         ctx.lineCap='round';
         ctx.lineJoin='round';
         ctx.globalCompositeOperation='screen';
@@ -156,20 +156,20 @@
             const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
             // A translucent center and densely lit grazing surface are
             // essential: the reference is a membrane, not a blue disc.
-            const grazing=.24+.27*Math.pow(radial,2.25);
+            const grazing=.40+.19*Math.pow(radial,2.25);
             const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
             // This broad, slowly advected fold field shades entire groups of
             // adjacent filaments, creating a continuous sheet rather than a
             // uniform illuminated contour map. It is not a radial ball glow.
             const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
             const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
-            const materialShade=.15*sheetWave+.12*sheetCrest;
-            const alpha=clamp(grazing+localRidge+materialShade,.12,.78);
+            const materialShade=.09*sheetWave+.08*sheetCrest;
+            const alpha=clamp(grazing+localRidge+materialShade,.30,.82);
             // Founder correction: reference texture and motion, deliberately
             // BLUE rather than the source video's violet-dominant palette.
-            const red=Math.round(24+20*u+10*foldTilt);
-            const green=Math.round(106+72*u+20*density);
-            const blue=Math.round(207+40*u);
+            const red=Math.round(25+13*u+10*foldTilt);
+            const green=Math.round(130+32*u+20*density);
+            const blue=Math.round(218+22*u);
             grad.addColorStop(u,`rgba(${red},${green},${blue},${alpha.toFixed(3)})`);
           }
           ctx.strokeStyle=grad;
@@ -185,7 +185,7 @@
         // Very low contrast keeps them from becoming a rigid latitude grid.
         ctx.globalCompositeOperation='source-over';
         ctx.lineWidth=clamp(size/430,.30,.55);
-        ctx.strokeStyle='rgba(70,164,245,.055)';
+        ctx.strokeStyle='rgba(70,164,245,.045)';
         for(let i=0;i<=54;i++){
           const x0=(2*i/54-1)*.85;
           ctx.beginPath();
@@ -211,7 +211,7 @@
           };
           ctx.save();
           ctx.globalCompositeOperation='source-over';
-          ctx.fillStyle=`rgba(1,5,23,${(.42*strength).toFixed(3)})`;
+          ctx.fillStyle=`rgba(1,5,23,${(.16*strength).toFixed(3)})`;
           ctx.beginPath();
           for(let i=0;i<=n;i++){
             const p=shape(i/n,false);
@@ -222,7 +222,7 @@
           ctx.globalCompositeOperation='screen';
           // A single blurred continuous crest supplies the source's soft
           // folded-sheet illumination; per-fiber details stay sharp beneath.
-          ctx.globalAlpha=.26*strength;
+          ctx.globalAlpha=.17*strength;
           ctx.lineWidth=clamp(size/145,.8,1.7);
           ctx.strokeStyle='#367df4';
           ctx.shadowColor='rgba(52,133,255,.38)';
@@ -240,25 +240,25 @@
             const a=shape(i/n,true),b=shape((i+1)/n,true);
             const local=(a[2]+b[2])/2;
             if(local<.045)continue;
-            ctx.globalAlpha=clamp(local*.74*strength,0,.68);
+            ctx.globalAlpha=clamp(local*.48*strength,0,.46);
             ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
           }
           ctx.restore();
         }
-        drawFoldVeil(.35+.14*t,.91,.13,1);
-        drawFoldVeil(-1.45+.11*t,.83,.115,.85);
-        drawFoldVeil(-2.6+.08*t,.68,.095,.72);
+        drawFoldVeil(.35+.14*t,.91,.075,.8);
+        drawFoldVeil(-1.45+.11*t,.83,.07,.72);
+        drawFoldVeil(-2.6+.08*t,.68,.06,.65);
         ctx.restore();
         ctx.save();
         const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(40,109,224,.15)');
-        rim.addColorStop(.32,'rgba(63,147,242,.20)');
-        rim.addColorStop(.67,'rgba(77,185,251,.28)');
-        rim.addColorStop(1,'rgba(99,214,255,.18)');
+        rim.addColorStop(0,'rgba(40,109,224,.09)');
+        rim.addColorStop(.32,'rgba(63,147,242,.12)');
+        rim.addColorStop(.67,'rgba(77,185,251,.18)');
+        rim.addColorStop(1,'rgba(99,214,255,.12)');
         ctx.strokeStyle=rim;
         ctx.lineWidth=clamp(size/260,.48,.93);
-        ctx.shadowColor='rgba(36,120,242,.37)';
-        ctx.shadowBlur=clamp(size*.022,1.8,4.5);
+        ctx.shadowColor='rgba(36,120,242,.26)';
+        ctx.shadowBlur=clamp(size*.016,1.2,3.4);
         ctx.stroke(edge);
         ctx.shadowBlur=0;
         // Localized curvature glints and near-edge folded-sheet contours.
