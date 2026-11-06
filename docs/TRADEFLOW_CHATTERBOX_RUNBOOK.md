@@ -61,3 +61,11 @@ Once the private runtime exists, open TradeFlow AI in the **isolated preview**, 
 5. Run full exact-commit CI and independently check deployment preview. No production deployment/merge without authorization.
 
 No automatic assistant speech or background microphone capture occurs in this change. No business actions can be triggered by the audio output path.
+
+## Signed speech binding and Cloudflare preview isolation (2026-11-06)
+
+- Only the `/api/ai/chat` server may mint a short-lived (30-minute) HMAC receipt for the exact generated assistant text using the **private** `TF_CHATTERBOX_TOKEN`. The client stores that receipt with the committed local assistant turn. `/api/ai/tts` verifies the original text and receipt before forwarding to the model; unauthorized, modified, expired and locally generated replies are rejected. Old unsigned turns remain visible but do **not** expose Listen.
+- `wrangler.jsonc` includes a preview-only `previews` block (separate identity placeholders, AI binding, **no production D1 binding**). This was added because the Cloudflare build logs reported `Your Wrangler configuration is missing a previews block` for the previous revision. A new Preview build still requires verification; a preview without an isolated D1 does not support authenticated tenant-record API workflows.
+- Production deployment and production D1 are not authorized. `TF_AI_PREVIEW_TOKEN` and `TF_CHATTERBOX_TOKEN` are configured as secrets, never placed in Git. A reachable private HTTPS Chatterbox model host is required; the preview must report 503 when unavailable.
+- Hugging Face Sandbox creation was attempted for a temporary isolated Chatterbox runtime and returned HTTP **402 Payment Required**; no billable environment was created. Official HF Chatterbox Space generated genuine candidate clips, but it is public experimentation and **must not be used for customer data or wired to TradeFlow**.
+- Exact-head CI includes `tests/speech-receipt.test.cjs` and `tests/voice-saved-receipt.test.cjs`; model inference, audible mobile preview, performance and physical iPhone remain open acceptance gates.
