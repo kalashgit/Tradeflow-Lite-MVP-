@@ -25,6 +25,8 @@ export TF_CHATTERBOX_DEVICE='cpu'  # use cuda only with a compatible secure GPU 
 python tts/chatterbox_service.py
 ```
 
+For **nonproduction voice experiments**, run `python tts/provision_vctk_references.py` from the repository root first. This fetches VCTK CC BY 4.0 samples into `.local-tts/` (never Git), recording source URLs, SHA256 and attribution. The initial candidate references are `./.local-tts/gentleman-vctk.wav` (VCTK p227, 38-year-old male from Cumbria) and `./.local-tts/matriarch-vctk.wav` (VCTK p225, 23-year-old female from Southern England). Set the two `TF_CHATTERBOX_*_REF` environment variables to their **absolute** paths before starting the runtime. Research/candidate use is not commercial voice approval; inspect applicable permissions and maintain the CC BY 4.0 credit. These samples were used for genuine Chatterbox A/B previews, **not** to verify final quality in TradeFlow itself.
+
 Both reference WAVs MUST exist, be appropriately licensed, use natural original English speech, and stay outside Git. Loading Chatterbox weights on first boot may download model files privately into the runtime's HF cache; weights are not included in this PR. No startup is possible without both references. Python process binds `127.0.0.1:8765` by default; the token is required for every route. It never logs text or stores generated WAVs.
 
 The model host must not be public. For a **remote** Cloudflare preview, expose it only through authenticated private TLS ingress with the independent service token; Cloudflare cannot connect to your laptop's `127.0.0.1` address. Ensure the external HTTPS upstream is reachable from the Worker before enabling voice. Check ingress authentication and egress costs.
