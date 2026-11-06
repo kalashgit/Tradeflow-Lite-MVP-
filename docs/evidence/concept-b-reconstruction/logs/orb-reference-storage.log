@@ -1,0 +1,10 @@
+
+> tradeflow-deployment@0.4.0 test:storage
+> python3 tests/tenant-migrations.test.py
+
+PASS: D1-compatible schema, create/update revisions, isolation, and transactional audit
+PASS: execution-time membership revocation cannot write or add audit events
+PASS: 20-type expansion preserves rows/audits, rollback works, financial SQL permissions enforced
+PASS: roster and assignment authority enforced atomically; member note edits preserved
+PASS: intelligence reads filter tenant, role, type and revocation inside SQL
+PASS: single-record read guards deny revoked and foreign identities in actual SQL

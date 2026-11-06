@@ -1,0 +1,51 @@
+{
+  "note": "Exact authored timestamps use supplied frame textures. This measures preservation, not independent 3D reconstruction. Intermediate frames have no ground truth.",
+  "frames": [
+    {
+      "frame": 0,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 1,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 2,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 3,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 4,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 5,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 6,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 7,
+      "mae": 0.0,
+      "maxError": 0.0
+    },
+    {
+      "frame": 8,
+      "mae": 0.0,
+      "maxError": 0.0
+    }
+  ],
+  "loopNearBoundaryMAE": 0.3565981948334889
+}

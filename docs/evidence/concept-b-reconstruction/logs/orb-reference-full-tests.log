@@ -1,0 +1,1004 @@
+
+> tradeflow-deployment@0.4.0 test
+> node --test tests/*.test.cjs
+
+✔ session uses HttpOnly Access cookies without token storage or automatic provisioning (33.103093ms)
+✔ expired, forbidden and offline sessions cannot be mistaken for authorized membership (1.097121ms)
+✔ verified businesses are displayed as text, never evaluated as markup or grants (0.842571ms)
+✔ versioned registry renders only a host-backed job review and trusted action slot (1.641191ms)
+✔ unknown types versions extra keys and executable payloads are rejected (1.456639ms)
+✔ text is escaped and cannot add markup event handlers or confirmation controls (0.332455ms)
+✔ thread message actor business and evidence ownership are independently checked (0.360444ms)
+✔ missing host renderer cannot create a second action implementation (0.197708ms)
+✔ feedback is opt-in, unsupported platforms silent, confirmation requires a verified receipt (0.29483ms)
+✔ host adapter refuses another thread and falls back to existing review when evidence is missing (0.381583ms)
+✔ native details and bounded motion tokens preserve a reduced-motion and opaque presentation (0.286679ms)
+✔ evidence sources have readable host-backed labels and original provenance (0.236763ms)
+✔ source labels escape saved names and never fabricate names for other references (0.3338ms)
+PASS: saved HQ and supplier addresses resolve into linked map data, reuse coordinates, avoid wrong-building match, and survive offline failure.
+✔ tests/address-location-e2e.test.cjs (56.643639ms)
+PASS: Opportunity CSV retains address aliases and ZIP; provider addresses match number/street, even without a displayed ZIP; unrelated results stay unmapped
+✔ tests/address-recovery.test.cjs (41.434061ms)
+PASS supplier and headquarters location repair: Google coordinates, matching confidence, address persistence, reruns and offline assets
+✔ tests/address-resolution.test.cjs (47.479412ms)
+(node:10715) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/oidc-verifier.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ signed JWT, real membership SQL and bounded job context permit mock-only advisory without writes (645.918094ms)
+✔ real SQLite membership revocation and role downgrade during mock inference deny result (940.951939ms)
+✔ real SQL stale job revision and foreign business fail closed before transport (437.673213ms)
+✔ tampered signed bearer cannot enter authenticated advisory host (44.360878ms)
+✔ H04-11: a non-job cost revision changed during inference invalidates the advisory result (576.320695ms)
+✔ H04-11: missing, deleted, and foreign-identity linked evidence is denied before transport (1239.134302ms)
+✔ H04-11: company-scope evidence and context mutations cannot bypass post-inference checks (758.502766ms)
+✔ H04-12: multi-record evidence uses one bounded SQL snapshot at each authorization boundary (531.244028ms)
+✔ H04-12: membership revoked after a batched SQL snapshot denies before inference (421.889624ms)
+✔ H04-12: incomplete or duplicated batched evidence rows fail closed (711.888577ms)
+✔ H04-13: 200 evidence records use six D1-compatible binds per guarded snapshot (557.341139ms)
+✔ H04-13: 201 records fail closed before creating an advisory context (300.380761ms)
+✔ H04-13: viewer context excludes financial evidence and rejects forged financial references (566.866845ms)
+✔ H04-14: 200-record SQL adapter enforces D1 bind budget and denies post-snapshot revocation (593.957465ms)
+✔ H04-14: foreign-tenant payload injected into 200-record SQL snapshot fails closed (372.934488ms)
+(node:10941) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/advisory-server.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ advisory requires server authorization before the mock transport (3.909105ms)
+✔ authorization recheck suppresses output after role revocation (2.223061ms)
+✔ authorization errors are masked and approved result stays non-executable (1.959901ms)
+(node:10948) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/advisory-authorization.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ server-owned adapter rechecks actual membership and SQL job evidence at both advisory boundaries (11.200174ms)
+✔ revocation or role downgrade during mock inference denies the result (2.916831ms)
+✔ unverified, switched and foreign business principals never reach transport (2.848093ms)
+✔ missing, deleted or stale job and incorrect job scope fail closed (2.806729ms)
+✔ database failures and actor mutation are masked, never returned as advisory content (1.077222ms)
+✔ company-scoped advisory uses existing company read policy without inventing job grants (0.461917ms)
+(node:10955) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/advisory-provider.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ reject duplicate evidence key, including conflicting revisions (2.808752ms)
+✔ reject oversized evidence before invoking transport (0.638032ms)
+✔ enforce response byte limits for multibyte output (1.526817ms)
+(node:10962) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/advisory-provider.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ advisory is disabled before transport is invoked (3.277273ms)
+✔ explicit mock advisory carries only provenance and grants no execution authority (1.86664ms)
+✔ reject forged context, excessive question, and malformed output (4.497247ms)
+✔ transport errors fail closed without exposing error contents (0.572605ms)
+(node:10969) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/advisory-server.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ server advisory is off unless explicitly enabled and mock-configured (5.000547ms)
+✔ mock contract replaces arbitrary instructions with a fixed server intent (2.537573ms)
+✔ reject unknown intent and actor switch before any transport (0.511121ms)
+(node:10976) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/advisory-provider.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mock transport timeout signals cancellation and fails closed (13.534641ms)
+✔ invalid timeout rejects before any transport invocation (0.874873ms)
+✔ mock transport receives abort signal; successful response stays advisory only (0.716151ms)
+✔ mock transport failure hides provider-supplied secret (0.517308ms)
+(node:10983) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/index.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS: Unicode and punctuation access codes, verification, inference, static assets
+✔ tests/ai-preview.test.cjs (84.966816ms)
+PASS: Adaptive branding contrast for 12 colors; semantic colors, cache, settings wiring
+✔ tests/appearance-theme.test.cjs (48.043783ms)
+(node:10998) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/backup-snapshot.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ snapshot round trip and integrity checks (19.28364ms)
+✔ reject mixed businesses, duplicate IDs and oversized backup (60.963602ms)
+✔ approved incomplete bid creates one internal qualification task and audit only (31.356725ms)
+✔ stale opportunity or competing open task blocks write (13.227879ms)
+✔ rejection, completed readiness, withdrawn bids and tenant mismatches prevent execution (5.296461ms)
+✔ interrupted execution reconciles receipt without replay; later approval reuses task (11.325121ms)
+✔ existing opportunity dossier exposes owner review without claiming submitted bid (2.739506ms)
+✔ GUI status writes and journal event commit atomically with real record references (16.971664ms)
+✔ core accepted-quote conversion emits one job-created event despite repeat execution (12.443018ms)
+✔ actual record commit triggers authorized review and clears the existing handoff finding (15.65534ms)
+✔ parallel consumers lease events and cannot execute the same review twice (4.438853ms)
+✔ permission denial, retry, rule suspension and unsupported automatic mutations are explicit (6.73687ms)
+✔ business review is a read-only audited action and permission is rechecked at execution (1.378584ms)
+✔ malformed or mismatched event contracts are quarantined without starving later valid events (3.203966ms)
+✔ approved standalone conflict move writes revised booking, command receipt, domain event and calendar audit (25.613598ms)
+✔ same approved key idempotent; fresh approvals do not reschedule a non-conflicting event (5.997762ms)
+✔ same-resource collision, stale unrelated booking, denied approval and wrong business fail closed (6.668927ms)
+✔ linked work sessions and after-midnight proposed slots cannot be moved via conflict command (1.615549ms)
+✔ storage interruption aborts every calendar change and audit entry together (3.38563ms)
+✔ calendar conflict owner command prepares, approves, and verifies result on existing runtime (16.743795ms)
+✔ existing calendar review interface routes via owner approval, not direct calendar put (1.986589ms)
+✔ crash after calendar record commit reconciles approved result without repeating the move (7.088481ms)
+✔ calendar recovery does not claim success without matching domain and calendar audit (3.771929ms)
+✔ hidden calendar layers remain in conflict checks when moving standalone events (3.404806ms)
+✔ calendar GUI reconciles prior committed move before checking for now-vanished conflict (2.12303ms)
+✔ calendar GUI checks occupied replacement before starting owner approval (1.679788ms)
+✔ calendar owner review names conflicting booking and executes only after explicit approval (1.208437ms)
+PASS: TradeFlow Calendar R03 timeline, linked quick cards, layers, conflict detection and standalone events
+✔ tests/calendar.test.cjs (81.701758ms)
+✔ proposed work prompts review without implying actual approval or invoicing (5.006861ms)
+✔ unapproved-change detector flags ambiguous IDs and invalid amounts without inventing an actionable total (0.618269ms)
+✔ existing notifications route pending approval reviews to exact job (2.885743ms)
+✔ owner approval schedules an internal review with durable audit but never customer authorization (37.479167ms)
+✔ rejection, missing permission and stale job never schedule extra work (7.179773ms)
+✔ approved commands fail closed if job, customer or task relationships change before execution (11.215671ms)
+✔ duplicate reviews, rejected storage and foreign business cannot cause second task (9.581185ms)
+✔ interrupted command reconciles its receipt and task without executing again (6.216447ms)
+✔ recovery refuses inconsistent or missing audit evidence without replay (3.672849ms)
+✔ existing job dossier exposes reviewed action rather than customer approval (1.702327ms)
+✔ documented owner-attested consent resolves exactly one review task and audits job and task together (6.811441ms)
+✔ consent requires a recorded review task, evidence and unchanged linked records (5.780243ms)
+✔ interrupted customer authorization reconciles without replaying a job write (5.482393ms)
+✔ authorization rejects forged approval, stale review task, foreign business and duplicate key mismatch (9.271805ms)
+✔ proposed change orders persist locally, without invoicing or assuming customer consent (21.7569ms)
+✔ record approval delegates to authorized command bridge, never directly overwrites job (2.855969ms)
+✔ rejects invalid and unreasonably large amounts without writing (1.961363ms)
+✔ existing app shell loads change control before job forms and caches it (0.223838ms)
+✔ exact-head evidence summary records Node and independent browser counts (2.593822ms)
+✔ missing or failed/skipped regressions cannot be summarized as green (0.76899ms)
+✔ missing cross-tab, contractor or incomplete browser evidence fails closed (0.3051ms)
+✔ missing or partial intelligence-context browser evidence cannot pass the expanded summary gate (0.324766ms)
+✔ missing or partial authenticated two-device evidence is a failing gate (0.449772ms)
+✔ missing or partial decision-journey browser evidence fails the expanded gate (0.255363ms)
+(node:11089) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/cloud-intelligence.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ existing shared read command uses authorized cloud port with a minimal receipt and no business mutation (50.550493ms)
+✔ expired/mismatched actor or role, redirects, and forged response scope never reach context consumer (2.802175ms)
+✔ signed-out/offline context reads fail honestly without fabricated cached intelligence (0.763274ms)
+(node:11101) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/cloud-retrieval.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cloud retrieval preview classifies fresh, identical and conflicting records without mutating inputs (3.581215ms)
+✔ owner membership and explicit identity are mandatory even for read-only preview (0.99514ms)
+✔ paged retrieval requires completeness, bounded counts and unique IDs (0.620418ms)
+✔ cross-business and malformed records fail closed (0.463968ms)
+✔ canonical comparison safely ignores optional undefined object fields and retains array semantics (0.381272ms)
+✔ cloud comparison remains read-only when optional undefined fields appear in conflicting records (0.412891ms)
+✔ read-only retrieval rejects embedded wrong-tenant local records before transport access (3.883551ms)
+✔ cloud preview rejects malformed nested IDs without revealing or staging data (0.901132ms)
+✔ existing scoped records and findings are bounded without modifying data (1.370428ms)
+✔ completed cancelled and foreign-business jobs do not enter active work (0.465875ms)
+✔ missing detector report is unknown rather than zero attention (0.44462ms)
+✔ empty records have truthful empty states, no financial or delegated claims (0.198966ms)
+✔ untrusted titles and findings are escaped and unavailable references withheld (0.412525ms)
+✔ different actor contexts fail closed without copying company records (0.1933ms)
+✔ job findings open their actual job reference even when a cost is the first supporting source (0.258543ms)
+✔ two runtime instances serialize concurrent execution of the same approved request (36.893869ms)
+✔ two distinct approved commands racing one source cannot create duplicate active drafts (8.266805ms)
+✔ forged approved status without durable approval evidence fails closed (2.758183ms)
+✔ revoked permission and changed source both block approved execution (3.067772ms)
+✔ failed storage write aborts draft, domain event and receipt together (2.209773ms)
+✔ interrupted execution without matching receipt is indeterminate and never replayed (5.386888ms)
+✔ read-only operational review never calls the modification port (2.075694ms)
+✔ altered stored permission cannot approve a modification with read-only capability (1.152927ms)
+✔ interrupted command with altered permission contract cannot be reconciled (2.088582ms)
+✔ request-key binding rejects changed source revision instead of replacing prior review (3.956763ms)
+✔ transaction rolls back staged quote and audit when write #2 fails (1.679141ms)
+✔ transaction rolls back staged quote and audit when write #3 fails (1.191549ms)
+✔ strict deterministic parsing and explicit intent registry (3.804997ms)
+✔ ambiguous records require choice; exact IDs and context resolve without guessing (11.503336ms)
+✔ record references reject missing, duplicate, cross-customer and cross-business relationships (1.386352ms)
+✔ drafts use only known relationships, remain unsaved and revalidate on save (20.811166ms)
+✔ safe navigation needs no approval; same request executes once across runtimes (4.615922ms)
+✔ approval is explicit and bound to actor, parameters and fresh records (8.478467ms)
+✔ stale or unauthorized approval is rejected; parsed text is never an execution ticket (5.461635ms)
+✔ failed audit prevents effects; interrupted execution is not automatically replayed (2.245219ms)
+✔ transactional quotation handoff serializes different keys and protects request payloads (7.084096ms)
+✔ atomic commit refuses records changed after approval and rolls back storage failures (1.459457ms)
+✔ all business data is preserved by reads, navigation, filters and draft preparation (6.90593ms)
+(node:11137) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/intelligence-context.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ seeded inquiry/quote/job/crew/cost/invoice/payment graph retains revisions and explicit missing collection evidence (9.089663ms)
+✔ existing intelligence detectors consume authorized graph without inventing settlement or automatically executing proposals (23.709285ms)
+✔ same seeded job context for member never exposes costing, quotes, invoice amounts or payment records (0.658041ms)
+✔ conversation scope is exact and rejects missing identities (2.665031ms)
+✔ versioned migration creates only the two dedicated AI stores with indexes (1.691457ms)
+✔ only final bounded transcript text and labelled assistant replies are durable (10.971845ms)
+PASS Core Integration Sprint 01: supplier validation, quote handoff, saved links, world-geodesic mapping and offline wiring.
+PASS: Supply Network V2 itemized PO, native Mail links, immutable issuance, delivery progress and offline assets
+✔ tests/core-integration.test.cjs (73.021449ms)
+✔ customer input remains unsaved until explicit review (12.002814ms)
+✔ review edits are revalidated and duplicate acknowledgement is forwarded explicitly (3.167403ms)
+✔ original wording is opt-in (0.683179ms)
+✔ customer creation is a registered modification requiring explicit approval, not text authorization (37.899624ms)
+✔ customer data is normalized without filling unsupported or absent information (5.305759ms)
+✔ invalid names, phone numbers and unregistered fields cannot reach persistence (4.960046ms)
+✔ likely duplicates include normalized legacy phones and name-only matches, with exact acknowledgement (9.253482ms)
+✔ a newly matching customer invalidates review while unrelated records do not (6.311026ms)
+✔ a changed duplicate record requires reviewing its current details again (2.082169ms)
+✔ same request submissions replay safely across runtimes and retain one audit lifecycle (4.907845ms)
+✔ different approved request keys cannot race into duplicate customer creation (4.506601ms)
+✔ Core serializes customer inserts and binds each idempotency key to the reviewed payload (2.131315ms)
+✔ Core rechecks the likely duplicate set atomically instead of trusting an earlier snapshot (1.596369ms)
+✔ source text is not persisted by default and cannot enter structured command parameters (4.707574ms)
+✔ optional source retention is hash bound, local, separately removable and never in audit (6.965309ms)
+✔ mismatched retained text and failed transactions cannot partially save records or metadata (3.76785ms)
+✔ customer creation and source removal preserve existing records, foreign data and schema version 9 (4.301492ms)
+✔ approved account review saves linked local contribution and audit, without profit claim (35.083634ms)
+✔ changed customer, job, payment, cost, expense, invoice or competing task fail closed (26.219071ms)
+✔ rejected approval and invalid or foreign financial evidence cannot schedule review (2.158723ms)
+✔ interrupted review reconciles a receipt without replay, repeated approval reuses open task (7.090283ms)
+✔ customer dossier exposes owner review and explicit limits on profit certainty (1.625787ms)
+✔ extract explicit job fields, retaining original line evidence (2.19174ms)
+✔ unlabeled facts do not silently become business records (0.670192ms)
+✔ ambiguous field labels request review rather than overwrite (0.438638ms)
+✔ customer fields and quote fields are type-scoped (0.561784ms)
+✔ CSV is quoted and formula-like contents are escaped (0.54383ms)
+✔ document review routes through same CSV overlay, never a direct record mutation (1.088364ms)
+PASS: High-fidelity two-stage opportunity dossier/workflow, functional menus, original photos retained, dashboard unchanged
+✔ tests/dossier-reference-ui.test.cjs (53.216808ms)
+(node:11202) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/record-model.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ shared catalogue maps all business stores while leaving local journals/preferences local (14.407717ms)
+✔ tenant snapshots preserve every supported business record type and reject local credential/journal stores (9.281105ms)
+✔ migration preview follows actual server capability and checks extended supplier/calendar relationships (7.056281ms)
+✔ extended queue records stay pending until server schema is ready; members cannot write financial records (5.738338ms)
+PASS: Finance Import and Export menus, neon money direction, correct net colors, full-map retry after address repair
+✔ tests/finance-ui-and-map-retry.test.cjs (41.441498ms)
+✔ materials not ready gives source-grounded warning and resolves once confirmed ready (6.362129ms)
+✔ incomplete closeout requires completed evidence or documented waiver (1.283428ms)
+✔ recorded credential date compared against scheduled job date, not assumed license validity (2.414654ms)
+✔ all three findings appear in existing notification surface with source records (13.815308ms)
+✔ job and crew editors capture missing readiness and credential evidence (1.865451ms)
+✔ Flow Wave renders four broad closed surfaces without wireframe or graph traces (1.507225ms)
+✔ ribbon lighting uses translucent gradients, edge masking and restrained bloom (0.307302ms)
+✔ idle, listening and processing have distinct motion and reduced motion disables it (1.08261ms)
+✔ voice panel displays Flow Wave and retains the existing executor and microphone controls (0.28771ms)
+✔ updated artwork and CSS are versioned consistently in HTML and offline cache (0.311237ms)
+✔ real sample energy separates silence, quiet speech and loud speech without inventing audio (6.691477ms)
+✔ envelope has fast attack, slower release and stable bounds independent of frame duration (0.209521ms)
+✔ microphone samples drive filled ribbon transforms and silence settles back (17.42703ms)
+✔ closing while permission is pending stops late tracks and cannot restart animation (1.320844ms)
+✔ permission failure, unsupported metering and reduced motion are safe fallbacks (1.361484ms)
+✔ backgrounding and ended microphone tracks release audio resources (0.74316ms)
+✔ microphone lifecycle uses the same assistant and stops on Stop, recognition end, errors and close (2.100008ms)
+✔ meter loads before voice and is cached for offline use without changing DB schema (0.361256ms)
+✔ initial contact selects immediately across all five targets (1.299098ms)
+✔ continuous candidate selection is hysteretic and bounded (0.417721ms)
+✔ horizontal drag previews all tabs without side effects (0.369271ms)
+✔ vertical intent cancels instead of selecting another route (0.191048ms)
+✔ versioned enhancement assets are available offline (0.645091ms)
+PASS: Release 01 Growth Intelligence ICP, persona, missions, contacts, navigation and data persistence
+✔ tests/growth.test.cjs (49.9425ms)
+✔ Home metric position survives same-owner UI refreshes and navigation without a business write (1.355594ms)
+✔ metric memory clears across actor/business changes and unknown identity (0.249149ms)
+✔ invalid offsets and non-Home updates cannot replace a saved position (0.145458ms)
+✔ origin captures contextual screen, selection, thread and unsent draft (1.912799ms)
+✔ open and exact return with focus and preserved draft (1.50712ms)
+✔ actor/business changes deny return (0.292267ms)
+✔ thread switching prevents restoring obsolete conversation origin (0.178922ms)
+✔ unavailable originating record fails without navigation (0.613217ms)
+✔ interrupted async navigation never reports success (0.325344ms)
+✔ close cancellation still stops microphone immediately (0.293138ms)
+✔ repeated close is idempotent under reentrancy (0.169707ms)
+✔ offline reload can reconstruct origin from provided snapshot without storage authority (0.355921ms)
+✔ sequential repeated close does not dismiss twice, but still stops microphone (3.546039ms)
+✔ opening from a mini prompt carries exact unsent text into the conversation editor (0.234167ms)
+✔ a newly reopened visual panel can close after prior idempotent close (0.235174ms)
+✔ invalidation or context change during record validation cannot start stale navigation (0.333146ms)
+✔ explicit reload origin restores captured draft only when current draft is empty; live cleared draft stays empty (0.264386ms)
+✔ explicit open from another saved thread cannot inject that origin draft (0.231613ms)
+✔ microphone stops synchronously before exit resolves; close occurs once (1.729501ms)
+✔ scope/thread changes, removed panel and cancellation never close another context (0.570111ms)
+✔ synchronous veto is preserved after animation and never keeps microphone running (0.558514ms)
+✔ explicit host origin and draft round trip; no missing-record success (1.053903ms)
+✔ hidden-page invalidation and absent animation still use host close safeguards (0.389102ms)
+✔ reduced-motion immediate close cannot retain a resolved pending operation across reopen (0.761605ms)
+✔ contractor-facing errors explain next steps without raw codes or untrusted error text (0.277445ms)
+PASS: Integration Hub V2 branded offline catalog, honest connection states, details, setup tasks, CSV and ICS exports
+✔ tests/integrations-v2.test.cjs (56.733306ms)
+(node:11287) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/intelligence-briefing.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ business briefing routes independently of job question (4.055515ms)
+✔ existing detector findings, blocked billing, tenant filtering and no execution (2.161215ms)
+✔ missing engine fails closed (0.561588ms)
+✔ followups are bounded and never interpreted as permission (1.025852ms)
+(node:11294) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/intelligence-case.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ bounded case reuses existing source and proposal IDs with zero action authority (2.066888ms)
+✔ case is valid only for the same current evidence, actor, business, job and thread (0.836145ms)
+✔ case expiration, interruption and fresh inspection do not create durable authority (0.530038ms)
+✔ cloud evidence needs trusted revisions and role-scoped access (0.860984ms)
+✔ missing or contradictory evidence cannot be smuggled into the case (0.372492ms)
+✔ offline application precaches the added source module (0.443357ms)
+(node:11301) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/intelligence-context.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ company context is bounded, read-only and source-revision backed; contacts and arbitrary instructions are excluded (4.038273ms)
+✔ member/viewer contexts withhold financial records; crew display role never promotes the principal (1.836007ms)
+✔ job context includes only that job, its direct records and permitted ancestors (0.92372ms)
+✔ wrong identity, missing membership and mid-query role downgrade fail closed (2.666875ms)
+✔ foreign scope, invalid provenance, oversized snapshots and malformed input are never summarized (4.138088ms)
+✔ missing links are explicit unknowns and unverified payments remain manual ledger facts (0.501826ms)
+✔ invalid invoice numbers stay visible to validation and oversized critical values are never truncated (1.465149ms)
+✔ contradictory linked-customer records are preserved with an explicit review warning (0.59051ms)
+✔ reference timing traverses every frame and interpolates last to first (2.452617ms)
+✔ only versioned measured assistant playback raises speech energy (0.280793ms)
+✔ renderer assets are version aligned and available offline (0.450314ms)
+✔ new reveal cancels prior motion and uses only fixed transform/opacity frames (2.092403ms)
+✔ reduced preference and hidden document never start decorative motion (0.231333ms)
+✔ preference change visibility and disposal cancel current effects without modifying content (0.226814ms)
+✔ CSS seconds zero malformed and excessive durations are handled deterministically (1.162023ms)
+✔ unknown presets and unavailable or throwing animation API cannot execute anything (0.705704ms)
+✔ approved overdue invoice follow-up creates one internal task, event and receipt (22.240284ms)
+✔ repeated and distinct approved keys do not create duplicate open tasks (3.335626ms)
+✔ stale payment, paid balance, and foreign tenant refuse write (3.289186ms)
+✔ approval and storage errors cannot leave partial follow-up or audit records (3.831682ms)
+✔ existing command runtime requires explicit owner approval for invoice follow-up (13.070882ms)
+✔ owner rejection and changed invoice before approval keep audit but no task (4.403868ms)
+✔ existing revenue button invokes approved bridge, not direct task writes (2.66189ms)
+✔ interrupted invoice task reconciles receipt and event after reload with no second execution (5.587913ms)
+✔ invoice recovery cannot report success without durable task and event evidence (2.634794ms)
+✔ partially paid invoice retains recorded balance and explicit approval guard (0.500887ms)
+✔ approved local overpayment creates an internal task and audit without changing payments (26.973531ms)
+✔ stale invoice, payment and existing reconciliation task prevent execution (9.735973ms)
+✔ rejected approval, corrected balance and mismatched tenant evidence fail closed (3.711525ms)
+✔ recovery requires matching receipt and task; later approvals reuse the open task (12.487095ms)
+✔ invoice UI exposes a permissioned review and labels unverified settlement (1.980295ms)
+(node:11344) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/invoice-readiness.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ recorded evidence is review-only, never billable authority (2.707513ms)
+✔ signoff (1.522785ms)
+✔ milestone (0.356881ms)
+✔ scope (0.259278ms)
+✔ duplicate (0.436529ms)
+✔ tenant (0.40381ms)
+✔ change (0.566832ms)
+✔ currency (0.474683ms)
+✔ timestamp (0.50932ms)
+✔ price (1.139443ms)
+✔ revision (0.416855ms)
+✔ owner-reviewed overrun creates one internal task, durable receipt and explicitly unverified financial evidence (32.979322ms)
+✔ stale job cost, expense, customer and existing task fail closed (24.406568ms)
+✔ incomplete costs, no overrun and rejected approval cannot produce task (4.042527ms)
+✔ duplicate operation and interrupted receipt reconcile without replay (8.259134ms)
+✔ existing job UI and command permissions expose owner-reviewed cost reconciliation only (1.685468ms)
+PASS: TradeFlow R02 Job Forms persisted checklists, notes, print and safe rendering
+✔ tests/job-forms.test.cjs (48.275765ms)
+✔ valid imported time links the existing job to calendar, without creating duplicate event records (1.271796ms)
+✔ date-only, undated and completed imported jobs remain outside appointment calendar (0.358077ms)
+✔ invalid dates, times and positions never become scheduled jobs (0.411974ms)
+✔ valid explicit coordinates are saved but not represented as verified (1.038236ms)
+✔ invalid duration is not replaced by invented value (0.320598ms)
+(node:11377) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/job-intelligence-request.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ natural-language review resolves selected and whole portfolio without side effects (5.980986ms)
+✔ last job must resolve only from unique completed-job evidence, never row order (2.144278ms)
+✔ ambiguous, empty and oversized scopes fail closed (0.727043ms)
+✔ explanation reports uncertainty and cannot claim invoice readiness or execution (0.651396ms)
+✔ invoice readiness blocks unsupported signoff, financial scope and existing invoices (0.963704ms)
+✔ foreign-tenant completed jobs are excluded from local natural-language review (0.5464ms)
+✔ owner approval creates a manual-hours variance task, linked domain event and receipt (38.282037ms)
+✔ stale labor entry, job, customer and competing review are rejected (17.525947ms)
+✔ invalid, corrected or cross-business labor evidence and rejected approval never execute (3.4516ms)
+✔ interrupted operation reconciles by receipt without replay and prevents duplicate open review (8.04124ms)
+✔ job dossier exposes the permissioned labor review and explicitly unverified evidence (2.682726ms)
+✔ launch map navigation (1.814965ms)
+✔ launch map read-only controls (1.401183ms)
+✔ map parser cannot intercept other business operations (0.407353ms)
+✔ seven launch More workspaces navigate to registered IDs (3.992696ms)
+✔ task and quotation filters use existing registry (0.925096ms)
+✔ record lookup and reviewed drafts (2.185334ms)
+✔ no interception of unrelated or sensitive requests (0.401735ms)
+✔ unpaid invoices is a read-only filter, never a payment operation (1.734667ms)
+✔ calendar navigation and read-only filters (2.597296ms)
+✔ finance and invoice views (1.152809ms)
+✔ no unrelated command interception (0.421488ms)
+✔ library navigation works for spoken and typed utterances (1.754535ms)
+✔ bounded import intentions map to review only (2.04144ms)
+✔ document capture and manual upload use explicit on-screen controls (0.159681ms)
+✔ dangerous or non-specific actions fail closed (0.745448ms)
+✔ offline app and AI styles referenced by index are present in service worker cache manifest (1.648382ms)
+✔ disabled by default; no model call (1.105376ms)
+✔ projection drops names and unapproved content (1.078822ms)
+✔ role and tenant mismatches fail closed (0.364824ms)
+✔ valid model JSON references only supplied record revision (0.891265ms)
+✔ hallucinated ref, malformed JSON and truncation cannot return a briefing (0.777315ms)
+✔ disabled mode does not read business data or invoke AI (1.074396ms)
+✔ valid source is read before and after response, with no writes (0.577309ms)
+✔ role revocation after inference discards AI answer (0.193632ms)
+✔ changed evidence revision after inference discards AI answer (1.188369ms)
+✔ read failure after inference rejects instead of trusting old context (0.352194ms)
+✔ incomplete AI result never produces a briefing and avoids second source read (0.264568ms)
+✔ general strategy is disabled by default and reads no records (0.891429ms)
+✔ general advice request contains no business evidence and cannot execute (1.796105ms)
+✔ unavailable and truncated models do not return general advice (0.774493ms)
+✔ development chat starts locked, prevents anonymous data access and has no cloud APIs (120.811366ms)
+(node:11451) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/intelligence-context.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ existing UI /api/ai/chat returns synthetic revision-backed citations via actual H04-01 read path (64.098488ms)
+✔ local Qwen request receives ONLY synthetic allowlisted evidence (7.840566ms)
+✔ Qwen failure returns visibly unavailable answer and no false citations or action (9.944071ms)
+✔ invalid content, cross-origin post and unsupported write are denied (10.535929ms)
+✔ synthetic chat varies evidence-backed guidance for quote and labor questions (7.541777ms)
+✔ iPhone reported ICP prompt does not receive irrelevant invoice response (3.437648ms)
+✔ live ICP answer is isolated general Qwen advice without company records (4.425358ms)
+✔ disabled provider never fetches (1.201599ms)
+✔ provider rejects non-loopback destinations (0.68487ms)
+✔ localhost request disables thinking and does not issue business writes (0.678199ms)
+✔ incomplete, empty, HTTP failure, transport failure return no trusted answer (1.171764ms)
+✔ invalid messages or budgets are rejected before transport (1.852411ms)
+✔ local backup is a coherent checksum-protected schema-9 snapshot and keeps custom fields/links (17.492357ms)
+✔ invalid or duplicate IDs, missing required stores and unknown stores cannot silently destroy data (4.263858ms)
+✔ review includes creates/deletions/relationships and cancellation leaves all stores untouched (2.132145ms)
+✔ safety backup must persist before replacement and permits verified rollback (7.13157ms)
+✔ a concurrent device-tab edit between review and apply aborts without overwriting either edit (2.930413ms)
+✔ interrupted replacement transaction rolls back every clear and write (2.777677ms)
+✔ legacy backups retain explicitly present stores and initialize only historically absent stores (1.892249ms)
+✔ v10 conversation backup accepts scoped history; v9 snapshots do not silently replace new history (0.483153ms)
+✔ restoring a valid v9 business backup preserves later local AI histories (3.784868ms)
+✔ normalize complete street address without guessing a coordinate (2.604058ms)
+✔ match exact numbered road, city, state and ZIP as review-needed (0.536397ms)
+✔ reject different house number, road, ZIP or state (1.537092ms)
+✔ coarse hits stay approximate; never accept as property location (0.386861ms)
+✔ red/attention state is distinct from confirmed map coordinates (0.189828ms)
+✔ integration preserves manual lookup and disables automatic bulk mapping on import (1.462978ms)
+PASS: Map opens without background disclosure; manual geocoding is consented, bounded, matched and review-only
+✔ tests/map-all.test.cjs (37.402068ms)
+PASS M01 TradeFlow location sheet, validated road routing, photo safety, local supplier metadata, assets and responsive UI wiring
+✔ tests/map-experience.test.cjs (60.532769ms)
+PASS: Marketing V2 campaigns, ICP/persona, local attribution, linked jobs/cash, Finance spend, safe manual workflows
+✔ tests/marketing.test.cjs (67.006578ms)
+(node:11510) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/intelligence-evidence.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ owner objectives are read-only, compositional and conservatively clarified (4.547578ms)
+✔ decision explains actual graph with source fingerprints, rival causes, no action and typed unapproved proposal (45.229903ms)
+✔ same evidence reordered produces identical binding and never invents revision or collection proof (15.258025ms)
+✔ missing and contradictory source links block proposals without concealing uncertainty (14.177698ms)
+✔ misleading financial units and negative amounts never become precise profit recommendations (24.467692ms)
+✔ incorrect company, forged role and edited evidence cannot reach command preparation (5.716708ms)
+✔ stale source and tampered command parameters are rejected before an approval exists (27.890114ms)
+✔ proposing invokes only existing preparation; review cannot approve or execute writes (18.577614ms)
+✔ explicit existing approval executes once and receipt checks actual saved task without claiming issue resolution (31.588672ms)
+✔ revoked runtime permission and stale approved source prevent business execution (22.435561ms)
+✔ record text cannot inject commands or treat taking no action as execution (9.613667ms)
+✔ cloud evidence is host-scope bound, rejects financial injection for members and remains mutation-disconnected (17.211017ms)
+✔ scope changes during evidence refresh cannot create a proposal journal entry (13.674789ms)
+✔ duplicate sources, invalid dates and authority claims fail closed without touching records (5.054667ms)
+✔ cancelled review stays cancelled but a new explicit review attempt can proceed without duplicate effects (20.89369ms)
+✔ unrelated quotation units do not block supported cost review, and labor uses hours without pretending to verify money (8.103845ms)
+✔ existing registered command preconditions suppress cancelled-job proposals and missing requested evidence stays unknown (6.516349ms)
+✔ job evidence scopes before its bound and preserves ambiguous legacy expenses as review constraints (8.709228ms)
+✔ fresh review keys cannot bypass an interrupted command; revoked inspection does not expose pending requests (14.172706ms)
+✔ projected records never turn omitted closeout fields into a false operating exception (5.071499ms)
+✔ existing verified decision path exposes a bounded source-linked case in the same app (5.022166ms)
+✔ conversation-thread cases stay bound to the reviewed thread and are read-only (4.427399ms)
+(node:11521) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/migration-preview.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ migration preview requires a verified target owner and checksum, never moves records (19.127475ms)
+✔ unmapped related records and conflicting remote records block migration readiness (2.412891ms)
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(panel.includes(label))
+
+    at /workspace/tradeflow/tests/notifications.test.cjs:54:74 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+✖ tests/notifications.test.cjs (63.872864ms)
+(node:11540) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/offline-conflicts.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ replay conflict and deleted record (3.486279ms)
+✔ unknown remote and duplicate local revisions stay unsent (2.174592ms)
+✔ tenant mismatch fails validation (0.320361ms)
+✔ all five detectors return stable evidence contracts without changing input (16.676332ms)
+✔ completion, future dates, invalid dates and confirmed handoffs are hard exclusions (1.312292ms)
+✔ calendar conflicts preserve resources and include hidden layers, but exclude cancelled bookings (0.92532ms)
+✔ overdue invoices include partial payments, exclude paid/draft/void and retain currency (10.496289ms)
+✔ financial inconsistencies and broken relationships block actions before ranking (2.00418ms)
+✔ duplicate findings collapse and duplicate record IDs are never silently trusted (0.988387ms)
+✔ modular interface isolates failures, validates outputs and reports missing adapters honestly (1.447335ms)
+✔ foreign business records are excluded and no fabricated outcomes or executable authority appear (2.694627ms)
+✔ invoice follow-up task never clears overdue finding without recorded payment resolution (1.830282ms)
+PASS: Crew & Dispatch V2 dashboard, crew availability, job scheduling, conflict detection and legacy route safety
+✔ tests/operations.test.cjs (68.268222ms)
+PASS: Opportunities v5 reference layout, native-feeling sheets, import review, auto-map limits, CSV/CRM export and photo verification
+✔ tests/opportunities-v5.test.cjs (45.081067ms)
+PASS: Two-stage Opportunity dossier and workflow, safe source photos, reference layout, local saves, unchanged Opportunity dashboard
+✔ tests/opportunity-dossier.test.cjs (52.351339ms)
+PASS: Reference-style compact cards, native phone and email from typed or saved data, local saves, and dashboard isolation
+✔ tests/opportunity-native-links.test.cjs (50.721446ms)
+✔ customer account economics sums local receipts and linked costs without conflating sales and cash (18.434749ms)
+✔ excluded payments with wrong customer link or currency are not counted silently (0.906913ms)
+✔ customer with jobs and no entered costs is flagged as incomplete (0.527679ms)
+✔ economics is integrated into existing customer dossier (0.189421ms)
+✔ confirmed bid deadline surfaces with a record reference and no fabricated submission (2.941634ms)
+✔ unverified, malformed, future or closed bid deadlines are excluded (1.075027ms)
+✔ bid deadline is separate from follow-up with required owner evidence (0.341761ms)
+✔ opportunity workflow records documented win/loss reasons without inferred explanations (5.236306ms)
+✔ outcome cause requires an actual won/lost status and does not allow invented unspecified other cause (0.308452ms)
+✔ pursued bids require explicit invitation, scope and capacity reviews (3.94083ms)
+✔ bid readiness uses the current Opportunity form and notification surface (3.824044ms)
+✔ actual customer contact uses approved typed command and never writes directly from form (3.252484ms)
+✔ cross-customer quote links are rejected before approval and no false contact is stored (1.686939ms)
+✔ customer history includes recorded contact and existing customer page hosts the form (0.331708ms)
+✔ customer history joins local linked records only and escapes names (12.27194ms)
+✔ opportunity dossier reuses current workflow for evidence-led manual bid decisions (5.369185ms)
+✔ bid decision handler validates selections and requires an explanation (0.331974ms)
+✔ budget overrun uses recorded costs only and resolves after documented correction (14.660116ms)
+✔ payment overrecording is flagged without claiming provider settlement (1.912316ms)
+✔ both financial findings route through the existing Notifications surface (3.42767ms)
+✔ overdue invoice action routes to owner-reviewed command adapter, never writes a task directly (18.603784ms)
+✔ fully paid invoice exposes no overdue follow-up action (1.6956ms)
+✔ job handoff prepares linked invoice draft without fictional money or issuance (4.285541ms)
+✔ new unlinked invoice does not retain the previously selected job (2.191213ms)
+✔ home quote conversion excludes drafts from decided denominator (0.387558ms)
+✔ completed job UI offers draft handoff only with no active invoice (0.343326ms)
+✔ labor-hour variance is based on recorded hours and resolves when corrected (6.331383ms)
+✔ revenue entry validates Labor-only hours and quarter-hour precision (0.428211ms)
+✔ labor variance uses the existing Notifications and Job dossier (12.291875ms)
+✔ existing Notifications surfaces four operational intelligence cases without a second page (10.602741ms)
+✔ business obligations are due-date-validated, shown within 14 days and disappear when complete (2.207502ms)
+✔ existing quote task suppresses redundant quote follow-up notification (1.123922ms)
+✔ user-entered obligation is saved as an ordinary linked task with no invented deadline (2.475118ms)
+✔ business risk voice intent and cache versions are linked (3.50411ms)
+✔ copying an accepted quotation creates an unapproved draft without original customer or send dates (1.111416ms)
+✔ unknown or invalid amounts cannot be copied into a draft as money (0.346743ms)
+✔ existing quotation detail offers reuse, retaining the existing editor and save path (0.369478ms)
+✔ reactivation review only considers dormant recorded customers, never sends (14.717536ms)
+✔ notifications can open actual source records with the existing app adapter (1.638085ms)
+✔ groups price expiration warnings by supplier instead of duplicating notifications (13.529274ms)
+✔ no warning without supplier quote evidence or for cancelled orders (0.34883ms)
+✔ visible notification opens existing supplier record (4.262713ms)
+✔ purchasing form and authorized command retain evidence-backed dates (1.173429ms)
+✔ spoken optimization reviews resolve to bounded local detector categories (2.281952ms)
+✔ no unsupported request is converted into a financial instruction (2.703912ms)
+✔ spoken reviews are read-only and routed to shared business intelligence (1.751269ms)
+✔ completed jobs without linked invoices are review signals, not asserted missing revenue (15.382057ms)
+✔ crew assignment finding resolves when a valid crew is assigned and does not invent availability (0.985209ms)
+✔ sent quotation never auto-creates reminders, but safely updates and closes existing legacy task (0.850614ms)
+✔ manual follow-up tasks are not overwritten by automatic quote lifecycle (0.448035ms)
+✔ nonredundant notification wiring preserves old UI surface and exposes new sources (1.628017ms)
+✔ ten candidate scenarios retain exact original research references (1.848473ms)
+✔ adjacent and partial mappings cannot silently represent full problem closure (0.329547ms)
+✔ new modules load before the app, are cached offline, and schema and deployment guard stay unchanged (1.377205ms)
+✔ real app adapters reuse navigation/forms and preserve backups, records and local scope (64.008375ms)
+PASS: provider-neutral core, normalized U.S. addresses, canonical address cache keys, geocoding validation, AI/storage/queue interfaces
+✔ tests/portable-engine.test.cjs (54.230232ms)
+✔ real navigation animates once; same-route business refresh does not (1.720324ms)
+✔ panel entry animates; replacement or removal cancels without replay (0.467928ms)
+✔ only changed real status text animates, not initial text or same-text repaint (0.269226ms)
+✔ BFCache hiding cancels effects without destroying bridge; unload disposes once (0.444067ms)
+✔ gesture cancel/hiding restore panel; dismissal routes once through the real close control (1.390774ms)
+✔ preview verification tolerates rollout propagation while still requiring exact bytes (182.865591ms)
+✔ preview verification never accepts a stale release after retry budget (168.202414ms)
+✔ CI logging cannot mask a failing regression exit code (35.008679ms)
+✔ automatic read-only domain event persists TF-P06 finding evidence, then reload preserves it without creating task (28.97008ms)
+✔ wrong-tenant events are excluded and suspended rule leaves no persisted proactive finding (2.678049ms)
+✔ corrected labor, invalid evidence and blocked signals cannot persist an actionable overrun (1.607235ms)
+✔ summaries are bounded, deterministic and never carry arbitrary source payload, secrets or customer text (1.772619ms)
+✔ review rejection does not create false processed evidence (4.824504ms)
+✔ existing dossier displays persisted attention only alongside the shared explanation and approval UI (1.847633ms)
+✔ proactive labor source binding is ordering-stable but rejects swapped IDs, edited versions and foreign rows (0.96173ms)
+✔ a read-only journal cannot persist an actionable labor observation without complete source binding (5.199616ms)
+PASS: Supply Network V2 itemized PO, native Mail links, immutable issuance, delivery progress and offline assets
+✔ tests/purchase-orders.test.cjs (64.141496ms)
+PASS: Import QC blocks rejected, unresolved and unsupported audit rows, counts exclusions, preserves source dates
+✔ tests/qc-import.test.cjs (52.321974ms)
+✔ manual quote contact and quotation contact timestamp are atomic, logged and distinguishable from delivery (23.069008ms)
+✔ same operation is idempotent; different owner, payload or missing contact refuse reuse (4.349976ms)
+✔ foreign customer, mismatched quote and invalid form data never write contact or quote (2.494511ms)
+✔ storage fault rolls back manual contact, quotation update and audit as one transaction (3.037115ms)
+✔ customer UI routes one manual contact through existing core operation (2.147875ms)
+✔ unanswered contact attempt preserves open follow-up task and does not claim reached (1.613795ms)
+✔ owner attested reached contact atomically closes only linked open quote follow-up tasks (2.963599ms)
+✔ reached contact storage failure rolls back quote resolution, task closure, and audit together (1.5773ms)
+✔ invalid contact outcome refuses to save before transaction (1.406619ms)
+✔ shared command runtime authorizes owner-reached contact and closes linked follow-up only once (14.060252ms)
+✔ approved contact recording refuses changed customer or quote before commit (1.274842ms)
+✔ TF-P01 full lifecycle: approved quote task, attempted contact, reached contact, audit and no post-resolution task (11.879813ms)
+✔ interrupted approved reached contact reconciles from event, quote, task and journal without replay (5.258934ms)
+✔ existing quote dossier opens preselected linked customer outcome form and honors reviewed command lifecycle (2.066266ms)
+✔ a newly added follow-up task after approval invalidates reached-contact resolution (3.112484ms)
+✔ idempotent replay refuses to claim success after completed follow-up evidence disappears (3.069229ms)
+✔ idempotent replay refuses to claim reached contact if quotation resolution was removed (1.547001ms)
+✔ explicitly approved quote follow-up creates one persistent internal task with audit, no contact claim (21.639697ms)
+✔ repeated operation and fresh request keys do not generate duplicate open follow-up tasks (2.19494ms)
+✔ denied approval, stale quotation and wrong tenant cannot create tasks (4.983308ms)
+✔ invalid quote status, missing customer and key reuse reject without phantom outcomes (1.886075ms)
+✔ storage failure rolls back task and audit in the same transaction (2.11964ms)
+✔ existing command runtime requires approval and records verified task execution (20.341852ms)
+✔ command runtime rejects changed quotation before approved task creation (5.118692ms)
+✔ creating a follow-up task does not falsely clear stale quotation warning (3.959584ms)
+✔ owner rejection leaves quotation and customer untouched and creates no task (3.614108ms)
+✔ approved scheduling reuses existing legacy automatic follow-up without duplicate records (2.109436ms)
+✔ existing quote detail action uses the same reviewed command rather than a separate route (3.262316ms)
+✔ interrupted command reconciles a genuine committed task and audit after reload without rerun (6.742162ms)
+✔ recovery stays indeterminate without a durable receipt and never writes (4.501964ms)
+✔ recovery refuses another actor and a receipt missing the task creation event (3.965728ms)
+✔ quote detail recovery action gates new approval on verified prior result (1.267921ms)
+✔ recovery refuses mismatched operation receipt without changing existing task (4.053705ms)
+✔ approved registry quote and customer snapshots execute through atomic core, and stale customer blocks (1.433754ms)
+✔ unrelated customer guard cannot authorize a quotation follow-up (0.762102ms)
+✔ saving sent quotation does not silently create an internal follow-up task (1.107968ms)
+✔ legacy open automatic task is maintained without creating another (1.061391ms)
+✔ approved follow-up task is not silently changed on quote edit (0.845939ms)
+✔ closing quote closes existing approved and legacy open follow-ups without contact claim (1.179263ms)
+✔ quotation dossier separates linked internal tasks from operator-recorded customer contacts (8.472455ms)
+✔ approved source reuse creates unsent draft with provenance and no customer or authorization (28.366554ms)
+✔ stale quote, competing draft and tenant mismatch fail closed (14.657425ms)
+✔ invalid source, rejection and unauthorized actor cannot create quote (2.890947ms)
+✔ interrupted create reconciles exact receipt without replay and later approval reuses draft (16.139861ms)
+✔ GUI reuses shared command with explicit review rather than silently copying source authority (2.362203ms)
+(node:11859) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/record-model.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ record identity preserves legacy local records and binds a canonical business-scoped key (3.69835ms)
+✔ identity contract fails closed on changed company, record ID, type or unsafe revision (0.549881ms)
+✔ offline replay cannot label foreign or malformed local intentions as pending or ready (0.448701ms)
+✔ the ordinary spoken customer example becomes an unsaved compatible draft offline (12.255216ms)
+✔ UMD browser implementation needs neither a network nor a language model (6.04803ms)
+✔ quoted names, apostrophes, punctuation, contact labels and full street addresses preserve supplied values (4.2019ms)
+✔ partial information leaves optional facts blank and asks only for the required name (0.572094ms)
+✔ phone normalization supports explicit U.S. numbers and rejects missing digits or unsupported formats (1.724809ms)
+✔ ambiguous names, phone numbers, emails and uncertain facts require clarification (0.72655ms)
+✔ duplicates normalize legacy contact fields and names, respect scope, and remain stable (0.69519ms)
+✔ one corrected field preserves the others, recomputes duplicates and clears its ambiguity (0.428961ms)
+✔ strict schema validation does not silently truncate or accept extra properties (0.40046ms)
+✔ work-needed notes alone never create an appointment, task or job commitment (0.451205ms)
+✔ explicit related requests stay drafts with verified dates only and unresolved customer links (1.390987ms)
+✔ unsupported requests, unknown details and attempted extra actions cannot authorize work (0.360609ms)
+✔ repeated interpretation and correction are deterministic, pure and never write records (0.529585ms)
+✔ new record kinds can be added as explicit adapters without changing customer interpretation (1.068273ms)
+✔ conversational name labels are extracted once, not treated as competing names (0.184463ms)
+✔ incomplete spoken phone is preserved but never invented or allowed to auto-save (0.437624ms)
+(node:11873) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/record-permissions.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ shared company-role contracts separate roster administration, finance and ordinary record edits (3.749869ms)
+(node:11880) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/recovery-evidence.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ complete evidence is eligible for independent review but never production approval (5.20235ms)
+✔ failed drill attestation blocks evidence review without claiming approval (2.019331ms)
+✔ unknown fields and credential-like material fail closed (0.942091ms)
+✔ missing fields, invalid hashes and unsafe size metadata are rejected (0.945766ms)
+✔ invalid or backwards UTC timestamps fail closed (0.767172ms)
+✔ reject oversized or cyclic manifest without network, storage or execution (1.024126ms)
+PASS: Research Briefs V2 dashboard, linked source QC, verified demand, rejection and completed review; CSV schema remains compatible
+✔ tests/research-briefs.test.cjs (51.869473ms)
+PASS: Revenue R03 invoice save, issue, manual payment, job costs, currency disclosure, backup compatibility
+✔ tests/revenue.test.cjs (68.446337ms)
+(node:11903) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/migration-ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ review never uploads and requires explicit local-business mapping (20.00512ms)
+✔ reviewed staging and filtered execution preserve dependencies and original records across repeat submission (27.702537ms)
+✔ missing backup, cancelled approval, changed principal and concurrent local edits prevent staging (5.478319ms)
+✔ staging transaction failure rolls back queue records and review receipt together (2.264091ms)
+✔ parallel drains cannot send dependent children while the parent is in flight (5.58104ms)
+✔ oversized records and cyclic links block transfer without truncation or writes (4.356619ms)
+✔ already-current later revisions are reconciled without another write (4.491168ms)
+✔ unprovisioned sessions cannot prepare a transfer (0.348739ms)
+✔ multiple owned destinations require selection and viewer sessions never expose transfer controls (0.829693ms)
+✔ existing Settings controller shows read-only cloud comparison without device writes (1.926281ms)
+✔ viewer never sees cloud comparison action in existing Settings (0.394176ms)
+✔ Settings transfer canonical comparison tolerates optional undefined local record fields (2.074207ms)
+✔ Settings comparison refuses expired owner session after remote scan without mutating data (1.368094ms)
+✔ transfer stages only the immutable reviewed snapshot despite mutation inside approval (2.517272ms)
+(node:11914) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-security.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ local report is honest unshared draft, immutable and bounded (2.040358ms)
+✔ crew receives source-backed readback only after server-protected job contains exact event (0.917784ms)
+✔ office receives same scoped evidence without conferring completion (0.443384ms)
+✔ offline local event does not invent cloud delivery (0.22964ms)
+✔ unverified queued state never reports success (0.710347ms)
+✔ foreign business record fails closed (0.612882ms)
+✔ revoked/unauthorized membership fails at database guard (0.363576ms)
+✔ assignment rejection prevents private job projection (0.470736ms)
+✔ stale event tuple does not imply updated source (0.321573ms)
+✔ deleted record cannot be presented (0.423163ms)
+✔ no false receipt from arbitrary action reference (1.635436ms)
+✔ matching verified internal receipt is distinct from acknowledgment (0.351366ms)
+✔ wrong principal and role body do not impersonate membership (0.236948ms)
+✔ missing event is rejected before assignment or receipt lookup (0.215358ms)
+✔ duplicate event tuple cannot verify delivery or request a receipt (0.37239ms)
+✔ receipt for another business job or event never verifies the response (0.371614ms)
+✔ duplicate source events prevent a verified projection (0.225714ms)
+✔ job readback does not independently prove authorship or consent (0.102329ms)
+PASS: Routes R05 saved stop ordering, map handoff, honest straight-line labeling and unconnected integrations
+PASS: Integration Hub V2 branded offline catalog, honest connection states, details, setup tasks, CSV and ICS exports
+✔ tests/routes.test.cjs (51.660435ms)
+PASS: TradeFlow local scheduling engine, buffer, splitting, deadlines, dependencies, settings and dismissals
+✔ tests/schedule-engine.test.cjs (52.128896ms)
+(node:11938) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/schema-capabilities.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ extended capability requires exact applied migration checksum, not just a feature flag (5.332862ms)
+PASS: CSV quotes and commas
+PASS: CSV multiline quoted fields
+PASS: CSV separator detection
+PASS: CSV BOM
+PASS: Column name matching
+PASS: First and last names
+PASS: Invalid email rejected
+PASS: Job missing customer rejected
+PASS: Job customer matched
+PASS: Localized currency
+PASS: Negative amount rejected
+PASS: Date validation
+PASS: Saved and in-file duplicates skipped
+PASS: 500-record review
+PASS: Rear camera option
+PASS: Photo picker option
+PASS: Continue disabled until image selected
+PASS: Only safe image sources allowed
+PASS: Selected photo preview
+PASS: Customer dossier attached photo
+PASS: List avoids including full photo
+PASS: Record list import and camera buttons
+PASS: Photo staged in record form
+PASS: Income and expenses both present
+PASS: Cash flow from saved records
+PASS: AI is disclosed as rule-based
+PASS: Pro is still locked
+PASS: AI briefing priorities
+PASS: AI briefing cash
+PASS: AI briefing pipeline
+PASS: AI briefing tasks
+PASS: Empty AI data
+PASS: Render dashboard
+PASS: Render customers
+PASS: Render quotes
+PASS: Render jobs
+PASS: Render tasks
+PASS: Render expenses
+PASS: Render settings
+PASS: Render preferences
+PASS: Render ai
+PASS: Render opportunities
+PASS: Trade chooser has at least 14 options
+PASS: New workspace requires trade selection
+PASS: Onboarding includes trade choices, name, and location
+PASS: Legacy users are reassured that records remain
+PASS: Onboarding clarifies that login is not active
+PASS: Each trade uses its own icon
+PASS: Industry selector offers all trades
+PASS: Home names the configured trade
+PASS: Home shows matching trade icon
+PASS: Switching trades changes Home without code changes
+PASS: Trade mapping handles operational expense categories
+PASS: Unlisted trade names have a safe icon
+PASS: Escaped text in cards
+PASS: Remember search, record and scroll
+PASS: Restore exact record list position
+PASS: Maintain selected record anchor after layout change
+PASS: Do not restore after switching tab
+PASS: Do not restore while dossier is open
+PASS: AI launcher available on opportunity map
+PASS: AI panel is contextual on map
+PASS: AI panel has a quick composer and full-screen path
+PASS: AI panel accurately discloses privacy
+PASS: Liquid touch exposes a tactile preference
+PASS: Liquid touch supports press-hold and swipe dismissal
+PASS: Unsupported browser haptics degrade gracefully
+PASS: Finance screen gives different AI prompts
+PASS: AI draft safely escaped in panel
+PASS: AI launcher hidden over important forms
+PASS: AI launcher exists on full AI screen without second chat panel
+TradeFlow smoke tests passed: 71
+✔ tests/smoke.test.cjs (91.970397ms)
+(node:11953) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/sync-queue.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ local sync intentions are not external success, including sending and unresolved retries (2.567183ms)
+✔ only read-back verified writes and already-current states count as remotely committed (0.615263ms)
+✔ projection filters other businesses, command receipts, and never mutates input (0.631895ms)
+✔ empty snapshot reports no verified sync instead of suggesting everything committed (0.204183ms)
+✔ applied rows without a positive read-back revision cannot claim remote confirmation (0.276773ms)
+✔ migration UI uses verified queue projection instead of trusting raw applied flags (0.462866ms)
+(node:11960) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/sync-queue.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ queue survives runtime recreation, serializes duplicate requests and verifies persisted result (15.520467ms)
+✔ lost response reconciles actual remote record without repeating a write (2.249474ms)
+✔ stale changes retain both versions until explicit conflict review; resolution can be cancelled (4.03592ms)
+✔ expired sessions, forbidden responses and rate limits preserve work without uncontrolled retries (4.988054ms)
+✔ concurrent tab drains cannot claim one operation twice (2.211374ms)
+✔ invalid or cross-business queued and remote identities fail closed (1.24755ms)
+✔ failed verification never reports success and retry count is bounded (1.848155ms)
+✔ same-origin transport rejects login redirects and mismatched successful payloads (28.349943ms)
+✔ Access redirect responses are authentication failures for all transport methods (1.436431ms)
+✔ read-only catalogue transport validates tenant, cursor, revisions and redirect boundaries (1.751905ms)
+✔ optional undefined fields do not crash canonical queue idempotency and remain omitted in persisted snapshots (5.277999ms)
+✔ conflict review fails closed when membership is revoked during approval (2.199139ms)
+✔ conflict review refuses stale remote revision changed while owner considers proposal (1.193842ms)
+✔ conflict review refuses same-revision remote changes without evidence of consistency (1.477943ms)
+✔ conflict review persists original approved proposal despite callback mutation (1.455453ms)
+✔ foreign-business or changed record identity is rejected before requesting conflict approval (1.233205ms)
+✔ conflict approval cannot transfer to another signed-in principal with same company role (1.129773ms)
+✔ financial conflict review rejects member role before owner approval (1.363474ms)
+✔ financial conflict review aborts on owner-to-member role downgrade during approval (1.395252ms)
+✔ another principal cannot obtain a misleading approved state for the original actors conflict (1.241798ms)
+✔ actor switch during final remote conflict check cannot stage an approved replacement (1.425582ms)
+✔ financial downgrade during final remote conflict check cannot stage an approved replacement (1.818392ms)
+✔ transport exception secrets are not stored in persistent queue errors or history (2.856722ms)
+✔ transport failures with non-Error rejection objects are redacted (1.304672ms)
+✔ nullish transport rejection cannot strand a queue lease or lose uncertainty fencing (4.07545ms)
+✔ embedded wrong-business or wrong-record identity never drives a sync write or convergence receipt (1.095216ms)
+✔ uncertain write reconciliation refuses a conflicting embedded tenant or record ID (1.872681ms)
+✔ single record transport requires authoritative business scope for GET and PUT receipts (2.15634ms)
+✔ catalogue transport rejects embedded cross-company and malformed identities (0.912905ms)
+(node:11968) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/sync-queue.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actor change during remote read cannot execute or inherit the queued intent after reload (14.132398ms)
+✔ financial downgrade during cloud read prevents write even if generic member access remains (1.583238ms)
+✔ expired lease and takeover fence a stalled worker before network execution (1.67582ms)
+✔ crash after claim remains uncommitted until an expired lease is recovered (2.67822ms)
+✔ lost acknowledgement persists uncertainty and reconciles once without another network write (3.124842ms)
+✔ revocation after write cannot produce a verified local receipt from an old principal (1.363713ms)
+✔ truthy interpreted text is not conflict approval (1.94838ms)
+✔ network write carries the pinned actor for authoritative server comparison (2.122395ms)
+✔ member role cannot drain crew-roster work even with misleading display roles (1.467851ms)
+✔ exhausted uncertain write can be explicitly read-back reconciled without another write (4.322908ms)
+✔ reconciliation does not write or confirm a divergent record or changed actor (1.363659ms)
+(node:11975) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-api.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ disabled without identity and D1 configuration (42.260234ms)
+✔ accepts only signed, unexpired JWT for configured issuer and audience (12.929809ms)
+✔ rejects missing credentials, incorrect method and untrusted JWKS origin (3.526799ms)
+✔ lists only memberships for verified subject (4.904571ms)
+✔ reads only tenant-scoped records with verified membership (5.396363ms)
+✔ PUT requires signed identity, active writer membership and expected revision (10.832138ms)
+✔ Cloudflare Access assertion is signed, audience-pinned, and cannot be spoofed (2.476262ms)
+✔ authenticated login returns only to the fixed local app and cannot grant membership (3.864042ms)
+✔ malformed JWT objects fail as authentication errors, never server errors (1.673ms)
+✔ extended routes are disabled until migration activation and financial writes need stronger permission (4.031309ms)
+✔ cloud catalogue is tenant-authorized, bounded, cursor-paged and read-only (8.198897ms)
+✔ API rejects crew administration by members despite owner-like fields in the roster payload (2.217787ms)
+✔ read-only context route verifies identity and rejects client role/tool/scope overrides (9.147369ms)
+✔ record and catalogue reads deny revocation during retrieval instead of returning private data or an empty success (3.049161ms)
+✔ authenticated tenant reads fail closed on conflicting embedded record identities (10.875938ms)
+(node:11987) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-export.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ owner export produces verifiable scoped snapshot (18.74784ms)
+✔ nonowners and mismatched tenant rows fail closed (1.639191ms)
+✔ invalid payload, truncated database, excess records rejected (1.240646ms)
+(node:11998) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-record-store.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ load record write helpers (6.198123ms)
+✔ new record commits expected revision 0 with business and attribution (2.181704ms)
+✔ existing record updates using expected revision (0.390154ms)
+✔ stale updates fail closed with 409 (0.730068ms)
+✔ invalid record types, revisions and shapes are rejected (0.513065ms)
+✔ rejects large payloads (0.532245ms)
+✔ record identity and viewer permissions cannot be supplied as business data (0.664737ms)
+✔ linked records must exist in the same business and share one customer; revisions guard commit (4.256554ms)
+✔ server rejects a queued request intended for a different authenticated actor before reading or writing (1.571386ms)
+✔ crew writes reject ordinary members below the API and keep commit-time role guard for stale owners (0.677024ms)
+(node:12005) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/backup-snapshot.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ dry run reports new, unchanged and conflict without any write (16.736229ms)
+✔ mismatched business or nonowner rejected before querying (2.161622ms)
+✔ deleted remote record requires review and altered snapshot fails checksum (2.500953ms)
+(node:12016) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-security.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ rejects unverified and client-asserted subjects (3.037875ms)
+✔ membership is mandatory even with a verified principal (1.794416ms)
+✔ viewer cannot write, owner can manage members (0.395175ms)
+✔ record query always scopes by authorized business and allowlisted table (0.683954ms)
+✔ fails closed without authorization store and on unknown permissions (0.606769ms)
+✔ new financial records require owner or admin permission, never membership alone (0.346798ms)
+✔ company membership controls crew administration; a member cannot promote a roster label to authority (0.501358ms)
+✔ Manager has one principal and seven bounded specialist entrypoints (1.981968ms)
+✔ Manager skill frontmatter, UI metadata and reference contracts are valid (5.564342ms)
+✔ Principal manager dispatches every specialist and defers code writing to engineering (0.592575ms)
+✔ Manager system preserves hypothesis, authorization and operational truth (0.938866ms)
+✔ model candidates cover LLM, ASR, VAD and TTS, with no auto-activation (0.837383ms)
+✔ unverified model weights cannot be activated or silently redistributed (0.453212ms)
+✔ benchmark specification tracks both latency and accuracy with real hardware required (0.21537ms)
+✔ principal and ten TradeFlow specialist skill entrypoints are present (2.102523ms)
+✔ each skill has bounded valid frontmatter, UI metadata and existing references (3.847834ms)
+✔ principal dispatches all specialists from the existing repository (0.256573ms)
+✔ voice architecture explicitly distinguishes planned from verified capabilities (0.573179ms)
+PASS: TradeFlow unified logo header, no duplicate branding or header search/menu, map and notification actions preserved
+✔ tests/unified-header.test.cjs (41.844497ms)
+✔ US currency defaults display dollars with US separators (14.844676ms)
+✔ convert routing distances from km to US miles (0.268808ms)
+✔ fahrenheit converter (0.225871ms)
+✔ US date formatting (4.273083ms)
+✔ reported failed requests now have routed intents (7.403809ms)
+✔ normal existing voice commands still parse (0.313538ms)
+✔ sensitive operations are not automatically interpreted as read-only (0.920146ms)
+✔ routes conversational commands to distinct local intents (2.342336ms)
+✔ calculates tomorrow in local time across year boundary (1.205828ms)
+✔ assistant answers job question without preparing a write (1.30607ms)
+✔ customer intent opens review without writing (0.715594ms)
+✔ quote intent requires exact customer and only opens an unsaved draft (0.504365ms)
+✔ Stop finalizes speech even when recognizer sends onend without final onresult (8.633459ms)
+✔ tomorrow’s schedule includes calendar appointments and jobs without double counting linked jobs (10.596974ms)
+✔ open tomorrow calendar command navigates to day view without modifying records (0.468275ms)
+✔ detects business intent despite filler words and a speech typo (0.892142ms)
+✔ direct customer creation requires complete, unambiguous details and uses approved audited command (0.745136ms)
+✔ incomplete phone or duplicate never triggers automatic write (1.905554ms)
+✔ possible duplicate requires review, even if fields are otherwise valid (0.345834ms)
+✔ voice input is opt-in and cannot save without confirmation (19.524528ms)
+✔ Siri URL-fragment handoff goes only to local review, never auto execute (2.266952ms)
+✔ explicit microphone permission required; no ambient capture (2.333441ms)
+✔ partial ASR is provisional; only a final transcript produces a user turn (0.437806ms)
+✔ unvalidated assistant text cannot enter speech or durable turn (0.334241ms)
+✔ barge-in cancels old audio generation and permits a new utterance (1.541627ms)
+✔ validated playback returns to listening only on matching generation (0.367947ms)
+✔ duplicate events are idempotent and old sequences rejected (0.450881ms)
+✔ permission denied fails closed and any end releases capture (0.233776ms)
+✔ foreign session/invalid event rejected and model never receives business execution authority (0.179337ms)
+✔ dark workspace foregrounds meet AA normal-text contrast (1.596012ms)
+✔ semantic focus high contrast and disabled rules preserve text and avoid false success styling (0.424215ms)
+✔ offline assets include shared semantic tokens after component styles (0.541667ms)
+✔ document viewport does not opt out of browser zoom (0.287551ms)
+✔ white theme is not available (0.664746ms)
+ℹ tests 729
+ℹ suites 0
+ℹ pass 728
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25112.889177
+
+✖ failing tests:
+
+test at tests/notifications.test.cjs:1:1
+✖ tests/notifications.test.cjs (63.872864ms)
+  'test failed'

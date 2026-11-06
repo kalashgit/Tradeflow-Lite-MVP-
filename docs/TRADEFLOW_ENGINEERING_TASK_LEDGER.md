@@ -1,3 +1,17 @@
+## Concept B compact/settled speaking adjustment / PR #39 (2026-11-06)
+
+Founder requested smaller bottom-right orb, dim idle and less movement/brighter blue during speech. Home button now 52px mobile / 56px desktop above navigation. Idle illumination 48%; real assistant playback presence smoothly reduces time progression by up to 72%, and measured energy brightens/shifts the membrane blue with the cyan T protected. Extra speech warp reduced; reduced-motion users get lighting feedback without geometric displacement. Canvas fallback follows the same lighting rule. JS/CSS and offline cache versions aligned to r04.
+
+Focused 3/3 and actual app orb verification pass (size/placement, reduced motion, voice-sheet tap/close, measured blue brightness increase, calmer speaking, smooth idle return, reference preservation, context restore and forced Canvas fallback). Compact 15s MP4 review clearly labels injected test speech. No actual PR #31 playback claim, merge or production deploy. Exact SHA/CI in draft PR #39. Previous unrelated notification-label failure remains documented.
+
+## Concept B supplied-reference reconstruction / draft PR #39 (2026-11-06)
+
+On isolated `feature/tf-concept-b-membrane-reconstruction` based on PR #38; production and PR #29/#31/#38 preserved. Original founder GIF now extracted (9 × 420×408, 170ms), all frames and 8→0 flow analyzed. Replaced the rejected procedural torus with reference-derived **2.5D** artwork/continuous bidirectional-flow transport, same Home/Intelligence voice-sheet visual, versioned real assistant playback signal, reduced motion, context recovery and Canvas fallback. Baked source lighting is explicitly not a recovered 3D physical membrane.
+
+Evidence: `docs/evidence/concept-b-reconstruction/README.md`, both 15s videos (speaking clearly SIMULATED), nine-frame comparisons, intermediate phases, loop comparison, DPR2 mobile/desktop screenshots and timing data. Local focused 3/3; full Node 728/729 (untouched notification label assertion); storage, ten contractor checks and all 14 general browser scripts pass. Orb browser checks, context recovery and Canvas fallback pass. Native shader endpoint preservation MAE=0; loop near-boundary MAE≈0.36. Home ~55–57 FPS and native ~39 FPS in final local capture; not physical-phone evidence. Exact published SHA/CI in PR #39.
+
+Remaining: founder acceptance, full independent 3D geometry if required, physical devices, real PR #31 runtime speech recording, externally reachable access-gated preview. Local gated review built; external temporary tunnel connection failed. No merge/deploy or live account writes.
+
 ## HYB-02 / #21 — Bounded Master Intelligence case on existing verified decision path (2026-11-03)
 
 **Status:** Implemented code on draft AI PR #16; exact-head CI pending at commit time. Reuses `public/master-intelligence.js` and validated `intelligence-evidence.js` sources. `public/intelligence-case.js` projects an immutable, ten-minute, **in-memory only** case carrying owner objective, actor/business/job/thread, source revisions or device-local fingerprints, existing detector finding IDs, unknowns, and IDs of actual registered review proposals. No new database, command executor, model invocation, planner authority or external action. Existing conversation job review renders a short case summary; original dark-only GUI unchanged. Service-worker precache includes the new module for offline reading.

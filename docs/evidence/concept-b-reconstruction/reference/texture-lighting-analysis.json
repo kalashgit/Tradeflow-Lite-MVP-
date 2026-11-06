@@ -1,0 +1,101 @@
+[
+  {
+    "frame": 0,
+    "crestPixels": 5986,
+    "crestCentroid": [
+      177.37,
+      215.85
+    ],
+    "meshScanPeakCount": 47,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 88873
+  },
+  {
+    "frame": 1,
+    "crestPixels": 7484,
+    "crestCentroid": [
+      158.62,
+      182.79
+    ],
+    "meshScanPeakCount": 51,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 89091
+  },
+  {
+    "frame": 2,
+    "crestPixels": 6175,
+    "crestCentroid": [
+      155.27,
+      196.03
+    ],
+    "meshScanPeakCount": 39,
+    "meshScanMedianPeakSpacingPx": 5.5,
+    "darkPixelsUnderBlue20": 89101
+  },
+  {
+    "frame": 3,
+    "crestPixels": 6164,
+    "crestCentroid": [
+      165.95,
+      182.04
+    ],
+    "meshScanPeakCount": 40,
+    "meshScanMedianPeakSpacingPx": 6.0,
+    "darkPixelsUnderBlue20": 87919
+  },
+  {
+    "frame": 4,
+    "crestPixels": 7818,
+    "crestCentroid": [
+      180.64,
+      149.18
+    ],
+    "meshScanPeakCount": 46,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 83892
+  },
+  {
+    "frame": 5,
+    "crestPixels": 7261,
+    "crestCentroid": [
+      176.7,
+      157.32
+    ],
+    "meshScanPeakCount": 49,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 79219
+  },
+  {
+    "frame": 6,
+    "crestPixels": 6155,
+    "crestCentroid": [
+      170.09,
+      177.76
+    ],
+    "meshScanPeakCount": 51,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 80899
+  },
+  {
+    "frame": 7,
+    "crestPixels": 8511,
+    "crestCentroid": [
+      177.6,
+      220.12
+    ],
+    "meshScanPeakCount": 53,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 80195
+  },
+  {
+    "frame": 8,
+    "crestPixels": 7173,
+    "crestCentroid": [
+      210.24,
+      222.77
+    ],
+    "meshScanPeakCount": 48,
+    "meshScanMedianPeakSpacingPx": 5.0,
+    "darkPixelsUnderBlue20": 81289
+  }
+]

@@ -1,0 +1,35 @@
+
+> tradeflow-deployment@0.4.0 test:browser
+> node scripts/verify-local-recovery.cjs && node scripts/verify-command-cross-tab.cjs && node scripts/verify-contractor-workflows.cjs && node scripts/verify-cloud-transfer.cjs && node scripts/verify-intelligence-context.cjs && node scripts/verify-two-device-sync.cjs && node scripts/verify-decision-journey.cjs && node scripts/verify-local-ai-chat-browser.cjs && node scripts/verify-master-intelligence-briefing.cjs && node scripts/verify-command-center.cjs && node scripts/verify-adaptive-ui.cjs && node scripts/verify-motion-integration.cjs && node scripts/verify-host-presentation.cjs && node scripts/verify-fluid-navigation.cjs
+
+PASS: mobile and desktop real UI restore, recovery after reload, linked records and offline reload
+2/2 Chromium two-tab command concurrency scenarios passed; field acceptance unverified.
+20/20 Chromium workflow scenarios passed; contractor outcomes unverified.
+(node:13231) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/public/record-model.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS: phone/desktop reviewed transfer, backup+approval gates, dependency order, replay, local preservation and expired-session denial.
+(node:13320) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-api.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+2/2 Chromium authorized intelligence context scenarios passed; synthetic identity/database, no business writes.
+(node:13408) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/tenant-api.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+2/2 Chromium authenticated two-device sync scenarios passed; synthetic identity and SQLite, no live cloud.
+2/2 Chromium intelligence-driven contractor journeys passed; synthetic records, no external outcomes.
+(node:14368) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/tradeflow/src/intelligence-context.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/tradeflow/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+2/2 TradeFlow AI durable-history Chromium journeys passed; scoped local threads, reload, dedupe, delete, mock inference, zero business writes.
+Master Intelligence mobile briefing and context followup passed
+Master Intelligence desktop briefing and context followup passed
+4/4 Chromium command-center presentation journeys passed. Synthetic local records only.
+10/10 Chromium adaptive conversation review journeys passed; desktop/mobile, reduced motion, no haptics, explicit approval and one receipt.
+4/4 Chromium rendered motion integration journeys passed; real navigation/panel entry, reduced motion, keyboard and offline.
+4/4 Chromium host lifecycle UI journeys passed; synthetic recognition, real local records and host navigation.
+4/4 Chromium fluid footer journeys passed: actual drag, one commit, cancellation, keyboard, reduced motion, 4 metrics, offline and rollback

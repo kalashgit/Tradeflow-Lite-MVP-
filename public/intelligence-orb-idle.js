@@ -1,241 +1,203 @@
-/* TradeFlow Intelligence Orb / Concept B — complete replacement.
- * Visual-only. Actual assistant playback drives brightness; no synthetic speech.
- * The parent button remains TradeFlow's existing, authorized AI entry point.
- */
-(function (root, factory) {
-  'use strict';
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root) { root.TradeFlowConceptBOrb = api; root.TradeFlowOrbIdle = api; }
-  if (root && root.document) {
-    const begin = () => api.attach({ root, document: root.document });
-    if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', begin, { once: true });
-    else begin();
+/* Concept B: reference-derived 2.5D membrane. Bidirectional optical-flow
+ * transport preserves the founder's woven strands, folds and T. Lighting is
+ * baked from the reference, not claimed to be reconstructed 3D illumination.
+ * Only measured assistant playback features raise speech energy. */
+(function(root,factory){
+ 'use strict';const api=factory();
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ if(root){root.TradeFlowConceptBOrb=api;root.TradeFlowOrbIdle=api;}
+ if(root?.document){const start=()=>api.attach({root,document:root.document});
+ if(root.document.readyState==='loading')root.document.addEventListener('DOMContentLoaded',start,{once:true});else start();}
+})(typeof globalThis!=='undefined'?globalThis:null,function(){
+ 'use strict';
+ const version='concept-b-v4',clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),finite=x=>Number.isFinite(x)?x:0;
+ function frameAt(seconds){const phase=((finite(seconds)/.17)%9+9)%9;return {index:Math.floor(phase),blend:phase-Math.floor(phase)};}
+ function normalizeSpeech(d){
+  if(!d||d.version!==1||d.source!=='assistant_playback')return null;
+  if(d.active!==true)return {active:false,level:0};
+  return {active:true,level:clamp(.18+4.4*clamp(finite(d.rms),0,1)+.32*clamp(finite(d.peak),0,1),.18,1)};
+ }
+ const fallbackVertex=`attribute vec2 position; varying vec2 uv;
+ void main(){uv=vec2(position.x*.5+.5,.5-position.y*.5);gl_Position=vec4(position,0.,1.);}`;
+ const fallbackFragment=`precision highp float;
+ varying vec2 uv;uniform sampler2D artwork,forwardFlow,backwardFlow;
+ uniform float frameIndex,blend,energy,motionEnergy,clockTime,referenceLight;
+ vec2 tile(float i){return vec2(mod(i,3.),floor(i/3.));}
+ vec2 atlas(vec2 p,float i){return (tile(i)+clamp(p,vec2(.5/420.,.5/408.),vec2(419.5/420.,407.5/408.)))/3.;}
+ vec2 flow(sampler2D map,vec2 p,float i){return (texture2D(map,atlas(p,i)).rg*255.-128.)/127.*96./vec2(420.,408.);}
+ void main(){
+  float next=mod(frameIndex+1.,9.);
+  vec2 p=uv,delta=p-.5;float r=length(delta);
+  // A shared smooth displacement of the membrane, locked around the T.
+  float lock=smoothstep(.15,.25,r);
+  p+=motionEnergy*.001*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
+  vec2 a=p,b=p;
+  // Invert the forward/backward transport rather than dissolve stationary frames.
+  for(int k=0;k<3;k++){
+   a=mix(a,p-blend*flow(forwardFlow,a,frameIndex),.8);
+   b=mix(b,p-(1.-blend)*flow(backwardFlow,b,frameIndex),.8);
   }
-})(typeof globalThis !== 'undefined' ? globalThis : null, function () {
-  'use strict';
-  const TAU = Math.PI * 2;
-  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-  const finite = n => Number.isFinite(n) ? n : 0;
-  const assetVersion = 'concept-b-v1';
-  const labelMarkup = '<svg class="tf-orb-concept-b-emblem" viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M10 23H32C36 23 38 26 39 29C43 25 47 23 53 23H63C62 30 58 35 51 35H43L31 59H20L30 35H8Z" fill="currentColor"/></svg>';
+  vec3 ca=texture2D(artwork,atlas(a,frameIndex)).rgb;
+  vec3 cb=texture2D(artwork,atlas(b,next)).rgb;
+  vec3 rgb=mix(ca,cb,blend);
+  float gain=mix(.48+energy*.82,1.,referenceLight);
+  rgb*=gain;
+  float blueMix=energy*(1.-referenceLight)*smoothstep(.15,.24,length(uv-.5));
+  rgb*=mix(vec3(1.),vec3(.7,.68,1.18),blueMix);
+  // Reference light is premultiplied over black; preserve the soft scattering
+  // while shielding the deep navy interior from content behind the orb.
+  float alpha=max((1.-smoothstep(.28,.48,r))*.96,clamp(max(rgb.g,rgb.b)*3.,0.,1.));
+  gl_FragColor=vec4(rgb,alpha);
+ }`;
+ const flowHelpers=`
+ vec2 tile(float i){return vec2(mod(i,3.),floor(i/3.));}
+ vec2 atlas(vec2 p,float i){return (tile(i)+clamp(p,vec2(.5/420.,.5/408.),vec2(419.5/420.,407.5/408.)))/3.;}
+ vec2 flow(sampler2D map,vec2 p,float i){return (texture2D(map,atlas(p,i)).rg*255.-128.)/127.*96./vec2(420.,408.);}`;
+ const meshVertex=`precision highp float;attribute vec2 position;
+ uniform sampler2D forwardFlow,backwardFlow;
+ uniform float frameIndex,blend,energy,motionEnergy,clockTime;
+ varying vec2 uv,fromUV,toUV;
+ ${flowHelpers}
+ void main(){
+  uv=vec2(position.x*.5+.5,.5-position.y*.5);vec2 p=uv;
+  float lock=smoothstep(.15,.25,length(p-.5));
+  p+=motionEnergy*.001*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
+  vec2 a=p,b=p;
+  for(int k=0;k<3;k++){
+   a=mix(a,p-blend*flow(forwardFlow,a,frameIndex),.8);
+   b=mix(b,p-(1.-blend)*flow(backwardFlow,b,frameIndex),.8);
+  }
+  fromUV=a;toUV=b;gl_Position=vec4(position,0.,1.);
+ }`;
+ const meshFragment=`precision highp float;
+ varying vec2 uv,fromUV,toUV;uniform sampler2D artwork;
+ uniform float frameIndex,blend,energy,referenceLight;
+ ${flowHelpers}
+ void main(){
+  vec3 rgb=mix(texture2D(artwork,atlas(fromUV,frameIndex)).rgb,texture2D(artwork,atlas(toUV,mod(frameIndex+1.,9.))).rgb,blend);
+  rgb*=mix(.48+energy*.82,1.,referenceLight);
+  float blueMix=energy*(1.-referenceLight)*smoothstep(.15,.24,length(uv-.5));
+  rgb*=mix(vec3(1.),vec3(.7,.68,1.18),blueMix);
+  float alpha=max((1.-smoothstep(.28,.48,length(uv-.5)))*.96,clamp(max(rgb.g,rgb.b)*3.,0.,1.));
+  gl_FragColor=vec4(rgb,alpha);
+ }`;
+ function shader(gl,type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
+ if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const reason=gl.getShaderInfoLog(s);gl.deleteShader(s);throw Error(reason);}return s;}
+ function createRenderer(canvas,{root,document,button}={}){
+  let gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:true,powerPreference:'low-power'});
+  const supportsVertexFlow=!!gl&&gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS)>=2;
+  let ctx=null,program=null,buffer=null,indexBuffer=null,meshTransport=false,indexCount=0,textures=[],uniforms={},disposed=false,ready=false,raf=0;
+  let time=0,last=null,lastPaint=null,frames=0,activity=0,speechPresence=0,speaking=false,level=0,speechAt=-Infinity;
+  let interval=0,slow=0,loadError=null,contextLost=false;
+  const costs=[],intervals=[],reduced=root.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const script=document.querySelector('script[src*="intelligence-orb-idle.js"]');
+  const base=new URL('orb-concept-b/',script?.src||document.baseURI);
+  const images=['membrane.png','forward.png','backward.png'].map(name=>{const im=new root.Image();im.src=new URL(name,base).href;return im;});
+  function initGL(){
+   const rect=canvas.getBoundingClientRect();
+   meshTransport=supportsVertexFlow&&Math.max(rect.width,rect.height)*clamp(root.devicePixelRatio||1,1,2)>256;
+   const vs=shader(gl,gl.VERTEX_SHADER,meshTransport?meshVertex:fallbackVertex),fs=shader(gl,gl.FRAGMENT_SHADER,meshTransport?meshFragment:fallbackFragment);
+   program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);
+   if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+   gl.useProgram(program);buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+   if(meshTransport){
+    // 48×48 shared transport cells: the weave is baked at native resolution;
+    // smooth fold displacement is evaluated once per shared grid vertex.
+    const n=48,vertices=[],indices=[];
+    for(let y=0;y<=n;y++)for(let x=0;x<=n;x++)vertices.push(x/n*2-1,y/n*2-1);
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){const a=y*(n+1)+x,b=a+1,c=a+n+1,d=c+1;indices.push(a,b,c,b,d,c);}
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+    indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indices),gl.STATIC_DRAW);indexCount=indices.length;
+   }else gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+   const pos=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+   for(const name of ['frameIndex','blend','energy','motionEnergy','clockTime','referenceLight'])uniforms[name]=gl.getUniformLocation(program,name);
+   textures=images.map((im,i)=>{const texture=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im);gl.uniform1i(gl.getUniformLocation(program,['artwork','forwardFlow','backwardFlow'][i]),i);return texture;});
+  }
+  if(!gl)ctx=canvas.getContext('2d',{alpha:true});
+  function renderAt(seconds=time,energy=activity,reference=false){
+   if(disposed||!ready||contextLost)return;
+   const start=root.performance.now(),b=canvas.getBoundingClientRect(),dpr=clamp(root.devicePixelRatio||1,1,2);
+   const w=clamp(Math.round(b.width*dpr),2,840),h=clamp(Math.round(b.height*dpr),2,816);
+   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+   const {index:i,blend:mix}=frameAt(seconds);
+   energy=clamp(finite(energy),0,1);
+   if(gl){
+    const meshNeeded=supportsVertexFlow&&Math.max(w,h)>256;
+    if(meshNeeded!==meshTransport){textures.forEach(t=>gl.deleteTexture(t));gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);gl.deleteProgram(program);indexBuffer=null;initGL();}
+    gl.viewport(0,0,w,h);gl.uniform1f(uniforms.frameIndex,i);gl.uniform1f(uniforms.blend,mix);gl.uniform1f(uniforms.energy,energy);gl.uniform1f(uniforms.motionEnergy,reduced?.matches?0:energy);
+    gl.uniform1f(uniforms.clockTime,seconds);gl.uniform1f(uniforms.referenceLight,reference?1:0);if(meshTransport)gl.drawElements(gl.TRIANGLES,indexCount,gl.UNSIGNED_SHORT,0);else gl.drawArrays(gl.TRIANGLES,0,6);
+   }else if(ctx){
+    // Measured fallback: continuous crossfade, same artwork/identity; no flow warp.
+    ctx.clearRect(0,0,w,h);ctx.globalAlpha=1;ctx.drawImage(images[0],(i%3)*420,Math.floor(i/3)*408,420,408,0,0,w,h);
+    const j=(i+1)%9;ctx.globalAlpha=mix;ctx.drawImage(images[0],(j%3)*420,Math.floor(j/3)*408,420,408,0,0,w,h);ctx.globalAlpha=1;
+    if(!reference){
+     const pixels=ctx.getImageData(0,0,w,h),data=pixels.data,gain=.48+energy*.82;
+     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const r=Math.hypot((x+.5)/w-.5,(y+.5)/h-.5),v=clamp((r-.15)/.09,0,1),blue=energy*v*v*(3-2*v),p=(y*w+x)*4;
+      data[p]*=gain*(1-.3*blue);data[p+1]*=gain*(1-.32*blue);data[p+2]*=gain*(1+.18*blue);
+     }
+     ctx.putImageData(pixels,0,0);
+    }
+   }
+   if(button){button.dataset.orbState=energy>.12?'speaking':'idle';button.dataset.orbBackend=gl?'webgl-flow':'canvas-crossfade';}
+   costs.push(root.performance.now()-start);if(costs.length>300)costs.shift();frames++;
+  }
+  function tick(now){
+   raf=0;if(disposed||document.hidden||!canvas.isConnected||contextLost)return;
+   const dt=last===null?0:clamp((now-last)/1000,0,.1);last=now;
+   if(now-speechAt>600){speaking=false;level=0;}
+   activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
+   speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
+   if(!reduced?.matches)time+=dt*.55*(1-.72*speechPresence);
+   if(lastPaint===null||now-lastPaint>=interval){
+    if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
+    renderAt(reduced?.matches?0:time,activity);lastPaint=now;
+    // Sustained missed refreshes select 30Hz. Resolution is bounded above.
+    if(!reduced?.matches&&dt>.024)slow++;else slow=Math.max(0,slow-1);
+    if(slow>30)interval=32;
+   }
+   if(!reduced?.matches||activity>.005||speaking)raf=root.requestAnimationFrame(tick);
+  }
+  function resume(){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;lastPaint=null;
+   if(ready&&!disposed&&!document.hidden&&!contextLost){renderAt(reduced?.matches?0:time,activity);if(!reduced?.matches||speaking||activity>.005)raf=root.requestAnimationFrame(tick);}}
+  function speech(e){const value=normalizeSpeech(e.detail);if(!value)return;speechAt=root.performance.now();speaking=value.active;level=value.level;if(!raf)resume();}
+  function voice(e){if(['idle','unavailable','error'].includes(e.detail?.status)){speaking=false;level=0;if(!raf)resume();}}
+  function visibility(){if(document.hidden){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;speaking=false;level=0;activity=0;speechPresence=0;}else resume();}
+  function lost(e){e.preventDefault();contextLost=true;if(button)button.dataset.orbBackend="poster-fallback";if(raf)root.cancelAnimationFrame(raf);raf=0;}
+  function restored(){try{initGL();contextLost=false;resume();}catch(e){loadError=String(e);}}
+  root.addEventListener('tradeflow:speech-features',speech);root.addEventListener('tradeflow:voice-state',voice);
+  document.addEventListener('visibilitychange',visibility);reduced?.addEventListener?.('change',resume);
+  canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
+  const resize=new root.ResizeObserver(resume);resize.observe(canvas);
+  Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);if(button)button.dataset.orbBackend='poster-fallback';});
+  return Object.freeze({renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,motionSpeed:.55*(1-.72*speechPresence),speaking,ready,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
+   dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
+    if(gl&&!contextLost){textures.forEach(t=>gl.deleteTexture(t));if(buffer)gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);if(program)gl.deleteProgram(program);}}
+  });
+ }
+ let current=null;
+ function attach({root,document}={}){
+  if(!root||!document)return null;current?.dispose();let disposed=false;const renderers=new Map();
+  function sync(){if(disposed)return;
+   for(const [host,renderer] of renderers)if(!host.isConnected){renderer.dispose();renderers.delete(host);}
+   for(const host of document.querySelectorAll('.tf-ai-orb,.tf-voice-wave')){
+    if(renderers.has(host))continue;
+    // Replace artwork only. The existing host, action, composer and voice runtime remain.
+    host.querySelectorAll('.tf-orb-mesh,.tf-orb-concept-b-canvas,.tf-orb-concept-b-emblem,.tf-flow-art').forEach(e=>e.remove());
+    const canvas=document.createElement('canvas');canvas.className='tf-orb-concept-b-canvas';canvas.setAttribute('aria-hidden','true');host.appendChild(canvas);host.dataset.orbMaterial=version;
+    renderers.set(host,createRenderer(canvas,{root,document,button:host}));
+   }
+  }
+  const primary=()=>renderers.get(document.querySelector('.tf-ai-orb'));
+  const observer=new root.MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});sync();
+  const api=Object.freeze({sync,active:()=>renderers.size>0,stats:()=>primary()?.stats()||null,
+   surfaces:()=>Array.from(renderers,([host,r])=>({host:host.className,stats:r.stats()})),
+   renderAt:(...args)=>{for(const r of renderers.values())r.renderAt(...args)},resetStats:()=>{for(const r of renderers.values())r.resetStats()},
+   dispose(){disposed=true;observer.disconnect();for(const r of renderers.values())r.dispose();renderers.clear();if(current===api)current=null;}});current=api;return api;
+ }
 
-  // Both motion modes share one physical surface. Audio changes lighting and
-  // local deformation strength; it never swaps the renderer or the T.
-  function contour(angle, time, activity = 0) {
-    const a = finite(angle), t = finite(time), v = clamp(finite(activity), 0, 1);
-    const soft = .026 * Math.sin(3 * a - .35 * t) + .019 * Math.sin(5 * a + .27 * t + 1.7);
-    const folds = (.023 + .021 * v) * Math.sin(7 * a - (.42 + .19 * v) * t + 1.2)
-      + (.011 + .012 * v) * Math.sin(11 * a + (.31 + .17 * v) * t);
-    return .87 + soft + folds;
-  }
-  function membranePoint(x, y, time, activity = 0) {
-    const t = finite(time), v = clamp(finite(activity), 0, 1);
-    const strength = 1 + .55 * v;
-    const dx = strength * (.034 * Math.sin(3.3*y + 2.1*x - .26*t)
-      + .013 * Math.sin(8.9*y - 2.4*x + .21*t));
-    const dy = strength * (.047 * Math.sin(2.8*x + 1.9*y - .23*t)
-      + .015 * Math.sin(9.2*x - 3.1*y + .29*t));
-    return [x + dx, y + dy];
-  }
-  function normalizeSpeech(detail) {
-    if (!detail || detail.version !== 1 || detail.source !== 'assistant_playback') return null;
-    if (detail.active !== true) return { active: false, level: 0 };
-    const rms = clamp(finite(detail.rms), 0, 1);
-    const peak = clamp(finite(detail.peak), 0, 1);
-    return { active: true, level: clamp(.18 + rms * 4.4 + peak * .32, .18, 1) };
-  }
-  function createRenderer(canvas, { root, document, button } = {}) {
-    if (!canvas || typeof canvas.getContext !== 'function') return null;
-    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
-    if (!ctx) return null;
-    let disposed = false, raf = 0, seconds = 0, lastTime = null, lastPaint = -Infinity;
-    let speaking = false, speechLevel = 0, activity = 0, frames = 0;
-    const reduced = root.matchMedia?.('(prefers-reduced-motion: reduce)');
-    const SIZE_LIMIT = 256;
-    const onFeatures = event => {
-      const value = normalizeSpeech(event?.detail);
-      if (!value) return;
-      speaking = value.active;
-      speechLevel = value.level;
-    };
-    const onVoice = event => {
-      // Voice-state alone cannot trigger the "speaking" glow: only genuine
-      // assistant output's audio analyser is authoritative for illumination.
-      if (event?.detail?.status === 'idle' || event?.detail?.status === 'unavailable') {
-        speaking = false; speechLevel = 0;
-      }
-    };
-    const updateSize = () => {
-      const b = canvas.getBoundingClientRect();
-      const dpr = clamp(root.devicePixelRatio || 1, 1, 2);
-      const size = clamp(Math.round(Math.min(b.width, b.height) * dpr), 2, SIZE_LIMIT);
-      if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
-      return size;
-    };
-    function render(time = seconds, level = activity) {
-      if (disposed) return;
-      const size = updateSize();
-      const center = size / 2, radius = size * .48;
-      ctx.clearRect(0, 0, size, size);
-      ctx.save();
-      const path = new Path2D();
-      for (let i = 0; i <= 192; i++) {
-        const a = TAU * i / 192, r = radius * contour(a, time, level);
-        const x = center + r * Math.cos(a), y = center + r * Math.sin(a);
-        if (!i) path.moveTo(x, y); else path.lineTo(x, y);
-      }
-      path.closePath();
-      ctx.clip(path);
-      // Actual dark/airy membrane, not a filled opaque sphere.
-      const base = ctx.createRadialGradient(center, center, radius * .12, center, center, radius);
-      base.addColorStop(0, 'rgba(0,5,22,.80)');
-      base.addColorStop(.66, 'rgba(0,17,40,.42)');
-      base.addColorStop(1, 'rgba(0,29,67,.22)');
-      ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
-      ctx.globalCompositeOperation = 'screen';
-      // Two coherent fine fiber directions follow the same displacement field.
-      // High-precision coordinates scale with the compact 66px host.
-      const strandCount = 90, steps = 96;
-      const brightness = .55 + .95 * level;
-      for (let axis = 0; axis < 2; axis++) {
-        for (let j = 0; j <= strandCount; j++) {
-          const lane = (j / strandCount * 2 - 1) * .93;
-          const tint = Math.sin(lane * 8.1 + time * .31 + axis * 1.6);
-          const alpha = clamp((axis ? .075 : .16) * brightness * (1 + .6 * tint), .02, .48);
-          ctx.lineWidth = axis ? .34 : .51;
-          ctx.strokeStyle = axis
-            ? 'rgba(29,159,255,' + alpha.toFixed(3) + ')'
-            : 'rgba(15,123,255,' + alpha.toFixed(3) + ')';
-          ctx.beginPath();
-          for (let k = 0; k <= steps; k++) {
-            const along = (k / steps * 2 - 1) * .94;
-            const x = axis ? lane : along, y = axis ? along : lane;
-            const p = membranePoint(x, y, time, level);
-            const bx = center + radius * p[0], by = center + radius * p[1];
-            if (!k) ctx.moveTo(bx, by); else ctx.lineTo(bx, by);
-          }
-          ctx.stroke();
-        }
-      }
-      // Moving local folds: illumination follows the displaced fabric, not a
-      // fixed circular halo. The voice state only raises these measured crests.
-      for (let ribbon = 0; ribbon < 3; ribbon++) {
-        const phase = time * (.23 + ribbon * .047) + ribbon * 2.1;
-        ctx.beginPath();
-        for (let k = 0; k <= 112; k++) {
-          const a = TAU * k / 112;
-          const r = radius * (.73 + .14 * Math.sin(2 * a + phase) + .04 * Math.cos(5 * a - phase));
-          const x = center + r * Math.cos(a), y = center + r * Math.sin(a);
-          if (!k) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = 'rgba(5,183,255,' + (.07 + .19 * level).toFixed(3) + ')';
-        ctx.lineWidth = 1.0 + 1.1 * level;
-        ctx.shadowBlur = 2.1 + 4.2 * level;
-        ctx.shadowColor = '#00d8ff';
-        ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
-      // The perimeter must not become a rigid neon ring. Illuminated glints
-      // cover only local curvature crests and drift with the surface.
-      const edgeCount = 192;
-      for (let j = 0; j < edgeCount; j++) {
-        const a = TAU * j / edgeCount, b = TAU * (j+1) / edgeCount;
-        const curv = Math.abs(contour(a-.08,time,level)-2*contour(a,time,level)+contour(a+.08,time,level));
-        const traveling = .5 + .5 * Math.sin(3*a - time*.38);
-        const light = clamp(curv * 35 + traveling * .18, 0, 1);
-        if (light < .22) continue;
-        ctx.lineWidth = .45 + .6 * level;
-        ctx.strokeStyle = 'rgba(8,210,255,' + clamp((light-.19) * (.29 + .53*level),0,.85).toFixed(3) + ')';
-        ctx.beginPath();
-        let r=radius*contour(a,time,level);
-        ctx.moveTo(center+r*Math.cos(a),center+r*Math.sin(a));
-        r=radius*contour(b,time,level);
-        ctx.lineTo(center+r*Math.cos(b),center+r*Math.sin(b));
-        ctx.stroke();
-      }
-      ctx.restore();
-      if (button) {
-        button.style.setProperty('--tf-orb-concept-voice', String(clamp(level,0,1).toFixed(3)));
-        button.style.setProperty('--tf-orb-concept-glow', (2 + 7 * clamp(level,0,1)).toFixed(1) + 'px');
-        button.dataset.orbState = level > .12 ? 'speaking' : 'idle';
-      }
-      frames++;
-    }
-    function frame(now) {
-      raf = 0;
-      if (disposed || document.hidden || !canvas.isConnected || reduced?.matches) return;
-      const dt = lastTime == null ? 0 : clamp((now-lastTime)/1000,0,.09);
-      lastTime = now; seconds += dt;
-      const target = speaking ? speechLevel : 0;
-      activity += (target-activity) * clamp(dt * (speaking ? 4.5 : 2.8), 0, 1);
-      if (now-lastPaint>=32) { render(seconds,activity); lastPaint=now; }
-      raf=root.requestAnimationFrame(frame);
-    }
-    function resume() {
-      if (raf) root.cancelAnimationFrame(raf);
-      raf=0;lastTime=null;lastPaint=-Infinity;
-      if (!disposed) render(reduced?.matches ? 0 : seconds, reduced?.matches ? 0 : activity);
-      if (!disposed && !document.hidden && !reduced?.matches) raf=root.requestAnimationFrame(frame);
-    }
-    function visibility() {
-      if (document.hidden) {
-        if (raf) root.cancelAnimationFrame(raf);
-        raf=0;lastTime=null;
-        speaking=false;speechLevel=0;activity=0;
-      } else resume();
-    }
-    root.addEventListener('tradeflow:speech-features',onFeatures);
-    root.addEventListener('tradeflow:voice-state',onVoice);
-    document.addEventListener('visibilitychange',visibility);
-    reduced?.addEventListener?.('change',resume);
-    resume();
-    return Object.freeze({
-      renderAt: render,
-      stats: () => ({frames, time:seconds, activity, speaking, reducedMotion:!!reduced?.matches, canvasPx:{width:canvas.width,height:canvas.height}}),
-      dispose() {
-        disposed=true;
-        if (raf) root.cancelAnimationFrame(raf);
-        root.removeEventListener('tradeflow:speech-features',onFeatures);
-        root.removeEventListener('tradeflow:voice-state',onVoice);
-        document.removeEventListener('visibilitychange',visibility);
-        reduced?.removeEventListener?.('change',resume);
-      }
-    });
-  }
-  let current = null;
-  function attach({root,document} = {}) {
-    if (!root || !document) return null;
-    current?.dispose();
-    let button = null, renderer = null, disposed = false;
-    function sync() {
-      if (disposed) return;
-      const next = document.querySelector('.tf-ai-orb');
-      if (next === button && renderer) return;
-      renderer?.dispose(); renderer=null; button=next;
-      if (!button) return;
-      // Delete legacy orb markup/canvases — never layer the old renderer
-      // underneath Concept B. Parent button/action remains unchanged.
-      button.querySelectorAll('.tf-orb-mesh,.tf-orb-concept-b-canvas,.tf-orb-concept-b-emblem').forEach(el=>el.remove());
-      const canvas=document.createElement('canvas');
-      canvas.className='tf-orb-concept-b-canvas';
-      canvas.setAttribute('aria-hidden','true');
-      button.appendChild(canvas);
-      button.insertAdjacentHTML('beforeend',labelMarkup);
-      button.dataset.orbMaterial=assetVersion;
-      renderer=createRenderer(canvas,{root,document,button});
-      if (!renderer) button.dataset.orbMaterial='concept-b-fallback';
-    }
-    const observer = new root.MutationObserver(sync);
-    const host=document.querySelector('#app') || document.documentElement;
-    observer.observe(host,{childList:true,subtree:true});
-    sync();
-    const api=Object.freeze({
-      sync, active:()=>!!renderer,
-      stats:()=>renderer?.stats()||null,
-      dispose() {disposed=true;observer.disconnect();renderer?.dispose();renderer=null;if(current===api)current=null;}
-    });
-    current=api;return api;
-  }
-  return Object.freeze({version:assetVersion,contour,membranePoint,normalizeSpeech,createRenderer,attach,stats:()=>current?.stats()||null});
+ return Object.freeze({version,frameAt,normalizeSpeech,createRenderer,attach,stats:()=>current?.stats()||null,renderAt:(...args)=>current?.renderAt(...args),resetStats:()=>current?.resetStats(),surfaces:()=>current?.surfaces()||[]});
 });
