@@ -2,7 +2,7 @@ const {test}=require('node:test');const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {version,contour,membranePoint,normalizeSpeech}=require('../public/intelligence-orb-idle.js');
 test('Concept B replaces old woven-blue implementation',()=>{
- assert.equal(version,'concept-b-v1');
+ assert.equal(version,'concept-b-v2');
  const js=fs.readFileSync('public/intelligence-orb-idle.js','utf8');
  assert.ok(!js.includes('woven-blue-v10'));
  assert.ok(js.includes('tf-orb-concept-b-emblem'));
@@ -25,7 +25,7 @@ test('real measured assistant playback is sole source of speech lighting',()=>{
 });
 test('HTML and offline precache load exact Concept B renderer and styles',()=>{
  const html=fs.readFileSync('public/index.html','utf8'),sw=fs.readFileSync('public/sw.js','utf8');
- for(const name of ['intelligence-orb-idle.js?v=orb-concept-b-01','intelligence-orb-idle.css?v=orb-concept-b-01']){
+ for(const name of ['intelligence-orb-idle.js?v=orb-concept-b-02','intelligence-orb-idle.css?v=orb-concept-b-02']){
   assert.ok(html.includes(name),name+' in HTML');assert.ok(sw.includes(name),name+' in SW');
  }
  assert.ok(!html.includes('orb-idle-15'));

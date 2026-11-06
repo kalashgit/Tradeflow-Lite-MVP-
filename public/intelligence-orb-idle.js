@@ -17,8 +17,8 @@
   const TAU = Math.PI * 2;
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
   const finite = n => Number.isFinite(n) ? n : 0;
-  const assetVersion = 'concept-b-v1';
-  const labelMarkup = '<svg class="tf-orb-concept-b-emblem" viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M10 23H32C36 23 38 26 39 29C43 25 47 23 53 23H63C62 30 58 35 51 35H43L31 59H20L30 35H8Z" fill="currentColor"/></svg>';
+  const assetVersion = 'concept-b-v2';
+  const labelMarkup = '<svg class="tf-orb-concept-b-emblem" viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M8 26C12 17 16 15 26 15H31C37 15 40 18 40 24C47 17 51 15 59 15H67C65 25 60 29 51 29H45L33 51C29 59 24 62 15 62L32 29H6Z" fill="currentColor"/></svg>';
 
   // Both motion modes share one physical surface. Audio changes lighting and
   // local deformation strength; it never swaps the renderer or the T.
@@ -50,12 +50,14 @@
     const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
     if (!ctx) return null;
     let disposed = false, raf = 0, seconds = 0, lastTime = null, lastPaint = -Infinity;
-    let speaking = false, speechLevel = 0, activity = 0, frames = 0;
+    let speaking = false, speechLevel = 0, activity = 0, frames = 0, speechAt = -Infinity;
     const reduced = root.matchMedia?.('(prefers-reduced-motion: reduce)');
-    const SIZE_LIMIT = 256;
+    const SIZE_LIMIT = 840;
+    let quality='fine'; const paintTimes=[]; const frameIntervals=[];
     const onFeatures = event => {
       const value = normalizeSpeech(event?.detail);
       if (!value) return;
+      speechAt = root.performance.now();
       speaking = value.active;
       speechLevel = value.level;
     };
@@ -76,85 +78,76 @@
     function render(time = seconds, level = activity) {
       if (disposed) return;
       const size = updateSize();
-      const center = size / 2, radius = size * .48;
+      const started = root.performance.now();
+      const center = size / 2, radius = size * .39;
       ctx.clearRect(0, 0, size, size);
-      ctx.save();
-      const path = new Path2D();
-      for (let i = 0; i <= 192; i++) {
-        const a = TAU * i / 192, r = radius * contour(a, time, level);
-        const x = center + r * Math.cos(a), y = center + r * Math.sin(a);
-        if (!i) path.moveTo(x, y); else path.lineTo(x, y);
+      // A closed, corrugated toroidal membrane. Both strand families are
+      // sampled from this ONE parameterization, including the rear surface.
+      // Folding the poloidal coordinate creates real overlap and compression.
+      const surface = (u, v) => {
+        const phase = time * .22;
+        const fold = Math.sin(3*u + phase) + .42*Math.sin(5*u-phase*.71+1.4);
+        const twist = v + .65*Math.sin(2*u-phase*.83) + .22*Math.sin(4*u+phase);
+        const tube = .29 + .065*Math.sin(3*u-phase+1);
+        const r = .70 + tube*Math.cos(twist) + .065*fold
+          + (.085+.024*level)*Math.sin(4*u+2*twist-phase*1.3);
+        const z = tube*Math.sin(twist) + .15*Math.sin(3*u+phase)
+          + .07*Math.cos(2*u-2*twist-phase*.7);
+        return [r*Math.cos(u), r*Math.sin(u)*.97 - z*.24, z];
+      };
+      const segments = [];
+      const large=size>300;
+      const nu=quality==='fine'?(large?160:80):(large?96:56), nv=quality==='fine'?(large?112:56):(large?64:40);
+      const grid=Array.from({length:nu},(_,i)=>Array.from({length:nv},(_,j)=>surface(TAU*i/nu,TAU*j/nv)));
+      for(let i=0;i<nu;i++)for(let j=0;j<nv;j++) {
+        const p=grid[i][j],du=grid[(i+1)%nu][j],dv=grid[i][(j+1)%nv];
+        const ax=du[0]-p[0],ay=du[1]-p[1],az=du[2]-p[2];
+        const bx=dv[0]-p[0],by=dv[1]-p[1],bz=dv[2]-p[2];
+        const nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx;
+        const norm=Math.hypot(nx,ny,nz)||1;
+        const facing=Math.abs(nz)/norm,crest=Math.pow(1-facing,3);
+        const light=Math.max(0,(-nx*.3-ny*.65+nz*.7)/norm);
+        const depth=clamp((p[2]+.48)/.95,.08,1);
+        const energy=(.13+.28*light+.82*crest)*depth*(.78+.65*level);
+        segments.push([p,du,energy,p[2],crest],[p,dv,energy,p[2],crest]);
       }
-      path.closePath();
-      ctx.clip(path);
-      // Actual dark/airy membrane, not a filled opaque sphere.
-      const base = ctx.createRadialGradient(center, center, radius * .12, center, center, radius);
-      base.addColorStop(0, 'rgba(0,5,22,.80)');
-      base.addColorStop(.66, 'rgba(0,17,40,.42)');
-      base.addColorStop(1, 'rgba(0,29,67,.22)');
-      ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
-      ctx.globalCompositeOperation = 'screen';
-      // Two coherent fine fiber directions follow the same displacement field.
-      // High-precision coordinates scale with the compact 66px host.
-      const strandCount = 90, steps = 96;
-      const brightness = .55 + .95 * level;
-      for (let axis = 0; axis < 2; axis++) {
-        for (let j = 0; j <= strandCount; j++) {
-          const lane = (j / strandCount * 2 - 1) * .93;
-          const tint = Math.sin(lane * 8.1 + time * .31 + axis * 1.6);
-          const alpha = clamp((axis ? .075 : .16) * brightness * (1 + .6 * tint), .02, .48);
-          ctx.lineWidth = axis ? .34 : .51;
-          ctx.strokeStyle = axis
-            ? 'rgba(29,159,255,' + alpha.toFixed(3) + ')'
-            : 'rgba(15,123,255,' + alpha.toFixed(3) + ')';
-          ctx.beginPath();
-          for (let k = 0; k <= steps; k++) {
-            const along = (k / steps * 2 - 1) * .94;
-            const x = axis ? lane : along, y = axis ? along : lane;
-            const p = membranePoint(x, y, time, level);
-            const bx = center + radius * p[0], by = center + radius * p[1];
-            if (!k) ctx.moveTo(bx, by); else ctx.lineTo(bx, by);
-          }
-          ctx.stroke();
-        }
+      // Opaque navy interior protects fold contrast over the host interface.
+      ctx.beginPath();
+      for(let i=0;i<nu;i++) {
+        const row=grid[i];
+        const p=row.reduce((a,b)=>Math.hypot(a[0],a[1])>Math.hypot(b[0],b[1])?a:b);
+        if(i===0)ctx.moveTo(center+p[0]*radius,center+p[1]*radius);
+        else ctx.lineTo(center+p[0]*radius,center+p[1]*radius);
       }
-      // Moving local folds: illumination follows the displaced fabric, not a
-      // fixed circular halo. The voice state only raises these measured crests.
-      for (let ribbon = 0; ribbon < 3; ribbon++) {
-        const phase = time * (.23 + ribbon * .047) + ribbon * 2.1;
-        ctx.beginPath();
-        for (let k = 0; k <= 112; k++) {
-          const a = TAU * k / 112;
-          const r = radius * (.73 + .14 * Math.sin(2 * a + phase) + .04 * Math.cos(5 * a - phase));
-          const x = center + r * Math.cos(a), y = center + r * Math.sin(a);
-          if (!k) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = 'rgba(5,183,255,' + (.07 + .19 * level).toFixed(3) + ')';
-        ctx.lineWidth = 1.0 + 1.1 * level;
-        ctx.shadowBlur = 2.1 + 4.2 * level;
-        ctx.shadowColor = '#00d8ff';
-        ctx.stroke();
+      ctx.closePath();ctx.fillStyle='rgba(0,7,18,.97)';ctx.fill();
+      const bins=Array.from({length:120},()=>new Path2D());
+      for(const [a,b,e,z,crest] of segments) {
+        const depth=clamp(Math.floor((z+.5)*6),0,5);
+        const light=clamp(Math.floor(e*19),0,19);
+        const path=bins[depth*20+light];
+        path.moveTo(center+a[0]*radius,center+a[1]*radius);
+        path.lineTo(center+b[0]*radius,center+b[1]*radius);
       }
-      ctx.shadowBlur = 0;
-      // The perimeter must not become a rigid neon ring. Illuminated glints
-      // cover only local curvature crests and drift with the surface.
-      const edgeCount = 192;
-      for (let j = 0; j < edgeCount; j++) {
-        const a = TAU * j / edgeCount, b = TAU * (j+1) / edgeCount;
-        const curv = Math.abs(contour(a-.08,time,level)-2*contour(a,time,level)+contour(a+.08,time,level));
-        const traveling = .5 + .5 * Math.sin(3*a - time*.38);
-        const light = clamp(curv * 35 + traveling * .18, 0, 1);
-        if (light < .22) continue;
-        ctx.lineWidth = .45 + .6 * level;
-        ctx.strokeStyle = 'rgba(8,210,255,' + clamp((light-.19) * (.29 + .53*level),0,.85).toFixed(3) + ')';
-        ctx.beginPath();
-        let r=radius*contour(a,time,level);
-        ctx.moveTo(center+r*Math.cos(a),center+r*Math.sin(a));
-        r=radius*contour(b,time,level);
-        ctx.lineTo(center+r*Math.cos(b),center+r*Math.sin(b));
-        ctx.stroke();
+      ctx.lineWidth=size/540;
+      for(let d=0;d<6;d++)for(let l=0;l<20;l++) {
+        ctx.strokeStyle='rgba(0,'+Math.round(90+l*7)+',255,'+(.035+l*.045).toFixed(3)+')';
+        ctx.stroke(bins[d*20+l]);
       }
-      ctx.restore();
+      // Scatter only the geometry's bright crests; no independent halo paths.
+      ctx.globalCompositeOperation='screen';
+      ctx.lineWidth=size/280;
+      ctx.shadowBlur=size/65;ctx.shadowColor='#00bfff';
+      for(let i=0;i<segments.length;i+=3) {
+        const [a,b,e,z,crest]=segments[i];
+        if(crest<.82||e<.43)continue;
+        ctx.strokeStyle='rgba(0,210,255,'+(e*.12).toFixed(3)+')';
+        ctx.beginPath();ctx.moveTo(center+a[0]*radius,center+a[1]*radius);
+        ctx.lineTo(center+b[0]*radius,center+b[1]*radius);ctx.stroke();
+      }
+      ctx.shadowBlur=0;ctx.globalCompositeOperation='source-over';
+      const cost=root.performance.now()-started;
+      paintTimes.push(cost);if(paintTimes.length>300)paintTimes.shift();
+      if(paintTimes.length===20 && paintTimes.reduce((a,b)=>a+b,0)/20>16)quality='adaptive';
       if (button) {
         button.style.setProperty('--tf-orb-concept-voice', String(clamp(level,0,1).toFixed(3)));
         button.style.setProperty('--tf-orb-concept-glow', (2 + 7 * clamp(level,0,1)).toFixed(1) + 'px');
@@ -167,9 +160,10 @@
       if (disposed || document.hidden || !canvas.isConnected || reduced?.matches) return;
       const dt = lastTime == null ? 0 : clamp((now-lastTime)/1000,0,.09);
       lastTime = now; seconds += dt;
+      if(now-speechAt>600){speaking=false;speechLevel=0;}
       const target = speaking ? speechLevel : 0;
       activity += (target-activity) * clamp(dt * (speaking ? 4.5 : 2.8), 0, 1);
-      if (now-lastPaint>=32) { render(seconds,activity); lastPaint=now; }
+      if (now-lastPaint>=(quality==='fine'? 0 : 32)) { if(Number.isFinite(lastPaint)){frameIntervals.push(now-lastPaint);if(frameIntervals.length>300)frameIntervals.shift();} render(seconds,activity); lastPaint=now; }
       raf=root.requestAnimationFrame(frame);
     }
     function resume() {
@@ -192,7 +186,7 @@
     resume();
     return Object.freeze({
       renderAt: render,
-      stats: () => ({frames, time:seconds, activity, speaking, reducedMotion:!!reduced?.matches, canvasPx:{width:canvas.width,height:canvas.height}}),
+      stats: () => ({frames, quality, paintMs:paintTimes.slice(), frameIntervals:frameIntervals.slice(), time:seconds, activity, speaking, reducedMotion:!!reduced?.matches, canvasPx:{width:canvas.width,height:canvas.height}}),
       dispose() {
         disposed=true;
         if (raf) root.cancelAnimationFrame(raf);

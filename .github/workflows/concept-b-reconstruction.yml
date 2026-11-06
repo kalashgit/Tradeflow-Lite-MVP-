@@ -1,0 +1,30 @@
+name: Concept B reconstruction evidence
+on:
+  push:
+    branches: [feature/tf-concept-b-membrane-reconstruction]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  orb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/intelligence-orb-idle.test.cjs
+      - run: npx playwright install --with-deps chromium
+      - name: Capture actual app and check motion contracts
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory public &
+          node scripts/capture-concept-b.cjs
+          git rev-parse HEAD > artifacts/concept-b/source-sha.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: concept-b-reconstruction
+          path: artifacts/concept-b/

@@ -1,0 +1,38 @@
+[
+  {
+    "width": 360,
+    "measuredFps": 57.02608134642834,
+    "quality": "fine",
+    "frames": 136,
+    "paintMeanMs": 4.674264705883295,
+    "paintP95Ms": 9,
+    "checks": "idle changes; reduced motion freezes; tap opens existing overlay"
+  },
+  {
+    "width": 390,
+    "measuredFps": 57.37305008273106,
+    "quality": "fine",
+    "frames": 133,
+    "paintMeanMs": 4.4849624060167885,
+    "paintP95Ms": 8.599999999976717,
+    "checks": "idle changes; reduced motion freezes; tap opens existing overlay"
+  },
+  {
+    "width": 430,
+    "measuredFps": 58.23700697079326,
+    "quality": "fine",
+    "frames": 134,
+    "paintMeanMs": 4.109701492536532,
+    "paintP95Ms": 6.099999999976717,
+    "checks": "idle changes; reduced motion freezes; tap opens existing overlay"
+  },
+  {
+    "width": 1280,
+    "measuredFps": 56.170212765957444,
+    "quality": "fine",
+    "frames": 134,
+    "paintMeanMs": 4.868656716415912,
+    "paintP95Ms": 8.599999999976717,
+    "checks": "idle changes; reduced motion freezes; tap opens existing overlay"
+  }
+]
