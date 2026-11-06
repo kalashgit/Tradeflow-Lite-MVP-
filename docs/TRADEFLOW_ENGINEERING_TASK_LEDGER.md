@@ -1,3 +1,7 @@
+## Notifications viewport and unwanted editor removal (2026-11-06)
+
+Founder reported iPhone notification panel outside screen, clarified yellow is intentional Appearance selection, and requested removing the deadline/renewal control just opened. Panel now uses visual-viewport bounds anchored to the bell, clamped width/position/height, safe-area margins and resize/scroll updates; list scrolls within fixed header/footer and stays above the dock. Notification deadline creation/form and its submit handler are removed; existing task/deadline records and their notices remain. No Appearance or branding change. Focused tests and browser checks cover 360/390/430/1280, short viewport resize, yellow appearance preservation, existing task preservation, scroll/footer and close/Escape. Guarded existing pilot only; exact SHA/CI/live proof in PR40.
+
 ## Founder logo + Home master visual system (2026-11-06)
 
 Founder selected the turquoise curved T with white TRADE / turquoise FLOW and designated current Home as the master style. Shared black/near-black neutral tokens now derive from Home; a final legacy chrome bridge applies them to existing pages. Header/setup/settings/sidebar, legacy map marks, favicon and PWA use canonical artwork. Warning/status colors and business behavior are retained, as is the living orb. See docs/TRADEFLOW_MASTER_STYLE.md; guarded pilot-only release and exact CI/live SHA in PR40.

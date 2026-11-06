@@ -45,21 +45,12 @@ test('existing quote task suppresses redundant quote follow-up notification',()=
  assert.equal(items.filter(x=>x.id.includes('priority:quote:q1')).length,0);
  assert.equal(items.filter(x=>x.title==='Quotation follow-up review').length,0);
 });
-test('user-entered obligation is saved as an ordinary linked task with no invented deadline',async()=>{
- const {module:m,listeners}=boot(),d=initial();let saved=null;
- m.configure({get:async()=>null,put:async(store,row)=>{if(store==='tasks'){saved=row;d.tasks.push(row)}},uid:()=>'verified-deadline-id',render:async()=>m.home(d,'bell'),navigate:async()=>{}});
- await m.show();
- const toggle={dataset:{notifAction:'obligation-new'}};
- await listeners.click[0]({target:{closest:selector=>selector==='[data-notif-action]'?toggle:null},preventDefault(){},stopImmediatePropagation(){}});
- assert.ok(m.home(d,'bell').includes('tfNotifObligationForm'));
- const form={id:'tfNotifObligationForm',values:{kind:'insurance',title:'Renew business policy',due:'2026-11-01',owner:'Office manager',notes:'Verified from insurer certificate'}};
- await listeners.submit[0]({target:form,preventDefault(){},stopImmediatePropagation(){}});
- assert.equal(saved.id,'verified-deadline-id');
- assert.equal(saved.taskType,'business_obligation');
- assert.equal(saved.obligationType,'insurance');
- assert.equal(saved.due,'2026-11-01');
- assert.equal(saved.status,'Open');
- assert.ok(!m.home(d,'bell').includes('tfNotifObligationForm'));
+test('notifications no longer offers deadline creation and does not change saved tasks',async()=>{
+ const {module:m,listeners}=boot(),d=initial();let writes=0;
+ d.tasks=[{id:'saved',title:'Renew policy',due:'2026-11-01',status:'Open',taskType:'business_obligation',obligationType:'insurance'}];
+ m.configure({get:async()=>null,put:async()=>writes++,render:async()=>m.home(d,'bell'),navigate:async()=>{}});
+ await m.show();const markup=m.home(d,'bell');assert.ok(!markup.includes('tfNotifObligationForm'));assert.ok(!markup.includes('Track a deadline or renewal'));
+ assert.ok(markup.includes('Renew policy'));assert.equal(d.tasks.length,1);assert.equal(writes,0);assert.equal((listeners.submit||[]).length,0);
 });
 test('business risk voice intent and cache versions are linked',()=>{
  const commands=require('../public/launch-more-commands.js');
@@ -68,7 +59,7 @@ test('business risk voice intent and cache versions are linked',()=>{
  assert.equal(commands.parse('show overdue tasks').action,'filter');
  assert.deepEqual(JSON.parse(JSON.stringify(commands.parse('show overdue invoices'))),{action:'filter',workspace:'invoices',filter:'overdue'});
  assert.deepEqual(JSON.parse(JSON.stringify(commands.parse('show unpaid invoices'))),{action:'filter',workspace:'invoices',filter:'unpaid'});
- assert.ok(html.includes('notifications.js?v=finance-r02'));
+ assert.ok(html.includes('notifications.js?v=notifications-viewport-r03'));
  assert.ok(html.includes('launch-more-commands.js?v=command-r01'));
- assert.ok(sw.includes('notifications.js?v=finance-r02'));
+ assert.ok(sw.includes('notifications.js?v=notifications-viewport-r03'));
 });
