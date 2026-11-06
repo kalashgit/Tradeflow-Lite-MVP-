@@ -1,5 +1,5 @@
 name: TradeFlow Approved Orb Live Preview
-# Founder-authorized preview release: Home visual correction from b9523ff (5 November 2026; deterministic notification fixture clock).
+# Approved concept-b-v4 orb on the current GUI; preserve Home checks with updated material/size assertions.
 on:
   push:
     branches: [feature/tf-orb-live-integration-20261106]
