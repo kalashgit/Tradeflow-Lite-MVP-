@@ -14,14 +14,17 @@ test('founder voice profiles retain the distinct maturity and British character 
   assert.equal(getVoiceProfile('__proto__'),null);
 });
 
-test('local free engine remains unverified until actual licensed voice and runtime exist',()=>{
+test('Chatterbox voice aliases are provisioned only behind a ready private runtime',()=>{
   assert.equal(manifest.engine.paid_api_allowed,false);
   assert.equal(manifest.engine.model_weights_in_git,false);
+  assert.equal(manifest.engine.primary,'chatterbox-tts');
   assert.equal(manifest.engine.transport,'private_self_hosted_only');
   for(const id of ids){
-    assert.equal(getVoiceProfile(id).model_voice_id,null);
-    assert.deepEqual(speechRequest({profileId:id,text:'Good morning.',providerReady:true}),
+    assert.equal(getVoiceProfile(id).model_voice_id,id);
+    assert.deepEqual(speechRequest({profileId:id,text:'Good morning.'}),
       {status:'unavailable',reason:'licensed_model_voice_not_verified'});
+    assert.deepEqual(speechRequest({profileId:id,text:'Good morning.',providerReady:true}),
+      {status:'ready',modelVoiceId:id,text:'Good morning.',language:'en-GB'});
   }
 });
 
