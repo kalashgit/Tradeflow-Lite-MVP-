@@ -26,5 +26,18 @@
     "TF_BACKUP_EXPORT_ENABLED": "false",
     "TF_BACKUP_DRY_RUN_ENABLED": "false",
     "TF_EXTENDED_RECORDS_ENABLED": "true"
+  },
+  "previews": {
+    "vars": {
+      "TF_OIDC_ISSUER": "https://preview.invalid",
+      "TF_OIDC_AUDIENCE": "preview-disabled",
+      "TF_OIDC_JWKS_URL": "https://preview.invalid/keys",
+      "TF_BACKUP_EXPORT_ENABLED": "false",
+      "TF_BACKUP_DRY_RUN_ENABLED": "false",
+      "TF_EXTENDED_RECORDS_ENABLED": "false"
+    },
+    "ai": {
+      "binding": "AI"
+    }
   }
 }
