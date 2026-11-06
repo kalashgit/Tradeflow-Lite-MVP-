@@ -19,6 +19,8 @@ permissions:
 jobs:
   voice-contract:
     runs-on: ubuntu-latest
+    env:
+      TRADEFLOW_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
