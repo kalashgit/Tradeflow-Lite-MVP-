@@ -1,406 +1,241 @@
-/* TF-GUI-ORB-IDLE-01 — visual-only, reference-informed living mesh.
- * No voice capture, speech claim, record access, or new command executor.
- * Renders into the existing TradeFlow Intelligence button and preserves its click.
+/* TradeFlow Intelligence Orb / Concept B — complete replacement.
+ * Visual-only. Actual assistant playback drives brightness; no synthetic speech.
+ * The parent button remains TradeFlow's existing, authorized AI entry point.
  */
 (function (root, factory) {
   'use strict';
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root) root.TradeFlowOrbIdle = api;
+  if (root) { root.TradeFlowConceptBOrb = api; root.TradeFlowOrbIdle = api; }
   if (root && root.document) {
-    const begin = () => api.attach({ document: root.document, root });
+    const begin = () => api.attach({ root, document: root.document });
     if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', begin, { once: true });
     else begin();
   }
 })(typeof globalThis !== 'undefined' ? globalThis : null, function () {
   'use strict';
   const TAU = Math.PI * 2;
-  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-  const MEAN_RADIUS = .895;
-  // Wrapped Gaussian packets make fold activity local rather than imposing
-  // a regular pentagonal / hexagonal silhouette on the whole membrane.
-  const edgePacket=(angle,center,width)=>{
-    const d=Math.sin((angle-center)/2);
-    return Math.exp(-2*d*d/(width*width));
-  };
-  // Zero-mean angular modes keep the diameter stable while localized folds
-  // pass around the edge. None of the modes scales the orb as a whole.
-  function surfaceRadius(angle, t) {
-    const a=Number(angle),time=Number(t);
-    if(!Number.isFinite(a)||!Number.isFinite(time))return MEAN_RADIUS;
-    return MEAN_RADIUS+.014*Math.sin(3*a-.09*time+1.1)
-      +.009*Math.sin(7*a+.16*time)
-      +.003*Math.sin(14*a-.11*time+.3)
-      +.059*(edgePacket(a,.35+.14*time,.43)-edgePacket(a,3.15-.12*time,.43))
-      +.041*(edgePacket(a,-1.45+.11*time,.39)-edgePacket(a,1.7+.09*time,.39))
-      +.020*(edgePacket(a,-2.6+.08*time,.35)-edgePacket(a,.95-.09*time,.35));
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+  const finite = n => Number.isFinite(n) ? n : 0;
+  const assetVersion = 'concept-b-v1';
+  const labelMarkup = '<svg class="tf-orb-concept-b-emblem" viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M10 23H32C36 23 38 26 39 29C43 25 47 23 53 23H63C62 30 58 35 51 35H43L31 59H20L30 35H8Z" fill="currentColor"/></svg>';
+
+  // Both motion modes share one physical surface. Audio changes lighting and
+  // local deformation strength; it never swaps the renderer or the T.
+  function contour(angle, time, activity = 0) {
+    const a = finite(angle), t = finite(time), v = clamp(finite(activity), 0, 1);
+    const soft = .026 * Math.sin(3 * a - .35 * t) + .019 * Math.sin(5 * a + .27 * t + 1.7);
+    const folds = (.023 + .021 * v) * Math.sin(7 * a - (.42 + .19 * v) * t + 1.2)
+      + (.011 + .012 * v) * Math.sin(11 * a + (.31 + .17 * v) * t);
+    return .87 + soft + folds;
   }
-  // A bounded per-time angular table prevents thousands of extra Gaussian
-  // evaluations when the mobile weave follows the same folded perimeter.
-  const rimResolution=256, rimValues=new Float32Array(rimResolution),rimSlopes=new Float32Array(rimResolution);
-  let rimTime=NaN;
-  function prepareContour(t){
-    if(t!==rimTime){
-      for(let i=0;i<rimResolution;i++)rimValues[i]=surfaceRadius(i*TAU/rimResolution,t);
-      for(let i=0;i<rimResolution;i++){
-        // Six sample intervals approximate the original symmetric .08-radian
-        // derivative while requiring zero extra exponentials per thread.
-        rimSlopes[i]=(rimValues[(i+3)%rimResolution]-rimValues[(i+rimResolution-3)%rimResolution])/(6*TAU/rimResolution);
-      }
-      rimTime=t;
-    }
+  function membranePoint(x, y, time, activity = 0) {
+    const t = finite(time), v = clamp(finite(activity), 0, 1);
+    const strength = 1 + .55 * v;
+    const dx = strength * (.034 * Math.sin(3.3*y + 2.1*x - .26*t)
+      + .013 * Math.sin(8.9*y - 2.4*x + .21*t));
+    const dy = strength * (.047 * Math.sin(2.8*x + 1.9*y - .23*t)
+      + .015 * Math.sin(9.2*x - 3.1*y + .29*t));
+    return [x + dx, y + dy];
   }
-  function sampleContour(values,angle){
-    // atan2 supplies [-pi,pi]; avoid modulo in the inner rendering loop.
-    const raw=angle*rimResolution/TAU,at=raw<0?raw+rimResolution:raw;
-    const i=Math.floor(at),f=at-i;
-    return values[i]*(1-f)+values[(i+1)&255]*f;
+  function normalizeSpeech(detail) {
+    if (!detail || detail.version !== 1 || detail.source !== 'assistant_playback') return null;
+    if (detail.active !== true) return { active: false, level: 0 };
+    const rms = clamp(finite(detail.rms), 0, 1);
+    const peak = clamp(finite(detail.peak), 0, 1);
+    return { active: true, level: clamp(.18 + rms * 4.4 + peak * .32, .18, 1) };
   }
-  // A single advected displacement field drives every neighboring strand.
-  // The boundary term draws internal threads into the SAME moving edge folds.
-  function meshPoint(x,y,t){
-    const distance=Math.min(1,Math.hypot(x,y));
-    const angle=Math.atan2(y,x);
-    if(distance>.55)prepareContour(t);
-    const boundaryCoupling=distance>.55
-      ?(sampleContour(rimValues,angle)/MEAN_RADIUS-1)*distance*distance*.78
-      :0;
-    // Rolling surface folds pull the adjacent weave along the edge tangent.
-    // This uses the derivative of the same silhouette, so crease/mesh/rim
-    // cannot drift independently or turn into an unrelated looping particle.
-    const nearEdge=clamp((distance-.60)/.31,0,1);
-    const tangentFold=nearEdge?nearEdge*clamp(sampleContour(rimSlopes,angle)*.27,-.037,.037):0;
-    // The low-frequency field carries the whole fabric; finer oscillations
-    // ride on it as tiny woven creases, instead of repeating rigid stripes.
-    const xx=x+.047*Math.sin(y*3.2+x*2.4-t*.18)
-      +.014*Math.sin(y*5.4+x*3.2-t*.20)
-      +.008*Math.sin(y*15.1-x*6.3+t*.16)
-      +.003*Math.sin(y*30+x*11-t*.07)-Math.sin(angle)*tangentFold;
-    const yy=y+.059*Math.sin(x*3.1+y*1.8-t*.16)
-      +.012*Math.sin(x*3.5+y*2.1+t*.11)
-      +.026*Math.sin(x*7.4+y*2.7-t*.28)
-      +.013*Math.sin(x*14.8-y*5.4+t*.20)
-      +.005*Math.sin(x*28.2+y*10.1-t*.13)
-      +.002*Math.sin(x*43-y*17+t*.09)+Math.cos(angle)*tangentFold;
-    return [xx*(1+boundaryCoupling),yy*(1+boundaryCoupling)];
-  }
-  // Light is a differential of the actual deforming contour, never a rotating halo.
-  function foldLight(angle,t){
-    const delta=.056,r=surfaceRadius(angle,t);
-    const curvature=Math.abs(surfaceRadius(angle+delta,t)-2*r+surfaceRadius(angle-delta,t));
-    const slope=Math.abs(surfaceRadius(angle+delta,t)-surfaceRadius(angle-delta,t));
-    return clamp(curvature*210+slope*15,0,1);
-  }
-  function createRenderer(canvas, { root, document } = {}) {
+  function createRenderer(canvas, { root, document, button } = {}) {
     if (!canvas || typeof canvas.getContext !== 'function') return null;
     const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
     if (!ctx) return null;
-    let disposed = false, lastTime = null, elapsed = 0, raf = 0, frameCount = 0, painting = false;
-    const reducedQuery = root.matchMedia?.('(prefers-reduced-motion: reduce)');
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect();
-      // This is a tiny persistent UI surface; cap raster work on high-DPR phones.
-      const ratio = clamp(root.devicePixelRatio || 1, 1, 2);
-      const width = clamp(Math.round(bounds.width * ratio), 2, 520);
-      const height = clamp(Math.round(bounds.height * ratio), 2, 520);
-      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-      return Math.min(width, height);
+    let disposed = false, raf = 0, seconds = 0, lastTime = null, lastPaint = -Infinity;
+    let speaking = false, speechLevel = 0, activity = 0, frames = 0;
+    const reduced = root.matchMedia?.('(prefers-reduced-motion: reduce)');
+    const SIZE_LIMIT = 256;
+    const onFeatures = event => {
+      const value = normalizeSpeech(event?.detail);
+      if (!value) return;
+      speaking = value.active;
+      speechLevel = value.level;
     };
-    const paintTimes=[],drawIntervals=[];
-    let lastDrawTime=-Infinity,lastPaintAt=null;
-    const sample=(array,n)=>{array.push(n);if(array.length>180)array.shift()};
-    const nowMs=()=>root.performance?.now?.()??Date.now();
-    function render(t=0){
-      if(disposed||painting)return;
-      painting=true;
-      const started=nowMs();
-      try{
-        const size=resize(),w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,r=size/2;
-        ctx.clearRect(0,0,w,h);
-        const edge=new Path2D();
-        const edgeSteps=240;
-        for(let i=0;i<=edgeSteps;i++){
-          const angle=TAU*i/edgeSteps,rr=r*surfaceRadius(angle,t);
-          const x=cx+rr*Math.cos(angle),y=cy+rr*Math.sin(angle);
-          if(i===0)edge.moveTo(x,y);else edge.lineTo(x,y);
-        }
-        edge.closePath();
-        ctx.save();
-        ctx.clip(edge);
-        // Near-black membrane backing: the Home cards must never show through.
-        // No opaque colored disc, radial glass gradient, or baked-in highlight.
-        ctx.fillStyle='rgba(4,12,34,.95)';
-        ctx.fill(edge);
-        // At native 66 CSS px, 57 broad lines looked like stripes; recover a
-        // finer membrane using raster-adaptive hairlines, not a resized ball.
-        const threads=clamp(Math.round(size*.79),78,192);
-        const steps=clamp(Math.round(size*.79),96,240);
-        const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/220,.56,.81);
-        ctx.lineCap='round';
-        ctx.lineJoin='round';
-        ctx.globalCompositeOperation='screen';
-        for(let j=0;j<=threads;j++){
-          const y0=(2*j/threads-1)*.90;
-          // Every bright interval is derived from actual local thread
-          // compression and tilt. Brightness moves WITH the woven material.
-          const grad=ctx.createLinearGradient(left,0,right,0);
-          for(let m=0;m<=10;m++){
-            const u=m/10,x0=(u*2-1)*.88;
-            const upper=meshPoint(x0,y0+.008,t)[1],lower=meshPoint(x0,y0-.008,t)[1];
-            const spacing=(upper-lower)/.016;
-            const density=clamp((1.02-spacing)*2.6,-.5,.65);
-            const before=meshPoint(x0-.008,y0,t)[1],after=meshPoint(x0+.008,y0,t)[1];
-            const foldTilt=clamp(Math.abs(after-before)/.016,0,.9);
-            const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
-            // A translucent center and densely lit grazing surface are
-            // essential: the reference is a membrane, not a blue disc.
-            const grazing=.39+.31*Math.pow(radial,2.25);
-            const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
-            // This broad, slowly advected fold field shades entire groups of
-            // adjacent filaments, creating a continuous sheet rather than a
-            // uniform illuminated contour map. It is not a radial ball glow.
-            const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
-            const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
-            const materialShade=.16*sheetWave+.10*sheetCrest;
-            const alpha=clamp(grazing+localRidge+materialShade,.24,.92);
-            // Founder correction: reference texture and motion, deliberately
-            // BLUE rather than the source video's violet-dominant palette.
-            const red=Math.round(32+12*u+10*foldTilt);
-            const green=Math.round(86+54*u+20*density);
-            const blue=Math.round(213+34*u);
-            grad.addColorStop(u,`rgba(${red},${green},${blue},${alpha.toFixed(3)})`);
-          }
-          ctx.strokeStyle=grad;
-          ctx.beginPath();
-          for(let k=0;k<=steps;k++){
-            const x0=(2*k/steps-1)*.88,p=meshPoint(x0,y0,t);
-            const x=cx+p[0]*r,y=cy+p[1]*r;
-            if(k===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-          }
-          ctx.stroke();
-        }
-        // Subtle cross-woven fibers share the same displaced surface.
-        // Very low contrast keeps them from becoming a rigid latitude grid.
-        ctx.globalCompositeOperation='source-over';
-        ctx.lineWidth=clamp(size/430,.30,.55);
-        ctx.strokeStyle='rgba(70,164,245,.10)';
-        for(let i=0;i<=54;i++){
-          const x0=(2*i/54-1)*.85;
-          ctx.beginPath();
-          for(let k=0;k<=64;k++){
-            const y0=(2*k/64-1)*.89,p=meshPoint(x0,y0,t);
-            if(k===0)ctx.moveTo(cx+p[0]*r,cy+p[1]*r);
-            else ctx.lineTo(cx+p[0]*r,cy+p[1]*r);
-          }
-          ctx.stroke();
-        }
-        // Three shallow translucent sheets fold over the woven surface.
-        // Their shaded troughs and thin luminous crests are both derived from
-        // the moving outer geometry; unlike an outline echo they occlude the
-        // underlying fibers for a few pixels, as the reference membrane does.
-        function drawFoldVeil(center,width,depth,strength){
-          const n=56;
-          const shape=(u,inner)=>{
-            const angle=center+(2*u-1)*width;
-            const envelope=Math.pow(Math.sin(Math.PI*u),2);
-            const base=surfaceRadius(angle,t);
-            const radius=r*(base-(inner?depth*envelope:0));
-            return [cx+radius*Math.cos(angle),cy+radius*Math.sin(angle),envelope];
-          };
-          ctx.save();
-          ctx.globalCompositeOperation='source-over';
-          ctx.fillStyle=`rgba(1,5,23,${(.42*strength).toFixed(3)})`;
-          ctx.beginPath();
-          for(let i=0;i<=n;i++){
-            const p=shape(i/n,false);
-            if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
-          }
-          for(let i=n;i>=0;i--){const p=shape(i/n,true);ctx.lineTo(p[0],p[1]);}
-          ctx.closePath();ctx.fill();
-          ctx.globalCompositeOperation='screen';
-          // A single blurred continuous crest supplies the source's soft
-          // folded-sheet illumination; per-fiber details stay sharp beneath.
-          ctx.globalAlpha=.26*strength;
-          ctx.lineWidth=clamp(size/145,.8,1.7);
-          ctx.strokeStyle='#367df4';
-          ctx.shadowColor='rgba(52,133,255,.38)';
-          ctx.shadowBlur=clamp(size*.025,1.5,5);
-          ctx.beginPath();
-          for(let i=7;i<=n-7;i++){
-            const p=shape(i/n,true);
-            if(i===7)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
-          }
-          ctx.stroke();
-          ctx.shadowBlur=0;
-          ctx.lineWidth=clamp(size/220,.56,.97);
-          ctx.strokeStyle='#7bcfff';
-          for(let i=0;i<n;i++){
-            const a=shape(i/n,true),b=shape((i+1)/n,true);
-            const local=(a[2]+b[2])/2;
-            if(local<.045)continue;
-            ctx.globalAlpha=clamp(local*.74*strength,0,.68);
-            ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
-          }
-          ctx.restore();
-        }
-        drawFoldVeil(.35+.14*t,.91,.13,1);
-        drawFoldVeil(-1.45+.11*t,.83,.115,.85);
-        drawFoldVeil(-2.6+.08*t,.68,.095,.72);
-        ctx.restore();
-        ctx.save();
-        const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(40,109,224,.15)');
-        rim.addColorStop(.32,'rgba(63,147,242,.20)');
-        rim.addColorStop(.67,'rgba(77,185,251,.28)');
-        rim.addColorStop(1,'rgba(99,214,255,.18)');
-        ctx.strokeStyle=rim;
-        ctx.lineWidth=clamp(size/260,.48,.93);
-        ctx.shadowColor='rgba(36,120,242,.37)';
-        ctx.shadowBlur=clamp(size*.022,1.8,4.5);
-        ctx.stroke(edge);
-        ctx.shadowBlur=0;
-        // Localized curvature glints and near-edge folded-sheet contours.
-        // Both follow the SAME surfaceRadius field as the mesh boundary.
-        for(let i=0;i<edgeSteps;i++){
-          const a=TAU*i/edgeSteps,b=TAU*(i+1)/edgeSteps;
-          const light=foldLight((a+b)/2,t);
-          if(light<.28)continue;
-          const ra=r*surfaceRadius(a,t),rb=r*surfaceRadius(b,t);
-          ctx.globalAlpha=clamp((light-.15)*1.23,0,.89);
-          ctx.lineWidth=clamp(size/260,.48,.94);
-          ctx.strokeStyle=light>.68?'#acebff':'#57beff';
-          ctx.beginPath();
-          ctx.moveTo(cx+ra*Math.cos(a),cy+ra*Math.sin(a));
-          ctx.lineTo(cx+rb*Math.cos(b),cy+rb*Math.sin(b));
-          ctx.stroke();
-          if(light>.43){
-            // An inner displaced sheet is visible ONLY beside a fold, not as
-            // an always-on concentric neon ring. Both contours travel.
-            const crease=r*(.020+.006*light);
-            ctx.globalAlpha=(light-.36)*.52;
-            ctx.lineWidth=clamp(size/215,.55,1.0);
-            ctx.strokeStyle='#020b29';
-            ctx.beginPath();
-            ctx.moveTo(cx+(ra-crease)*Math.cos(a),cy+(ra-crease)*Math.sin(a));
-            ctx.lineTo(cx+(rb-crease)*Math.cos(b),cy+(rb-crease)*Math.sin(b));
-            ctx.stroke();
-            const inset=r*(.041+.015*light);
-            ctx.globalAlpha=(light-.38)*.76;
-            ctx.lineWidth=clamp(size/275,.46,.85);
-            ctx.strokeStyle='#7ed1ff';
-            ctx.beginPath();
-            ctx.moveTo(cx+(ra-inset)*Math.cos(a),cy+(ra-inset)*Math.sin(a));
-            ctx.lineTo(cx+(rb-inset)*Math.cos(b),cy+(rb-inset)*Math.sin(b));
-            ctx.stroke();
-            if(light>.72){
-              const innerInset=r*(.081+.009*light);
-              ctx.globalAlpha=(light-.66)*.28;
-              ctx.strokeStyle='#438eff';
-              ctx.beginPath();
-              ctx.moveTo(cx+(ra-innerInset)*Math.cos(a),cy+(ra-innerInset)*Math.sin(a));
-              ctx.lineTo(cx+(rb-innerInset)*Math.cos(b),cy+(rb-innerInset)*Math.sin(b));
-              ctx.stroke();
-            }
-          }
-        }
-        ctx.restore();
-        frameCount++;
-      } finally {
-        const measured=nowMs()-started;
-        if(Number.isFinite(measured)&&measured>=0)sample(paintTimes,measured);
-        painting=false;
+    const onVoice = event => {
+      // Voice-state alone cannot trigger the "speaking" glow: only genuine
+      // assistant output's audio analyser is authoritative for illumination.
+      if (event?.detail?.status === 'idle' || event?.detail?.status === 'unavailable') {
+        speaking = false; speechLevel = 0;
       }
+    };
+    const updateSize = () => {
+      const b = canvas.getBoundingClientRect();
+      const dpr = clamp(root.devicePixelRatio || 1, 1, 2);
+      const size = clamp(Math.round(Math.min(b.width, b.height) * dpr), 2, SIZE_LIMIT);
+      if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; }
+      return size;
+    };
+    function render(time = seconds, level = activity) {
+      if (disposed) return;
+      const size = updateSize();
+      const center = size / 2, radius = size * .48;
+      ctx.clearRect(0, 0, size, size);
+      ctx.save();
+      const path = new Path2D();
+      for (let i = 0; i <= 192; i++) {
+        const a = TAU * i / 192, r = radius * contour(a, time, level);
+        const x = center + r * Math.cos(a), y = center + r * Math.sin(a);
+        if (!i) path.moveTo(x, y); else path.lineTo(x, y);
+      }
+      path.closePath();
+      ctx.clip(path);
+      // Actual dark/airy membrane, not a filled opaque sphere.
+      const base = ctx.createRadialGradient(center, center, radius * .12, center, center, radius);
+      base.addColorStop(0, 'rgba(0,5,22,.80)');
+      base.addColorStop(.66, 'rgba(0,17,40,.42)');
+      base.addColorStop(1, 'rgba(0,29,67,.22)');
+      ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
+      ctx.globalCompositeOperation = 'screen';
+      // Two coherent fine fiber directions follow the same displacement field.
+      // High-precision coordinates scale with the compact 66px host.
+      const strandCount = 90, steps = 96;
+      const brightness = .55 + .95 * level;
+      for (let axis = 0; axis < 2; axis++) {
+        for (let j = 0; j <= strandCount; j++) {
+          const lane = (j / strandCount * 2 - 1) * .93;
+          const tint = Math.sin(lane * 8.1 + time * .31 + axis * 1.6);
+          const alpha = clamp((axis ? .075 : .16) * brightness * (1 + .6 * tint), .02, .48);
+          ctx.lineWidth = axis ? .34 : .51;
+          ctx.strokeStyle = axis
+            ? 'rgba(29,159,255,' + alpha.toFixed(3) + ')'
+            : 'rgba(15,123,255,' + alpha.toFixed(3) + ')';
+          ctx.beginPath();
+          for (let k = 0; k <= steps; k++) {
+            const along = (k / steps * 2 - 1) * .94;
+            const x = axis ? lane : along, y = axis ? along : lane;
+            const p = membranePoint(x, y, time, level);
+            const bx = center + radius * p[0], by = center + radius * p[1];
+            if (!k) ctx.moveTo(bx, by); else ctx.lineTo(bx, by);
+          }
+          ctx.stroke();
+        }
+      }
+      // Moving local folds: illumination follows the displaced fabric, not a
+      // fixed circular halo. The voice state only raises these measured crests.
+      for (let ribbon = 0; ribbon < 3; ribbon++) {
+        const phase = time * (.23 + ribbon * .047) + ribbon * 2.1;
+        ctx.beginPath();
+        for (let k = 0; k <= 112; k++) {
+          const a = TAU * k / 112;
+          const r = radius * (.73 + .14 * Math.sin(2 * a + phase) + .04 * Math.cos(5 * a - phase));
+          const x = center + r * Math.cos(a), y = center + r * Math.sin(a);
+          if (!k) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(5,183,255,' + (.07 + .19 * level).toFixed(3) + ')';
+        ctx.lineWidth = 1.0 + 1.1 * level;
+        ctx.shadowBlur = 2.1 + 4.2 * level;
+        ctx.shadowColor = '#00d8ff';
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      // The perimeter must not become a rigid neon ring. Illuminated glints
+      // cover only local curvature crests and drift with the surface.
+      const edgeCount = 192;
+      for (let j = 0; j < edgeCount; j++) {
+        const a = TAU * j / edgeCount, b = TAU * (j+1) / edgeCount;
+        const curv = Math.abs(contour(a-.08,time,level)-2*contour(a,time,level)+contour(a+.08,time,level));
+        const traveling = .5 + .5 * Math.sin(3*a - time*.38);
+        const light = clamp(curv * 35 + traveling * .18, 0, 1);
+        if (light < .22) continue;
+        ctx.lineWidth = .45 + .6 * level;
+        ctx.strokeStyle = 'rgba(8,210,255,' + clamp((light-.19) * (.29 + .53*level),0,.85).toFixed(3) + ')';
+        ctx.beginPath();
+        let r=radius*contour(a,time,level);
+        ctx.moveTo(center+r*Math.cos(a),center+r*Math.sin(a));
+        r=radius*contour(b,time,level);
+        ctx.lineTo(center+r*Math.cos(b),center+r*Math.sin(b));
+        ctx.stroke();
+      }
+      ctx.restore();
+      if (button) {
+        button.style.setProperty('--tf-orb-concept-voice', String(clamp(level,0,1).toFixed(3)));
+        button.style.setProperty('--tf-orb-concept-glow', (2 + 7 * clamp(level,0,1)).toFixed(1) + 'px');
+        button.dataset.orbState = level > .12 ? 'speaking' : 'idle';
+      }
+      frames++;
     }
-    function animate(now){
-      if(disposed)return;
-      raf=0;
-      if(document.hidden||!canvas.isConnected||reducedQuery?.matches)return;
-      if(lastTime===null)lastTime=now;
-      const dt=clamp((now-lastTime)/1000,0,.07);
-      lastTime=now;elapsed+=dt;
-      // Cap the paint workload around 30 fps on mobile. Intervening RAFs only
-      // advance the shared time field; no hidden high-rate canvas work.
-      if(now-lastDrawTime>=32){
-        if(lastPaintAt!==null)sample(drawIntervals,now-lastPaintAt);
-        lastPaintAt=now;
-        render(elapsed);
-        lastDrawTime=now;
-      }
-      raf=root.requestAnimationFrame(animate);
+    function frame(now) {
+      raf = 0;
+      if (disposed || document.hidden || !canvas.isConnected || reduced?.matches) return;
+      const dt = lastTime == null ? 0 : clamp((now-lastTime)/1000,0,.09);
+      lastTime = now; seconds += dt;
+      const target = speaking ? speechLevel : 0;
+      activity += (target-activity) * clamp(dt * (speaking ? 4.5 : 2.8), 0, 1);
+      if (now-lastPaint>=32) { render(seconds,activity); lastPaint=now; }
+      raf=root.requestAnimationFrame(frame);
     }
     function resume() {
-      if (disposed) return;
       if (raf) root.cancelAnimationFrame(raf);
-      lastTime = null;
-      render(reducedQuery?.matches ? 0 : elapsed);
-      lastDrawTime=-Infinity;lastPaintAt=null;
-      if (!document.hidden && !reducedQuery?.matches) raf = root.requestAnimationFrame(animate);
+      raf=0;lastTime=null;lastPaint=-Infinity;
+      if (!disposed) render(reduced?.matches ? 0 : seconds, reduced?.matches ? 0 : activity);
+      if (!disposed && !document.hidden && !reduced?.matches) raf=root.requestAnimationFrame(frame);
     }
-    const visibility = () => {
-      if (document.hidden) { if (raf) root.cancelAnimationFrame(raf); raf = 0; }
-      else resume();
-    };
-    const preference = () => resume();
-    document.addEventListener('visibilitychange', visibility);
-    reducedQuery?.addEventListener?.('change', preference);
+    function visibility() {
+      if (document.hidden) {
+        if (raf) root.cancelAnimationFrame(raf);
+        raf=0;lastTime=null;
+        speaking=false;speechLevel=0;activity=0;
+      } else resume();
+    }
+    root.addEventListener('tradeflow:speech-features',onFeatures);
+    root.addEventListener('tradeflow:voice-state',onVoice);
+    document.addEventListener('visibilitychange',visibility);
+    reduced?.addEventListener?.('change',resume);
     resume();
     return Object.freeze({
       renderAt: render,
-      stats: () => {
-        const sorted=[...paintTimes].sort((a,b)=>a-b);
-        const mean=a=>a.length?a.reduce((n,x)=>n+x,0)/a.length:0;
-        const interval=mean(drawIntervals);
-        return Object.freeze({frames:frameCount,time:elapsed,
-          reducedMotion:!!reducedQuery?.matches,
-          avgPaintMs:+mean(paintTimes).toFixed(2),
-          p95PaintMs:+(sorted[Math.floor((sorted.length-1)*.95)]||0).toFixed(2),
-          maxPaintMs:+(sorted[sorted.length-1]||0).toFixed(2),
-          observedFps:interval?+(1000/interval).toFixed(1):0,
-          canvasPx:{width:canvas.width,height:canvas.height}});
-      },
+      stats: () => ({frames, time:seconds, activity, speaking, reducedMotion:!!reduced?.matches, canvasPx:{width:canvas.width,height:canvas.height}}),
       dispose() {
-        disposed = true;
+        disposed=true;
         if (raf) root.cancelAnimationFrame(raf);
-        document.removeEventListener('visibilitychange', visibility);
-        reducedQuery?.removeEventListener?.('change', preference);
+        root.removeEventListener('tradeflow:speech-features',onFeatures);
+        root.removeEventListener('tradeflow:voice-state',onVoice);
+        document.removeEventListener('visibilitychange',visibility);
+        reduced?.removeEventListener?.('change',resume);
       }
     });
   }
-  let activeController=null;
-  function attach({ document, root } = {}) {
-    if (!document || !root) return null;
-    let currentButton = null, renderer = null, disposed = false;
+  let current = null;
+  function attach({root,document} = {}) {
+    if (!root || !document) return null;
+    current?.dispose();
+    let button = null, renderer = null, disposed = false;
     function sync() {
       if (disposed) return;
-      const button = document.querySelector('.tf-ai-orb');
-      if (button === currentButton && renderer) return;
-      renderer?.dispose();
-      renderer = null; currentButton = button;
+      const next = document.querySelector('.tf-ai-orb');
+      if (next === button && renderer) return;
+      renderer?.dispose(); renderer=null; button=next;
       if (!button) return;
-      const canvas = document.createElement('canvas');
-      canvas.className = 'tf-orb-mesh';
-      canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v10');
-      // Decorative child only: parent button's data-action owns the click.
+      // Delete legacy orb markup/canvases — never layer the old renderer
+      // underneath Concept B. Parent button/action remains unchanged.
+      button.querySelectorAll('.tf-orb-mesh,.tf-orb-concept-b-canvas,.tf-orb-concept-b-emblem').forEach(el=>el.remove());
+      const canvas=document.createElement('canvas');
+      canvas.className='tf-orb-concept-b-canvas';
+      canvas.setAttribute('aria-hidden','true');
       button.appendChild(canvas);
-      renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v10' : 'fallback';
+      button.insertAdjacentHTML('beforeend',labelMarkup);
+      button.dataset.orbMaterial=assetVersion;
+      renderer=createRenderer(canvas,{root,document,button});
+      if (!renderer) button.dataset.orbMaterial='concept-b-fallback';
     }
-    const observer = new root.MutationObserver(() => sync());
-    const host = document.querySelector('#app');
-    if (host) observer.observe(host, { childList: true, subtree: true });
-    else observer.observe(document.documentElement, { childList: true, subtree: true });
+    const observer = new root.MutationObserver(sync);
+    const host=document.querySelector('#app') || document.documentElement;
+    observer.observe(host,{childList:true,subtree:true});
     sync();
-    const controller=Object.freeze({
+    const api=Object.freeze({
       sync, active:()=>!!renderer,
       stats:()=>renderer?.stats()||null,
-      dispose(){disposed=true;observer.disconnect();renderer?.dispose();renderer=null;
-        if(activeController===controller)activeController=null;}
+      dispose() {disposed=true;observer.disconnect();renderer?.dispose();renderer=null;if(current===api)current=null;}
     });
-    activeController=controller;
-    return controller;
+    current=api;return api;
   }
-  return Object.freeze({ version: 'woven-blue-v10', surfaceRadius, meshPoint, foldLight,
-    createRenderer, attach, stats:()=>activeController?.stats()||null });
+  return Object.freeze({version:assetVersion,contour,membranePoint,normalizeSpeech,createRenderer,attach,stats:()=>current?.stats()||null});
 });
