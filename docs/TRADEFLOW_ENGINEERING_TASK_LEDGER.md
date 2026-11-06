@@ -1,3 +1,19 @@
+## Notifications viewport and unwanted editor removal (2026-11-06)
+
+Founder reported iPhone notification panel outside screen, clarified yellow is intentional Appearance selection, and requested removing the deadline/renewal control just opened. Panel now uses visual-viewport bounds anchored to the bell, clamped width/position/height, safe-area margins and resize/scroll updates; list scrolls within fixed header/footer and stays above the dock. Notification deadline creation/form and its submit handler are removed; existing task/deadline records and their notices remain. No Appearance or branding change. Focused tests and browser checks cover 360/390/430/1280, short viewport resize, yellow appearance preservation, existing task preservation, scroll/footer and close/Escape. Guarded existing pilot only; exact SHA/CI/live proof in PR40.
+
+## Founder logo + Home master visual system (2026-11-06)
+
+Founder selected the turquoise curved T with white TRADE / turquoise FLOW and designated current Home as the master style. Shared black/near-black neutral tokens now derive from Home; a final legacy chrome bridge applies them to existing pages. Header/setup/settings/sidebar, legacy map marks, favicon and PWA use canonical artwork. Warning/status colors and business behavior are retained, as is the living orb. See docs/TRADEFLOW_MASTER_STYLE.md; guarded pilot-only release and exact CI/live SHA in PR40.
+
+## GIF-faithful live idle motion fix (2026-11-06)
+
+Founder requested continuous living GIF motion on the actual web page. Idle cadence restored from 55% to 100% source speed; calmer real-assistant speaking retained. Static loading/error fallback replaced with actual animated reference GIF (static only for reduced motion). Canvas replacement reattachment and pageshow resume added. Targeted browser checks cover cadence, removed canvas recovery and blocked-flow animated fallback. Existing GUI/server/config retained. Release uses the same guarded existing-pilot workflow; exact live SHA and CI recorded in PR40.
+
+## Approved orb into existing live GUI pilot (2026-11-06)
+
+Founder requested placing the approved orb into the actual app. Isolated `feature/tf-orb-live-integration-20261106` starts at the exact live GUI release 3408c403, preserving newer Home/navigation/app.js/server/config. Transfers only PR39 approved renderer/styles/material and orb-specific asset references/cache update. Dedicated existing-pilot release workflow retains all regressions, adds actual orb verification, checks unchanged unrelated asset digests and refuses concurrent GUI updates. Target is tradeflow-library-pilot-preview only; no production/merge/database migration/role changes. Implementation/release evidence and exact CI SHA are in the integration PR. See docs/TF-ORB-LIVE-INTEGRATION.md.
+
 ## HYB-02 / #21 — Bounded Master Intelligence case on existing verified decision path (2026-11-03)
 
 **Status:** Implemented code on draft AI PR #16; exact-head CI pending at commit time. Reuses `public/master-intelligence.js` and validated `intelligence-evidence.js` sources. `public/intelligence-case.js` projects an immutable, ten-minute, **in-memory only** case carrying owner objective, actor/business/job/thread, source revisions or device-local fingerprints, existing detector finding IDs, unknowns, and IDs of actual registered review proposals. No new database, command executor, model invocation, planner authority or external action. Existing conversation job review renders a short case summary; original dark-only GUI unchanged. Service-worker precache includes the new module for offline reading.

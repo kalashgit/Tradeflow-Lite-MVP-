@@ -1,406 +1,204 @@
-/* TF-GUI-ORB-IDLE-01 — visual-only, reference-informed living mesh.
- * No voice capture, speech claim, record access, or new command executor.
- * Renders into the existing TradeFlow Intelligence button and preserves its click.
- */
-(function (root, factory) {
-  'use strict';
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root) root.TradeFlowOrbIdle = api;
-  if (root && root.document) {
-    const begin = () => api.attach({ document: root.document, root });
-    if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', begin, { once: true });
-    else begin();
+/* Concept B: reference-derived 2.5D membrane. Bidirectional optical-flow
+ * transport preserves the founder's woven strands, folds and T. Lighting is
+ * baked from the reference, not claimed to be reconstructed 3D illumination.
+ * Only measured assistant playback features raise speech energy. */
+(function(root,factory){
+ 'use strict';const api=factory();
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ if(root){root.TradeFlowConceptBOrb=api;root.TradeFlowOrbIdle=api;}
+ if(root?.document){const start=()=>api.attach({root,document:root.document});
+ if(root.document.readyState==='loading')root.document.addEventListener('DOMContentLoaded',start,{once:true});else start();}
+})(typeof globalThis!=='undefined'?globalThis:null,function(){
+ 'use strict';
+ const version='concept-b-v5',clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),finite=x=>Number.isFinite(x)?x:0;
+ function frameAt(seconds){const phase=((finite(seconds)/.17)%9+9)%9;return {index:Math.floor(phase),blend:phase-Math.floor(phase)};}
+ function normalizeSpeech(d){
+  if(!d||d.version!==1||d.source!=='assistant_playback')return null;
+  if(d.active!==true)return {active:false,level:0};
+  return {active:true,level:clamp(.18+4.4*clamp(finite(d.rms),0,1)+.32*clamp(finite(d.peak),0,1),.18,1)};
+ }
+ const fallbackVertex=`attribute vec2 position; varying vec2 uv;
+ void main(){uv=vec2(position.x*.5+.5,.5-position.y*.5);gl_Position=vec4(position,0.,1.);}`;
+ const fallbackFragment=`precision highp float;
+ varying vec2 uv;uniform sampler2D artwork,forwardFlow,backwardFlow;
+ uniform float frameIndex,blend,energy,motionEnergy,clockTime,referenceLight;
+ vec2 tile(float i){return vec2(mod(i,3.),floor(i/3.));}
+ vec2 atlas(vec2 p,float i){return (tile(i)+clamp(p,vec2(.5/420.,.5/408.),vec2(419.5/420.,407.5/408.)))/3.;}
+ vec2 flow(sampler2D map,vec2 p,float i){return (texture2D(map,atlas(p,i)).rg*255.-128.)/127.*96./vec2(420.,408.);}
+ void main(){
+  float next=mod(frameIndex+1.,9.);
+  vec2 p=uv,delta=p-.5;float r=length(delta);
+  // A shared smooth displacement of the membrane, locked around the T.
+  float lock=smoothstep(.15,.25,r);
+  p+=motionEnergy*.001*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
+  vec2 a=p,b=p;
+  // Invert the forward/backward transport rather than dissolve stationary frames.
+  for(int k=0;k<3;k++){
+   a=mix(a,p-blend*flow(forwardFlow,a,frameIndex),.8);
+   b=mix(b,p-(1.-blend)*flow(backwardFlow,b,frameIndex),.8);
   }
-})(typeof globalThis !== 'undefined' ? globalThis : null, function () {
-  'use strict';
-  const TAU = Math.PI * 2;
-  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-  const MEAN_RADIUS = .895;
-  // Wrapped Gaussian packets make fold activity local rather than imposing
-  // a regular pentagonal / hexagonal silhouette on the whole membrane.
-  const edgePacket=(angle,center,width)=>{
-    const d=Math.sin((angle-center)/2);
-    return Math.exp(-2*d*d/(width*width));
-  };
-  // Zero-mean angular modes keep the diameter stable while localized folds
-  // pass around the edge. None of the modes scales the orb as a whole.
-  function surfaceRadius(angle, t) {
-    const a=Number(angle),time=Number(t);
-    if(!Number.isFinite(a)||!Number.isFinite(time))return MEAN_RADIUS;
-    return MEAN_RADIUS+.014*Math.sin(3*a-.09*time+1.1)
-      +.009*Math.sin(7*a+.16*time)
-      +.003*Math.sin(14*a-.11*time+.3)
-      +.059*(edgePacket(a,.35+.14*time,.43)-edgePacket(a,3.15-.12*time,.43))
-      +.041*(edgePacket(a,-1.45+.11*time,.39)-edgePacket(a,1.7+.09*time,.39))
-      +.020*(edgePacket(a,-2.6+.08*time,.35)-edgePacket(a,.95-.09*time,.35));
+  vec3 ca=texture2D(artwork,atlas(a,frameIndex)).rgb;
+  vec3 cb=texture2D(artwork,atlas(b,next)).rgb;
+  vec3 rgb=mix(ca,cb,blend);
+  float gain=mix(.48+energy*.82,1.,referenceLight);
+  rgb*=gain;
+  float blueMix=energy*(1.-referenceLight)*smoothstep(.15,.24,length(uv-.5));
+  rgb*=mix(vec3(1.),vec3(.7,.68,1.18),blueMix);
+  // Reference light is premultiplied over black; preserve the soft scattering
+  // while shielding the deep navy interior from content behind the orb.
+  float alpha=max((1.-smoothstep(.28,.48,r))*.96,clamp(max(rgb.g,rgb.b)*3.,0.,1.));
+  gl_FragColor=vec4(rgb,alpha);
+ }`;
+ const flowHelpers=`
+ vec2 tile(float i){return vec2(mod(i,3.),floor(i/3.));}
+ vec2 atlas(vec2 p,float i){return (tile(i)+clamp(p,vec2(.5/420.,.5/408.),vec2(419.5/420.,407.5/408.)))/3.;}
+ vec2 flow(sampler2D map,vec2 p,float i){return (texture2D(map,atlas(p,i)).rg*255.-128.)/127.*96./vec2(420.,408.);}`;
+ const meshVertex=`precision highp float;attribute vec2 position;
+ uniform sampler2D forwardFlow,backwardFlow;
+ uniform float frameIndex,blend,energy,motionEnergy,clockTime;
+ varying vec2 uv,fromUV,toUV;
+ ${flowHelpers}
+ void main(){
+  uv=vec2(position.x*.5+.5,.5-position.y*.5);vec2 p=uv;
+  float lock=smoothstep(.15,.25,length(p-.5));
+  p+=motionEnergy*.001*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
+  vec2 a=p,b=p;
+  for(int k=0;k<3;k++){
+   a=mix(a,p-blend*flow(forwardFlow,a,frameIndex),.8);
+   b=mix(b,p-(1.-blend)*flow(backwardFlow,b,frameIndex),.8);
   }
-  // A bounded per-time angular table prevents thousands of extra Gaussian
-  // evaluations when the mobile weave follows the same folded perimeter.
-  const rimResolution=256, rimValues=new Float32Array(rimResolution),rimSlopes=new Float32Array(rimResolution);
-  let rimTime=NaN;
-  function prepareContour(t){
-    if(t!==rimTime){
-      for(let i=0;i<rimResolution;i++)rimValues[i]=surfaceRadius(i*TAU/rimResolution,t);
-      for(let i=0;i<rimResolution;i++){
-        // Six sample intervals approximate the original symmetric .08-radian
-        // derivative while requiring zero extra exponentials per thread.
-        rimSlopes[i]=(rimValues[(i+3)%rimResolution]-rimValues[(i+rimResolution-3)%rimResolution])/(6*TAU/rimResolution);
-      }
-      rimTime=t;
+  fromUV=a;toUV=b;gl_Position=vec4(position,0.,1.);
+ }`;
+ const meshFragment=`precision highp float;
+ varying vec2 uv,fromUV,toUV;uniform sampler2D artwork;
+ uniform float frameIndex,blend,energy,referenceLight;
+ ${flowHelpers}
+ void main(){
+  vec3 rgb=mix(texture2D(artwork,atlas(fromUV,frameIndex)).rgb,texture2D(artwork,atlas(toUV,mod(frameIndex+1.,9.))).rgb,blend);
+  rgb*=mix(.48+energy*.82,1.,referenceLight);
+  float blueMix=energy*(1.-referenceLight)*smoothstep(.15,.24,length(uv-.5));
+  rgb*=mix(vec3(1.),vec3(.7,.68,1.18),blueMix);
+  float alpha=max((1.-smoothstep(.28,.48,length(uv-.5)))*.96,clamp(max(rgb.g,rgb.b)*3.,0.,1.));
+  gl_FragColor=vec4(rgb,alpha);
+ }`;
+ function shader(gl,type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
+ if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const reason=gl.getShaderInfoLog(s);gl.deleteShader(s);throw Error(reason);}return s;}
+ function createRenderer(canvas,{root,document,button}={}){
+  let gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:true,powerPreference:'low-power'});
+  const supportsVertexFlow=!!gl&&gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS)>=2;
+  let ctx=null,program=null,buffer=null,indexBuffer=null,meshTransport=false,indexCount=0,textures=[],uniforms={},disposed=false,ready=false,raf=0;
+  let time=0,last=null,lastPaint=null,frames=0,activity=0,speechPresence=0,speaking=false,level=0,speechAt=-Infinity;
+  let interval=0,slow=0,loadError=null,contextLost=false,fallbackActive=false;
+  const costs=[],intervals=[],reduced=root.matchMedia?.('(prefers-reduced-motion: reduce)');let previousReduced=!!reduced?.matches;
+  const script=document.querySelector('script[src*="intelligence-orb-idle.js"]');
+  const base=new URL('orb-concept-b/',script?.src||document.baseURI);
+  const images=['membrane.png','forward.png','backward.png'].map(name=>{const im=new root.Image();im.src=new URL(name,base).href;return im;});
+  function initGL(){
+   const rect=canvas.getBoundingClientRect();
+   meshTransport=supportsVertexFlow&&Math.max(rect.width,rect.height)*clamp(root.devicePixelRatio||1,1,2)>256;
+   const vs=shader(gl,gl.VERTEX_SHADER,meshTransport?meshVertex:fallbackVertex),fs=shader(gl,gl.FRAGMENT_SHADER,meshTransport?meshFragment:fallbackFragment);
+   program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);
+   if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+   gl.useProgram(program);buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+   if(meshTransport){
+    // 48×48 shared transport cells: the weave is baked at native resolution;
+    // smooth fold displacement is evaluated once per shared grid vertex.
+    const n=48,vertices=[],indices=[];
+    for(let y=0;y<=n;y++)for(let x=0;x<=n;x++)vertices.push(x/n*2-1,y/n*2-1);
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){const a=y*(n+1)+x,b=a+1,c=a+n+1,d=c+1;indices.push(a,b,c,b,d,c);}
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+    indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indices),gl.STATIC_DRAW);indexCount=indices.length;
+   }else gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+   const pos=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+   for(const name of ['frameIndex','blend','energy','motionEnergy','clockTime','referenceLight'])uniforms[name]=gl.getUniformLocation(program,name);
+   textures=images.map((im,i)=>{const texture=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im);gl.uniform1i(gl.getUniformLocation(program,['artwork','forwardFlow','backwardFlow'][i]),i);return texture;});
+  }
+  if(!gl)ctx=canvas.getContext('2d',{alpha:true});
+  function renderAt(seconds=time,energy=activity,reference=false){
+   if(disposed||!ready||contextLost)return;
+   const start=root.performance.now(),b=canvas.getBoundingClientRect(),dpr=clamp(root.devicePixelRatio||1,1,2);
+   const w=clamp(Math.round(b.width*dpr),2,840),h=clamp(Math.round(b.height*dpr),2,816);
+   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+   const {index:i,blend:mix}=frameAt(seconds);
+   energy=clamp(finite(energy),0,1);
+   if(gl){
+    const meshNeeded=supportsVertexFlow&&Math.max(w,h)>256;
+    if(meshNeeded!==meshTransport){textures.forEach(t=>gl.deleteTexture(t));gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);gl.deleteProgram(program);indexBuffer=null;initGL();}
+    gl.viewport(0,0,w,h);gl.uniform1f(uniforms.frameIndex,i);gl.uniform1f(uniforms.blend,mix);gl.uniform1f(uniforms.energy,energy);gl.uniform1f(uniforms.motionEnergy,reduced?.matches?0:energy);
+    gl.uniform1f(uniforms.clockTime,seconds);gl.uniform1f(uniforms.referenceLight,reference?1:0);if(meshTransport)gl.drawElements(gl.TRIANGLES,indexCount,gl.UNSIGNED_SHORT,0);else gl.drawArrays(gl.TRIANGLES,0,6);
+   }else if(ctx){
+    // Measured fallback: continuous crossfade, same artwork/identity; no flow warp.
+    ctx.clearRect(0,0,w,h);ctx.globalAlpha=1;ctx.drawImage(images[0],(i%3)*420,Math.floor(i/3)*408,420,408,0,0,w,h);
+    const j=(i+1)%9;ctx.globalAlpha=mix;ctx.drawImage(images[0],(j%3)*420,Math.floor(j/3)*408,420,408,0,0,w,h);ctx.globalAlpha=1;
+    if(!reference){
+     const pixels=ctx.getImageData(0,0,w,h),data=pixels.data,gain=.48+energy*.82;
+     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const r=Math.hypot((x+.5)/w-.5,(y+.5)/h-.5),v=clamp((r-.15)/.09,0,1),blue=energy*v*v*(3-2*v),p=(y*w+x)*4;
+      data[p]*=gain*(1-.3*blue);data[p+1]*=gain*(1-.32*blue);data[p+2]*=gain*(1+.18*blue);
+     }
+     ctx.putImageData(pixels,0,0);
     }
+   }
+   if(button){button.dataset.orbState=energy>.12?'speaking':'idle';button.dataset.orbBackend=gl?'webgl-flow':'canvas-crossfade';}
+   costs.push(root.performance.now()-start);if(costs.length>300)costs.shift();frames++;
   }
-  function sampleContour(values,angle){
-    // atan2 supplies [-pi,pi]; avoid modulo in the inner rendering loop.
-    const raw=angle*rimResolution/TAU,at=raw<0?raw+rimResolution:raw;
-    const i=Math.floor(at),f=at-i;
-    return values[i]*(1-f)+values[(i+1)&255]*f;
+  function tick(now){
+   raf=0;if(disposed||document.hidden||!canvas.isConnected||contextLost)return;
+   const elapsed=last===null?0:Math.max(0,(now-last)/1000),dt=Math.min(elapsed,.1),oldActivity=activity,motionReduced=!!reduced?.matches;last=now;
+   if(now-speechAt>600){speaking=false;level=0;}
+   activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
+   speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
+   if(!reduced?.matches)time+=elapsed*(1-.82*speechPresence);
+   const shouldPaint=!motionReduced||motionReduced!==previousReduced||Math.abs(activity-oldActivity)>.001;previousReduced=motionReduced;
+   if(shouldPaint&&(lastPaint===null||now-lastPaint>=interval)){
+    if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
+    renderAt(reduced?.matches?0:time,activity);lastPaint=now;
+    // Sustained missed refreshes select 30Hz. Resolution is bounded above.
+    if(!reduced?.matches&&dt>.024)slow++;else slow=Math.max(0,slow-1);
+    if(slow>30)interval=32;
+   }
+   raf=root.requestAnimationFrame(tick);
   }
-  // A single advected displacement field drives every neighboring strand.
-  // The boundary term draws internal threads into the SAME moving edge folds.
-  function meshPoint(x,y,t){
-    const distance=Math.min(1,Math.hypot(x,y));
-    const angle=Math.atan2(y,x);
-    if(distance>.55)prepareContour(t);
-    const boundaryCoupling=distance>.55
-      ?(sampleContour(rimValues,angle)/MEAN_RADIUS-1)*distance*distance*.78
-      :0;
-    // Rolling surface folds pull the adjacent weave along the edge tangent.
-    // This uses the derivative of the same silhouette, so crease/mesh/rim
-    // cannot drift independently or turn into an unrelated looping particle.
-    const nearEdge=clamp((distance-.60)/.31,0,1);
-    const tangentFold=nearEdge?nearEdge*clamp(sampleContour(rimSlopes,angle)*.27,-.037,.037):0;
-    // The low-frequency field carries the whole fabric; finer oscillations
-    // ride on it as tiny woven creases, instead of repeating rigid stripes.
-    const xx=x+.047*Math.sin(y*3.2+x*2.4-t*.18)
-      +.014*Math.sin(y*5.4+x*3.2-t*.20)
-      +.008*Math.sin(y*15.1-x*6.3+t*.16)
-      +.003*Math.sin(y*30+x*11-t*.07)-Math.sin(angle)*tangentFold;
-    const yy=y+.059*Math.sin(x*3.1+y*1.8-t*.16)
-      +.012*Math.sin(x*3.5+y*2.1+t*.11)
-      +.026*Math.sin(x*7.4+y*2.7-t*.28)
-      +.013*Math.sin(x*14.8-y*5.4+t*.20)
-      +.005*Math.sin(x*28.2+y*10.1-t*.13)
-      +.002*Math.sin(x*43-y*17+t*.09)+Math.cos(angle)*tangentFold;
-    return [xx*(1+boundaryCoupling),yy*(1+boundaryCoupling)];
+  function resume(){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;lastPaint=null;
+   if(ready&&!disposed&&!document.hidden&&!contextLost){renderAt(reduced?.matches?0:time,activity);raf=root.requestAnimationFrame(tick);}}
+  function speech(e){const value=normalizeSpeech(e.detail);if(!value)return;speechAt=root.performance.now();speaking=value.active;level=value.level;if(!raf)resume();}
+  function voice(e){if(['idle','unavailable','error'].includes(e.detail?.status)){speaking=false;level=0;if(!raf)resume();}}
+  function visibility(){if(document.hidden){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;speaking=false;level=0;activity=0;speechPresence=0;}else resume();}
+  function lost(e){e.preventDefault();contextLost=true;fallbackActive=true;if(button)button.dataset.orbBackend="animated-reference";if(raf)root.cancelAnimationFrame(raf);raf=0;}
+  function restored(){try{initGL();contextLost=false;fallbackActive=false;resume();}catch(e){loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';}}
+  root.addEventListener('tradeflow:speech-features',speech);root.addEventListener('tradeflow:voice-state',voice);
+  document.addEventListener('visibilitychange',visibility);reduced?.addEventListener?.('change',resume);root.addEventListener('pageshow',resume);
+  canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
+  const resize=new root.ResizeObserver(resume);resize.observe(canvas);
+  Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';});
+  return Object.freeze({isAttached:()=>canvas.isConnected&&canvas.parentNode===button,renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,scheduled:!!raf,lastTick:last,visible:!document.hidden,motionSpeed:1-.82*speechPresence,speaking,ready:ready||fallbackActive,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:fallbackActive?'animated-reference':gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
+   dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);root.removeEventListener('pageshow',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
+    if(gl&&!contextLost){textures.forEach(t=>gl.deleteTexture(t));if(buffer)gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);if(program)gl.deleteProgram(program);}}
+  });
+ }
+ let current=null;
+ function attach({root,document}={}){
+  if(!root||!document)return null;current?.dispose();let disposed=false;const renderers=new Map();
+  function sync(){if(disposed)return;
+   for(const [host,renderer] of renderers)if(!host.isConnected||!renderer.isAttached()){renderer.dispose();renderers.delete(host);}
+   for(const host of document.querySelectorAll('.tf-ai-orb,.tf-voice-wave')){
+    if(renderers.has(host))continue;
+    // Replace artwork only. The existing host, action, composer and voice runtime remain.
+    host.querySelectorAll('.tf-orb-mesh,.tf-orb-concept-b-canvas,.tf-orb-concept-b-emblem,.tf-flow-art').forEach(e=>e.remove());
+    const canvas=document.createElement('canvas');canvas.className='tf-orb-concept-b-canvas';canvas.setAttribute('aria-hidden','true');host.appendChild(canvas);host.dataset.orbMaterial=version;host.dataset.orbBackend='loading-reference';
+    renderers.set(host,createRenderer(canvas,{root,document,button:host}));
+   }
   }
-  // Light is a differential of the actual deforming contour, never a rotating halo.
-  function foldLight(angle,t){
-    const delta=.056,r=surfaceRadius(angle,t);
-    const curvature=Math.abs(surfaceRadius(angle+delta,t)-2*r+surfaceRadius(angle-delta,t));
-    const slope=Math.abs(surfaceRadius(angle+delta,t)-surfaceRadius(angle-delta,t));
-    return clamp(curvature*210+slope*15,0,1);
-  }
-  function createRenderer(canvas, { root, document } = {}) {
-    if (!canvas || typeof canvas.getContext !== 'function') return null;
-    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
-    if (!ctx) return null;
-    let disposed = false, lastTime = null, elapsed = 0, raf = 0, frameCount = 0, painting = false;
-    const reducedQuery = root.matchMedia?.('(prefers-reduced-motion: reduce)');
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect();
-      // This is a tiny persistent UI surface; cap raster work on high-DPR phones.
-      const ratio = clamp(root.devicePixelRatio || 1, 1, 2);
-      const width = clamp(Math.round(bounds.width * ratio), 2, 520);
-      const height = clamp(Math.round(bounds.height * ratio), 2, 520);
-      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-      return Math.min(width, height);
-    };
-    const paintTimes=[],drawIntervals=[];
-    let lastDrawTime=-Infinity,lastPaintAt=null;
-    const sample=(array,n)=>{array.push(n);if(array.length>180)array.shift()};
-    const nowMs=()=>root.performance?.now?.()??Date.now();
-    function render(t=0){
-      if(disposed||painting)return;
-      painting=true;
-      const started=nowMs();
-      try{
-        const size=resize(),w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,r=size/2;
-        ctx.clearRect(0,0,w,h);
-        const edge=new Path2D();
-        const edgeSteps=240;
-        for(let i=0;i<=edgeSteps;i++){
-          const angle=TAU*i/edgeSteps,rr=r*surfaceRadius(angle,t);
-          const x=cx+rr*Math.cos(angle),y=cy+rr*Math.sin(angle);
-          if(i===0)edge.moveTo(x,y);else edge.lineTo(x,y);
-        }
-        edge.closePath();
-        ctx.save();
-        ctx.clip(edge);
-        // Near-black membrane backing: the Home cards must never show through.
-        // No opaque colored disc, radial glass gradient, or baked-in highlight.
-        ctx.fillStyle='rgba(4,12,34,.95)';
-        ctx.fill(edge);
-        // At native 66 CSS px, 57 broad lines looked like stripes; recover a
-        // finer membrane using raster-adaptive hairlines, not a resized ball.
-        const threads=clamp(Math.round(size*.79),78,192);
-        const steps=clamp(Math.round(size*.79),96,240);
-        const left=cx-r*.88,right=cx+r*.88;
-        ctx.lineWidth=clamp(size/220,.56,.81);
-        ctx.lineCap='round';
-        ctx.lineJoin='round';
-        ctx.globalCompositeOperation='screen';
-        for(let j=0;j<=threads;j++){
-          const y0=(2*j/threads-1)*.90;
-          // Every bright interval is derived from actual local thread
-          // compression and tilt. Brightness moves WITH the woven material.
-          const grad=ctx.createLinearGradient(left,0,right,0);
-          for(let m=0;m<=10;m++){
-            const u=m/10,x0=(u*2-1)*.88;
-            const upper=meshPoint(x0,y0+.008,t)[1],lower=meshPoint(x0,y0-.008,t)[1];
-            const spacing=(upper-lower)/.016;
-            const density=clamp((1.02-spacing)*2.6,-.5,.65);
-            const before=meshPoint(x0-.008,y0,t)[1],after=meshPoint(x0+.008,y0,t)[1];
-            const foldTilt=clamp(Math.abs(after-before)/.016,0,.9);
-            const radial=Math.min(1,Math.hypot(x0,y0)/MEAN_RADIUS);
-            // A translucent center and densely lit grazing surface are
-            // essential: the reference is a membrane, not a blue disc.
-            const grazing=.39+.31*Math.pow(radial,2.25);
-            const localRidge=clamp(.10*density+.07*foldTilt,-.07,.11);
-            // This broad, slowly advected fold field shades entire groups of
-            // adjacent filaments, creating a continuous sheet rather than a
-            // uniform illuminated contour map. It is not a radial ball glow.
-            const sheetWave=Math.sin(x0*3.15+y0*2.1-t*.16);
-            const sheetCrest=Math.pow(Math.max(0,Math.sin(x0*4.6-y0*2.8+t*.12)),2);
-            const materialShade=.16*sheetWave+.10*sheetCrest;
-            const alpha=clamp(grazing+localRidge+materialShade,.24,.92);
-            // Founder correction: reference texture and motion, deliberately
-            // BLUE rather than the source video's violet-dominant palette.
-            const red=Math.round(32+12*u+10*foldTilt);
-            const green=Math.round(86+54*u+20*density);
-            const blue=Math.round(213+34*u);
-            grad.addColorStop(u,`rgba(${red},${green},${blue},${alpha.toFixed(3)})`);
-          }
-          ctx.strokeStyle=grad;
-          ctx.beginPath();
-          for(let k=0;k<=steps;k++){
-            const x0=(2*k/steps-1)*.88,p=meshPoint(x0,y0,t);
-            const x=cx+p[0]*r,y=cy+p[1]*r;
-            if(k===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-          }
-          ctx.stroke();
-        }
-        // Subtle cross-woven fibers share the same displaced surface.
-        // Very low contrast keeps them from becoming a rigid latitude grid.
-        ctx.globalCompositeOperation='source-over';
-        ctx.lineWidth=clamp(size/430,.30,.55);
-        ctx.strokeStyle='rgba(70,164,245,.10)';
-        for(let i=0;i<=54;i++){
-          const x0=(2*i/54-1)*.85;
-          ctx.beginPath();
-          for(let k=0;k<=64;k++){
-            const y0=(2*k/64-1)*.89,p=meshPoint(x0,y0,t);
-            if(k===0)ctx.moveTo(cx+p[0]*r,cy+p[1]*r);
-            else ctx.lineTo(cx+p[0]*r,cy+p[1]*r);
-          }
-          ctx.stroke();
-        }
-        // Three shallow translucent sheets fold over the woven surface.
-        // Their shaded troughs and thin luminous crests are both derived from
-        // the moving outer geometry; unlike an outline echo they occlude the
-        // underlying fibers for a few pixels, as the reference membrane does.
-        function drawFoldVeil(center,width,depth,strength){
-          const n=56;
-          const shape=(u,inner)=>{
-            const angle=center+(2*u-1)*width;
-            const envelope=Math.pow(Math.sin(Math.PI*u),2);
-            const base=surfaceRadius(angle,t);
-            const radius=r*(base-(inner?depth*envelope:0));
-            return [cx+radius*Math.cos(angle),cy+radius*Math.sin(angle),envelope];
-          };
-          ctx.save();
-          ctx.globalCompositeOperation='source-over';
-          ctx.fillStyle=`rgba(1,5,23,${(.42*strength).toFixed(3)})`;
-          ctx.beginPath();
-          for(let i=0;i<=n;i++){
-            const p=shape(i/n,false);
-            if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
-          }
-          for(let i=n;i>=0;i--){const p=shape(i/n,true);ctx.lineTo(p[0],p[1]);}
-          ctx.closePath();ctx.fill();
-          ctx.globalCompositeOperation='screen';
-          // A single blurred continuous crest supplies the source's soft
-          // folded-sheet illumination; per-fiber details stay sharp beneath.
-          ctx.globalAlpha=.26*strength;
-          ctx.lineWidth=clamp(size/145,.8,1.7);
-          ctx.strokeStyle='#367df4';
-          ctx.shadowColor='rgba(52,133,255,.38)';
-          ctx.shadowBlur=clamp(size*.025,1.5,5);
-          ctx.beginPath();
-          for(let i=7;i<=n-7;i++){
-            const p=shape(i/n,true);
-            if(i===7)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
-          }
-          ctx.stroke();
-          ctx.shadowBlur=0;
-          ctx.lineWidth=clamp(size/220,.56,.97);
-          ctx.strokeStyle='#7bcfff';
-          for(let i=0;i<n;i++){
-            const a=shape(i/n,true),b=shape((i+1)/n,true);
-            const local=(a[2]+b[2])/2;
-            if(local<.045)continue;
-            ctx.globalAlpha=clamp(local*.74*strength,0,.68);
-            ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
-          }
-          ctx.restore();
-        }
-        drawFoldVeil(.35+.14*t,.91,.13,1);
-        drawFoldVeil(-1.45+.11*t,.83,.115,.85);
-        drawFoldVeil(-2.6+.08*t,.68,.095,.72);
-        ctx.restore();
-        ctx.save();
-        const rim=ctx.createLinearGradient(cx-r,cy+r,cx+r,cy-r);
-        rim.addColorStop(0,'rgba(40,109,224,.15)');
-        rim.addColorStop(.32,'rgba(63,147,242,.20)');
-        rim.addColorStop(.67,'rgba(77,185,251,.28)');
-        rim.addColorStop(1,'rgba(99,214,255,.18)');
-        ctx.strokeStyle=rim;
-        ctx.lineWidth=clamp(size/260,.48,.93);
-        ctx.shadowColor='rgba(36,120,242,.37)';
-        ctx.shadowBlur=clamp(size*.022,1.8,4.5);
-        ctx.stroke(edge);
-        ctx.shadowBlur=0;
-        // Localized curvature glints and near-edge folded-sheet contours.
-        // Both follow the SAME surfaceRadius field as the mesh boundary.
-        for(let i=0;i<edgeSteps;i++){
-          const a=TAU*i/edgeSteps,b=TAU*(i+1)/edgeSteps;
-          const light=foldLight((a+b)/2,t);
-          if(light<.28)continue;
-          const ra=r*surfaceRadius(a,t),rb=r*surfaceRadius(b,t);
-          ctx.globalAlpha=clamp((light-.15)*1.23,0,.89);
-          ctx.lineWidth=clamp(size/260,.48,.94);
-          ctx.strokeStyle=light>.68?'#acebff':'#57beff';
-          ctx.beginPath();
-          ctx.moveTo(cx+ra*Math.cos(a),cy+ra*Math.sin(a));
-          ctx.lineTo(cx+rb*Math.cos(b),cy+rb*Math.sin(b));
-          ctx.stroke();
-          if(light>.43){
-            // An inner displaced sheet is visible ONLY beside a fold, not as
-            // an always-on concentric neon ring. Both contours travel.
-            const crease=r*(.020+.006*light);
-            ctx.globalAlpha=(light-.36)*.52;
-            ctx.lineWidth=clamp(size/215,.55,1.0);
-            ctx.strokeStyle='#020b29';
-            ctx.beginPath();
-            ctx.moveTo(cx+(ra-crease)*Math.cos(a),cy+(ra-crease)*Math.sin(a));
-            ctx.lineTo(cx+(rb-crease)*Math.cos(b),cy+(rb-crease)*Math.sin(b));
-            ctx.stroke();
-            const inset=r*(.041+.015*light);
-            ctx.globalAlpha=(light-.38)*.76;
-            ctx.lineWidth=clamp(size/275,.46,.85);
-            ctx.strokeStyle='#7ed1ff';
-            ctx.beginPath();
-            ctx.moveTo(cx+(ra-inset)*Math.cos(a),cy+(ra-inset)*Math.sin(a));
-            ctx.lineTo(cx+(rb-inset)*Math.cos(b),cy+(rb-inset)*Math.sin(b));
-            ctx.stroke();
-            if(light>.72){
-              const innerInset=r*(.081+.009*light);
-              ctx.globalAlpha=(light-.66)*.28;
-              ctx.strokeStyle='#438eff';
-              ctx.beginPath();
-              ctx.moveTo(cx+(ra-innerInset)*Math.cos(a),cy+(ra-innerInset)*Math.sin(a));
-              ctx.lineTo(cx+(rb-innerInset)*Math.cos(b),cy+(rb-innerInset)*Math.sin(b));
-              ctx.stroke();
-            }
-          }
-        }
-        ctx.restore();
-        frameCount++;
-      } finally {
-        const measured=nowMs()-started;
-        if(Number.isFinite(measured)&&measured>=0)sample(paintTimes,measured);
-        painting=false;
-      }
-    }
-    function animate(now){
-      if(disposed)return;
-      raf=0;
-      if(document.hidden||!canvas.isConnected||reducedQuery?.matches)return;
-      if(lastTime===null)lastTime=now;
-      const dt=clamp((now-lastTime)/1000,0,.07);
-      lastTime=now;elapsed+=dt;
-      // Cap the paint workload around 30 fps on mobile. Intervening RAFs only
-      // advance the shared time field; no hidden high-rate canvas work.
-      if(now-lastDrawTime>=32){
-        if(lastPaintAt!==null)sample(drawIntervals,now-lastPaintAt);
-        lastPaintAt=now;
-        render(elapsed);
-        lastDrawTime=now;
-      }
-      raf=root.requestAnimationFrame(animate);
-    }
-    function resume() {
-      if (disposed) return;
-      if (raf) root.cancelAnimationFrame(raf);
-      lastTime = null;
-      render(reducedQuery?.matches ? 0 : elapsed);
-      lastDrawTime=-Infinity;lastPaintAt=null;
-      if (!document.hidden && !reducedQuery?.matches) raf = root.requestAnimationFrame(animate);
-    }
-    const visibility = () => {
-      if (document.hidden) { if (raf) root.cancelAnimationFrame(raf); raf = 0; }
-      else resume();
-    };
-    const preference = () => resume();
-    document.addEventListener('visibilitychange', visibility);
-    reducedQuery?.addEventListener?.('change', preference);
-    resume();
-    return Object.freeze({
-      renderAt: render,
-      stats: () => {
-        const sorted=[...paintTimes].sort((a,b)=>a-b);
-        const mean=a=>a.length?a.reduce((n,x)=>n+x,0)/a.length:0;
-        const interval=mean(drawIntervals);
-        return Object.freeze({frames:frameCount,time:elapsed,
-          reducedMotion:!!reducedQuery?.matches,
-          avgPaintMs:+mean(paintTimes).toFixed(2),
-          p95PaintMs:+(sorted[Math.floor((sorted.length-1)*.95)]||0).toFixed(2),
-          maxPaintMs:+(sorted[sorted.length-1]||0).toFixed(2),
-          observedFps:interval?+(1000/interval).toFixed(1):0,
-          canvasPx:{width:canvas.width,height:canvas.height}});
-      },
-      dispose() {
-        disposed = true;
-        if (raf) root.cancelAnimationFrame(raf);
-        document.removeEventListener('visibilitychange', visibility);
-        reducedQuery?.removeEventListener?.('change', preference);
-      }
-    });
-  }
-  let activeController=null;
-  function attach({ document, root } = {}) {
-    if (!document || !root) return null;
-    let currentButton = null, renderer = null, disposed = false;
-    function sync() {
-      if (disposed) return;
-      const button = document.querySelector('.tf-ai-orb');
-      if (button === currentButton && renderer) return;
-      renderer?.dispose();
-      renderer = null; currentButton = button;
-      if (!button) return;
-      const canvas = document.createElement('canvas');
-      canvas.className = 'tf-orb-mesh';
-      canvas.setAttribute('aria-hidden', 'true');
-      canvas.setAttribute('data-idle-material', 'woven-blue-v10');
-      // Decorative child only: parent button's data-action owns the click.
-      button.appendChild(canvas);
-      renderer = createRenderer(canvas, { document, root });
-      button.dataset.orbMaterial = renderer ? 'woven-blue-v10' : 'fallback';
-    }
-    const observer = new root.MutationObserver(() => sync());
-    const host = document.querySelector('#app');
-    if (host) observer.observe(host, { childList: true, subtree: true });
-    else observer.observe(document.documentElement, { childList: true, subtree: true });
-    sync();
-    const controller=Object.freeze({
-      sync, active:()=>!!renderer,
-      stats:()=>renderer?.stats()||null,
-      dispose(){disposed=true;observer.disconnect();renderer?.dispose();renderer=null;
-        if(activeController===controller)activeController=null;}
-    });
-    activeController=controller;
-    return controller;
-  }
-  return Object.freeze({ version: 'woven-blue-v10', surfaceRadius, meshPoint, foldLight,
-    createRenderer, attach, stats:()=>activeController?.stats()||null });
+  const primary=()=>renderers.get(document.querySelector('.tf-ai-orb'));
+  const observer=new root.MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});sync();
+  const api=Object.freeze({sync,active:()=>renderers.size>0,stats:()=>primary()?.stats()||null,
+   surfaces:()=>Array.from(renderers,([host,r])=>({host:host.className,stats:r.stats()})),
+   renderAt:(...args)=>{for(const r of renderers.values())r.renderAt(...args)},resetStats:()=>{for(const r of renderers.values())r.resetStats()},
+   dispose(){disposed=true;observer.disconnect();for(const r of renderers.values())r.dispose();renderers.clear();if(current===api)current=null;}});current=api;return api;
+ }
+
+ return Object.freeze({version,frameAt,normalizeSpeech,createRenderer,attach,stats:()=>current?.stats()||null,renderAt:(...args)=>current?.renderAt(...args),resetStats:()=>current?.resetStats(),surfaces:()=>current?.surfaces()||[]});
 });

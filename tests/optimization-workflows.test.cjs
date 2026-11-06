@@ -64,7 +64,7 @@ test('manual follow-up tasks are not overwritten by automatic quote lifecycle',a
  assert.equal(rows.length,1);assert.equal(rows[0].title,'Call customer personally');
 });
 test('nonredundant notification wiring preserves old UI surface and exposes new sources',()=>{
- assert.ok(notifications.includes('tfNotifObligationForm'));
+ assert.ok(!notifications.includes('tfNotifObligationForm'));
  assert.ok(notifications.includes('job.billing_review'));
  assert.ok(notifications.includes('job.crew_assignment_review'));
  assert.ok(notifications.includes("route:'tasks'"));

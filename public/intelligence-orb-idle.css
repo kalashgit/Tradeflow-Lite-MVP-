@@ -1,74 +1,46 @@
-/* TF-MI-ORB-01-A — only the persistent button's material.
- * Leave TradeFlow's Intelligence click, panel, permissions and branding untouched.
- */
-.tf-ai-orb[data-orb-material="woven-blue-v10"]{
-  box-sizing:border-box;
-  display:grid!important;
-  place-items:center;
-  width:70px;
-  height:70px;
-  padding:0;
-  overflow:visible;
-  border:0!important;
-  border-radius:50%!important;
-  background:transparent!important;
-  -webkit-backdrop-filter:none!important;
-  backdrop-filter:none!important;
-  box-shadow:none!important;
-  filter:none;
-  isolation:isolate;
-  touch-action:manipulation;
+/* Concept B: original cyan T inside a gently moving, blue woven membrane. */
+.tf-ai-orb[data-orb-material="concept-b-v5"],
+.tf-ai-orb[data-orb-material="concept-b-fallback"]{
+ box-sizing:border-box;display:grid!important;place-items:center;
+ position:fixed;width:56px;height:56px;right:18px;bottom:calc(96px + env(safe-area-inset-bottom));overflow:visible;padding:0;
+ border:0!important;border-radius:50%!important;
+ background:linear-gradient(#0008,#0008),url("./orb-concept-b/reference.gif") center/100% 100% no-repeat!important;box-shadow:none!important;
+ -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+ animation:none!important;transition:none!important;isolation:isolate;touch-action:manipulation;filter:none!important;
+ --tf-orb-concept-voice:0;
 }
-.tf-ai-orb[data-orb-material="woven-blue-v10"]::before,
-.tf-ai-orb[data-orb-material="woven-blue-v10"]::after{display:none!important}
-.tf-ai-orb[data-orb-material="woven-blue-v10"] .tf-ai-orb-icon,
-.tf-ai-orb[data-orb-material="woven-blue-v10"] .tf-ai-orb-signal{display:none!important}
-.tf-ai-orb .tf-orb-mesh{
-  display:block;
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  border-radius:50%;
-  pointer-events:none;
-  opacity:1;
-  background:transparent;
-  transform:translateZ(0);
-}
-.tf-ai-orb[data-orb-material="woven-blue-v10"]:hover{
-  box-shadow:none!important;
-  filter:none!important;
-}
-.tf-ai-orb[data-orb-material="woven-blue-v10"]:active,
-.tf-ai-orb[data-orb-material="woven-blue-v10"].tf-ai-liquid-pressed{
-  transform:translateY(1px) scale(.98);
-  border-radius:50%!important;
-  box-shadow:none!important;
-  filter:none!important;
-}
-.tf-ai-orb[data-orb-material="woven-blue-v10"]:focus-visible{
-  outline:2px solid var(--tf-focus,#68e8fc);
-  outline-offset:3px;
-}
+.tf-ai-orb[data-orb-material^="concept-b"]::before,
+.tf-ai-orb[data-orb-material^="concept-b"]::after,
+.tf-ai-orb[data-orb-material^="concept-b"] .tf-ai-orb-icon,
+.tf-ai-orb[data-orb-material^="concept-b"] .tf-ai-orb-signal{display:none!important}
+.tf-orb-concept-b-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+ border-radius:50%;pointer-events:none;background:transparent;opacity:1}
+.tf-orb-concept-b-emblem{position:relative;z-index:1;width:34%;height:34%;
+ color:#06cbdf;pointer-events:none;
+ filter:drop-shadow(0 0 var(--tf-orb-concept-glow,2px) rgba(0,235,252,.33));
+ transition:filter 140ms linear;color:rgba(0,207,221,.96)}
+.tf-ai-orb[data-orb-material^="concept-b"]:focus-visible{outline:2px solid #64e8f8;outline-offset:3px}
+.tf-ai-orb[data-orb-material^="concept-b"]:active{transform:scale(.97)}
 @media(max-width:850px){
-  .tf-ai-orb[data-orb-material="woven-blue-v10"]{
-    width:66px;
-    height:66px;
-    right:10px;
-    bottom:calc(102px + env(safe-area-inset-bottom));
-  }
+ .tf-ai-orb[data-orb-material^="concept-b"]{width:52px;height:52px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom))}
 }
+@media(prefers-reduced-motion:reduce){.tf-ai-orb[data-orb-material^="concept-b"],
+ .tf-orb-concept-b-emblem{transition:none!important;animation:none!important}}
+@media(forced-colors:active){.tf-ai-orb[data-orb-material^="concept-b"]{border:2px solid ButtonText!important}
+ .tf-orb-concept-b-emblem{color:ButtonText;filter:none}}
+
+.tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
+
+/* Same reference-derived membrane on the existing Intelligence voice surface. */
+.tf-voice-wave[data-orb-material="concept-b-v5"]{background:transparent!important;filter:none!important}
+.tf-voice-wave[data-orb-material="concept-b-v5"]>.tf-orb-concept-b-canvas{
+ inset:0;margin:auto;width:auto;height:100%;max-width:100%;aspect-ratio:420/408;border-radius:0}
+
+.tf-voice-wave[data-orb-backend="animated-reference"]{background:url("./orb-concept-b/reference.gif") center/auto 100% no-repeat!important}
+.tf-ai-orb[data-orb-backend="animated-reference"]>.tf-orb-concept-b-canvas,
+.tf-voice-wave[data-orb-backend="animated-reference"]>.tf-orb-concept-b-canvas{visibility:hidden}
 @media(prefers-reduced-motion:reduce){
-  .tf-ai-orb[data-orb-material="woven-blue-v10"],
-  .tf-ai-orb[data-orb-material="woven-blue-v10"]:active{
-    transform:none!important;
-    transition:none!important;
-  }
-}
-@media(forced-colors:active){
-  .tf-ai-orb[data-orb-material="woven-blue-v10"]{
-    border:2px solid ButtonText!important;
-    background:ButtonFace!important;
-  }
-  .tf-ai-orb .tf-orb-mesh{opacity:.75}
+ .tf-ai-orb[data-orb-material="concept-b-v5"]{background-image:linear-gradient(#0008,#0008),url("./orb-concept-b/poster.png")!important}
+ .tf-voice-wave[data-orb-backend="animated-reference"]{background-image:url("./orb-concept-b/poster.png")!important}
+ .tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
 }

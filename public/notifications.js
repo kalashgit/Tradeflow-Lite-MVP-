@@ -13,7 +13,7 @@ const dateToday=now=>{const d=new Date(now);return d.getFullYear()+'-'+String(d.
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T12:00:00Z'))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;
 const parseTime=v=>{let n=new Date(v).getTime();return Number.isFinite(n)?n:0};
 const fingerprint=s=>{let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)}return (x>>>0).toString(36)};
-let api=null,open=false,working=false,lastData=null,obligationEditor=false;
+let api=null,open=false,working=false,lastData=null;
 const obligationTypes=Object.freeze({license:'License or certification',insurance:'Insurance certificate',bid:'Bid deadline',supplier_quote:'Supplier quote expiration',retainage:'Retainage follow-up',service_agreement:'Service agreement renewal',closeout:'Project closeout',other:'Other deadline'});
 function intelligenceItems(report,data={}){
  if(!report||!Array.isArray(report.findings))return [];
@@ -127,18 +127,6 @@ function groupIcon(name){
 function icon(type){
  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+groupIcon(type)+'</svg>';
 }
-function obligationForm(d){
- const related=[['','No linked record'],...['jobs','customers','quotes','opportunities','invoices','suppliers'].flatMap(store=>(d[store]||[]).slice(0,120).map(x=>[store+':'+x.id,store.slice(0,-1)+' · '+String(x.title||x.name||x.project_name||x.reference||x.id).slice(0,75)]))];
- return '<form class="tf-notif-obligation" id="tfNotifObligationForm" aria-label="Add business deadline">'+
- '<label>Related business record<select name="relation">'+related.map(([id,label])=>'<option value="'+esc(id)+'">'+esc(label)+'</option>').join('')+'</select></label>'+
- '<label>Deadline type<select name="kind" required>'+Object.entries(obligationTypes).map(([id,label])=>'<option value="'+id+'">'+esc(label)+'</option>').join('')+'</select></label>'+
- '<label>What needs doing?<input name="title" maxlength="150" required placeholder="e.g. Renew insurance certificate"></label>'+
- '<label>Verified due date<input name="due" type="date" required></label>'+
- '<label>Responsible person (optional)<input name="owner" maxlength="90" placeholder="Office manager"></label>'+
- '<label>Notes / evidence reference (optional)<input name="notes" maxlength="300" placeholder="Policy number, source or link"></label>'+
- '<p>Enter a confirmed date. TradeFlow does not calculate legal deadlines or renew credentials automatically. Open obligations appear here within 14 days of their due date.</p>'+
- '<div class="tf-notif-obligation-actions"><button type="button" data-notif-action="obligation-cancel">Cancel</button><button type="submit">Save deadline</button></div></form>';
-}
 function panel(d,items,now){
  const unread=items.filter(x=>x.unread).length;
  const sections=['priority','growth','activity'].map(section=>{
@@ -155,12 +143,25 @@ function panel(d,items,now){
   '<header class="tf-notif-panel-head"><div><span>TRADEFLOW / INTELLIGENCE</span><h2>Notifications'+(unread?' <em>'+unread+' new</em>':'')+'</h2></div>'+
   '<button type="button" class="tf-notif-dismiss" data-notif-action="close" aria-label="Close notifications">×</button></header>'+
   '<div class="tf-notif-panel-body">'+(sections||'<div class="tf-notif-empty"><strong>All clear</strong><p>No notifications need your attention.</p></div>')+'</div>'+
-  (obligationEditor?obligationForm(d):'<button type="button" class="tf-notif-add-obligation" data-notif-action="obligation-new">+ Track a deadline or renewal</button>')+
   '<footer class="tf-notif-panel-footer">'+(unread?'<button type="button" data-notif-action="read-all">Mark all read</button>':'<span>Up to date</span>')+
   '<small>On-device activity · No push alerts</small></footer></section>';
 }
+function positionPanel(){
+ const panel=document.querySelector('#tfNotificationsPanel'),bell=document.querySelector('.tf-notif-anchor .tf-home-alert');
+ if(!panel||!bell)return;
+ const viewport=global.visualViewport,width=viewport?.width||global.innerWidth,height=viewport?.height||global.innerHeight;
+ if(!width||!height)return;
+ const computed=global.getComputedStyle?.(panel),safe=side=>parseFloat(computed?.getPropertyValue('--tf-notif-safe-'+side))||0;
+ const x=viewport?.offsetLeft||0,y=viewport?.offsetTop||0,gap=12,leftGap=Math.max(gap,safe('left')+8),rightGap=Math.max(gap,safe('right')+8),bottomGap=Math.max(gap,safe('bottom')+8),box=bell.getBoundingClientRect(),panelWidth=Math.min(395,width-leftGap-rightGap);
+ const left=Math.max(x+leftGap,Math.min(box.right-panelWidth,x+width-panelWidth-rightGap));
+ const top=Math.max(y+gap,Math.min(box.bottom+10,y+height-120));
+ const dock=document.querySelector('.mobilebar'),dockBox=dock?.getBoundingClientRect();
+ const bottom=dockBox?.height>0&&dockBox.top>top?Math.min(y+height-bottomGap,dockBox.top-gap):y+height-bottomGap;
+ for(const [name,value] of Object.entries({left,top,width:panelWidth,height:Math.max(60,bottom-top)}))panel.style.setProperty('--tf-notif-'+name,value+'px');
+}
 function home(d,bellIcon){
  lastData=d;
+ if(open)global.requestAnimationFrame?.(positionPanel);
  const items=itemsWithRead(d),unread=items.filter(x=>x.unread).length;
  return '<div class="tf-notif-anchor"><button class="tf-home-alert" type="button" data-notif-action="toggle" aria-label="Notifications'+(unread?', '+unread+' unread':'')+
   '" aria-controls="tfNotificationsPanel" aria-expanded="'+(open?'true':'false')+'">'+bellIcon+
@@ -189,28 +190,9 @@ async function mark(ids){
 }
 function close(){
  if(!open)return;
- open=false;obligationEditor=false;
+ open=false;
 }
-function show(){open=true;obligationEditor=false;return api?.render?.()}
-async function handleSubmit(event){
- if(event.target?.id!=='tfNotifObligationForm')return;
- event.preventDefault();event.stopImmediatePropagation();
- if(working||!api?.uid||!api?.put)return;
- working=true;
- try{
-  const form=new FormData(event.target),kind=String(form.get('kind')||''),title=String(form.get('title')||'').trim(),due=String(form.get('due')||'');
-  const owner=String(form.get('owner')||'').trim(),notes=String(form.get('notes')||'').trim();
-  const relation=String(form.get('relation')||''),separator=relation.indexOf(':'),store=separator<0?'':relation.slice(0,separator),relatedId=separator<0?'':relation.slice(separator+1);
-  if(relation&&(!['jobs','customers','quotes','opportunities','invoices','suppliers'].includes(store)||!relatedId||
-    !(lastData?.[store]||[]).some(x=>x.id===relatedId)))throw Error('The related record is missing. Refresh and review the deadline.');
-  if(!Object.hasOwn(obligationTypes,kind)||!title||title.length>150||!validDate(due)||owner.length>90||notes.length>300)throw Error('Provide a valid deadline type, description and date.');
-  const row={id:api.uid(),title,due,status:'Open',taskType:'business_obligation',obligationType:kind,assignedTo:owner,notes,relatedStore:store,relatedRecordId:relatedId,createdAt:new Date().toISOString()};
-  await api.put('tasks',row);
-  obligationEditor=false;
-  await api.render();
- }catch(error){alert('Deadline not saved: '+String(error.message||error))}
- finally{working=false}
-}
+function show(){open=true;return api?.render?.()}
 async function handleClick(event){
  const button=event.target.closest?.('[data-notif-action]');
  if(!button){
@@ -227,8 +209,6 @@ async function handleClick(event){
    if(open)document.querySelector('#tfNotificationsPanel')?.focus({preventScroll:true});
    return;
   }
-  if(action==='obligation-new'){obligationEditor=true;open=true;await api.render();return}
-  if(action==='obligation-cancel'){obligationEditor=false;await api.render();return}
   if(action==='close'){
    close();await api.render();document.querySelector('.tf-home-alert')?.focus({preventScroll:true});return;
   }
@@ -259,8 +239,9 @@ function onKey(event){
 function configure(bridge){
  api=bridge;
  document.addEventListener('click',handleClick,true);
- document.addEventListener('submit',handleSubmit,true);
  document.addEventListener('keydown',onKey);
+ global.addEventListener?.('resize',positionPanel);global.addEventListener?.('scroll',positionPanel,true);
+ global.visualViewport?.addEventListener('resize',positionPanel);global.visualViewport?.addEventListener('scroll',positionPanel);
 }
 global.TradeFlowNotifications={configure,bootstrap,home,close,show,_test:{generate,intelligenceItems,obligationTypes,itemsWithRead,loadState,formatTime,dateToday,groupNames,KEY,nextState}};
 })(typeof window!=='undefined'?window:globalThis);

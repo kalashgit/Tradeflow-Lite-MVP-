@@ -4,23 +4,23 @@
  */
 :root {
   color-scheme: dark;
-  --tf-graphite-canvas: #111214;
-  --tf-graphite-panel: #17181B;
-  --tf-graphite-raised: #2A2C31;
-  --tf-graphite-hover: #34363B;
-  --tf-graphite-border-soft: #2B2E33;
-  --tf-graphite-border: #34373D;
+  --tf-graphite-canvas: #050505;
+  --tf-graphite-panel: #080b0c;
+  --tf-graphite-raised: #0d1214;
+  --tf-graphite-hover: #131c1f;
+  --tf-graphite-border-soft: #1b2224;
+  --tf-graphite-border: #23292b;
   --tf-graphite-text: #F5F5F5;
   --tf-graphite-subtext: #A9ADB2;
   --tf-graphite-cyan: #65D3E1;
-  --tf-radius-panel: 22px;
-  --tf-radius-card: 18px;
+  --tf-radius-panel: 16px;
+  --tf-radius-card: 14px;
   --tf-radius-control: 12px;
   --tf-radius-nav: 14px;
   --tf-space-panel: 20px;
   --tf-space-card: 16px;
   --tf-gap-card: 12px;
-  --tf-gap-section: 22px;
+  --tf-gap-section: 20px;
   --tf-icon-size: 22px;
   --tf-icon-stroke: 1.8;
   --tf-ui-font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -85,7 +85,7 @@ body { font-family: var(--tf-ui-font); }
   color: var(--tf-text);
   box-shadow: none !important;
 }
-.content .card { background: var(--tf-graphite-raised) !important; border-color: var(--tf-border) !important; border-radius: var(--tf-radius-card); }
+.content .card { background: var(--tf-panel) !important; border-color: var(--tf-border) !important; border-radius: var(--tf-radius-card); }
 .content .card::before { background: none; }
 .content :is(.muted, .sub, .empty) { color: var(--tf-muted); }
 .content :is(h1, h2, h3) { letter-spacing: -.025em; }

@@ -1,0 +1,6 @@
+/* Current Concept B verification entrypoint: actual application, ephemeral local origin. */
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process');
+const root=path.resolve('public');
+const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://local'),file=path.resolve(root,'.'+(url.pathname==='/'?'/index.html':url.pathname));if(!file.startsWith(root+'/')){res.writeHead(403);return res.end();}fs.readFile(file,(e,b)=>{if(e){res.writeHead(404);return res.end();}res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.json':'application/json'})[path.extname(file)]||'application/octet-stream');res.end(b);});});
+function run(file){return new Promise((ok,fail)=>{const child=spawn(process.execPath,[file],{stdio:'inherit',env:{...process.env,TRADEFLOW_ORB_ORIGIN:'http://127.0.0.1:'+server.address().port}});child.on('error',fail);child.on('exit',n=>n===0?ok():fail(Error(file+' exited '+n)));});}
+(async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));await run('scripts/compare-concept-b.cjs');await run('scripts/verify-concept-b-backends.cjs');await run('scripts/capture-concept-b.cjs');})().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>server.close());
