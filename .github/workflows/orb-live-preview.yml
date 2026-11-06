@@ -1,5 +1,5 @@
-name: TradeFlow Approved Orb Live Preview
-# Resume-safe wall-clock GIF-timed concept-b-v5 orb on the current GUI; preserve Home checks with updated material/size assertions.
+name: TradeFlow Home Master Style Live Preview
+# Founder-approved curved T / TRADE-FLOW logo and Home master visual system; retain the living orb.
 on:
   push:
     branches: [feature/tf-orb-live-integration-20261106]
@@ -136,6 +136,12 @@ jobs:
         run: |
           set -o pipefail
           node scripts/verify-d1-restore-local.cjs 2>&1 | tee artifacts/d1-local-restore.log
+      - name: Verify Home master style and canonical branding across screens
+        run: |
+          python3 -m http.server 8082 --bind 127.0.0.1 --directory public > /tmp/master-style-http.log 2>&1 &
+          master_preview_pid=$!
+          trap 'kill "$master_preview_pid" 2>/dev/null || true' EXIT
+          node scripts/verify-master-style.cjs
       - name: Verify approved orb inside the actual app
         run: |
           if ! command -v ffmpeg; then sudo apt-get update; sudo apt-get install -y ffmpeg; fi
@@ -194,14 +200,14 @@ jobs:
             const root='https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev';
             const r=await fetch(root+'/release.json?orb-base='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
             assert.equal(r.status,200);const live=await r.json();
-            assert.ok(['312713066599873e05941fd04dc957591e26f1f0',process.env.GITHUB_SHA].includes(live.commit),'Live GUI changed while orb release was prepared');
+            assert.ok(['c5633a71f9ea745925fb00601b1c718b4ffd853c',process.env.GITHUB_SHA].includes(live.commit),'Live GUI changed while orb release was prepared');
             for(const [name,digest] of Object.entries(live.assets)){
-              if(['index.html','sw.js','intelligence-orb-idle.js','intelligence-orb-idle.css'].includes(name)||name.startsWith('orb-concept-b/'))continue;
+              if(['index.html','sw.js','app.js','graphite-theme.css','master-style.css','manifest.webmanifest','icons/icon.svg'].includes(name)||name.startsWith('brand/'))continue;
               assert.equal(hash(fs.readFileSync('public/'+name)),digest,'Unrelated GUI asset changed: '+name);
             }
             const old=cp.execFileSync('git',['diff','3408c4036f183e0032f295c78a7a6da0cd9e0152','HEAD','--','src','wrangler.jsonc'],{encoding:'utf8'});
             assert.equal(old,'','Server and resource configuration must stay unchanged');
-            console.log('Only approved orb assets/integration differ from deployed GUI');
+            console.log('Only approved branding/master-style assets differ from deployed GUI');
           })().catch(e=>{console.error(e.message);process.exit(1)});
           NODE
       - name: Record exact source and asset digests

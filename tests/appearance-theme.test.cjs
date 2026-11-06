@@ -10,7 +10,7 @@ for(const color of ['#10cfe1','#00ff00','#000000','#ffffff','#101240','#ff0000',
  assert.equal(p.original,color);
  assert.ok(p.contrastLabel>=4.5,color+': accent text must reach 4.5:1 contrast');
  assert.ok(p.contrastOnButton>=4.5,color+': button text must reach 4.5:1 contrast');
- for(const surface of ['#111214','#17181b','#2a2c31','#34363b']){
+ for(const surface of ['#050505','#080b0c','#0d1214','#131c1f']){
   assert.ok(appearance.contrast(p.accentText,surface)>=4.5,color+': readable graphite accent on '+surface);
  }
  assert.equal(p.income,'#00ed64');

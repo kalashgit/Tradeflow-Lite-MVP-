@@ -1,0 +1,20 @@
+/* Home is the master visual system. Neutrals are owned by graphite-theme.css;
+   this final bridge covers legacy fixed-color chrome without recoloring data. */
+:root{--tf-brand-cyan:#00dce7;--tf-home-canvas:var(--tf-graphite-canvas);--tf-home-surface:var(--tf-graphite-panel);--tf-home-edge:var(--tf-graphite-border)}
+.tf-home-logo img{display:block;width:100%;height:100%;object-fit:contain}
+.tf-brand-wordmark{font-family:Inter,Arial,Helvetica,sans-serif;font-weight:750;letter-spacing:.015em!important;white-space:nowrap;color:#f5f5f5!important}
+.tf-brand-flow{color:var(--tf-brand-cyan)!important}
+.tf-unified-header .tf-unified-wordmark{font-size:14px;font-weight:750;letter-spacing:.015em}
+.tf-brand-mark{background:url('./brand/tradeflow-mark.svg') center/contain no-repeat;filter:none!important}
+.tf-brand-mark>.tf-brand-top,.tf-brand-mark>.tf-brand-stem,.tf-brand-mark>.tf-brand-accent{display:none!important}
+.tf-sidebar-brand{display:grid;grid-template-columns:30px 1fr;gap:3px 6px;align-items:center}
+.tf-sidebar-brand>.tf-brand-mark{width:30px;height:32px;grid-row:1/3}
+.tf-sidebar-brand>.tf-brand-wordmark{font-size:15px}
+.tf-sidebar-brand>small{grid-column:2;font-size:10px;color:var(--tf-muted);font-weight:400;letter-spacing:0;overflow-wrap:anywhere}
+body :is(.tf-settings-brand,.tf-settings-group,.tf-settings-panel,.tf-voice-sheet,.tf-ai-chat-box,.tf-ai-mini-panel,.tf-record-modal,.tf-notif-panel){background:var(--tf-panel)!important;border-color:var(--tf-border)!important;box-shadow:none!important}
+body :is(.tf-settings-group,.tf-settings-panel,.tf-ai-chat-box,.tf-record-modal){border-radius:var(--tf-radius-panel)}
+body .tf-voice-action{background:var(--tf-panel-raised)!important;border-color:var(--tf-border)!important;color:var(--tf-text)!important}
+body .tf-voice-mic{background:var(--tf-panel-raised)!important;border-color:var(--tf-border)!important}
+@media(max-width:370px){.tf-home-header .tf-unified-wordmark{font-size:12px}.tf-home-header .tf-home-logo{width:28px}}
+.tf-home-logo:not(:has(img)),.tf-map-logo{background:url('./brand/tradeflow-mark.svg') center/contain no-repeat;filter:none!important}
+.tf-home-logo svg,.tf-map-logo svg{display:none}
