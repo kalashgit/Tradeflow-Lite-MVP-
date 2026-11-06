@@ -12,6 +12,8 @@ on:
       - 'tts/**'
       - 'tests/chatterbox-*.test.cjs'
       - 'tests/voice-profile-contract.test.cjs'
+      - 'docs/TF_VOICE_CHATTERBOX_CHECKPOINT.md'
+      - 'docs/TRADEFLOW_CHATTERBOX_RUNBOOK.md'
       - '.github/workflows/chatterbox-voice-ci.yml'
   workflow_dispatch:
 permissions:
