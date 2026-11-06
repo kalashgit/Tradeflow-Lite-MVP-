@@ -1,3 +1,9 @@
+## Concept B compact/settled speaking adjustment / PR #39 (2026-11-06)
+
+Founder requested smaller bottom-right orb, dim idle and less movement/brighter blue during speech. Home button now 52px mobile / 56px desktop above navigation. Idle illumination 48%; real assistant playback presence smoothly reduces time progression by up to 72%, and measured energy brightens/shifts the membrane blue with the cyan T protected. Extra speech warp reduced; reduced-motion users get lighting feedback without geometric displacement. Canvas fallback follows the same lighting rule. JS/CSS and offline cache versions aligned to r04.
+
+Focused 3/3 and actual app orb verification pass (size/placement, reduced motion, voice-sheet tap/close, measured blue brightness increase, calmer speaking, smooth idle return, reference preservation, context restore and forced Canvas fallback). Compact 15s MP4 review clearly labels injected test speech. No actual PR #31 playback claim, merge or production deploy. Exact SHA/CI in draft PR #39. Previous unrelated notification-label failure remains documented.
+
 ## Concept B supplied-reference reconstruction / draft PR #39 (2026-11-06)
 
 On isolated `feature/tf-concept-b-membrane-reconstruction` based on PR #38; production and PR #29/#31/#38 preserved. Original founder GIF now extracted (9 × 420×408, 170ms), all frames and 8→0 flow analyzed. Replaced the rejected procedural torus with reference-derived **2.5D** artwork/continuous bidirectional-flow transport, same Home/Intelligence voice-sheet visual, versioned real assistant playback signal, reduced motion, context recovery and Canvas fallback. Baked source lighting is explicitly not a recovered 3D physical membrane.

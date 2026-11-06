@@ -15,13 +15,22 @@ const out='artifacts/concept-b/comparison';fs.mkdirSync(out,{recursive:true});
  const png=await page.evaluate(t=>{TradeFlowConceptBOrb.renderAt(t,0,true);return document.querySelector('.tf-orb-concept-b-canvas').toDataURL().split(',')[1]},t);
  fs.writeFileSync(`${out}/${name}.png`,Buffer.from(png,'base64'));
  }
+ // Compare light/color on the SAME phase, outside the protected T.
+ const lighting=await page.evaluate(()=>{
+  const canvas=document.querySelector('.tf-orb-concept-b-canvas'),gl=canvas.getContext('webgl');
+  function sample(energy){TradeFlowConceptBOrb.renderAt(.34,energy);const a=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,a);let blue=0,green=0,n=0;
+   for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){const r=Math.hypot(x/canvas.width-.5,y/canvas.height-.5);if(r<.24||r>.46)continue;const p=(y*canvas.width+x)*4;blue+=a[p+2];green+=a[p+1];n++;}return {blue:blue/n,green:green/n};}
+  return {idle:sample(0),speaking:sample(.8)};
+ });
+ assert.ok(lighting.speaking.blue>lighting.idle.blue*1.8,'speaking is visibly brighter blue');
+ assert.ok(lighting.speaking.green/lighting.speaking.blue<lighting.idle.green/lighting.idle.blue,'membrane shifts toward blue');
  // Genuine event contract with injected test features: validates plumbing only.
  await page.emulateMedia({reducedMotion:'no-preference'});
  await page.evaluate(()=>{window.qaSpeech=setInterval(()=>dispatchEvent(new CustomEvent('tradeflow:speech-features',{detail:{version:1,source:'assistant_playback',active:true,rms:.15,peak:.5}})),60)});
- await page.waitForTimeout(650);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().activity))>.5);
- await page.evaluate(()=>clearInterval(window.qaSpeech));await page.waitForTimeout(2000);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().activity))<.05);
+ await page.waitForTimeout(800);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().activity))>.5);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().motionSpeed))<.22,'speech settles motion');
+ await page.evaluate(()=>clearInterval(window.qaSpeech));await page.waitForTimeout(2000);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().activity))<.05);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().motionSpeed))>.52,'idle movement returns smoothly');
  const context=await page.locator('canvas.tf-orb-concept-b-canvas').evaluate(c=>!!c.getContext('webgl'));
  assert.ok(context,'WebGL reference transport must initialize');
  assert.equal(errors.length,0,errors.join('\n'));
- fs.writeFileSync(out+'/browser-checks.json',JSON.stringify({checks:['18 phase captures including 8→0 interpolation','injected analyser raises activity','stale analyser decays to idle','WebGL initializes','no page errors'],stats:await page.evaluate(()=>TradeFlowConceptBOrb.stats())},null,2));
+ fs.writeFileSync(out+'/browser-checks.json',JSON.stringify({lighting,checks:['18 phase captures including 8→0 interpolation','injected analyser raises blue brightness and slows motion','stale analyser decays to idle','WebGL initializes','no page errors'],stats:await page.evaluate(()=>TradeFlowConceptBOrb.stats())},null,2));
  }finally{await browser?.close()}})().catch(e=>{console.error(e);process.exit(1)});

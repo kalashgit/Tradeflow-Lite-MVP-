@@ -1,8 +1,8 @@
 /* Concept B: original cyan T inside a gently moving, blue woven membrane. */
-.tf-ai-orb[data-orb-material="concept-b-v3"],
+.tf-ai-orb[data-orb-material="concept-b-v4"],
 .tf-ai-orb[data-orb-material="concept-b-fallback"]{
  box-sizing:border-box;display:grid!important;place-items:center;
- position:fixed;width:70px;height:70px;overflow:visible;padding:0;
+ position:fixed;width:56px;height:56px;right:18px;bottom:calc(96px + env(safe-area-inset-bottom));overflow:visible;padding:0;
  border:0!important;border-radius:50%!important;
  background:transparent url("./orb-concept-b/poster.png") center/100% 100% no-repeat!important;box-shadow:none!important;
  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
@@ -22,7 +22,7 @@
 .tf-ai-orb[data-orb-material^="concept-b"]:focus-visible{outline:2px solid #64e8f8;outline-offset:3px}
 .tf-ai-orb[data-orb-material^="concept-b"]:active{transform:scale(.97)}
 @media(max-width:850px){
- .tf-ai-orb[data-orb-material^="concept-b"]{width:66px;height:66px;right:10px;bottom:calc(102px + env(safe-area-inset-bottom))}
+ .tf-ai-orb[data-orb-material^="concept-b"]{width:52px;height:52px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom))}
 }
 @media(prefers-reduced-motion:reduce){.tf-ai-orb[data-orb-material^="concept-b"],
  .tf-orb-concept-b-emblem{transition:none!important;animation:none!important}}
@@ -32,6 +32,6 @@
 .tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
 
 /* Same reference-derived membrane on the existing Intelligence voice surface. */
-.tf-voice-wave[data-orb-material="concept-b-v3"]{background:transparent!important;filter:none!important}
-.tf-voice-wave[data-orb-material="concept-b-v3"]>.tf-orb-concept-b-canvas{
+.tf-voice-wave[data-orb-material="concept-b-v4"]{background:transparent!important;filter:none!important}
+.tf-voice-wave[data-orb-material="concept-b-v4"]>.tf-orb-concept-b-canvas{
  inset:0;margin:auto;width:auto;height:100%;max-width:100%;aspect-ratio:420/408;border-radius:0}

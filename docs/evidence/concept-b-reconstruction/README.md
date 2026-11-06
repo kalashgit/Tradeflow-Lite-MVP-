@@ -6,9 +6,12 @@ Development branch: `feature/tf-concept-b-membrane-reconstruction`, draft PR #39
 
 The founder's actual nine-frame GIF is now extracted and analyzed. The previous procedural torus has been replaced with a **reference-derived 2.5D renderer**. Full-resolution weave, silhouette, depth shading and the exact T come from the supplied artwork. Bidirectional optical flow supplies a continuous shared displacement field between every frame pair, including 8→0. A 48 × 48 shared vertex grid evaluates that field at reference scale where supported; a fragment transport path covers GPUs without vertex texture sampling. This does **not** constitute recovery of a fully 3D membrane or new geometric lighting: source illumination is baked into the material.
 
-Idle plays more slowly at 72% reference illumination. Real version-1 `assistant_playback` RMS/peak events increase playback speed, smoothly displace the outer membrane and raise illumination; the center T is protected from extra deformation. No microphone data or synthetic events are generated in application code. Missing events expire after 600ms; energy decays smoothly. Reduced motion freezes geometric movement while retaining speech brightness feedback. The same renderer now replaces older wave artwork inside the existing Intelligence voice sheet. Existing controls, composer, approvals and business logic are retained.
+The compact Home orb is 52px on mobile and 56px on desktop, bottom-right above navigation. Idle plays at 48% reference illumination. Real version-1 `assistant_playback` RMS/peak events brighten the membrane toward blue while playback presence slows movement by up to 72%; the center T is protected from extra deformation. No microphone data or synthetic events are generated in application code. Missing events expire after 600ms; energy decays smoothly. Reduced motion freezes geometric movement while retaining speech brightness feedback. The same renderer now replaces older wave artwork inside the existing Intelligence voice sheet. Existing controls, composer, approvals and business logic are retained.
 
 ## Actual artifacts
+
+- [Compact Home review: dim idle → slower blue simulated speech → idle](compact-home-review.mp4)
+- Compact Home stills: [idle](compact-idle.png), [simulated speaking](compact-speaking.png)
 
 - [15-second idle recording](idle.webm)
 - [15-second SIMULATED speaking recording](SIMULATED-speaking.webm): on-screen label, injected test features, **no real speech integration claim**.

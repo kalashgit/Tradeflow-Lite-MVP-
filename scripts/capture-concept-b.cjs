@@ -10,7 +10,7 @@ const ctx=await browser.newContext({viewport:{width,height:900},deviceScaleFacto
 await p.goto((process.env.TRADEFLOW_ORB_ORIGIN||'http://127.0.0.1:8080'));await p.waitForFunction(()=>!!window.TradeFlowPilot);
 await p.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1');const db=await new Promise(r=>q.onsuccess=()=>r(q.result));const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'business',company:'Synthetic Orb QA',primaryTrade:'Electrical',categories:['Electrical']});await new Promise(r=>tx.oncomplete=r);db.close()});
 await p.reload();await p.locator('.tf-orb-concept-b-canvas').waitFor();await p.waitForTimeout(1800);
-await p.screenshot({path:`${out}/home-${width}.png`});
+const box=await p.locator('.tf-ai-orb').boundingBox();assert.equal(box.width,width<850?52:56);assert.ok(box.x+box.width<=width&&box.y+box.height<810,'compact orb stays bottom right above navigation');await p.screenshot({path:`${out}/home-${width}.png`});
 const before=await p.locator('canvas.tf-orb-concept-b-canvas').evaluate(c=>c.toDataURL());
 await p.waitForTimeout(250);
 assert.notEqual(before,await p.locator('canvas.tf-orb-concept-b-canvas').evaluate(c=>c.toDataURL()));

@@ -10,7 +10,7 @@
  if(root.document.readyState==='loading')root.document.addEventListener('DOMContentLoaded',start,{once:true});else start();}
 })(typeof globalThis!=='undefined'?globalThis:null,function(){
  'use strict';
- const version='concept-b-v3',clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),finite=x=>Number.isFinite(x)?x:0;
+ const version='concept-b-v4',clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),finite=x=>Number.isFinite(x)?x:0;
  function frameAt(seconds){const phase=((finite(seconds)/.17)%9+9)%9;return {index:Math.floor(phase),blend:phase-Math.floor(phase)};}
  function normalizeSpeech(d){
   if(!d||d.version!==1||d.source!=='assistant_playback')return null;
@@ -21,7 +21,7 @@
  void main(){uv=vec2(position.x*.5+.5,.5-position.y*.5);gl_Position=vec4(position,0.,1.);}`;
  const fallbackFragment=`precision highp float;
  varying vec2 uv;uniform sampler2D artwork,forwardFlow,backwardFlow;
- uniform float frameIndex,blend,energy,clockTime,referenceLight;
+ uniform float frameIndex,blend,energy,motionEnergy,clockTime,referenceLight;
  vec2 tile(float i){return vec2(mod(i,3.),floor(i/3.));}
  vec2 atlas(vec2 p,float i){return (tile(i)+clamp(p,vec2(.5/420.,.5/408.),vec2(419.5/420.,407.5/408.)))/3.;}
  vec2 flow(sampler2D map,vec2 p,float i){return (texture2D(map,atlas(p,i)).rg*255.-128.)/127.*96./vec2(420.,408.);}
@@ -30,7 +30,7 @@
   vec2 p=uv,delta=p-.5;float r=length(delta);
   // A shared smooth displacement of the membrane, locked around the T.
   float lock=smoothstep(.15,.25,r);
-  p+=energy*.008*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
+  p+=motionEnergy*.001*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
   vec2 a=p,b=p;
   // Invert the forward/backward transport rather than dissolve stationary frames.
   for(int k=0;k<3;k++){
@@ -40,8 +40,10 @@
   vec3 ca=texture2D(artwork,atlas(a,frameIndex)).rgb;
   vec3 cb=texture2D(artwork,atlas(b,next)).rgb;
   vec3 rgb=mix(ca,cb,blend);
-  float gain=mix(.72+energy*.55,1.,referenceLight);
+  float gain=mix(.48+energy*.82,1.,referenceLight);
   rgb*=gain;
+  float blueMix=energy*(1.-referenceLight)*smoothstep(.15,.24,length(uv-.5));
+  rgb*=mix(vec3(1.),vec3(.7,.68,1.18),blueMix);
   // Reference light is premultiplied over black; preserve the soft scattering
   // while shielding the deep navy interior from content behind the orb.
   float alpha=max((1.-smoothstep(.28,.48,r))*.96,clamp(max(rgb.g,rgb.b)*3.,0.,1.));
@@ -53,13 +55,13 @@
  vec2 flow(sampler2D map,vec2 p,float i){return (texture2D(map,atlas(p,i)).rg*255.-128.)/127.*96./vec2(420.,408.);}`;
  const meshVertex=`precision highp float;attribute vec2 position;
  uniform sampler2D forwardFlow,backwardFlow;
- uniform float frameIndex,blend,energy,clockTime;
+ uniform float frameIndex,blend,energy,motionEnergy,clockTime;
  varying vec2 uv,fromUV,toUV;
  ${flowHelpers}
  void main(){
   uv=vec2(position.x*.5+.5,.5-position.y*.5);vec2 p=uv;
   float lock=smoothstep(.15,.25,length(p-.5));
-  p+=energy*.008*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
+  p+=motionEnergy*.001*lock*vec2(sin(12.*p.y+clockTime*.9),sin(11.*p.x-clockTime*.73));
   vec2 a=p,b=p;
   for(int k=0;k<3;k++){
    a=mix(a,p-blend*flow(forwardFlow,a,frameIndex),.8);
@@ -73,7 +75,9 @@
  ${flowHelpers}
  void main(){
   vec3 rgb=mix(texture2D(artwork,atlas(fromUV,frameIndex)).rgb,texture2D(artwork,atlas(toUV,mod(frameIndex+1.,9.))).rgb,blend);
-  rgb*=mix(.72+energy*.55,1.,referenceLight);
+  rgb*=mix(.48+energy*.82,1.,referenceLight);
+  float blueMix=energy*(1.-referenceLight)*smoothstep(.15,.24,length(uv-.5));
+  rgb*=mix(vec3(1.),vec3(.7,.68,1.18),blueMix);
   float alpha=max((1.-smoothstep(.28,.48,length(uv-.5)))*.96,clamp(max(rgb.g,rgb.b)*3.,0.,1.));
   gl_FragColor=vec4(rgb,alpha);
  }`;
@@ -83,7 +87,7 @@
   let gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:true,powerPreference:'low-power'});
   const supportsVertexFlow=!!gl&&gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS)>=2;
   let ctx=null,program=null,buffer=null,indexBuffer=null,meshTransport=false,indexCount=0,textures=[],uniforms={},disposed=false,ready=false,raf=0;
-  let time=0,last=null,lastPaint=null,frames=0,activity=0,speaking=false,level=0,speechAt=-Infinity;
+  let time=0,last=null,lastPaint=null,frames=0,activity=0,speechPresence=0,speaking=false,level=0,speechAt=-Infinity;
   let interval=0,slow=0,loadError=null,contextLost=false;
   const costs=[],intervals=[],reduced=root.matchMedia?.('(prefers-reduced-motion: reduce)');
   const script=document.querySelector('script[src*="intelligence-orb-idle.js"]');
@@ -106,7 +110,7 @@
     indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(indices),gl.STATIC_DRAW);indexCount=indices.length;
    }else gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
    const pos=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-   for(const name of ['frameIndex','blend','energy','clockTime','referenceLight'])uniforms[name]=gl.getUniformLocation(program,name);
+   for(const name of ['frameIndex','blend','energy','motionEnergy','clockTime','referenceLight'])uniforms[name]=gl.getUniformLocation(program,name);
    textures=images.map((im,i)=>{const texture=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -123,13 +127,20 @@
    if(gl){
     const meshNeeded=supportsVertexFlow&&Math.max(w,h)>256;
     if(meshNeeded!==meshTransport){textures.forEach(t=>gl.deleteTexture(t));gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);gl.deleteProgram(program);indexBuffer=null;initGL();}
-    gl.viewport(0,0,w,h);gl.uniform1f(uniforms.frameIndex,i);gl.uniform1f(uniforms.blend,mix);gl.uniform1f(uniforms.energy,energy);
+    gl.viewport(0,0,w,h);gl.uniform1f(uniforms.frameIndex,i);gl.uniform1f(uniforms.blend,mix);gl.uniform1f(uniforms.energy,energy);gl.uniform1f(uniforms.motionEnergy,reduced?.matches?0:energy);
     gl.uniform1f(uniforms.clockTime,seconds);gl.uniform1f(uniforms.referenceLight,reference?1:0);if(meshTransport)gl.drawElements(gl.TRIANGLES,indexCount,gl.UNSIGNED_SHORT,0);else gl.drawArrays(gl.TRIANGLES,0,6);
    }else if(ctx){
     // Measured fallback: continuous crossfade, same artwork/identity; no flow warp.
     ctx.clearRect(0,0,w,h);ctx.globalAlpha=1;ctx.drawImage(images[0],(i%3)*420,Math.floor(i/3)*408,420,408,0,0,w,h);
     const j=(i+1)%9;ctx.globalAlpha=mix;ctx.drawImage(images[0],(j%3)*420,Math.floor(j/3)*408,420,408,0,0,w,h);ctx.globalAlpha=1;
-    if(!reference){ctx.fillStyle='rgba(0,0,0,'+(1-clamp(.72+energy*.55,0,1))+')';ctx.fillRect(0,0,w,h);}
+    if(!reference){
+     const pixels=ctx.getImageData(0,0,w,h),data=pixels.data,gain=.48+energy*.82;
+     for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const r=Math.hypot((x+.5)/w-.5,(y+.5)/h-.5),v=clamp((r-.15)/.09,0,1),blue=energy*v*v*(3-2*v),p=(y*w+x)*4;
+      data[p]*=gain*(1-.3*blue);data[p+1]*=gain*(1-.32*blue);data[p+2]*=gain*(1+.18*blue);
+     }
+     ctx.putImageData(pixels,0,0);
+    }
    }
    if(button){button.dataset.orbState=energy>.12?'speaking':'idle';button.dataset.orbBackend=gl?'webgl-flow':'canvas-crossfade';}
    costs.push(root.performance.now()-start);if(costs.length>300)costs.shift();frames++;
@@ -139,7 +150,8 @@
    const dt=last===null?0:clamp((now-last)/1000,0,.1);last=now;
    if(now-speechAt>600){speaking=false;level=0;}
    activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
-   if(!reduced?.matches)time+=dt*(.55+.65*activity);
+   speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
+   if(!reduced?.matches)time+=dt*.55*(1-.72*speechPresence);
    if(lastPaint===null||now-lastPaint>=interval){
     if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
     renderAt(reduced?.matches?0:time,activity);lastPaint=now;
@@ -153,7 +165,7 @@
    if(ready&&!disposed&&!document.hidden&&!contextLost){renderAt(reduced?.matches?0:time,activity);if(!reduced?.matches||speaking||activity>.005)raf=root.requestAnimationFrame(tick);}}
   function speech(e){const value=normalizeSpeech(e.detail);if(!value)return;speechAt=root.performance.now();speaking=value.active;level=value.level;if(!raf)resume();}
   function voice(e){if(['idle','unavailable','error'].includes(e.detail?.status)){speaking=false;level=0;if(!raf)resume();}}
-  function visibility(){if(document.hidden){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;speaking=false;level=0;activity=0;}else resume();}
+  function visibility(){if(document.hidden){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;speaking=false;level=0;activity=0;speechPresence=0;}else resume();}
   function lost(e){e.preventDefault();contextLost=true;if(button)button.dataset.orbBackend="poster-fallback";if(raf)root.cancelAnimationFrame(raf);raf=0;}
   function restored(){try{initGL();contextLost=false;resume();}catch(e){loadError=String(e);}}
   root.addEventListener('tradeflow:speech-features',speech);root.addEventListener('tradeflow:voice-state',voice);
@@ -161,7 +173,7 @@
   canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
   const resize=new root.ResizeObserver(resume);resize.observe(canvas);
   Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);if(button)button.dataset.orbBackend='poster-fallback';});
-  return Object.freeze({renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speaking,ready,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
+  return Object.freeze({renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,motionSpeed:.55*(1-.72*speechPresence),speaking,ready,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
    dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
     if(gl&&!contextLost){textures.forEach(t=>gl.deleteTexture(t));if(buffer)gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);if(program)gl.deleteProgram(program);}}
   });
