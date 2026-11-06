@@ -18,10 +18,17 @@ jobs:
       - run: npm ci
       - run: node --test tests/intelligence-orb-idle.test.cjs
       - run: npx playwright install --with-deps chromium
+      - name: Ensure video encoder
+        run: |
+          if ! command -v ffmpeg; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Capture actual app and check motion contracts
         run: |
-          python3 -m http.server 8080 --bind 127.0.0.1 --directory public &
-          node scripts/capture-concept-b.cjs
+          node scripts/verify-intelligence-orb-idle.cjs
+          python3 -m pip install Pillow numpy
+          python3 scripts/report-concept-b-comparison.py
           git rev-parse HEAD > artifacts/concept-b/source-sha.txt
       - uses: actions/upload-artifact@v4
         if: always()

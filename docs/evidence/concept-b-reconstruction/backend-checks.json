@@ -1,0 +1,13 @@
+[
+  {
+    "contextLossAndRestore": "PASS"
+  },
+  {
+    "backend": "webgl-flow",
+    "animated": "PASS"
+  },
+  {
+    "backend": "canvas-crossfade",
+    "animated": "PASS"
+  }
+]

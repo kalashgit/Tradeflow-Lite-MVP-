@@ -1,0 +1,14 @@
+
+> tradeflow-deployment@0.4.0 test:contractors
+> node automation/run-ten-pain-points.cjs
+
+TF-P01 PASS Stale quotations not followed up
+TF-P02 PASS Overdue invoice balances overlooked
+TF-P03 PASS Scheduling conflicts missed
+TF-P04 PASS Unapproved job changes forgotten
+TF-P05 PASS Job spending exceeds budget unnoticed
+TF-P06 PASS Labor-hour variance goes unnoticed
+TF-P07 PASS Invoice payment discrepancies overlooked
+TF-P08 PASS Bid pursued without readiness checks
+TF-P09 PASS Re-entering estimates without safe quote reuse
+TF-P10 PASS Customer account economics unclear

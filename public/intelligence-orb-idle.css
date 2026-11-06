@@ -1,10 +1,10 @@
 /* Concept B: original cyan T inside a gently moving, blue woven membrane. */
-.tf-ai-orb[data-orb-material="concept-b-v2"],
+.tf-ai-orb[data-orb-material="concept-b-v3"],
 .tf-ai-orb[data-orb-material="concept-b-fallback"]{
  box-sizing:border-box;display:grid!important;place-items:center;
  position:fixed;width:70px;height:70px;overflow:visible;padding:0;
  border:0!important;border-radius:50%!important;
- background:transparent!important;box-shadow:none!important;
+ background:transparent url("./orb-concept-b/poster.png") center/100% 100% no-repeat!important;box-shadow:none!important;
  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
  animation:none!important;transition:none!important;isolation:isolate;touch-action:manipulation;filter:none!important;
  --tf-orb-concept-voice:0;
@@ -28,3 +28,10 @@
  .tf-orb-concept-b-emblem{transition:none!important;animation:none!important}}
 @media(forced-colors:active){.tf-ai-orb[data-orb-material^="concept-b"]{border:2px solid ButtonText!important}
  .tf-orb-concept-b-emblem{color:ButtonText;filter:none}}
+
+.tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
+
+/* Same reference-derived membrane on the existing Intelligence voice surface. */
+.tf-voice-wave[data-orb-material="concept-b-v3"]{background:transparent!important;filter:none!important}
+.tf-voice-wave[data-orb-material="concept-b-v3"]>.tf-orb-concept-b-canvas{
+ inset:0;margin:auto;width:auto;height:100%;max-width:100%;aspect-ratio:420/408;border-radius:0}
