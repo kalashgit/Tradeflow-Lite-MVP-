@@ -1,5 +1,7 @@
 # TF-VOICE-02 — Chatterbox private runtime checkpoint
 
+**Superseded runtime guidance (2026-11-06):** The earlier `scripts/chatterbox_private_tts.py` is a **legacy loopback-only prototype** with no authentication and is **not the TradeFlow preview integration**. The active candidate now uses `tts/chatterbox_service.py` (token-protected), `src/chatterbox-gateway.js` (preview authorization and WAV validation), `public/voice-output.js` (saved chat playback), and the private VCTK provisioning helper. See `docs/TRADEFLOW_CHATTERBOX_RUNBOOK.md`. Original legacy milestones below remain historical and must not be treated as the latest verification. Neither runtime is production-approved or audible on iPhone yet.
+
 **Status:** Code committed; no live preview playback or physical iPhone validation. Do not mark voice ready.
 
 ## Decision
