@@ -74,7 +74,7 @@
     const ridge=Math.exp(-Math.pow((x-crestX-.28*y)/.28,2));
     const edgeGain=.52+.48*distance*distance;
     const dx=(.022*Math.sin(1.8*y+2.1*x+.25*t)+.009*foldB)*edgeGain;
-    const dy=(.032*foldA+.013*foldB+.027*ridge*Math.sin(3.5*y+.42*t))*edgeGain;
+    const dy=(.085*foldA+.018*foldB+.058*ridge*Math.sin(3.5*y+.42*t))*edgeGain;
     return [(x+dx)*(1+boundaryCoupling),(y+dy)*(1+boundaryCoupling)];
   }
   // Light is a differential of the actual deforming contour, never a rotating halo.
