@@ -58,3 +58,5 @@
 .tf-notif-dismiss{width:44px;height:44px}
 
 .tf-notif-panel-footer button{min-height:44px}
+/* Keep popup content above the floating assistant without changing its state. */
+.tf-unified-header:has(#tfNotificationsPanel){z-index:40}

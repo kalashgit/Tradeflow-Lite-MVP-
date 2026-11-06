@@ -1,5 +1,5 @@
 name: TradeFlow Notifications Viewport Live Preview
-# Keep Notifications within the visual viewport and remove the unwanted deadline editor.
+# Keep Notifications within the visual viewport above the orb, and remove the unwanted deadline editor.
 on:
   push:
     branches: [feature/tf-orb-live-integration-20261106]
