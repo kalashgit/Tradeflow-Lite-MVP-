@@ -26,11 +26,13 @@ const out='artifacts/concept-b/comparison';fs.mkdirSync(out,{recursive:true});
  assert.ok(lighting.speaking.green/lighting.speaking.blue<lighting.idle.green/lighting.idle.blue,'membrane shifts toward blue');
  // Genuine event contract with injected test features: validates plumbing only.
  await page.emulateMedia({reducedMotion:'no-preference'});
+ const start=await page.evaluate(()=>TradeFlowConceptBOrb.stats().time);const wall=Date.now();await page.waitForTimeout(650);const elapsed=(Date.now()-wall)/1000;const progressed=(await page.evaluate(()=>TradeFlowConceptBOrb.stats().time))-start;assert.ok(progressed/elapsed>.85&&progressed/elapsed<1.15,'idle follows GIF timing at real-time speed');
+ await page.locator('.tf-ai-orb canvas').evaluate(c=>c.remove());await page.waitForFunction(()=>TradeFlowConceptBOrb.stats()?.ready&&document.querySelectorAll('.tf-ai-orb canvas').length===1);const recovered=await page.evaluate(()=>TradeFlowConceptBOrb.stats().frames);await page.waitForTimeout(150);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().frames))>recovered,'canvas replacement recovers live motion');
  await page.evaluate(()=>{window.qaSpeech=setInterval(()=>dispatchEvent(new CustomEvent('tradeflow:speech-features',{detail:{version:1,source:'assistant_playback',active:true,rms:.15,peak:.5}})),60)});
  await page.waitForTimeout(800);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().activity))>.5);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().motionSpeed))<.22,'speech settles motion');
  await page.evaluate(()=>clearInterval(window.qaSpeech));await page.waitForTimeout(2000);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().activity))<.05);assert.ok((await page.evaluate(()=>TradeFlowConceptBOrb.stats().motionSpeed))>.52,'idle movement returns smoothly');
  const context=await page.locator('canvas.tf-orb-concept-b-canvas').evaluate(c=>!!c.getContext('webgl'));
  assert.ok(context,'WebGL reference transport must initialize');
  assert.equal(errors.length,0,errors.join('\n'));
- fs.writeFileSync(out+'/browser-checks.json',JSON.stringify({lighting,checks:['18 phase captures including 8→0 interpolation','injected analyser raises blue brightness and slows motion','stale analyser decays to idle','WebGL initializes','no page errors'],stats:await page.evaluate(()=>TradeFlowConceptBOrb.stats())},null,2));
+ fs.writeFileSync(out+'/browser-checks.json',JSON.stringify({lighting,checks:['real-time GIF cadence','canvas replacement recovers motion','18 phase captures including 8→0 interpolation','injected analyser raises blue brightness and slows motion','stale analyser decays to idle','WebGL initializes','no page errors'],stats:await page.evaluate(()=>TradeFlowConceptBOrb.stats())},null,2));
  }finally{await browser?.close()}})().catch(e=>{console.error(e);process.exit(1)});

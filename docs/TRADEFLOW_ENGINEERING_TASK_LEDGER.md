@@ -1,3 +1,7 @@
+## GIF-faithful live idle motion fix (2026-11-06)
+
+Founder requested continuous living GIF motion on the actual web page. Idle cadence restored from 55% to 100% source speed; calmer real-assistant speaking retained. Static loading/error fallback replaced with actual animated reference GIF (static only for reduced motion). Canvas replacement reattachment and pageshow resume added. Targeted browser checks cover cadence, removed canvas recovery and blocked-flow animated fallback. Existing GUI/server/config retained. Release uses the same guarded existing-pilot workflow; exact live SHA and CI recorded in PR40.
+
 ## Approved orb into existing live GUI pilot (2026-11-06)
 
 Founder requested placing the approved orb into the actual app. Isolated `feature/tf-orb-live-integration-20261106` starts at the exact live GUI release 3408c403, preserving newer Home/navigation/app.js/server/config. Transfers only PR39 approved renderer/styles/material and orb-specific asset references/cache update. Dedicated existing-pilot release workflow retains all regressions, adds actual orb verification, checks unchanged unrelated asset digests and refuses concurrent GUI updates. Target is tradeflow-library-pilot-preview only; no production/merge/database migration/role changes. Implementation/release evidence and exact CI SHA are in the integration PR. See docs/TF-ORB-LIVE-INTEGRATION.md.

@@ -1,10 +1,10 @@
 /* Concept B: original cyan T inside a gently moving, blue woven membrane. */
-.tf-ai-orb[data-orb-material="concept-b-v4"],
+.tf-ai-orb[data-orb-material="concept-b-v5"],
 .tf-ai-orb[data-orb-material="concept-b-fallback"]{
  box-sizing:border-box;display:grid!important;place-items:center;
  position:fixed;width:56px;height:56px;right:18px;bottom:calc(96px + env(safe-area-inset-bottom));overflow:visible;padding:0;
  border:0!important;border-radius:50%!important;
- background:transparent url("./orb-concept-b/poster.png") center/100% 100% no-repeat!important;box-shadow:none!important;
+ background:linear-gradient(#0008,#0008),url("./orb-concept-b/reference.gif") center/100% 100% no-repeat!important;box-shadow:none!important;
  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
  animation:none!important;transition:none!important;isolation:isolate;touch-action:manipulation;filter:none!important;
  --tf-orb-concept-voice:0;
@@ -32,6 +32,15 @@
 .tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
 
 /* Same reference-derived membrane on the existing Intelligence voice surface. */
-.tf-voice-wave[data-orb-material="concept-b-v4"]{background:transparent!important;filter:none!important}
-.tf-voice-wave[data-orb-material="concept-b-v4"]>.tf-orb-concept-b-canvas{
+.tf-voice-wave[data-orb-material="concept-b-v5"]{background:transparent!important;filter:none!important}
+.tf-voice-wave[data-orb-material="concept-b-v5"]>.tf-orb-concept-b-canvas{
  inset:0;margin:auto;width:auto;height:100%;max-width:100%;aspect-ratio:420/408;border-radius:0}
+
+.tf-voice-wave[data-orb-backend="animated-reference"]{background:url("./orb-concept-b/reference.gif") center/auto 100% no-repeat!important}
+.tf-ai-orb[data-orb-backend="animated-reference"]>.tf-orb-concept-b-canvas,
+.tf-voice-wave[data-orb-backend="animated-reference"]>.tf-orb-concept-b-canvas{visibility:hidden}
+@media(prefers-reduced-motion:reduce){
+ .tf-ai-orb[data-orb-material="concept-b-v5"]{background-image:linear-gradient(#0008,#0008),url("./orb-concept-b/poster.png")!important}
+ .tf-voice-wave[data-orb-backend="animated-reference"]{background-image:url("./orb-concept-b/poster.png")!important}
+ .tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
+}

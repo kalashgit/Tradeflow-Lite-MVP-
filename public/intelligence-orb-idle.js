@@ -10,7 +10,7 @@
  if(root.document.readyState==='loading')root.document.addEventListener('DOMContentLoaded',start,{once:true});else start();}
 })(typeof globalThis!=='undefined'?globalThis:null,function(){
  'use strict';
- const version='concept-b-v4',clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),finite=x=>Number.isFinite(x)?x:0;
+ const version='concept-b-v5',clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),finite=x=>Number.isFinite(x)?x:0;
  function frameAt(seconds){const phase=((finite(seconds)/.17)%9+9)%9;return {index:Math.floor(phase),blend:phase-Math.floor(phase)};}
  function normalizeSpeech(d){
   if(!d||d.version!==1||d.source!=='assistant_playback')return null;
@@ -88,7 +88,7 @@
   const supportsVertexFlow=!!gl&&gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS)>=2;
   let ctx=null,program=null,buffer=null,indexBuffer=null,meshTransport=false,indexCount=0,textures=[],uniforms={},disposed=false,ready=false,raf=0;
   let time=0,last=null,lastPaint=null,frames=0,activity=0,speechPresence=0,speaking=false,level=0,speechAt=-Infinity;
-  let interval=0,slow=0,loadError=null,contextLost=false;
+  let interval=0,slow=0,loadError=null,contextLost=false,fallbackActive=false;
   const costs=[],intervals=[],reduced=root.matchMedia?.('(prefers-reduced-motion: reduce)');
   const script=document.querySelector('script[src*="intelligence-orb-idle.js"]');
   const base=new URL('orb-concept-b/',script?.src||document.baseURI);
@@ -151,7 +151,7 @@
    if(now-speechAt>600){speaking=false;level=0;}
    activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
    speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
-   if(!reduced?.matches)time+=dt*.55*(1-.72*speechPresence);
+   if(!reduced?.matches)time+=dt*(1-.82*speechPresence);
    if(lastPaint===null||now-lastPaint>=interval){
     if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
     renderAt(reduced?.matches?0:time,activity);lastPaint=now;
@@ -166,15 +166,15 @@
   function speech(e){const value=normalizeSpeech(e.detail);if(!value)return;speechAt=root.performance.now();speaking=value.active;level=value.level;if(!raf)resume();}
   function voice(e){if(['idle','unavailable','error'].includes(e.detail?.status)){speaking=false;level=0;if(!raf)resume();}}
   function visibility(){if(document.hidden){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;speaking=false;level=0;activity=0;speechPresence=0;}else resume();}
-  function lost(e){e.preventDefault();contextLost=true;if(button)button.dataset.orbBackend="poster-fallback";if(raf)root.cancelAnimationFrame(raf);raf=0;}
-  function restored(){try{initGL();contextLost=false;resume();}catch(e){loadError=String(e);}}
+  function lost(e){e.preventDefault();contextLost=true;fallbackActive=true;if(button)button.dataset.orbBackend="animated-reference";if(raf)root.cancelAnimationFrame(raf);raf=0;}
+  function restored(){try{initGL();contextLost=false;fallbackActive=false;resume();}catch(e){loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';}}
   root.addEventListener('tradeflow:speech-features',speech);root.addEventListener('tradeflow:voice-state',voice);
-  document.addEventListener('visibilitychange',visibility);reduced?.addEventListener?.('change',resume);
+  document.addEventListener('visibilitychange',visibility);reduced?.addEventListener?.('change',resume);root.addEventListener('pageshow',resume);
   canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
   const resize=new root.ResizeObserver(resume);resize.observe(canvas);
-  Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);if(button)button.dataset.orbBackend='poster-fallback';});
-  return Object.freeze({renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,motionSpeed:.55*(1-.72*speechPresence),speaking,ready,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
-   dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
+  Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';});
+  return Object.freeze({isAttached:()=>canvas.isConnected&&canvas.parentNode===button,renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,motionSpeed:1-.82*speechPresence,speaking,ready:ready||fallbackActive,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:fallbackActive?'animated-reference':gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
+   dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);root.removeEventListener('pageshow',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
     if(gl&&!contextLost){textures.forEach(t=>gl.deleteTexture(t));if(buffer)gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);if(program)gl.deleteProgram(program);}}
   });
  }
@@ -182,12 +182,12 @@
  function attach({root,document}={}){
   if(!root||!document)return null;current?.dispose();let disposed=false;const renderers=new Map();
   function sync(){if(disposed)return;
-   for(const [host,renderer] of renderers)if(!host.isConnected){renderer.dispose();renderers.delete(host);}
+   for(const [host,renderer] of renderers)if(!host.isConnected||!renderer.isAttached()){renderer.dispose();renderers.delete(host);}
    for(const host of document.querySelectorAll('.tf-ai-orb,.tf-voice-wave')){
     if(renderers.has(host))continue;
     // Replace artwork only. The existing host, action, composer and voice runtime remain.
     host.querySelectorAll('.tf-orb-mesh,.tf-orb-concept-b-canvas,.tf-orb-concept-b-emblem,.tf-flow-art').forEach(e=>e.remove());
-    const canvas=document.createElement('canvas');canvas.className='tf-orb-concept-b-canvas';canvas.setAttribute('aria-hidden','true');host.appendChild(canvas);host.dataset.orbMaterial=version;
+    const canvas=document.createElement('canvas');canvas.className='tf-orb-concept-b-canvas';canvas.setAttribute('aria-hidden','true');host.appendChild(canvas);host.dataset.orbMaterial=version;host.dataset.orbBackend='loading-reference';
     renderers.set(host,createRenderer(canvas,{root,document,button:host}));
    }
   }

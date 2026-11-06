@@ -1,5 +1,5 @@
 name: TradeFlow Approved Orb Live Preview
-# Approved concept-b-v4 orb on the current GUI; preserve Home checks with updated material/size assertions.
+# GIF-timed concept-b-v5 orb on the current GUI; preserve Home checks with updated material/size assertions.
 on:
   push:
     branches: [feature/tf-orb-live-integration-20261106]
@@ -194,7 +194,7 @@ jobs:
             const root='https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev';
             const r=await fetch(root+'/release.json?orb-base='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
             assert.equal(r.status,200);const live=await r.json();
-            assert.ok(['3408c4036f183e0032f295c78a7a6da0cd9e0152',process.env.GITHUB_SHA].includes(live.commit),'Live GUI changed while orb release was prepared');
+            assert.ok(['312713066599873e05941fd04dc957591e26f1f0',process.env.GITHUB_SHA].includes(live.commit),'Live GUI changed while orb release was prepared');
             for(const [name,digest] of Object.entries(live.assets)){
               if(['index.html','sw.js','intelligence-orb-idle.js','intelligence-orb-idle.css'].includes(name)||name.startsWith('orb-concept-b/'))continue;
               assert.equal(hash(fs.readFileSync('public/'+name)),digest,'Unrelated GUI asset changed: '+name);
