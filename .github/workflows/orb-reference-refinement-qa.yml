@@ -41,7 +41,7 @@ jobs:
           set -o pipefail
           npm test 2>&1 | tee artifacts/orb-idle/node.log
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium --only-shell
       - name: Real TradeFlow orb capture and navigation verification
         run: node scripts/verify-intelligence-orb-idle.cjs
       - name: Retain screenshots video traces and measurements

@@ -122,21 +122,21 @@
         // A dark, nearly opaque interior is essential at the compact size:
         // it prevents underlying Home text/cards showing through the fabric.
         // Depth comes from thread spacing and occlusion, not a plastic sphere.
-        ctx.fillStyle='rgba(3,7,25,.97)';
+        ctx.fillStyle='rgba(7,17,48,.99)';
         ctx.fill(edge);
         const backing=ctx.createLinearGradient(0,cy-r,0,cy+r);
-        backing.addColorStop(0,'rgba(10,24,67,.33)');
-        backing.addColorStop(.50,'rgba(5,14,43,.16)');
-        backing.addColorStop(1,'rgba(9,24,75,.39)');
+        backing.addColorStop(0,'rgba(16,42,100,.30)');
+        backing.addColorStop(.50,'rgba(9,29,77,.22)');
+        backing.addColorStop(1,'rgba(16,47,115,.35)');
         ctx.fillStyle=backing;
         ctx.fill(edge);
         // A shallow back sheet, slightly displaced in phase, shows through
         // the moving front sheet. Neither plane is a rotating globe grid.
-        const threads=clamp(Math.round(size*.93),92,205);
+        const threads=clamp(Math.round(size*.78),84,168);
         const steps=clamp(Math.round(size*.94),112,256);
         const drawWeave=(back)=>{
           const count=back?Math.round(threads*.65):threads;
-          ctx.lineWidth=back?clamp(size/280,.40,.58):clamp(size/230,.56,.78);
+          ctx.lineWidth=back?clamp(size/390,.28,.42):clamp(size/340,.38,.56);
           for(let j=0;j<=count;j++){
             const y0=(2*j/count-1)*.94+(back?-.012:0);
             const gradient=ctx.createLinearGradient(cx-r*.88,0,cx+r*.88,0);
@@ -168,7 +168,6 @@
         ctx.lineJoin='round';
         ctx.lineCap='round';
         ctx.globalCompositeOperation='screen';
-        drawWeave(true);
         drawWeave(false);
         ctx.restore();
         // An uneven thread-thin edge glows only where the same deforming
