@@ -53,10 +53,10 @@
         return { status: 'ready', reason: 'Playback requires a tap' };
       }
     }
-    async function speak({ text, code, turnId } = {}) {
+    async function speak({ text, code, turnId, speechReceipt } = {}) {
       if (state === 'ready' && current === turnId && audio) return playReady(epoch);
       stop();
-      if (typeof text !== 'string' || !text.trim() || text.length > 2500 || !code || !turnId) {
+      if (typeof text !== 'string' || !text.trim() || text.length > 2500 || !code || !turnId || typeof speechReceipt !== 'string') {
         setState('unavailable', 'Speech unavailable for this reply');
         return { status: 'unavailable' };
       }
@@ -67,7 +67,7 @@
       try {
         const response = await fetchImpl('/api/ai/tts', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, text, profileId }),
+          body: JSON.stringify({ code, text, profileId, speechReceipt }),
           cache: 'no-store', signal: controller.signal
         });
         if (token !== epoch) return { status: 'stopped' };
