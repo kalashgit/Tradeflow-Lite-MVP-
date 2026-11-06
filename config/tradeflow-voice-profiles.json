@@ -1,0 +1,44 @@
+{
+  "version": "tf-voice-persona-v1",
+  "status": "approved_character_direction_not_audio_verified",
+  "source": "founder voice direction 2026-11-06",
+  "engine": {
+    "primary": "kokoro-82m",
+    "fallback": "piper",
+    "transport": "private_self_hosted_only",
+    "paid_api_allowed": false,
+    "model_weights_in_git": false
+  },
+  "profiles": {
+    "gentleman": {
+      "label": "The Gentleman",
+      "age_character": "mature adult",
+      "presentation": "male",
+      "register": "resonant baritone",
+      "locale": "en-GB",
+      "texture": "smooth, warm, full-bodied and subtly velvety",
+      "delivery": "calm, authoritative, measured, dignified, conversational",
+      "wit": "restrained dry British wit with occasional gentle sardonic undertones",
+      "model_voice_id": null
+    },
+    "matriarch": {
+      "label": "The Matriarch",
+      "age_character": "young adult",
+      "presentation": "female",
+      "register": "rich, smooth lower-to-middle register; not an elderly voice",
+      "locale": "en-GB",
+      "texture": "refined, clear, warm and smooth",
+      "delivery": "calm, authoritative, measured, dignified, conversational",
+      "wit": "restrained dry British wit with occasional gentle sardonic undertones",
+      "model_voice_id": null
+    }
+  },
+  "rules": [
+    "Speech must be generated from the exact final validated assistant text; the voice layer must not change claims or numbers.",
+    "Never impersonate a real performer or a fictional character.",
+    "Humour is optional and never trivializes safety, financial hardship, emergencies or sensitive matters.",
+    "The same existing TradeFlow thread owns typed and spoken answers; voice grants no command authority.",
+    "No raw audio storage by default; stop and page-hide must cancel playback.",
+    "Do not advertise either candidate as available until a real licensed model voice is verified."
+  ]
+}
