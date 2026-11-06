@@ -89,7 +89,7 @@
   let ctx=null,program=null,buffer=null,indexBuffer=null,meshTransport=false,indexCount=0,textures=[],uniforms={},disposed=false,ready=false,raf=0;
   let time=0,last=null,lastPaint=null,frames=0,activity=0,speechPresence=0,speaking=false,level=0,speechAt=-Infinity;
   let interval=0,slow=0,loadError=null,contextLost=false,fallbackActive=false;
-  const costs=[],intervals=[],reduced=root.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const costs=[],intervals=[],reduced=root.matchMedia?.('(prefers-reduced-motion: reduce)');let previousReduced=!!reduced?.matches;
   const script=document.querySelector('script[src*="intelligence-orb-idle.js"]');
   const base=new URL('orb-concept-b/',script?.src||document.baseURI);
   const images=['membrane.png','forward.png','backward.png'].map(name=>{const im=new root.Image();im.src=new URL(name,base).href;return im;});
@@ -147,22 +147,23 @@
   }
   function tick(now){
    raf=0;if(disposed||document.hidden||!canvas.isConnected||contextLost)return;
-   const elapsed=last===null?0:Math.max(0,(now-last)/1000),dt=Math.min(elapsed,.1);last=now;
+   const elapsed=last===null?0:Math.max(0,(now-last)/1000),dt=Math.min(elapsed,.1),oldActivity=activity,motionReduced=!!reduced?.matches;last=now;
    if(now-speechAt>600){speaking=false;level=0;}
    activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
    speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
    if(!reduced?.matches)time+=elapsed*(1-.82*speechPresence);
-   if(lastPaint===null||now-lastPaint>=interval){
+   const shouldPaint=!motionReduced||motionReduced!==previousReduced||Math.abs(activity-oldActivity)>.001;previousReduced=motionReduced;
+   if(shouldPaint&&(lastPaint===null||now-lastPaint>=interval)){
     if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
     renderAt(reduced?.matches?0:time,activity);lastPaint=now;
     // Sustained missed refreshes select 30Hz. Resolution is bounded above.
     if(!reduced?.matches&&dt>.024)slow++;else slow=Math.max(0,slow-1);
     if(slow>30)interval=32;
    }
-   if(!reduced?.matches||activity>.005||speaking)raf=root.requestAnimationFrame(tick);
+   raf=root.requestAnimationFrame(tick);
   }
   function resume(){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;lastPaint=null;
-   if(ready&&!disposed&&!document.hidden&&!contextLost){renderAt(reduced?.matches?0:time,activity);if(!reduced?.matches||speaking||activity>.005)raf=root.requestAnimationFrame(tick);}}
+   if(ready&&!disposed&&!document.hidden&&!contextLost){renderAt(reduced?.matches?0:time,activity);raf=root.requestAnimationFrame(tick);}}
   function speech(e){const value=normalizeSpeech(e.detail);if(!value)return;speechAt=root.performance.now();speaking=value.active;level=value.level;if(!raf)resume();}
   function voice(e){if(['idle','unavailable','error'].includes(e.detail?.status)){speaking=false;level=0;if(!raf)resume();}}
   function visibility(){if(document.hidden){if(raf)root.cancelAnimationFrame(raf);raf=0;last=null;speaking=false;level=0;activity=0;speechPresence=0;}else resume();}
@@ -173,7 +174,7 @@
   canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
   const resize=new root.ResizeObserver(resume);resize.observe(canvas);
   Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';});
-  return Object.freeze({isAttached:()=>canvas.isConnected&&canvas.parentNode===button,renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,motionSpeed:1-.82*speechPresence,speaking,ready:ready||fallbackActive,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:fallbackActive?'animated-reference':gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
+  return Object.freeze({isAttached:()=>canvas.isConnected&&canvas.parentNode===button,renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,scheduled:!!raf,lastTick:last,visible:!document.hidden,motionSpeed:1-.82*speechPresence,speaking,ready:ready||fallbackActive,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:fallbackActive?'animated-reference':gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
    dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);root.removeEventListener('pageshow',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
     if(gl&&!contextLost){textures.forEach(t=>gl.deleteTexture(t));if(buffer)gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);if(program)gl.deleteProgram(program);}}
   });

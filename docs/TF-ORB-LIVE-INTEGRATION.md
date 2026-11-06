@@ -12,3 +12,5 @@ After release, verify the exact live release manifest and asset digests, denied 
 ## GIF cadence and continuous-motion fix
 
 Idle now advances at the source GIF's real-time 170ms/frame cadence (1.53s loop), instead of 55% speed. Genuine assistant playback slows that movement while retaining blue brightness feedback. A real animated GIF replaces the static error/loading background, including texture-load failure and WebGL context loss. Reduced-motion preferences still select the static poster. The renderer reattaches when a host retains its DOM node but replaces its canvas, and resumes on pageshow. Browser checks now verify real-time phase advance, canvas replacement recovery and visibly changing fallback GIF screenshots with a blocked flow resource.
+
+The animation clock uses actual elapsed time across dropped frames. A visible-page scheduling loop also detects motion-preference changes even when a browser misses the media-query event; reduced-motion frames are not repainted unless lighting or preference changes.
