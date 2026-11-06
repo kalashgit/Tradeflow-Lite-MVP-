@@ -62,8 +62,16 @@
   const refs = value.refs == null ? [] : value.refs;
   if (!Array.isArray(refs) || refs.length > 8 || refs.some(x => typeof x !== 'string' || !/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x))) throw Error('Invalid evidence references');
   if (value.role === 'user' && refs.length) throw Error('User turns cannot assert verified evidence');
+  // A receipt is a time-bounded server HMAC for the exact saved assistant text;
+  // local evidence and user turns may never mint or retain a speech receipt.
+  const speechReceipt=value.speechReceipt == null ? null : value.speechReceipt;
+  if(speechReceipt!==null&&(
+   value.role!=='assistant'||value.source!=='unverified_model'||
+   typeof speechReceipt!=='string'||!/^[0-9]{10,13}\.[A-Za-z0-9_-]{43}$/.test(speechReceipt)
+  ))throw Error('Speech receipt requires a server AI reply');
   return {id: value.id || makeId(), role: value.role, content: value.content.trim(), modality: value.modality || 'text',
-   status: 'committed', source: value.source, refs: refs.slice(), at: now()};
+   status: 'committed', source: value.source, refs: refs.slice(), at: now(),
+   ...(speechReceipt?{speechReceipt}:{})};
  }
  function createThread(db, scope, title = 'New conversation') {
   const key = scopeKey(scope);
@@ -110,7 +118,8 @@
       const existing = prior.result;
       if (existing.threadId !== threadId || existing.scopeKey !== key || existing.role !== input.role ||
           existing.modality !== input.modality || existing.content !== input.content ||
-          existing.source !== input.source || JSON.stringify(existing.refs) !== JSON.stringify(input.refs)) {
+          existing.source !== input.source || existing.speechReceipt !== input.speechReceipt ||
+          JSON.stringify(existing.refs) !== JSON.stringify(input.refs)) {
        fail(Error('Conflicting conversation event ID')); return;
       }
       finish(existing); return;

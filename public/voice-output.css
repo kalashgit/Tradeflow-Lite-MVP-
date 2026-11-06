@@ -1,0 +1,10 @@
+/* Chatterbox playback controls inside the existing TradeFlow AI conversation. */
+.tf-ai-voice-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:11px 14px;border:1px solid rgba(124,173,204,.2);border-radius:14px;margin:12px 0;background:rgba(20,33,44,.45)}
+.tf-ai-voice-tools label{font-size:13px;font-weight:650;letter-spacing:.02em}
+.tf-ai-voice-tools select,.tf-ai-voice-tools button,.tf-ai-listen{color:inherit;font:inherit;border-radius:9px;border:1px solid rgba(130,189,212,.35);background:rgba(28,50,63,.72);padding:7px 11px;min-height:36px;cursor:pointer}
+.tf-ai-voice-tools select{max-width:180px}
+.tf-ai-voice-tools button:disabled{opacity:.45;cursor:not-allowed}
+.tf-ai-voice-tools [data-tf-voice-status]{font-size:12px;flex:1 1 150px;min-width:0;opacity:.85}
+.tf-ai-listen{margin-top:10px;font-size:13px;min-height:32px;color:#bcecf4}
+.tf-ai-listen:focus-visible,.tf-ai-voice-tools button:focus-visible,.tf-ai-voice-tools select:focus-visible{outline:2px solid #42d3eb;outline-offset:3px}
+@media(max-width:450px){.tf-ai-voice-tools{gap:8px}.tf-ai-voice-tools [data-tf-voice-status]{flex-basis:100%}}

@@ -1,4 +1,6 @@
 import {tenantApi} from './tenant-api.js';
+import {chatterboxGateway} from './chatterbox-gateway.js';
+import {signSpeechReceipt} from './speech-receipt.js';
 
 /* Private AI preview and authenticated tenant API. Local records are not uploaded automatically. */
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -6,6 +8,7 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname.startsWith('/api/v1/'))return tenantApi(request,env);
+  if(url.pathname==='/api/ai/tts')return chatterboxGateway(request,env);
   if(url.pathname==='/api/ai/health'){
    if(request.method!=='GET')return reply({error:'GET required'},405);
    return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.9.39'});
@@ -45,7 +48,9 @@ export default {
    const result=await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:system},...messages],max_tokens:380,temperature:0.45});
    const text=result?.response||result?.choices?.[0]?.message?.content||'';
    if(typeof text!=='string'||!text.trim())return reply({error:'AI returned no text'},502);
-   return reply({reply:text.trim().slice(0,2500)});
+   const canonical=text.trim().slice(0,2500);
+   const speechReceipt=await signSpeechReceipt(canonical,env.TF_CHATTERBOX_TOKEN);
+   return reply({reply:canonical,...(speechReceipt?{speechReceipt}:{})});
   }catch(error){return reply({error:'AI inference failed. Check the AI binding or daily quota.'},502)}
  }
 };
