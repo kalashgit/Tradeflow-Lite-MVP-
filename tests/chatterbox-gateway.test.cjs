@@ -39,8 +39,8 @@ test('rejects unsigned, altered and expired assistant text before upstream call'
 test('never forwards malformed or failed upstream audio as success',async()=>{
  const failed=await gateway(req(await signed()),env,{fetchImpl:async()=>new Response('down',{status:503})});
  assert.equal(failed.status,503);
- const wrong=await gateway(req(good),env,{fetchImpl:async()=>new Response('plain text',{headers:{'Content-Type':'text/plain'}})});
+ const wrong=await gateway(req(await signed()),env,{fetchImpl:async()=>new Response('plain text',{headers:{'Content-Type':'text/plain'}})});
  assert.equal(wrong.status,502);
- const spoofed=await gateway(req(good),env,{fetchImpl:async()=>new Response(Buffer.alloc(44),{headers:{'Content-Type':'audio/wav'}})});
+ const spoofed=await gateway(req(await signed()),env,{fetchImpl:async()=>new Response(Buffer.alloc(44),{headers:{'Content-Type':'audio/wav'}})});
  assert.equal(spoofed.status,502);
 });
