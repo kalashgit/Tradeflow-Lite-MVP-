@@ -1,6 +1,6 @@
 {
   "version": "tf-voice-persona-v2",
-  "status": "chatterbox_selected_runtime_not_yet_verified",
+  "status": "chatterbox_integration_candidate_not_audio_approved",
   "source": "founder direction 2026-11-06",
   "engine": {
     "primary": "chatterbox-tts",
@@ -10,7 +10,8 @@
     "model_weights_in_git": false,
     "model_repository": "ResembleAI/chatterbox",
     "model_license": "MIT",
-    "reference_audio_required_for_persona": true
+    "reference_audio_required_for_persona": true,
+    "reference_recordings": "licensed_private_files_only"
   },
   "profiles": {
     "gentleman": {
@@ -22,7 +23,7 @@
       "texture": "smooth, warm, full-bodied and subtly velvety",
       "delivery": "calm, authoritative, measured, dignified, conversational",
       "wit": "restrained dry British wit with occasional gentle sardonic undertones",
-      "model_voice_id": null,
+      "model_voice_id": "gentleman",
       "reference_audio_id": null,
       "exaggeration": 0.48,
       "cfg_weight": 0.42
@@ -36,7 +37,7 @@
       "texture": "refined, clear, warm and smooth",
       "delivery": "calm, authoritative, measured, dignified, conversational",
       "wit": "restrained dry British wit with occasional gentle sardonic undertones",
-      "model_voice_id": null,
+      "model_voice_id": "matriarch",
       "reference_audio_id": null,
       "exaggeration": 0.53,
       "cfg_weight": 0.4
@@ -49,6 +50,7 @@
     "Humour is optional and never trivializes safety, financial hardship, emergencies or sensitive matters.",
     "The same existing TradeFlow thread owns typed and spoken answers; voice grants no command authority.",
     "No raw audio storage by default; stop and page-hide must cancel playback.",
-    "Do not advertise either candidate as available until a real licensed model voice is verified."
+    "Do not advertise either candidate as available until a real licensed model voice is verified.",
+    "Chatterbox profiles use separately licensed original voice reference recordings; matching the intended age/accent is subject to human listening approval."
   ]
 }
