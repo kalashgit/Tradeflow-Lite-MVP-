@@ -34,6 +34,30 @@ before(async()=>({verifiedAccountConversationScope,createOfficeConversationEvide
  await import('../public/conversation-evidence-bridge.js')));
 async function fixture(){
  const db=createDB({},['aiConversationThreads','aiConversationTurns']);
+ // The repository's lightweight DB helper models get/put but not IndexedDB
+ // add() and index(). Extend only this test fixture, not production storage.
+ const makeTransaction=db.transaction.bind(db);
+ db.transaction=(names,mode)=>{
+  const tx=makeTransaction(names,mode),original=tx.objectStore.bind(tx);
+  tx.objectStore=name=>{
+   const store=original(name);
+   return {...store,add:row=>store.put(row),index:indexName=>{
+    const field=indexName==='byScope'?'scopeKey':
+     indexName==='byThread'?'threadId':null;
+    if(!field)throw Error('Unsupported test index');
+    return {getAll:key=>{
+     const inner=store.getAll(),outer={};
+     inner.onsuccess=()=>{
+      outer.result=inner.result.filter(record=>record[field]===key);
+      outer.onsuccess?.();
+     };
+     inner.onerror=()=>outer.onerror?.();
+     return outer;
+    }};
+   }};
+  };
+  return tx;
+ };
  const scope=await verifiedAccountConversationScope({issuer,subject,businessId});
  let account={status:'signed_in',identity:{issuer,subject},
   businesses:[{business_id:businessId,role:'member'}]};
