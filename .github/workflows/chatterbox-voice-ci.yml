@@ -1,0 +1,45 @@
+name: Chatterbox Voice Contract Checks
+on:
+  pull_request:
+    branches:
+      - feature/cloud-record-discovery
+    paths:
+      - 'src/chatterbox-gateway.js'
+      - 'src/index.js'
+      - 'config/tradeflow-voice-profiles.json'
+      - 'public/voice-output.js'
+      - 'public/app.js'
+      - 'tts/**'
+      - 'tests/chatterbox-*.test.cjs'
+      - 'tests/voice-profile-contract.test.cjs'
+      - '.github/workflows/chatterbox-voice-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  voice-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm exact head
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Syntax and focused regressions
+        run: |
+          node --check src/index.js
+          node --check src/chatterbox-gateway.js
+          node --check public/voice-output.js
+          node --check public/app.js
+          node --test tests/voice-profile-contract.test.cjs tests/chatterbox-gateway.test.cjs tests/chatterbox-playback.test.cjs
+      - name: Python private runtime contract (no model download)
+        run: |
+          python3 -m py_compile tts/chatterbox_service.py tts/provision_vctk_references.py
+          python3 -m unittest discover -s tts -p 'test_*.py' -v
+      - name: Full Node regressions
+        run: npm test
