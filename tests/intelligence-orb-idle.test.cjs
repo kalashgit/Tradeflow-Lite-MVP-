@@ -30,6 +30,19 @@ test('fine threads move coherently but change over time',()=>{
   }
 });
 
+test('local fold displacement is stronger at the membrane edge than its calm center',()=>{
+  const meanDrift=radius=>{
+    let total=0;
+    for(let i=0;i<72;i++){
+      const a=i*Math.PI/36,x=radius*Math.cos(a),y=radius*Math.sin(a);
+      const p=meshPoint(x,y,5.3);
+      total+=Math.hypot(p[0]-x,p[1]-y);
+    }
+    return total/72;
+  };
+  assert.ok(meanDrift(.78)>meanDrift(.12)*1.3,'center must not inherit the full peripheral fold field');
+});
+
 test('fold illumination is shaped by current geometry instead of a fixed halo',()=>{
   const {foldLight}=require('../public/intelligence-orb-idle.js');
   const light=[0,.25,.5,1,2,3,4,5].map(a=>foldLight(a,3));
@@ -40,13 +53,14 @@ test('fold illumination is shaped by current geometry instead of a fixed halo',(
 
 test('mesh renderer remains a visual layer and does not start voice or workflows',()=>{
   const source=fs.readFileSync('public/intelligence-orb-idle.js','utf8');
-  assert.equal(version,'woven-blue-v10');
-  assert.ok(source.includes('drawFoldVeil(.35+.14*t,.91,.13,1)'), 'fold material must overlap nearby fibers');
+  assert.equal(version,'membrane-blue-v11');
+  assert.ok(source.includes('drawWeave(false)'), 'front membrane must use a coherent moving fine-thread topology');
   assert.equal(source.includes('createRadialGradient'),false,'no glossy sphere gradient');
-  assert.ok(source.includes('32+12*u+10*foldTilt'),'threads must use the founder-requested blue palette');
-  assert.ok(source.includes('Math.round(size*.79)'),'mesh must retain reference-like fine threads at native size');
-  assert.ok(source.includes('clamp(size/220,.56,.81)'),'dense threads must remain hairlines');
-  assert.ok(source.includes('const grazing=.39+.31*Math.pow(radial,2.25)'),'membrane must keep its center translucent');
+  assert.ok(source.includes('Math.round(size*.78)'),'mesh density must preserve fine separate strands at native size');
+  assert.ok(source.includes('clamp(size/340,.38,.56)'),'front sheet must use fine raster-visible strands');
+  assert.ok(source.includes('const foldA=Math.sin(2.65*x+1.25*y-.47*t)'),'fold advection must remain live in idle');
+  assert.ok(source.includes("ctx.fillStyle='rgba(7,17,48,.99)'"),'membrane must occlude background content rather than appear transparent');
+  assert.equal(source.includes('drawFoldVeil('),false,'no opaque fake fold bands');
   assert.equal(source.includes('rgba(104,81,211'),false,'do not bring back violet material');
   for(const term of ['getUserMedia(', 'SpeechRecognition(', 'speechSynthesis.speak(', 'navigator.vibrate(', 'fetch(', 'WebGLRenderingContext', 'localStorage.']){
     assert.equal(source.includes(term),false,'unexpected side effect: '+term);
@@ -56,12 +70,12 @@ test('mesh renderer remains a visual layer and does not start voice or workflows
 test('app and offline precache reference exact new mesh artifacts',()=>{
   const html=fs.readFileSync('public/index.html','utf8');
   const sw=fs.readFileSync('public/sw.js','utf8');
-  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-15','intelligence-orb-idle.css?v=orb-idle-15']){
+  for(const asset of ['intelligence-orb-idle.js?v=orb-idle-16','intelligence-orb-idle.css?v=orb-idle-16']){
     assert.ok(html.includes(asset),asset+' in index');
     assert.ok(sw.includes(asset),asset+' in offline cache');
   }
   assert.ok(fs.existsSync('public/intelligence-orb-idle.css'));
-  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-15')<html.indexOf('<script type="module" src="./app.js'));
+  assert.ok(html.indexOf('intelligence-orb-idle.js?v=orb-idle-16')<html.indexOf('<script type="module" src="./app.js'));
 });
 
 test('existing Intelligence action is preserved; only decorative icon becomes hidden',()=>{
@@ -71,5 +85,5 @@ test('existing Intelligence action is preserved; only decorative icon becomes hi
   assert.ok(app.includes('tfAiOverlayView'));
   assert.ok(css.includes('.tf-ai-orb-icon'));
   assert.ok(css.includes('display:none!important'));
-  assert.ok(css.includes('woven-blue-v10'));
+  assert.ok(css.includes('membrane-blue-v11'));
 });

@@ -1,0 +1,53 @@
+name: TradeFlow Orb Reference Refinement QA
+on:
+  push:
+    branches:
+      - qa/orb-reference-refinement-20261105
+  pull_request:
+    branches:
+      - feature/tf-orb-idle-mesh-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  orb-rendered-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact revision
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test -z "$(git status --porcelain)"
+          mkdir -p artifacts/orb-idle
+          git rev-parse HEAD > artifacts/orb-idle/exact-sha.txt
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Focused tests
+        run: |
+          node --check public/intelligence-orb-idle.js
+          node --check scripts/verify-intelligence-orb-idle.cjs
+          node --test tests/intelligence-orb-idle.test.cjs
+      - name: Full Node regression baseline
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/orb-idle/node.log
+      - name: Install Chromium
+        run: npx playwright install chromium --only-shell
+      - name: Real TradeFlow orb capture and navigation verification
+        run: node scripts/verify-intelligence-orb-idle.cjs
+      - name: Retain screenshots video traces and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-orb-reference-refinement-${{ github.sha }}
+          path: artifacts/orb-idle/
+          if-no-files-found: warn
