@@ -1,5 +1,6 @@
 /* Same-origin, preview-authorized gateway to a separately hosted private Chatterbox service.
    Audio is transient; no generated answer text or WAV is stored server-side. */
+import {verifySpeechReceipt} from './speech-receipt.js';
 const json=(message,status)=>Response.json({error:message},{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const profiles=new Set(['gentleman','matriarch']);
 const jsonType=/^application\/json(?:\s*;|$)/i;
@@ -26,6 +27,7 @@ export async function chatterboxGateway(request,env,{fetchImpl=fetch}={}){
   if(!profiles.has(body.profileId))return json('Unknown voice profile',400);
   if(typeof body.text!=='string'||!body.text.trim()||body.text.length>2500||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(body.text))
     return json('Invalid speech text',400);
+  if(!await verifySpeechReceipt(body.text,body.speechReceipt,env.TF_CHATTERBOX_TOKEN))return json('Assistant reply receipt invalid or expired',403);
   try{
     const response=await fetchImpl(upstream,{
       method:'POST',headers:{'Content-Type':'application/json','X-TradeFlow-TTS-Token':env.TF_CHATTERBOX_TOKEN},
