@@ -12,13 +12,13 @@ function harness(fetchImpl = async () => validResponse(), playFn = async () => {
     urlAPI: { createObjectURL: () => 'blob:voice', revokeObjectURL: value => revoked.push(value) } });
   return { voice, doc, win, audios, revoked, statusNodes, stopButtons };
 }
-const args = { code: 'not-a-real-secret', text: 'One approved estimate.', turnId: 'turn-1' };
+const args = { code: 'not-a-real-secret', text: 'One approved estimate.', turnId: 'turn-1', speechReceipt: '1765000000.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' };
 test('speech from committed text routes to one same-origin endpoint, and stop revokes audio', async () => {
   let request;
   const h = harness(async (path, init) => { request = { path, init }; return validResponse(); });
   assert.equal((await h.voice.speak(args)).status, 'speaking');
   assert.equal(request.path, '/api/ai/tts');
-  assert.deepEqual(JSON.parse(request.init.body), { code: args.code, text: args.text, profileId: 'gentleman' });
+  assert.deepEqual(JSON.parse(request.init.body), { code: args.code, text: args.text, profileId: 'gentleman', speechReceipt: args.speechReceipt });
   assert.equal(h.voice.status(), 'speaking');
   h.voice.stop();
   assert.equal(h.audios[0].paused, true);
