@@ -147,11 +147,11 @@
   }
   function tick(now){
    raf=0;if(disposed||document.hidden||!canvas.isConnected||contextLost)return;
-   const dt=last===null?0:clamp((now-last)/1000,0,.1);last=now;
+   const elapsed=last===null?0:Math.max(0,(now-last)/1000),dt=Math.min(elapsed,.1);last=now;
    if(now-speechAt>600){speaking=false;level=0;}
    activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
    speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
-   if(!reduced?.matches)time+=dt*(1-.82*speechPresence);
+   if(!reduced?.matches)time+=elapsed*(1-.82*speechPresence);
    if(lastPaint===null||now-lastPaint>=interval){
     if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
     renderAt(reduced?.matches?0:time,activity);lastPaint=now;

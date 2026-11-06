@@ -1,5 +1,5 @@
 name: TradeFlow Approved Orb Live Preview
-# GIF-timed concept-b-v5 orb on the current GUI; preserve Home checks with updated material/size assertions.
+# Wall-clock GIF-timed concept-b-v5 orb on the current GUI; preserve Home checks with updated material/size assertions.
 on:
   push:
     branches: [feature/tf-orb-live-integration-20261106]
