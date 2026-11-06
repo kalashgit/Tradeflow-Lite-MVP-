@@ -5,6 +5,9 @@ on:
       - feature/cloud-record-discovery
     paths:
       - 'src/chatterbox-gateway.js'
+      - 'src/speech-receipt.js'
+      - 'public/conversation-store.js'
+      - 'tests/speech-receipt.test.cjs'
       - 'src/index.js'
       - 'config/tradeflow-voice-profiles.json'
       - 'public/voice-output.js'
