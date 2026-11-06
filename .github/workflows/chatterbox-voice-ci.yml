@@ -8,6 +8,10 @@ on:
       - 'src/speech-receipt.js'
       - 'public/conversation-store.js'
       - 'tests/speech-receipt.test.cjs'
+      - 'tests/voice-saved-receipt.test.cjs'
+      - 'wrangler.jsonc'
+      - 'public/sw.js'
+      - 'public/index.html'
       - 'src/index.js'
       - 'config/tradeflow-voice-profiles.json'
       - 'public/voice-output.js'
@@ -45,7 +49,7 @@ jobs:
           node --check src/chatterbox-gateway.js
           node --check public/voice-output.js
           node --check public/app.js
-          node --test tests/voice-profile-contract.test.cjs tests/chatterbox-gateway.test.cjs tests/chatterbox-playback.test.cjs
+          node --test tests/voice-profile-contract.test.cjs tests/chatterbox-gateway.test.cjs tests/chatterbox-playback.test.cjs tests/speech-receipt.test.cjs tests/voice-saved-receipt.test.cjs
       - name: Python private runtime contract (no model download)
         run: |
           python3 -m py_compile tts/chatterbox_service.py tts/provision_vctk_references.py
