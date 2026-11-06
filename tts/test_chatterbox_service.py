@@ -16,7 +16,7 @@ def dummy_wav():
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(24000)
-        wav.writeframes(b'\\x00\\x00' * 200)
+        wav.writeframes(b'\x00\x00' * 200)
     return buf.getvalue()
 
 
@@ -41,7 +41,7 @@ class ChatterboxContractTests(unittest.TestCase):
         self.assertTrue(valid_request({'profileId': 'gentleman', 'text': 'Three quotations are awaiting approval.'}))
         self.assertTrue(valid_request({'profileId': 'matriarch', 'text': 'Good evening.'}))
         for item in ({'profileId': 'ghost', 'text': 'hello'}, {'profileId': 'gentleman', 'text': ''},
-                     {'profileId': 'gentleman', 'text': 'A' * 2501}, {'profileId': 'gentleman', 'text': 'hi\\x00'}):
+                     {'profileId': 'gentleman', 'text': 'A' * 2501}, {'profileId': 'gentleman', 'text': 'hi\x00'}):
             self.assertFalse(valid_request(item))
 
     def test_private_http_contract(self):
