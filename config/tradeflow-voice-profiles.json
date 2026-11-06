@@ -1,13 +1,16 @@
 {
-  "version": "tf-voice-persona-v1",
-  "status": "approved_character_direction_not_audio_verified",
-  "source": "founder voice direction 2026-11-06",
+  "version": "tf-voice-persona-v2",
+  "status": "chatterbox_selected_runtime_not_yet_verified",
+  "source": "founder direction 2026-11-06",
   "engine": {
-    "primary": "kokoro-82m",
-    "fallback": "piper",
+    "primary": "chatterbox-tts",
+    "fallback": "kokoro-82m",
     "transport": "private_self_hosted_only",
     "paid_api_allowed": false,
-    "model_weights_in_git": false
+    "model_weights_in_git": false,
+    "model_repository": "ResembleAI/chatterbox",
+    "model_license": "MIT",
+    "reference_audio_required_for_persona": true
   },
   "profiles": {
     "gentleman": {
@@ -19,7 +22,10 @@
       "texture": "smooth, warm, full-bodied and subtly velvety",
       "delivery": "calm, authoritative, measured, dignified, conversational",
       "wit": "restrained dry British wit with occasional gentle sardonic undertones",
-      "model_voice_id": null
+      "model_voice_id": null,
+      "reference_audio_id": null,
+      "exaggeration": 0.48,
+      "cfg_weight": 0.42
     },
     "matriarch": {
       "label": "The Matriarch",
@@ -30,12 +36,16 @@
       "texture": "refined, clear, warm and smooth",
       "delivery": "calm, authoritative, measured, dignified, conversational",
       "wit": "restrained dry British wit with occasional gentle sardonic undertones",
-      "model_voice_id": null
+      "model_voice_id": null,
+      "reference_audio_id": null,
+      "exaggeration": 0.53,
+      "cfg_weight": 0.4
     }
   },
   "rules": [
     "Speech must be generated from the exact final validated assistant text; the voice layer must not change claims or numbers.",
     "Never impersonate a real performer or a fictional character.",
+    "Only use reference recordings with documented speaker consent and commercial rights.",
     "Humour is optional and never trivializes safety, financial hardship, emergencies or sensitive matters.",
     "The same existing TradeFlow thread owns typed and spoken answers; voice grants no command authority.",
     "No raw audio storage by default; stop and page-hide must cancel playback.",
