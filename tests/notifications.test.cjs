@@ -27,6 +27,9 @@ assert.ok(fresh.some(x=>x.id==='growth:mission:mission1'&&x.route==='missions'))
 assert.ok(fresh.some(x=>x.id==='growth:setup-icp:v1'&&x.route==='growth'));
 assert.ok(fresh.some(x=>x.id==='activity:event:old'&&x.route==='quotes'));
 assert.equal(fresh.filter(x=>x.id.includes('mission1')).length,1,'Mission must not also duplicate priority task');
+// The generated-item assertions above use a fixed clock. The UI below uses
+// actual Date.now(), so its old activity must remain inside the 21-day window.
+data.events[0].date=new Date(Date.now()-86400000).toISOString();
 const stores={settings:data.settings};let navigated='',writes=0;
 const bridge={
  put:async(store,row)=>{assert.equal(store,'settings');writes++;const idx=stores.settings.findIndex(x=>x.id===row.id);
@@ -40,7 +43,7 @@ mod.configure(bridge);
  await mod.bootstrap(data);
  assert.equal(writes,1);assert.ok(stores.settings.find(x=>x.id===KEY));
  await mod.bootstrap(data);assert.equal(writes,1,'State initialized once');
- assert.ok(!itemsWithRead(data,NOW).find(x=>x.id==='activity:event:old').unread,'Historical events cannot trigger unread dot');
+ assert.ok(!itemsWithRead(data,Date.now()).find(x=>x.id==='activity:event:old').unread,'Historical events cannot trigger unread dot');
  const bell=mod.home(data,'<svg aria-hidden="true"></svg>');
  assert.ok(bell.includes('data-notif-action="toggle"'));
  assert.ok(bell.includes('<i aria-hidden="true"></i>'),'Unread actionable work shows dot');
