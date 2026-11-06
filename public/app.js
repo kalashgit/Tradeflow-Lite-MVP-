@@ -524,7 +524,7 @@ function tfAiAttribution(message){
 }
 function tfAIChatView(data){
  const unlocked=!!tfAiKey();
- const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+(m.role==='assistant'&&m.status==='committed'?'<button type="button" class="tf-ai-listen" data-action="tfAiSpeak" data-id="'+esc(m.id)+'" aria-label="Listen to this saved assistant reply">Listen</button>':'')+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
+ const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+(m.role==='assistant'&&m.status==='committed'&&m.speechReceipt?'<button type="button" class="tf-ai-listen" data-action="tfAiSpeak" data-id="'+esc(m.id)+'" aria-label="Listen to this saved assistant reply">Listen</button>':'')+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
  const examples=[['Business update','TradeFlow, give me an update on my business. What needs attention?'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
  const reviewJobs=(data.jobs||[]).filter(job=>typeof job.id==='string'&&job.id&&typeof job.title==='string').slice(0,5);
  const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
@@ -813,6 +813,7 @@ async function tfAISend(text){
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
   tfAiPreviewMode=payload.syntheticDemo?String(payload.source||'mock'):tfAiPreviewMode;
   await tfAiSaveTurn({role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
+   ...(typeof payload.speechReceipt==='string'&&!payload.syntheticDemo?{speechReceipt:payload.speechReceipt}:{}),
    source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable'].includes(payload.source)?payload.source:'unverified_model',
    refs:payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
  }catch(err){tfChatError=await tfAiDescribeError(err)}
@@ -1444,8 +1445,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  }
  if(el.dataset.action==='tfAiSpeak'){
   const turn=tfChatMessages.find(m=>m.id===el.dataset.id&&m.role==='assistant'&&m.status==='committed');
-  if(!turn||!tfAiKey()||!window.TradeFlowVoiceOutput){notify('Speech needs a saved assistant reply and the unlocked private AI preview.');return}
-  void window.TradeFlowVoiceOutput.speak({text:turn.content,turnId:turn.id,code:tfAiKey()});
+  if(!turn?.speechReceipt||!tfAiKey()||!window.TradeFlowVoiceOutput){notify('Speech requires a signed assistant reply and private AI access.');return}
+  void window.TradeFlowVoiceOutput.speak({text:turn.content,turnId:turn.id,code:tfAiKey(),speechReceipt:turn.speechReceipt});
   return;
  }
  if(el.dataset.action==='tfAiVoiceStop'){window.TradeFlowVoiceOutput?.stop();return}
