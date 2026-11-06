@@ -6,7 +6,7 @@
   'use strict';
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root) root.TradeFlowConceptBOrb = api;
+  if (root) { root.TradeFlowConceptBOrb = api; root.TradeFlowOrbIdle = api; }
   if (root && root.document) {
     const begin = () => api.attach({ root, document: root.document });
     if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', begin, { once: true });
@@ -157,6 +157,7 @@
       ctx.restore();
       if (button) {
         button.style.setProperty('--tf-orb-concept-voice', String(clamp(level,0,1).toFixed(3)));
+        button.style.setProperty('--tf-orb-concept-glow', (2 + 7 * clamp(level,0,1)).toFixed(1) + 'px');
         button.dataset.orbState = level > .12 ? 'speaking' : 'idle';
       }
       frames++;

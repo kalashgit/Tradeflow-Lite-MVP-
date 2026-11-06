@@ -17,7 +17,7 @@
  border-radius:50%;pointer-events:none;background:transparent;opacity:1}
 .tf-orb-concept-b-emblem{position:relative;z-index:1;width:45%;height:45%;
  color:#06cbdf;pointer-events:none;
- filter:drop-shadow(0 0 calc(2px + 4px * var(--tf-orb-concept-voice)) rgba(0,235,252,.33));
+ filter:drop-shadow(0 0 var(--tf-orb-concept-glow,2px) rgba(0,235,252,.33));
  transition:filter 140ms linear;color:rgba(0,207,221,.96)}
 .tf-ai-orb[data-orb-material^="concept-b"]:focus-visible{outline:2px solid #64e8f8;outline-offset:3px}
 .tf-ai-orb[data-orb-material^="concept-b"]:active{transform:scale(.97)}
