@@ -3,3 +3,9 @@
 
 /node_modules/
 /artifacts/
+
+# Local Chatterbox model/reference data — never commit private audio or weights
+/.local-tts/
+/tts/__pycache__/
+/tts/.venv/
+/tts/.cache/
