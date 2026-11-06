@@ -450,6 +450,7 @@ async function tfAiSaveTurn(turn){
 }
 async function tfAiSwitchThread(threadId){
  if(tfChatBusy)return;
+ window.TradeFlowVoiceOutput?.stop();
  const store=window.TradeFlowConversationStore;
  try{
   if(!tfChatThreads.some(t=>t.id===threadId))throw Error('Conversation no longer available');
@@ -461,6 +462,7 @@ async function tfAiSwitchThread(threadId){
 }
 async function tfAiNewThread(){
  if(tfChatBusy)return;
+ window.TradeFlowVoiceOutput?.stop();
  try{
   const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
   tfActiveChatThreadId=thread.id;tfChatMessages=[];tfChatError='';
@@ -471,6 +473,7 @@ async function tfAiNewThread(){
 }
 async function tfAiDeleteThread(){
  if(tfChatBusy||!tfActiveChatThreadId)return;
+ window.TradeFlowVoiceOutput?.stop();
  if(!confirm('Permanently delete this local conversation and all its messages from this device?'))return;
  try{
   await window.TradeFlowConversationStore.deleteThread(db,tfAiLocalScope,tfActiveChatThreadId);
@@ -521,13 +524,16 @@ function tfAiAttribution(message){
 }
 function tfAIChatView(data){
  const unlocked=!!tfAiKey();
- const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
+ const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+(m.role==='assistant'&&m.status==='committed'?'<button type="button" class="tf-ai-listen" data-action="tfAiSpeak" data-id="'+esc(m.id)+'" aria-label="Listen to this saved assistant reply">Listen</button>':'')+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
  const examples=[['Business update','TradeFlow, give me an update on my business. What needs attention?'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
  const reviewJobs=(data.jobs||[]).filter(job=>typeof job.id==='string'&&job.id&&typeof job.title==='string').slice(0,5);
  const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
  const conversationReview=tfAiReviewJobId&&tfAiReviewThreadId===tfActiveChatThreadId?'<section class="tf-ai-preview-gate" aria-label="Conversation job approval"><strong>Job review and approval</strong><p>Local evidence only. Internal review actions require explicit approval; invoice preparation remains blocked where billing evidence is missing.</p><div data-decision-job="'+esc(tfAiReviewJobId)+'">'+(window.TradeFlowPilot?.decisions?.view(tfAiReviewJobId)||'')+'</div></section>':'';
+ const voiceOutput=window.TradeFlowVoiceOutput;
+ const selectedVoice=voiceOutput?.selectedProfile()||'gentleman';
+ const voiceUi='<div class="tf-ai-voice-tools" aria-label="Chatterbox voice output"><label for="tfAiVoiceProfile">Voice</label><select id="tfAiVoiceProfile" aria-label="Voice personality"><option value="gentleman" '+(selectedVoice==='gentleman'?'selected':'')+'>The Gentleman</option><option value="matriarch" '+(selectedVoice==='matriarch'?'selected':'')+'>The Matriarch</option></select><button type="button" data-action="tfAiVoiceStop" '+(!voiceOutput||['idle','unavailable'].includes(voiceOutput.status())?'disabled':'')+'>Stop</button><span role="status" aria-live="polite" data-tf-voice-status>'+esc(voiceOutput?.statusText()||'Speech unavailable')+'</span></div>';
  const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
- return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+voiceUi+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
 }
 
 /* TradeFlow Intelligence node: screen-aware preview UI, no silent data access/actions. */
@@ -784,6 +790,7 @@ async function tfAiLocalJobReview(content){
  return true;
 }
 async function tfAISend(text){
+ window.TradeFlowVoiceOutput?.stop();
  const content=String(text||'').trim().slice(0,1200);
  if(!content||tfChatBusy)return;
  if(await tfAiLocalBriefingFollowUp(content))return;
@@ -811,6 +818,7 @@ async function tfAISend(text){
  }catch(err){tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
 }
+document.addEventListener('change',e=>{if(e.target?.id==='tfAiVoiceProfile')window.TradeFlowVoiceOutput?.select(e.target.value)});
 document.addEventListener('submit',async e=>{
  if(e.target.id==='tfAiUnlockForm'){
   e.preventDefault();
@@ -1434,6 +1442,13 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   try{await put(target,copy);notify('Photo removed')}catch(err){alert('Could not remove photo: '+err.message)}
   return;
  }
+ if(el.dataset.action==='tfAiSpeak'){
+  const turn=tfChatMessages.find(m=>m.id===el.dataset.id&&m.role==='assistant'&&m.status==='committed');
+  if(!turn||!tfAiKey()||!window.TradeFlowVoiceOutput){notify('Speech needs a saved assistant reply and the unlocked private AI preview.');return}
+  void window.TradeFlowVoiceOutput.speak({text:turn.content,turnId:turn.id,code:tfAiKey()});
+  return;
+ }
+ if(el.dataset.action==='tfAiVoiceStop'){window.TradeFlowVoiceOutput?.stop();return}
  if(el.dataset.action==='tfAiToggle'){
   tfAiCancelHold();
   tfAiPanelOpen=false;
