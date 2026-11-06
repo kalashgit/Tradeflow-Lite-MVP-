@@ -23,8 +23,9 @@ test('Chatterbox voice aliases are provisioned only behind a ready private runti
     assert.equal(getVoiceProfile(id).model_voice_id,id);
     assert.deepEqual(speechRequest({profileId:id,text:'Good morning.'}),
       {status:'unavailable',reason:'licensed_model_voice_not_verified'});
+    assert.equal(getVoiceProfile(id).reference_audio_id,null);
     assert.deepEqual(speechRequest({profileId:id,text:'Good morning.',providerReady:true}),
-      {status:'ready',modelVoiceId:id,text:'Good morning.',language:'en-GB'});
+      {status:'unavailable',reason:'licensed_model_voice_not_verified'});
   }
 });
 
