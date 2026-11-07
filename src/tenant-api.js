@@ -43,7 +43,7 @@ export async function tenantApi(request,env,options={}){
   }
   const approvedReply=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/jobs\/([^/]+)\/blockers\/([^/]+)\/respond$/.exec(url.pathname);
   if(approvedReply){
-   return approvedOfficeBlockerResponse({
+   return await approvedOfficeBlockerResponse({
     request,db:env.TF_DB,principal,
     businessId:requireBusinessId(approvedReply[1]),
     jobId:approvedReply[2],reportEventId:approvedReply[3]
