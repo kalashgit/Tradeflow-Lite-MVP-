@@ -8,6 +8,14 @@ const {createPreviewServer}=require('./local-ai-preview-server.cjs');
 const out=path.resolve('artifacts/local-ai-conversation');
 fs.mkdirSync(out,{recursive:true});
 const token='synthetic-browser-local-private-test-token';
+async function openLegacy(page){
+ await page.locator('[data-tab="settings"]:visible').first().click();
+ await page.locator('.tf-more-menu [data-tab="ai"]').click();
+ await page.locator('[data-action="tfAiOptionsToggle"]').first().click();
+ await page.locator('[data-action="tfAiSnapshotToggle"]').click();
+ await page.locator('.tf-ai-chat-box').waitFor();
+}
+
 (async()=>{
  const {server,metrics}=createPreviewServer({secret:token,mode:'mock'});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -34,8 +42,7 @@ const token='synthetic-browser-local-private-test-token';
     await page.reload();
     await page.waitForFunction(()=>!!document.querySelector('[data-tab="settings"]'),{timeout:30000});
     // Use the existing More → TradeFlow AI navigation, not a replacement interface.
-    await page.locator('[data-tab="settings"]:visible').first().click();
-    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    await openLegacy(page);
     await page.locator('#tfAiUnlockForm input[name="code"]').fill(token);
     await page.locator('#tfAiUnlockForm button[type="submit"]').click();
     await page.waitForFunction(()=>sessionStorage.getItem('tf-ai-preview-code')!==null);
@@ -53,8 +60,7 @@ const token='synthetic-browser-local-private-test-token';
     assert.ok(firstThread,'A persisted thread should be created by the first send');
     await page.reload();
     await page.waitForFunction(()=>!!window.TradeFlowPilot,{timeout:30000});
-    await page.locator('[data-tab="settings"]:visible').first().click();
-    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    await openLegacy(page);
     await page.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===2,null,{timeout:10000});
     assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2,'Messages must survive refresh');
     assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/What should I prioritize today/);
@@ -91,8 +97,7 @@ const token='synthetic-browser-local-private-test-token';
     assert.deepEqual(scoped,{foreignCount:0,denied:true,count:3,conflictDenied:true});
     await page.reload();
     await page.waitForFunction(()=>!!window.TradeFlowPilot,{timeout:30000});
-    await page.locator('[data-tab="settings"]:visible').first().click();
-    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    await openLegacy(page);
     await page.locator('#tfAiThreadPicker').selectOption(firstThread);
     await page.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===3,null,{timeout:10000});
     assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),3,'Final voice transcript uses same thread and survives reload');

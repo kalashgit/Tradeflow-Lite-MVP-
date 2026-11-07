@@ -38,3 +38,4 @@ jobs:
         run: |
           node scripts/verify-local-ai-chat-browser.cjs
           node scripts/verify-home-founder-layout.cjs
+          node scripts/verify-master-welcome-browser.cjs
