@@ -42,13 +42,14 @@
    controls.querySelector('[data-ai-speech-speaker]').value=speaker;
   }
   const wake=controls.querySelector('[data-ai-wake-toggle]');
-  if(wake){const status=root.TradeFlowVoice?.wakeStatus?.()||'off';wake.textContent=wakeActive?'Stop wake listening':status==='unsupported'?'Wake phrase unsupported in this browser':status==='permission_denied'?'Microphone permission denied — retry':'Enable “Hey TradeFlow”';wake.setAttribute('aria-pressed',String(wakeActive))}
+  if(wake){const status=root.TradeFlowVoice?.wakeStatus?.()||'off';const label=wakeActive?'Stop wake listening':status==='unsupported'?'Wake phrase unsupported in this browser':status==='permission_denied'?'Microphone permission denied — retry':'Enable “Hey TradeFlow”';if(wake.textContent!==label)wake.textContent=label;wake.setAttribute('aria-pressed',String(wakeActive))}
   for(const bubble of panel.querySelectorAll('.tf-ai-theirs,.tf-master-message.is-assistant')){
    if(bubble.querySelector('[data-ai-speech-play]'))continue;
    const button=document.createElement('button');button.type='button';button.dataset.aiSpeechPlay='';button.textContent='▶ Listen';button.setAttribute('aria-label','Read this assistant response aloud');bubble.append(button);
   }
   const stateLabel=controls.querySelector('[data-ai-speech-status]');
-  stateLabel.textContent=state==='idle'?'Speech ready':state;
+  const label=state==='idle'?'Speech ready':state;
+  if(stateLabel.textContent!==label)stateLabel.textContent=label;
  }
  root.TradeFlowSpeech.mount=mount;
  root.TradeFlowSpeech.subscribe(()=>{const label=document.querySelector('[data-ai-speech-status]');if(label)label.textContent=state==='idle'?'Speech ready':state});
