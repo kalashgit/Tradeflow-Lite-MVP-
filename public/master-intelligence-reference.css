@@ -70,7 +70,7 @@ body:has(.tf-master) .tf-master{height:100dvh!important;min-height:0!important;b
  .tf-master-identity strong{font-size:13px}
  .tf-master-identity small{font-size:11px}
  .tf-master-orb{margin-bottom:41px}
- .tf-master-welcome{transform:translateY(15px)}
+ .tf-master-welcome{transform:translateY(7px)}
  .tf-master-welcome h1{font-size:clamp(24px,6.6vw,31px)}
  .tf-master-welcome>p{font-size:11px}
  .tf-master-ready{font-size:10px;padding:8px 7px;gap:6px}
