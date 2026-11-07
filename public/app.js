@@ -521,7 +521,7 @@ function tfAiOverlayView(){
  if(modal||tfCapture||tfImportDraft)return '';
  const onFull=tab==='ai',isOpen=tfAiPanelOpen&&!onFull,unlocked=!!tfAiKey();
  const emblem='<span class="tf-brand-mark" aria-hidden="true"><span class="tf-brand-top"></span><span class="tf-brand-stem"></span><span class="tf-brand-accent"></span></span>';
- const orb='<button type="button" class="tf-ai-orb" title="Tap to talk to TradeFlow" data-action="tfAiToggle" data-host-action="open" aria-label="Open Master Intelligence" aria-expanded="false" aria-controls="tfAiOverlayRoot"><span class="tf-ai-orb-icon" aria-hidden="true">AI</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
+ const orb='<button type="button" class="tf-ai-orb" title="Tap to talk to TradeFlow" data-action="tfAiToggle" aria-label="Open Master Intelligence" aria-expanded="false" aria-controls="tfAiOverlayRoot"><span class="tf-ai-orb-icon" aria-hidden="true">AI</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
  if(!isOpen)return orb;
  const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join('');
  const promptButtons=tfAiCurrentPrompts().map(([title,prompt])=>'<button type="button" data-action="tfAiPanelPrompt" data-prompt="'+esc(prompt)+'" '+(tfChatBusy?'disabled':'')+'>'+esc(title)+'</button>').join('');
