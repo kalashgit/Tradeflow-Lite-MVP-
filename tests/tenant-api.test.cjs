@@ -217,3 +217,52 @@ test('authenticated tenant reads fail closed on conflicting embedded record iden
  }
  assert.equal(writes,0);
 });
+
+test('TF-MI blocker-answer API authenticates principal, checks office grant, never executes commands',async()=>{
+ const signed=await token();
+ const blocker={schemaVersion:1,eventId:'blocker_01',idempotencyKey:'op_01',
+  kind:'job_blocker_reported',actorId:'crew_01',actorIssuer:issuer,
+  note:'Missing panel breakers',eventAt:'2026-11-07T06:00:00Z'};
+ let writes=0,reads=0;
+ const blockedDb=(grant=true,role='member')=>({prepare(sql){return {bind(...params){return {
+  async first(){
+   if(sql.startsWith('SELECT role FROM business_memberships'))
+    return params[0]===business?{role}:null;
+   if(sql.includes('FROM tenant_records t')&&sql.includes('job_access_grants')){
+    reads++;assert.deepEqual(params,[issuer,'user_123',business,'job_123']);
+    if(!grant)return null;
+    return {job_payload:JSON.stringify({id:'job_123',businessId:business,
+     fieldUpdates:[blocker]}),job_revision:4,viewer_role:role,
+     office_grant_revision:grant?2:null};
+   }
+   throw Error('Unexpected SQL');
+  },
+  async all(){return {results:[]}}
+ }}}}});
+ const base='/api/v1/businesses/'+business+'/intelligence/jobs/job_123/blockers/blocker_01/answer';
+ const url=base+'?question='+encodeURIComponent('What is blocking this job?')+
+  '&threadId=thread_01&expectedJobRevision=4';
+ const run=(db,path=url,bearer=signed,method='GET')=>api(req(path,bearer,method),
+  {...envBase,TF_DB:db},{fetchJwks:jwksResponse});
+ const answer=await run(blockedDb());
+ assert.equal(answer.status,200);
+ const body=await answer.json();
+ assert.equal(body.source.revision,4);
+ assert.equal(body.thread.id,'thread_01');
+ assert.equal(body.thread.bindingVerified,false);
+ assert.equal(body.commandExecuted,false);
+ assert.equal(body.proposal.commandId,'draft.prepare');
+ assert.equal(body.proposal.status,'proposal_only');
+ assert.equal(body.executionAuthority,false);
+ assert.equal(writes,0);assert.equal(reads,1);
+ const denied=await run(blockedDb(false));
+ assert.equal(denied.status,403);
+ const viewer=await run(blockedDb(true,'viewer'));
+ assert.equal(viewer.status,403);
+ assert.equal((await run(blockedDb(),url,null)).status,401);
+ assert.equal((await run(blockedDb(),url+'&question=duplicate')).status,400);
+ assert.equal((await run(blockedDb(),url+'&unexpected=1')).status,400);
+ assert.equal((await run(blockedDb(),url.replace('expectedJobRevision=4','expectedJobRevision=3'))).status,409);
+ assert.equal((await run(blockedDb(),url,signed,'POST')).status,405);
+ assert.equal(writes,0);
+});
