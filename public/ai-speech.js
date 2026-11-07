@@ -33,11 +33,13 @@
   }
   const panel=document.querySelector('.tf-master,.tf-ai-chat-box');
   if(!panel)return;
+  const options=panel.matches('.tf-master')?panel.querySelector('#tfMasterToolbar'):null;
   let controls=panel.querySelector('[data-ai-speech-controls]');
   if(!controls){
    controls=document.createElement('div');controls.dataset.aiSpeechControls='';controls.className='tf-ai-speech-controls';
    controls.innerHTML='<label><input type="checkbox" data-ai-speech-auto> Speak replies</label> <label>Voice <select data-ai-speech-speaker aria-label="Speech voice"><option value="orion">Orion</option><option value="asteria">Asteria</option><option value="angus">Angus</option><option value="orpheus">Orpheus</option><option value="luna">Luna</option></select></label> <button type="button" data-ai-speech-stop>Stop audio</button> <button type="button" data-ai-wake-toggle>Enable “Hey TradeFlow”</button> <small data-ai-speech-status role="status">Speech ready</small>';
-   (panel.querySelector('.tf-master-header,.tf-ai-chat-top')||panel.firstElementChild)?.after(controls);
+   if(options)options.append(controls);
+   else (panel.querySelector('.tf-ai-chat-top')||panel.firstElementChild)?.after(controls);
    controls.querySelector('[data-ai-speech-auto]').checked=auto;
    controls.querySelector('[data-ai-speech-speaker]').value=speaker;
   }
