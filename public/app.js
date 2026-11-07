@@ -476,7 +476,16 @@ function tfAiHistoryView(){
   '<button type="button" data-action="tfAiExportThread" '+(!tfActiveChatThreadId?'disabled':'')+'>Export</button>'+
   '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
 }
-function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
+let tfAiCookieReady=false;
+function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||(tfAiCookieReady?'preview-session':'')}catch(e){return tfAiCookieReady?'preview-session':''}}
+async function tfAiRestoreSession(){
+ if(tfAiCookieReady)return true;
+ try{const response=await fetch('/api/ai/session',{method:'GET',credentials:'same-origin',cache:'no-store'});
+  tfAiCookieReady=!!(response.ok&&(await response.json()).authorized);
+ }catch{tfAiCookieReady=false}
+ return tfAiCookieReady;
+}
+document.addEventListener('DOMContentLoaded',()=>{void tfAiRestoreSession()});
 window.TradeFlowVoiceGreeting=(message)=>{
  const text=String(message||'Hello, what do you need?').slice(0,120);
  const fallback=()=>{if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang='en-US';utterance.rate=.95;window.speechSynthesis.speak(utterance)};
@@ -556,13 +565,16 @@ async function tfAiUpdateChatUI(){
 let tfAiConversationStarted=false;
 let tfAIShowLegacySnapshot=false;
 let tfAiPendingPrompt='';
+let tfAiPendingSpeak=false;
 function showVoiceSettings(){
  const box=document.getElementById('tfSettingsPanel');if(!box)return;
+ if(!tfAiKey())void tfAiRestoreSession().then(ready=>{if(ready&&document.getElementById('tfSettingsPanel')===box&&!box.hidden)showVoiceSettings()});
  box.innerHTML='<div class="tf-settings-panelhead"><h3>AI &amp; Voice</h3><button type="button" data-action="settingsPanel" data-panel="close" aria-label="Close">×</button></div>'+
  '<p>Cloudflare-hosted Llama is used for general chat when this private preview is unlocked. Business actions still require review. Aura-1 provides spoken replies.</p>'+
+ (tfAiPendingPrompt?'<div class="tf-ai-pending-connection" role="status"><strong>Connect to continue your conversation.</strong><p>Your message is ready: “'+esc(tfAiPendingPrompt)+'”</p><small>After connecting, TradeFlow will send this question and open its reply.</small></div>':'')+
  '<div class="tf-ai-connection-settings"><strong>AI chat connection</strong><p>'+(tfAiKey()?'Preview access connected.':'Private preview access is required to use AI chat.')+'</p>'+
  (tfAiKey()?'<button type="button" data-action="tfAiLock">Disconnect AI preview</button>':'<form id="tfAiUnlockForm"><label for="tfSettingsAiCode">Private preview code</label><input id="tfSettingsAiCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" required><button type="submit">Connect</button></form>')+
- '<button type="button" data-action="tfAiTestConnection">Check AI connection</button><p role="status">'+esc(tfAiStatus)+'</p></div><section data-tf-voice-settings-host aria-label="Speech and wake-word settings"></section>';
+ '<button type="button" data-action="tfAiTestConnection">Check AI connection</button><p role="status">'+esc(tfChatError||tfAiStatus)+'</p></div><section data-tf-voice-settings-host aria-label="Speech and wake-word settings"></section>';
  box.hidden=false;box.scrollIntoView({behavior:'smooth',block:'start'});window.TradeFlowSpeech?.mount?.();
 }
 function tfAIMasterView(){
@@ -766,7 +778,13 @@ async function tfAISend(text,{speakReply=false}={}){
  if(await tfAiLocalBriefingFollowUp(content))return;
   if(await tfAiLocalBusinessBriefing(content))return;
   if(await tfAiLocalJobReview(content))return;
- if(!tfAiKey()){tfAiPendingPrompt=content;tfChatError='AI chat is locked. Open More → Settings → AI & Voice to connect, then send your message again.';await tfAiUpdateChatUI();return}
+ if(!tfAiKey())await tfAiRestoreSession();
+ if(!tfAiKey()){
+  tfAiPendingPrompt=content;tfAiPendingSpeak=!!speakReply;
+  tfChatError='';
+  tfResetWorkspace('preferences');await render();showVoiceSettings();
+  return;
+ }
  tfAiPendingPrompt='';
  const screen=tab;
  tfChatError='';
@@ -795,14 +813,24 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();
   const code=String(new FormData(e.target).get('code')||'');
   if(code.trim().length<12)return alert('Enter the private access code (at least 12 characters).');
+  let connected=false;
   try{
    const response=await fetch('/api/ai/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code}),cache:'no-store'});
    const result=await response.json().catch(()=>({}));
    if(!response.ok||!result.authorized)throw Error((result.error||'Cannot verify this access code')+' (HTTP '+response.status+')');
-   try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){throw Error('This browser does not allow session storage.')}
+   tfAiCookieReady=true;
+   // Keep compatibility with the local mock preview; the signed HttpOnly cookie
+   // is the durable authorization when Safari opens a fresh browser view.
+   try{sessionStorage.setItem('tf-ai-preview-code',code)}catch{}
+   connected=true;
    tfAiPreviewMode=result.syntheticDemo?String(result.modelMode||'mock'):'';
    tfChatError='';tfAiStatus=result.syntheticDemo?'Synthetic development preview unlocked. No real business records are accessible.':'Access verified. AI connection available.';
   }catch(err){tfChatError=await tfAiDescribeError(err);tfAiStatus='Access verification unsuccessful.';}
+  if(connected&&tfAiPendingPrompt){
+   const pending=tfAiPendingPrompt,speakReply=tfAiPendingSpeak;
+   tfAiPendingPrompt='';tfAiPendingSpeak=false;tfResetWorkspace('ai');tfAiConversationStarted=true;
+   await tfAISend(pending,{speakReply});return;
+  }
   if(tab==='preferences')showVoiceSettings();
   await tfAiUpdateChatUI();return;
  }
@@ -819,7 +847,6 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();
   if(tfChatBusy)return;
   tfChatWithSummary=!!e.target.querySelector('#tfAiContext')?.checked;
-  tfAiConversationStarted=true;
   await tfAISend(String(new FormData(e.target).get('prompt')||''));
  }
 });
@@ -1458,7 +1485,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
   if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
   if(el.dataset.action==='tfAiExportThread'){await tfAiExportThread();return}
- if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatError='';tfAiStatus='';tfAiPreviewMode='';if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}try{await fetch('/api/ai/logout',{method:'POST',credentials:'same-origin'})}catch{}tfAiCookieReady=false;tfChatError='';tfAiStatus='';tfAiPreviewMode='';if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 

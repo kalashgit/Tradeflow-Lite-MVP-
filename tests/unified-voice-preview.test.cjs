@@ -26,5 +26,6 @@ test('preview cache updates for unified voice and Cloudflare speech remains gate
  assert.match(sw,/aura-unified-01/);
  assert.match(worker,/\/api\/ai\/speech/);
  assert.match(aura,/env\.TF_AURA_TTS_ENABLED!=='true'/);
- assert.match(aura,/body\.code!==env\.TF_AI_PREVIEW_TOKEN/);
+ assert.match(aura,/body\?\.code!==env\.TF_AI_PREVIEW_TOKEN/);
+ assert.match(aura,/hasPreviewSession\(request,env\.TF_AI_PREVIEW_TOKEN\)/);
 });

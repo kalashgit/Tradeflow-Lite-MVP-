@@ -1,5 +1,6 @@
 import {tenantApi} from './tenant-api.js';
 import {auraTts} from './aura-tts.js';
+import {previewCookie,hasPreviewSession,clearPreviewCookie} from './preview-session.js';
 
 /* Private AI preview and authenticated tenant API. Local records are not uploaded automatically. */
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -12,6 +13,14 @@ export default {
    if(request.method!=='GET')return reply({error:'GET required'},405);
    return reply({online:true,secretConfigured:!!env.TF_AI_PREVIEW_TOKEN,aiBound:!!env.AI,version:'v0.9.39'});
   }
+  if(url.pathname==='/api/ai/session'){
+   if(request.method!=='GET')return reply({error:'GET required'},405);
+   return reply({authorized:await hasPreviewSession(request,env.TF_AI_PREVIEW_TOKEN)});
+  }
+  if(url.pathname==='/api/ai/logout'){
+   if(request.method!=='POST')return reply({error:'POST required'},405);
+   const response=reply({authorized:false});response.headers.set('Set-Cookie',clearPreviewCookie());return response;
+  }
   if(url.pathname==='/api/ai/verify'){
    if(request.method!=='POST')return reply({error:'POST required'},405);
    if(!env.TF_AI_PREVIEW_TOKEN)return reply({error:'Preview access code is not configured in Cloudflare'},503);
@@ -19,7 +28,7 @@ export default {
    let credentials;
    try{credentials=await request.json()}catch(err){return reply({error:'Invalid request JSON'},400)}
    if(typeof credentials?.code!=='string'||credentials.code!==env.TF_AI_PREVIEW_TOKEN)return reply({error:'Access code does not match Cloudflare secret'},401);
-   return reply({authorized:true});
+   const response=reply({authorized:true});response.headers.set('Set-Cookie',await previewCookie(env.TF_AI_PREVIEW_TOKEN));return response;
   }
   if(url.pathname!=='/api/ai/chat'){
    if(url.pathname.startsWith('/api/'))return reply({error:'Not found'},404);
@@ -32,7 +41,7 @@ export default {
   if(Number(request.headers.get('Content-Length')||0)>14000)return reply({error:'Request too large'},413);
   let body;
   try{body=await request.json()}catch(err){return reply({error:'Invalid JSON'},400)}
-  if(typeof body?.code!=='string'||body.code!==env.TF_AI_PREVIEW_TOKEN)return reply({error:'Incorrect preview access code'},401);
+  if(body?.code!==env.TF_AI_PREVIEW_TOKEN&&!(await hasPreviewSession(request,env.TF_AI_PREVIEW_TOKEN)))return reply({error:'Preview session expired. Reconnect under AI & Voice settings.'},401);
   const raw=body?.messages;
   if(!Array.isArray(raw)||!raw.length||raw.length>8)return reply({error:'Send 1 to 8 chat messages'},400);
   const messages=raw.map(x=>({role:x?.role,content:x?.content}));
