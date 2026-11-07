@@ -1,0 +1,40 @@
+name: TradeFlow Unified Preview Validation
+on:
+  push:
+    branches:
+      - integration/tf-unified-preview-20261107
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact integration commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate new and existing browser scripts
+        run: |
+          node --check public/app.js
+          node --check public/command-constellation.js
+          node --check public/master-intelligence-reference.js
+      - name: Full Node regression suite
+        run: npm test
+      - name: Contractor scenario regression
+        run: npm run test:contractors
+      - name: Tenant storage regression
+        run: npm run test:storage
+      - name: Browser engine installation
+        run: npx playwright install --with-deps chromium
+      - name: Rendered Master Intelligence and founder Home checks
+        run: |
+          node scripts/verify-local-ai-chat-browser.cjs
+          node scripts/verify-home-founder-layout.cjs

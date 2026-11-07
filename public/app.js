@@ -429,6 +429,7 @@ async function tfAiSwitchThread(threadId){
   if(!tfChatThreads.some(t=>t.id===threadId))throw Error('Conversation no longer available');
   const turns=await store.listTurns(db,tfAiLocalScope,threadId);
   tfActiveChatThreadId=threadId;tfChatMessages=turns;tfChatError='';
+  tfAiConversationStarted=true;
  }catch(error){tfChatError='Could not open the selected local conversation.'}
  await tfAiUpdateChatUI();
 }
@@ -437,6 +438,7 @@ async function tfAiNewThread(){
  try{
   const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
   tfActiveChatThreadId=thread.id;tfChatMessages=[];tfChatError='';
+  tfAiConversationStarted=false;
   tfChatThreads=await window.TradeFlowConversationStore.listThreads(db,tfAiLocalScope);
  }catch(error){tfChatError='Could not create local conversation; no new thread was saved.'}
  await tfAiUpdateChatUI();
@@ -538,6 +540,18 @@ function tfAiRefreshOverlay(){
 async function tfAiUpdateChatUI(){
  if(tab==='ai'){await render();const log=document.getElementById('tfAiThread');if(log)log.scrollTop=log.scrollHeight}
  else tfAiRefreshOverlay();
+}
+let tfAiConversationStarted=false;
+function tfAIMasterView(){
+ const chatting=tfAiConversationStarted||tfChatMessages.length>0;
+ const mark='<span class="tf-master-mark" aria-hidden="true">T</span>';
+ const actions=[['Business Overview','briefcase-business','TradeFlow, give me an update on my business. What needs attention?'],['Prepare a Quotation','file-text','Help me prepare a quotation for an electrical job.'],['Schedule Work','calendar-days','Help me schedule work for this week.'],['Analyze Profitability','chart-no-axes-column','Help me review job profitability.']];
+ const symbols=['▣','▤','▦','▥'];
+ const messages=tfChatMessages.map(m=>'<article class="tf-master-message '+(m.role==='user'?'is-user':'is-assistant')+'">'+(m.role==='user'?'':mark)+'<div class="tf-master-message-body"><div class="tf-master-message-text">'+esc(m.content)+'</div>'+tfAiAttribution(m)+'</div></article>').join('');
+ return '<section class="tf-master" aria-label="Master Intelligence"><header class="tf-master-header"><button type="button" class="tf-master-header-button" data-tab="dashboard" aria-label="Back to Home">‹</button><div class="tf-master-identity">'+mark+'<div><strong>TRADE<span>FLOW</span></strong><small>Master Intelligence</small></div></div><div class="tf-master-header-actions"><button type="button" class="tf-master-header-button" data-action="tfAiHistoryToggle" aria-label="Conversation history">◷</button><button type="button" class="tf-master-header-button" data-action="tfAiOptionsToggle" aria-label="Conversation options">•••</button></div></header>'+
+ '<div class="tf-master-toolbar" id="tfMasterToolbar" hidden>'+tfAiHistoryView()+'<button type="button" data-action="tfAiNewThread">New conversation</button><button type="button" data-action="tfAiExportThread">Export</button><button type="button" data-action="tfAiClear">Delete conversation</button><details><summary>AI preview connection</summary>'+(tfAiKey()?'<span>Preview unlocked</span><button data-action="tfAiLock" type="button">Disconnect</button>':'<form id="tfAiUnlockForm"><input name="code" type="password" minlength="12" maxlength="200" placeholder="Private access code" required><button type="submit">Unlock</button></form>')+'<button data-action="tfAiTestConnection" type="button">Check connection</button><p>'+esc(tfAiStatus)+'</p></details></div>'+
+ (chatting?'<div class="tf-master-conversation" id="tfAiThread" role="log" aria-live="polite">'+messages+(tfChatBusy?'<div class="tf-master-thinking">TradeFlow is thinking…</div>':'')+'</div>':'<div class="tf-master-welcome"><div class="tf-master-orb" aria-hidden="true"><div class="tf-master-orb-mesh"></div>'+mark+'</div><h1>Master Intelligence</h1><p>Your TradeFlow AI. Business, operations and execution.</p><div class="tf-master-ready"><span></span>Ready · Local-first</div><div class="tf-master-starters">'+actions.map(([label,,prompt],i)=>'<button type="button" data-action="tfAiStarter" data-prompt="'+esc(prompt)+'"><span aria-hidden="true">'+symbols[i]+'</span>'+label+'</button>').join('')+'</div></div>')+
+ (tfChatError?'<p class="tf-master-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<form id="tfAiChatForm" class="tf-master-compose"><button type="button" class="tf-master-round" data-action="tfAiOptionsToggle" aria-label="More options">+</button><label for="tfAiPrompt" class="tf-ai-prompt-label">Message TradeFlow</label><textarea id="tfAiPrompt" name="prompt" rows="1" maxlength="1200" required '+(tfChatBusy?'disabled':'')+' placeholder="Message TradeFlow..."></textarea><button type="button" class="tf-master-round" data-action="tfAiVoice" aria-label="Talk to TradeFlow">♩</button><button type="submit" class="tf-master-send" '+(tfChatBusy?'disabled':'')+' aria-label="Send message">↑</button><input id="tfAiContext" type="checkbox" hidden '+(tfChatWithSummary?'checked':'')+'></form></section>';
 }
 function tfAiClosePanel(){if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
 /* Haptics are progressive enhancement: iOS Safari doesn't provide arbitrary web vibration.
@@ -779,6 +793,7 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();
   if(tfChatBusy)return;
   tfChatWithSummary=!!e.target.querySelector('#tfAiContext')?.checked;
+  tfAiConversationStarted=true;
   await tfAISend(String(new FormData(e.target).get('prompt')||''));
  }
 });
@@ -800,6 +815,7 @@ return `<div class="tf-business-details">${window.TradeFlowCommandCenter?.render
 }
 
 function tfAIView(d){
+ return tfAIMasterView(d);
  const openJobs=d.jobs.filter(x=>x.status!=='Completed'&&x.status!=='Cancelled'),pending=d.tasks.filter(x=>x.status!=='Done');
  const date=today(),overdue=pending.filter(x=>x.due&&x.due<date);
  const dueSoon=pending.filter(x=>x.due&&x.due>=date&&x.due<=new Date(Date.now()+7*86400000).toISOString().slice(0,10));
@@ -1405,6 +1421,11 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfAiPrompt'){const field=document.getElementById('tfAiPrompt');if(field){field.value=el.dataset.prompt||'';field.focus()}return}
+ if(el.dataset.action==='tfAiStarter'){const field=document.getElementById('tfAiPrompt');if(field){field.value=el.dataset.prompt||'';field.focus()}return}
+ if(el.dataset.action==='tfAiHistoryToggle'||el.dataset.action==='tfAiOptionsToggle'){
+  const toolbar=document.getElementById('tfMasterToolbar');if(toolbar)toolbar.hidden=!toolbar.hidden;return;
+ }
+ if(el.dataset.action==='tfAiVoice'){window.TradeFlowVoice?.startListening?.();return}
  if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
   if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
