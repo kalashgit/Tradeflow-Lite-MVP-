@@ -21,7 +21,7 @@ export async function approvedOfficeBlockerResponse({
   throw new AuthorizationError('Explicit response POST required',405);
  if(!db?.prepare||typeof execute!=='function')
   throw new AuthorizationError('Authorized write execution unavailable',503);
- const verified=requireVerifiedPrincipal(principal);
+ requireVerifiedPrincipal(principal);
  requireBusinessId(businessId);
  if(!id(jobId)||!id(reportEventId))
   throw new AuthorizationError('Job and blocker event required',400);
@@ -55,7 +55,7 @@ export async function approvedOfficeBlockerResponse({
     typeof body.text!=='string'||!body.text.trim()||body.text.length>500)
   throw new AuthorizationError('Current job revision and explicit reviewed response required',400);
  const result=await execute({
-  db,principal:verified,businessId,jobId,reportEventId,
+  db,principal,businessId,jobId,reportEventId,
   eventId:body.eventId,idempotencyKey:body.idempotencyKey,
   expectedJobRevision:body.expectedJobRevision,text:body.text.trim()
  });
