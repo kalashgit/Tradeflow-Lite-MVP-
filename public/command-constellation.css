@@ -1,0 +1,41 @@
+/* TradeFlow command constellation — non-destructive full-viewport alternate Home view */
+.tf-constellation-active{overflow:hidden!important}
+.tf-constellation{position:fixed;inset:0;z-index:99999;background:#02040b;color:#f4f7fa;font-family:system-ui,-apple-system,sans-serif;overflow-y:auto;overscroll-behavior:contain}
+.tf-constellation-world{position:relative;width:min(100%,900px);height:max(100dvh,650px);min-height:650px;max-height:1300px;margin:0 auto;overflow:hidden;background:radial-gradient(ellipse at 36% 31%,#101c34,#02040b 75%)}
+.tf-constellation-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tf-constellation-top{position:absolute;z-index:4;left:15px;right:15px;top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tf-constellation-logo{border:1px solid #506476aa;background:#050a17c9;color:#fff;border-radius:15px;padding:8px 12px;display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:800;font-size:14px}
+.tf-constellation-logo>span:last-child span{color:#17d9f3}
+.tf-constellation-symbol{font-size:27px;font-weight:1000;font-style:italic;color:#00d8ed;line-height:1}
+.tf-constellation-caption{font-size:11px;color:#b0c5d9;background:#050a17a1;padding:8px;border-radius:10px}
+.tf-constellation-nodes{position:absolute;inset:0}
+.tf-constellation-node{position:absolute;z-index:3;transform:translate(-50%,-50%);border:0;background:#040a1b91;color:white;text-shadow:0 1px 4px #000;font-size:clamp(10px,2.3vw,22px);line-height:1.08;text-align:left;padding:5px 7px;border-radius:7px;cursor:pointer;max-width:140px}
+.tf-constellation-node.is-selected{outline:1px solid #64e9ff;outline-offset:4px;background:#061b2f}
+.tf-constellation-node:hover{background:#132f4ccc}
+.tf-constellation-card-slot{position:absolute;z-index:6;right:2%;top:32%;width:34%;max-width:290px}
+.tf-constellation-card{background:#070f1cdd;border:1px solid #83dcf5;border-radius:16px;padding:17px;box-shadow:0 0 15px #00bce021,0 20px 40px #0008;backdrop-filter:blur(12px)}
+.tf-constellation-card strong{font-size:clamp(18px,3vw,29px);line-height:1.2}
+.tf-constellation-sub{color:#b7c2d3;font-size:12px;margin-top:4px}
+.tf-constellation-divider{height:1px;background:#7f9caa69;margin:13px 0}
+.tf-constellation-status{display:flex;align-items:center;gap:13px}
+.tf-constellation-status>span{font-size:24px;color:#8decff}
+.tf-constellation-status small{display:block;color:#bdcbd5;font-size:11px}
+.tf-constellation-status b{font-size:13px;color:#a5ebf9}
+.tf-constellation-card p{font-size:12px;line-height:1.5;color:#c2e4ed;margin:4px 0 13px}
+.tf-constellation-open{background:#0a394c;border:1px solid #42cce5;border-radius:9px;padding:9px 11px;color:#fff;font-size:12px;cursor:pointer}
+.tf-constellation-bottom{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#c9d4e2;font-size:11px;text-shadow:0 1px 5px black;pointer-events:none}
+.tf-constellation button:focus-visible{outline:2px solid #73eaff;outline-offset:4px}
+@media(max-width:600px){
+.tf-constellation-world{height:100dvh;min-height:620px}
+.tf-constellation-node{font-size:clamp(10px,2.8vw,13px);max-width:92px}
+.tf-constellation-card-slot{right:2%;top:32%;width:36%}
+.tf-constellation-card{padding:10px;border-radius:12px}
+.tf-constellation-card strong{font-size:17px}
+.tf-constellation-sub,.tf-constellation-status small{font-size:10px}
+.tf-constellation-status{gap:5px}
+.tf-constellation-status>span{font-size:17px}
+.tf-constellation-status b,.tf-constellation-card p,.tf-constellation-open{font-size:10px}
+.tf-constellation-divider{margin:8px 0}
+.tf-constellation-caption{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){.tf-constellation *, .tf-constellation *:before,.tf-constellation *:after{animation:none!important;transition:none!important}}
