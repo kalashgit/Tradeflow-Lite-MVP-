@@ -1,5 +1,6 @@
 import {readIntelligenceContext} from './intelligence-context.js';
 import {answerOfficeBlockerQuestion} from './office-blocker-conversation.js';
+import {approvedOfficeBlockerResponse} from './approved-office-blocker-response.js';
 import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
 import {RECORD_TYPES,LEGACY_RECORD_TYPES,recordIdentity} from '../public/record-model.js';
@@ -21,7 +22,8 @@ export async function tenantApi(request,env,options={}){
  if(!url.pathname.startsWith('/api/v1/'))return null;
  if(!['GET','PUT','POST'].includes(request.method))return json({error:'Method not allowed'},405);
  if(request.method==='PUT' && !/^\/api\/v1\/businesses\/[^/]+\/records\/[^/]+\/[^/]+$/.test(url.pathname))return json({error:'Method not allowed'},405);
- if(request.method==='POST' && !/^\/api\/v1\/businesses\/[^/]+\/backup\/dry-run$/.test(url.pathname))return json({error:'Method not allowed'},405);
+ if(request.method==='POST' && !/^\/api\/v1\/businesses\/[^/]+\/backup\/dry-run$/.test(url.pathname)&&
+   !/^\/api\/v1\/businesses\/[^/]+\/intelligence\/jobs\/[^/]+\/blockers\/[^/]+\/respond$/.test(url.pathname))return json({error:'Method not allowed'},405);
  // No membership changes, self-provisioning, automatic backup storage, or restore.
  if(!env.TF_OIDC_ISSUER||!env.TF_OIDC_AUDIENCE||!env.TF_OIDC_JWKS_URL||!env.TF_DB)
   return json({error:'Secure business API is not configured'},503);
@@ -38,6 +40,14 @@ export async function tenantApi(request,env,options={}){
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
    return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[],capabilities:await schemaCapabilities(env)});
+  }
+  const approvedReply=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/jobs\/([^/]+)\/blockers\/([^/]+)\/respond$/.exec(url.pathname);
+  if(approvedReply){
+   return approvedOfficeBlockerResponse({
+    request,db:env.TF_DB,principal,
+    businessId:requireBusinessId(approvedReply[1]),
+    jobId:approvedReply[2],reportEventId:approvedReply[3]
+   });
   }
   // Job-specific read-only answer, authenticated by the existing OIDC verifier.
   // No client-supplied role, job record, stored thread proof, or execution authority.
