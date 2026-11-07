@@ -78,7 +78,7 @@ async function verifyVisualReference(page,output,viewport){
   '<text x="173" y="'+(height-11)+'" fill="#ff779e" font-size="12">Solid: actual</text></svg>';
  fs.writeFileSync(path.join(output,viewport.name+'-visual-overlay.svg'),svg);
  fs.writeFileSync(path.join(output,viewport.name+'-visual-metrics.json'),JSON.stringify({viewport,reference,actual:snapshot.boxes,orbColor:color,checks,warning:'Reference and captured viewport have different aspect ratios; geometry is normalized, not whole-image pixel matching.'},null,2));
- console.log('Founder visual QA',viewport.name,JSON.stringify({checks,orb:color}));
+ console.log('Founder visual QA',viewport.name,JSON.stringify({checks,orb:color,actual:snapshot.boxes}));
  // Founder supplied a mobile reference. Desktop screenshot is archived but not compared to a mobile baseline.
  if(viewport.name==='mobile'){
   const failures=Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name);
