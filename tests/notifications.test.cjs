@@ -8,10 +8,16 @@ const document={
  addEventListener:(type,handler)=>{(events[type]||(events[type]=[])).push(handler)},
  querySelector:()=>({focus(){}})
 };
-vm.runInNewContext(source,{window:win,document,Date,Set,Math,console,Number,alert:msg=>{throw Error(msg)}},{timeout:3000});
+// Pin the entire notification VM to the fixture's October date. Passing a
+// separate NOW to generate() is insufficient: home() consults Date.now().
+const NOW=new Date('2026-10-16T12:00:00').getTime(),today='2026-10-16';
+class FixtureDate extends Date {
+ constructor(...args){super(...(args.length?args:[NOW]))}
+ static now(){return NOW}
+}
+vm.runInNewContext(source,{window:win,document,Date:FixtureDate,Set,Math,console,Number,alert:msg=>{throw Error(msg)}},{timeout:3000});
 const mod=win.TradeFlowNotifications;assert.ok(mod?.home&&mod?.configure&&mod?.bootstrap);
 const {generate,itemsWithRead,KEY}=mod._test;
-const NOW=new Date('2026-10-16T12:00:00').getTime(),today='2026-10-16';
 const data={
  settings:[],tasks:[
   {id:'task1',title:'Follow up customer',due:today,status:'Open'},
@@ -27,6 +33,9 @@ assert.ok(fresh.some(x=>x.id==='growth:mission:mission1'&&x.route==='missions'))
 assert.ok(fresh.some(x=>x.id==='growth:setup-icp:v1'&&x.route==='growth'));
 assert.ok(fresh.some(x=>x.id==='activity:event:old'&&x.route==='quotes'));
 assert.equal(fresh.filter(x=>x.id.includes('mission1')).length,1,'Mission must not also duplicate priority task');
+// Keep generated fixtures and the rendered VM on the same deterministic clock.
+// Otherwise the historical event eventually ages outside the 21-day window.
+data.events[0].date=new Date(NOW-86400000).toISOString();
 const stores={settings:data.settings};let navigated='',writes=0;
 const bridge={
  put:async(store,row)=>{assert.equal(store,'settings');writes++;const idx=stores.settings.findIndex(x=>x.id===row.id);
@@ -62,9 +71,9 @@ mod.configure(bridge);
  assert.ok(!mod.home(data,'<svg></svg>').includes('<i aria-hidden="true"></i>'));
  await action('toggle');await action('toggle');
  assert.equal(itemsWithRead(data,NOW).filter(x=>x.unread).length,0);
- const newAt=new Date(Date.now()+1500).toISOString();
+ const newAt=new Date(NOW+1500).toISOString();
  data.events.push({id:'new',date:newAt,text:'Job scheduled'});
- const next=itemsWithRead(data,Date.now()+2000);
+ const next=itemsWithRead(data,NOW+2000);
  assert.equal(next.find(x=>x.id==='activity:event:new').unread,true);
  assert.ok(mod.home(data,'<svg></svg>').includes('<i aria-hidden="true"></i>'));
  assert.equal(next.find(x=>x.id==='activity:event:old').unread,false);

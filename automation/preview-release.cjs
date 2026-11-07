@@ -5,7 +5,8 @@ const digest=body=>crypto.createHash('sha256').update(body).digest('hex');
 function files(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(path.join(dir,e.name)):[path.join(dir,e.name)])}
 function manifest(){
  const commit=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
- if(process.env.GITHUB_SHA&&process.env.GITHUB_SHA!==commit)throw Error('Checkout differs from workflow commit');
+ const expectedHead=process.env.TRADEFLOW_EXPECTED_SHA||process.env.GITHUB_SHA;
+ if(expectedHead&&expectedHead!==commit)throw Error('Checkout differs from workflow commit');
  return {format:'tradeflow-preview-release',version:1,commit,worker:'tradeflow-library-pilot-preview',
   assets:Object.fromEntries(files('public').sort().filter(p=>p!=='public/release.json').map(p=>[p.slice(7),digest(fs.readFileSync(p))])),
   serverSource:digest(Buffer.concat(files('src').sort().map(p=>Buffer.concat([Buffer.from(p+'\0'),fs.readFileSync(p)]))))};

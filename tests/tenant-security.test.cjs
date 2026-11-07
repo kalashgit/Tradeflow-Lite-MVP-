@@ -13,3 +13,8 @@ test('new financial records require owner or admin permission, never membership 
  await assert.rejects(authorizeBusiness({db:fakeDB('member'),principal:identity,businessId:'business_001',permission:'records:finance:write'}),/Forbidden/);
  assert.equal((await authorizeBusiness({db:fakeDB('admin'),principal:identity,businessId:'business_001',permission:'records:finance:write'})).role,'admin');
 });
+
+test('company membership controls crew administration; a member cannot promote a roster label to authority',async()=>{
+ await assert.rejects(authorizeBusiness({db:fakeDB('member'),principal:identity,businessId:'business_001',permission:'records:crew:write'}),{status:403});
+ for(const role of ['owner','admin'])assert.equal((await authorizeBusiness({db:fakeDB(role),principal:identity,businessId:'business_001',permission:'records:crew:write'})).role,role);
+});

@@ -40,8 +40,12 @@
     (r.bid_rationale?'<p><strong>Bid rationale:</strong> '+esc(r.bid_rationale)+'</p>':'')+
     (r.bid_outcome_reason?'<p><strong>Recorded outcome reason:</strong> '+esc(r.bid_outcome_reason)+(r.bid_outcome_notes?' — '+esc(r.bid_outcome_notes):'')+'</p>':'')+
     (src?'<a class="tf-od-outline" href="'+esc(src)+'" target="_blank" rel="noopener noreferrer">Open original source ↗</a>':'<p class="tf-od-muted">No verified source link is saved.</p>')+'</section>';
+  const needsBidReview=String(r.bid_decision||'').toLowerCase()==='pursue'&&
+   !['won','lost','closed','declined'].includes(String(r.status||'').toLowerCase())&&
+   ['bidInvitationVerified','bidScopeReviewed','bidCapacityChecked'].some(k=>String(r[k]||'Unknown').toLowerCase()!=='yes');
   return frame('Opportunity dossier','<div class="tf-od-stack"><section class="tf-od-card tf-od-hero"><h2>'+name+'</h2><div class="tf-od-hero-layout"><p class="tf-od-address"><span aria-hidden="true">⌖</span>'+esc(normalizedPlace(r))+'</p><div class="tf-od-photo">'+image+'</div></div><div class="tf-od-tags"><span>'+esc(classification(r))+'</span><span class="tf-od-proof">'+esc(evidence(r))+'</span></div><p class="tf-od-notice">ⓘ '+esc(summary)+'</p></section>'+details+original+
-   '<div class="tf-od-cta-group"><button class="tf-od-primary" type="button" data-action="'+(Number.isFinite(Number(r.latitude))&&r.latitude!==null&&Number.isFinite(Number(r.longitude))&&r.longitude!==null?'opportunityMap':'opportunityLocate')+'" data-id="'+esc(r.id)+'">View location on map →</button><button class="tf-od-outline" type="button" data-action="opportunityWorkflow" data-id="'+esc(r.id)+'">Contact &amp; workflow →</button></div></div>',r);
+   '<div class="tf-od-cta-group"><button class="tf-od-primary" type="button" data-action="'+(Number.isFinite(Number(r.latitude))&&r.latitude!==null&&Number.isFinite(Number(r.longitude))&&r.longitude!==null?'opportunityMap':'opportunityLocate')+'" data-id="'+esc(r.id)+'">View location on map →</button><button class="tf-od-outline" type="button" data-action="opportunityWorkflow" data-id="'+esc(r.id)+'">Contact &amp; workflow →</button>'+
+   (needsBidReview?'<button class="tf-od-outline" type="button" data-action="tfBidQualificationReview" data-id="'+esc(r.id)+'">Review bid qualification gaps</button>':'')+'</div></div>',r);
  }
  const glyph=(kind)=>{const paths={
  back:'<path d="m15 18-6-6 6-6"/>',

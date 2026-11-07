@@ -51,9 +51,9 @@ const f=(id,fields,extra={})=>({preventDefault(){},target:{id,fields,dataset:ext
  assert.ok(profit.includes('Cost categories'));
  assert.ok(profit.includes('Actual cost'));
  assert.ok(profit.includes('not final profit'));
- assert.ok(app.includes("'invoices','jobCosts'")&&app.includes('indexedDB.open(DB,9)'));
+ assert.ok(app.includes("'invoices','jobCosts'")&&app.includes('indexedDB.open(DB,window.TradeFlowConversationStore?.VERSION||10)'));
  assert.ok(app.includes('TradeFlowLocalRecovery.createBackup'));
- assert.ok(fs.readFileSync('public/local-recovery.js','utf8').includes('version:9,exportedAt'));
+ assert.ok(fs.readFileSync('public/local-recovery.js','utf8').includes("version:stores.includes('aiConversationThreads')"));
  assert.ok(html.includes('./revenue.js')&&html.includes('./revenue.css')&&sw.includes('./revenue.js'));
  console.log('PASS: Revenue R03 invoice save, issue, manual payment, job costs, currency disclosure, backup compatibility');
 })().catch(e=>{console.error(e);process.exitCode=1});

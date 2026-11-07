@@ -52,3 +52,36 @@ test('legacy backups retain explicitly present stores and initialize only histor
   assert.equal(checked.checksumVerified,false);assert.equal(checked.stores.customers[0].custom,'preserve');assert.deepEqual(checked.stores.calendarEntries,[]);
  }
 });
+
+test('v10 conversation backup accepts scoped history; v9 snapshots do not silently replace new history',async()=>{
+ const allStores=[...STORES,'aiConversationThreads','aiConversationTurns'];
+ const rows=Object.fromEntries(allStores.map(s=>[s,[]]));
+ rows.aiConversationThreads.push({id:'thread_1',scopeKey:'["local","local-business","local-owner"]',syncState:'local_only'});
+ rows.aiConversationTurns.push({id:'turn_1',threadId:'thread_1',content:'Example synthetic question'});
+ const current={format:'tradeflow-lite',version:10,stores:rows};
+ const checked=await recovery.validateBackup(current,allStores);
+ assert.equal(checked.stores.aiConversationTurns[0].content,'Example synthetic question');
+ const old={format:'tradeflow-lite',version:9,stores:Object.fromEntries(STORES.map(s=>[s,[]]))};
+ const legacy=await recovery.validateBackup(old,allStores);
+ assert.deepEqual(legacy.stores.aiConversationThreads,[]);
+ assert.deepEqual(legacy.stores.aiConversationTurns,[]);
+});
+
+test('restoring a valid v9 business backup preserves later local AI histories',async()=>{
+ const extras=['aiConversationThreads','aiConversationTurns'],allStores=[...STORES,...extras];
+ const db=createDB({aiConversationThreads:[{id:'thread_1',title:'Private device history'}],
+  aiConversationTurns:[{id:'turn_1',threadId:'thread_1',content:'Private test text'}],
+  customers:[{id:'c1',name:'Existing'}]},extras);
+ const previous=await recovery.createBackup(db,STORES);
+ assert.equal(previous.version,9);
+ previous.stores.customers[0].name='Restored business record';
+ delete previous.integrity;
+ const saved=await recovery.restoreBackup({db,stores:allStores,snapshot:previous,approve:()=>true,saveRecovery:async()=>{}});
+ assert.equal(saved.status,'restored');
+ assert.equal(db.dump().customers[0].name,'Restored business record');
+ assert.equal(db.dump().aiConversationThreads[0].title,'Private device history');
+ assert.equal(db.dump().aiConversationTurns[0].content,'Private test text');
+ const modern=await recovery.createBackup(db,allStores);
+ assert.equal(modern.version,10);
+ assert.equal((await recovery.validateBackup(modern,allStores)).checksumVerified,true);
+});

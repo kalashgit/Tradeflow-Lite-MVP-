@@ -10,5 +10,5 @@ test('migration preview requires a verified target owner and checksum, never mov
 test('unmapped related records and conflicting remote records block migration readiness',async()=>{
  const {previewLocalMigration:preview}=await import('../public/migration-preview.js'),db=createDB({customers:[{id:'c1',businessId:'another_business'}],payments:[{id:'p1',customerId:'missing'}]}),snapshot=await local.createBackup(db,STORES);
  const result=await preview({snapshot,stores:STORES,businessId:'business_001',session:{status:'signed_in',businesses:[{business_id:'business_001',role:'owner'}]},remoteByKey:{'business_001:customers:c1':{businessId:'business_001',type:'customers',id:'c1',revision:2}}});
- assert.equal(result.readyForReview,false);assert.equal(result.unsupported[0].store,'payments');assert.ok(result.missingReferences.length);assert.ok(result.requiresBusinessRelabel.length);assert.equal(result.records[0].status,'conflict');
+ assert.equal(result.readyForReview,false);assert.equal(result.unsupported[0].store,'payments');assert.ok(result.missingReferences.length);assert.ok(result.requiresBusinessRelabel.length);assert.equal(result.records[0].status,'conflict');assert.match(result.records[0].reason,/explicit relabel review required/);
 });

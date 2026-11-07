@@ -1,0 +1,171 @@
+// Real GUI/shared commands/IndexedDB on isolated synthetic contractor records.
+const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict'),cp=require('node:child_process');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),seed=require('../tests/fixtures/contractor-operating-flow-v1.json');
+const root=path.resolve('public'),out='artifacts/decision-journey';fs.mkdirSync(out,{recursive:true});
+const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://local'),file=path.resolve(root,'.'+(url.pathname==='/'?'/index.html':url.pathname));if(!file.startsWith(root+'/')){res.writeHead(403);res.end();return}fs.readFile(file,(error,bytes)=>{if(error){res.writeHead(404);res.end();return}res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml'})[path.extname(file)]||'application/octet-stream');res.end(bytes)})});
+let browser,activePage;
+(async()=>{await new Promise(r=>server.listen(4203,'127.0.0.1',r));browser=await chromium.launch({args:['--no-sandbox']});const results=[];
+ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
+  const context=await browser.newContext({viewport,timezoneId:'America/Chicago'}),page=await context.newPage();activePage=page;await page.clock.setFixedTime(new Date(seed.asOf));
+  await page.goto('http://127.0.0.1:4203');await page.waitForFunction(()=>!!window.TradeFlowPilot);
+  await page.evaluate(async records=>{const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result)),tx=db.transaction([...db.objectStoreNames],'readwrite');for(const store of db.objectStoreNames)tx.objectStore(store).clear();for(const r of records)tx.objectStore(r.type).put({id:r.id,...r.record,businessId:'local-business'});tx.objectStore('jobCosts').put({id:'legacy_preserve',jobId:'unrelated_job',amount:5,type:'actual',category:'Materials'});tx.objectStore('settings').put({id:'business',company:'Synthetic decision contractor',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true});await new Promise(r=>tx.oncomplete=r);db.close()},seed.records);
+  await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);const peer=await context.newPage();await peer.goto('http://127.0.0.1:4203');await peer.waitForFunction(()=>!!window.TradeFlowPilot);
+  // AI workspace -> actual saved job dossier -> deterministic evidence and existing review actions.
+  await page.locator('[data-tab="settings"]:visible').first().click();
+  await page.locator('.tf-more-menu [data-tab="ai"]').click();
+  // A natural-language question is investigated inside the existing saved AI thread, without private preview/model access.
+  await page.locator('#tfAiPrompt').fill('Review Warehouse rewiring job costs');
+  // Fixture uses a distinct saved job title; unmatched names must not resolve to fabricated records.
+  await page.locator('#tfAiChatForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Which job should I investigate?'),null,{timeout:10000});
+  assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),2);
+  await page.locator('#tfAiPrompt').fill('Review my active jobs and invoice readiness');
+  await page.locator('#tfAiChatForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('No record was changed.'),null,{timeout:15000});
+  assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/invoice readiness/i);
+  assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/LOCAL RECORD EVIDENCE|DEVICE-LOCAL EVIDENCE REVIEW/);
+  await page.locator('#tfAiPrompt').fill('Review Synthetic panel replacement job costs');
+  await page.locator('#tfAiChatForm button[type="submit"]').click();
+  // A prior portfolio question may already have opened the same job's review.
+  // Wait for the NEW conversational answer instead of reusing an earlier review panel.
+  await page.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===6,null,{timeout:15000});
+  assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/Review Synthetic panel replacement job costs/);
+  await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').first().waitFor({timeout:15000});
+  assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),6,'Single-job investigation persists in the shared conversation');
+  const aiJob=page.locator('[data-action="tfAiReviewJob"][data-id="job_01"]');
+  await aiJob.waitFor();
+  await aiJob.click();
+  await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').first().waitFor();
+  assert.equal(await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').count()>0,true,'AI review shortcut must expose existing reviewed commands');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'AI review shortcut must not create horizontal overflow');
+  await page.locator('[data-tab="dashboard"]:visible').first().click();
+  let mode='cancel',dialogs=0;
+  page.on('dialog',async dialog=>{dialogs++;assert.equal(dialog.type(),'confirm');assert.ok(dialog.message().includes('No customer message, payment or cost correction'));
+   if(mode==='cancel'){await dialog.dismiss();return}if(mode==='stale')await peer.evaluate(async()=>{const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result)),tx=db.transaction('jobCosts','readwrite'),store=tx.objectStore('jobCosts'),get=store.get('actual_labor');get.onsuccess=()=>store.put({...get.result,amount:970});await new Promise(r=>tx.oncomplete=r);db.close()});await dialog.accept();
+  });
+  const snapshot=()=>page.evaluate(async()=>{const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','jobCosts']);db.close();return d});
+  // Actual business overview -> existing exception -> existing job dossier.
+  await page.locator('[data-notif-action="toggle"]').click();const notification=page.locator('.tf-notif-item').filter({hasText:'Job spending exceeds recorded budget'});await notification.waitFor();await page.screenshot({path:path.join(out,'overview-'+viewport.width+'.png')});await notification.click();
+  const explain=page.locator('[data-action="tfDecisionExplain"][data-id="job_01"]'),region=page.locator('[data-decision-job="job_01"]');await explain.waitFor();await explain.click();await region.locator('[data-decision-action="review"]').first().waitFor();
+  await region.locator('[data-decision-action="none"]').click();assert.equal((await snapshot()).tasks.length,0);assert.ok((await region.innerText()).includes('No action taken'));
+  const review=()=>region.locator('[data-decision-action="review"]').filter({hasText:'cost review'});
+  await review().click();await page.waitForFunction(()=>document.querySelector('[data-decision-status]')?.textContent.includes('cancelled'));assert.equal((await snapshot()).tasks.length,0);
+  await explain.click();await review().waitFor();mode='stale';await review().click();await page.waitForFunction(()=>/changed|fresh/i.test(document.querySelector('[data-decision-status]')?.textContent||''));assert.equal((await snapshot()).tasks.length,0);
+  await explain.click();await review().waitFor();mode='accept';await review().click();await region.locator('[data-decision-receipt]').waitFor();assert.ok((await region.innerText()).includes('financial or labor issue is not marked resolved'));
+  const d=await snapshot(),tasks=d.tasks.filter(t=>t.taskKind==='job_cost_reconciliation');assert.equal(tasks.length,1);assert.equal(tasks[0].financialEvidence.recordedCosts,1770);assert.equal(tasks[0].financialEvidence.profitVerified,false);assert.equal(d.commandLog.filter(r=>r.kind==='job.cost_review.schedule').length,1);assert.equal(await review().isDisabled(),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await region.locator('[data-decision-receipt]').scrollIntoViewIfNeeded();assert.equal(await page.locator('.tf-ai-orb').isVisible(),false);await page.screenshot({path:path.join(out,'decision-'+viewport.width+'.png')});
+  await region.locator('[data-decision-action="task"]').click();await page.locator('.tf-record-dossier h2').filter({hasText:'Reconcile job cost overrun'}).waitFor();
+  // Reload/offline evidence stays useful. No provider or cloud result is fabricated.
+  await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);await context.setOffline(true);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowPilot);const persisted=await snapshot();assert.equal(persisted.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1);
+  const nav=await page.evaluate(async()=>{const c=window.TradeFlowPilot.commands,p=await c.prepare({commandId:'record.open',params:{ref:{store:'jobs',id:'job_01'}}});return c.execute(p.id)});assert.equal(nav.status,'succeeded');await page.locator('[data-action="tfDecisionExplain"]').click();await region.locator('[data-decision-action="review"]').first().waitFor();assert.ok((await region.innerText()).includes('Payments and profit are not independently verified'));
+  // Fault injection: the business commit exists, but command finalization was interrupted.
+  await page.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),tx=db.transaction('commandLog','readwrite'),store=tx.objectStore('commandLog'),req=store.getAll();req.onsuccess=()=>{const row=req.result.find(r=>r.kind==='pilot.command'&&r.commandId==='job.cost_review.schedule'&&r.status==='succeeded');if(!row)throw Error('Missing synthetic command receipt');const next={...row,status:'executing',events:row.events.filter(e=>e.type!=='succeeded')};delete next.outcome;store.put(next)};await new Promise(r=>tx.oncomplete=r);db.close()});
+  await region.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).click();await region.locator('[data-decision-action="inspect"]').waitFor();assert.equal((await snapshot()).tasks.length,1);
+  await region.locator('[data-decision-action="inspect"]').click();await page.waitForFunction(()=>document.querySelector('[data-decision-status]')?.textContent.includes('No business action was replayed'));assert.equal((await snapshot()).tasks.length,1);assert.equal((await snapshot()).commandLog.filter(r=>r.kind==='job.cost_review.schedule').length,1);
+  await region.locator('[data-decision-action="close"]').click();assert.equal(await page.locator('.tf-ai-orb').isVisible(),true);
+  const costing=await page.evaluate(async()=>{const c=window.TradeFlowPilot.commands,p=await c.prepare('open job costing');return c.execute(p.id)});assert.equal(costing.status,'succeeded');
+  await page.locator('[data-revenue-action="cost-filter"][data-filter="All"]').click();await page.locator('[data-revenue-action="job"][data-id="job_01"]').click();await page.locator('[data-revenue-action="cost-toggle"]').click();
+  const form=page.locator('#tfRevenueCostForm');await form.locator('[name="title"]').fill('Synthetic explicit USD cost');await form.locator('[name="amount"]').fill('25.00');await form.locator('[name="category"]').selectOption('Materials');await form.locator('button[type="submit"]').click();
+  await page.waitForFunction(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),d=await window.TradeFlowLocalRecovery.readStores(db,['jobCosts']);db.close();return d.jobCosts.some(r=>r.title==='Synthetic explicit USD cost'&&r.currency==='USD')});const costs=(await snapshot()).jobCosts;assert.equal(costs.find(r=>r.id==='legacy_preserve').currency,undefined);
+  // Independent local-owner conversation journey: actual approval and durable verified receipt.
+  const approvalContext=await browser.newContext({viewport,timezoneId:'America/Chicago'});
+  const approvalPage=await approvalContext.newPage();
+  await approvalPage.clock.setFixedTime(new Date(seed.asOf));
+  await approvalPage.goto('http://127.0.0.1:4203');
+  await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
+  await approvalPage.evaluate(async records=>{
+   const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result));
+   const tx=db.transaction([...db.objectStoreNames],'readwrite');
+   for(const store of db.objectStoreNames)tx.objectStore(store).clear();
+   for(const r of records)tx.objectStore(r.type).put({id:r.id,...r.record,businessId:'local-business'});
+   tx.objectStore('settings').put({id:'business',company:'Synthetic conversation contractor',primaryTrade:'Electrical',onboardingComplete:true});
+   await new Promise(r=>tx.oncomplete=r);db.close();
+  },seed.records);
+  await approvalPage.reload();await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
+  await approvalPage.locator('[data-tab="settings"]:visible').first().click();
+  await approvalPage.locator('.tf-more-menu [data-tab="ai"]').click();
+  await approvalPage.locator('#tfAiPrompt').fill('Review my last job. What did it cost, what remains unfinished, and is it ready to invoice?');
+  await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+  const inlineReview=approvalPage.locator('[data-decision-job="job_01"]');
+  await inlineReview.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).waitFor({timeout:15000});
+  // Same-thread, fresh local evidence blocker question cannot mutate invoices/tasks.
+  await approvalPage.locator('#tfAiPrompt').fill('What is blocking this job, and what should we do?');
+  await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Invoice preparation blocked:'),null,{timeout:15000});
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/Completion signoff has not been independently verified/);
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/only after explicit approval/);
+  assert.equal(await approvalPage.locator('.tf-ai-chat-error:visible').count(),0);
+  const untouched=await approvalPage.evaluate(async()=>{
+   const r=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(ok=>r.onsuccess=()=>ok(r.result));
+   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','invoices']);db.close();
+   return {tasks:data.tasks.length,invoices:data.invoices.length};
+  });
+  assert.equal(untouched.tasks,seed.records.filter(x=>x.type==='tasks').length);
+  assert.equal(untouched.invoices,seed.records.filter(x=>x.type==='invoices').length);
+  // Current evidence follow-up remains in the same saved conversation.
+  await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
+  await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Cause not established.'),null,{timeout:15000});
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/planned 8 hours; actual 12 hours; 4 hours above the estimate \(50%\)/);
+  assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/explicit approval controls/);
+  assert.equal(await approvalPage.locator('.tf-ai-chat-error:visible').count(),0);
+  let approvalPrompts=0;
+  approvalPage.on('dialog',async dialog=>{approvalPrompts++;assert.equal(dialog.type(),'confirm');assert.match(dialog.message(),/No customer message, payment or cost correction/);await dialog.accept()});
+  await inlineReview.locator('[data-decision-action="review"]').filter({hasText:'cost review'}).click();
+  await inlineReview.locator('[data-decision-receipt]').waitFor({timeout:15000});
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
+  const approvedRecords=await approvalPage.evaluate(async()=>{
+   const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const data=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','invoices']);db.close();return data;
+  });
+  const expectedInvoices=seed.records.filter(r=>r.type==='invoices').map(r=>({id:r.id,...r.record,businessId:'local-business'})).sort((a,b)=>a.id.localeCompare(b.id));
+  assert.equal(approvalPrompts,1,'Only one explicit approval requested');
+  assert.equal(approvedRecords.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1,'Exactly one approved internal review');
+  assert.equal(approvedRecords.commandLog.filter(x=>x.kind==='job.cost_review.schedule').length,1,'Exactly one durable command receipt');
+  assert.deepEqual(approvedRecords.invoices.sort((a,b)=>a.id.localeCompare(b.id)),expectedInvoices,'Invoice records are unchanged by internal approval');
+  const originalThreadId=await approvalPage.locator('#tfAiThreadPicker').inputValue();
+  await approvalPage.locator('[data-action="tfAiNewThread"]').click();
+  // Thread creation changes IndexedDB and asynchronously repaints the AI workspace.
+  // Observe the newly active empty thread before checking cross-thread isolation.
+  await approvalPage.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===0&&!document.querySelector('[data-decision-job="job_01"]'),null,{timeout:10000});
+  assert.equal(await approvalPage.locator('[data-decision-job="job_01"]').count(),0,'Unrelated conversation cannot display previous approval controls');
+  assert.equal(await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),0,'Unrelated conversation has no previous evidence');
+  assert.equal(await approvalPage.evaluate(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId),null,
+    'New thread cannot inherit the previous job');
+   await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'));
+  await approvalPage.reload();await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
+  await approvalPage.locator('[data-tab="settings"]:visible').first().click();
+  await approvalPage.locator('.tf-more-menu [data-tab="ai"]').click();
+  // A newer, empty thread may be selected after reload; reopen the exact original.
+  await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
+  await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
+  // Wait for BOTH scoped turns and their asynchronous saved-context recovery.
+  // Displaying an earlier turn alone is not proof the job target has rehydrated.
+   await approvalPage.waitForFunction(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId==='job_01',null,{timeout:15000});
+   assert.equal(await approvalPage.evaluate(()=>window.TradeFlowHostLifecycle?.getContext()?.contextRecordId),'job_01');
+   const beforeFollowUp=await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count();
+   await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
+   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+   await approvalPage.waitForFunction(before=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===before+2 &&
+     document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Cause not established.'),beforeFollowUp,{timeout:15000});
+   assert.match(await approvalPage.locator('.tf-ai-chat-thread').innerText(),/planned 8 hours; actual 12 hours/);
+   // A changed source must not reuse those old hours in the next explanation.
+   await approvalPage.evaluate(async()=>{
+    const r=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(ok=>r.onsuccess=()=>ok(r.result));
+    const tx=db.transaction('jobCosts','readwrite'),s=tx.objectStore('jobCosts'),q=s.get('actual_labor');
+    q.onsuccess=()=>s.put({...q.result,laborHours:7,revision:3});
+    await new Promise(ok=>tx.oncomplete=ok);db.close();
+   });
+   await approvalPage.locator('#tfAiPrompt').fill('Why are labor hours over budget?');
+   await approvalPage.locator('#tfAiChatForm button[type="submit"]').click();
+   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('No supported labor overrun was found'),null,{timeout:15000});
+   assert.equal(await approvalPage.locator('.tf-ai-chat-error:visible').count(),0);
+   const afterReload=await approvalPage.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','invoices']);db.close();return d});
+  assert.equal(afterReload.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1,'Reload must not replay approved command');
+  assert.deepEqual(afterReload.invoices.sort((a,b)=>a.id.localeCompare(b.id)),expectedInvoices,'Reload preserves existing invoices without generating new ones');
+  await approvalContext.close();
+  results.push({viewport,overviewExceptionDossier:true,deterministicExplanation:true,noActionAndCancelDoNotWrite:true,concurrentEditRejectsApproval:true,explicitApprovalOneTask:true,actualReceiptChecked:true,offlineReload:true,interruptedReceiptInspectedWithoutReplay:true,newCostCurrencyExplicit:true,legacyCurrencyNotRewritten:true,conversationApprovalReceiptVerified:true,financialResolutionClaimed:false,dialogs,realContractorAccepted:false});await context.close();
+ }
+ fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({sha:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),dirty:!!cp.execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim(),source:'Actual local UI/shared commands/IndexedDB; synthetic contractor graph',results},null,2));console.log('2/2 Chromium intelligence-driven contractor journeys passed; synthetic records, no external outcomes.');
+})().catch(async error=>{console.error(error);await activePage?.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});process.exitCode=1}).finally(async()=>{await browser?.close();await new Promise(r=>server.close(r))});

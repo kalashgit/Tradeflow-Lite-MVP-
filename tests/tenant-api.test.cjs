@@ -17,7 +17,7 @@ const jwksResponse=async()=>new Response(JSON.stringify({keys:[jwk]}));
 const db=(role='viewer',recordBusiness=business)=>({prepare(sql){return {bind(...params){return {
  async first(){
   if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
-  if(sql.includes('FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
+  if(sql.startsWith('SELECT role FROM business_memberships'))return params[0]===business&&params[1]===issuer&&params[2]==='user_123'&&params[3]==='active'?{role}:null;
   if(sql.includes('FROM tenant_records'))return params[0]===recordBusiness?{payload:'{"name":"Private test job"}',revision:3,updated_at:'2026-10-29',deleted_at:null}:null;
   throw Error('Unexpected SQL');
  },async all(){return {results:[{business_id:business,business_name:'Test Contractor',role}]}}
@@ -55,7 +55,9 @@ test('reads only tenant-scoped records with verified membership',async()=>{
  const path='/api/v1/businesses/'+business+'/records/jobs/job_123';
  const signed=await token(),env={...envBase,TF_DB:db()};
  const good=await api(req(path,signed),env,{fetchJwks:jwksResponse});
- assert.equal(good.status,200);assert.equal((await good.json()).record.name,'Private test job');
+ assert.equal(good.status,200);const scopedBody=await good.json();assert.equal(scopedBody.record.name,'Private test job');
+ assert.equal(scopedBody.businessId,business,'server must attest response business rather than leave it to client inference');
+ assert.equal(scopedBody.id,'job_123');assert.equal(scopedBody.type,'jobs');
  const forbidden=await api(req('/api/v1/businesses/business_999/records/jobs/job_123',signed),env,{fetchJwks:jwksResponse});
  assert.equal(forbidden.status,403);
  const absent=await api(req(path,signed),{...envBase,TF_DB:db('viewer','business_999')},{fetchJwks:jwksResponse});
@@ -108,4 +110,192 @@ test('extended routes are disabled until migration activation and financial writ
  const denied=await api(new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{id:'payment_1',amount:25}})}),{...envBase,TF_EXTENDED_RECORDS_ENABLED:'true',TF_DB:db('member')},{fetchJwks:jwksResponse});
  assert.equal(denied.status,403);
  const me=await api(req('/api/v1/me',signed),{...envBase,TF_DB:db('owner')},{fetchJwks:jwksResponse});assert.equal((await me.json()).capabilities.recordTypes.length,4);
+});
+
+test('cloud catalogue is tenant-authorized, bounded, cursor-paged and read-only',async()=>{
+ const signed=await token(),prefix='/api/v1/businesses/'+business+'/records/jobs';
+ const source=Array.from({length:51},(_,n)=>({id:'job_'+String(n).padStart(3,'0'),revision:2,updated_at:'2026-10-29',payload:JSON.stringify({name:'Synthetic job '+n})}));
+ let reads=0,writes=0;
+ const store={
+  prepare(sql){return {bind(...params){return {
+   async first(){
+    if(sql.includes('FROM tradeflow_schema_migrations'))return {sha256:'e19a6c3d3016403357488db2159d5ff3643672f6b6b2c4908a37a036cc69add0'};
+    if(sql.startsWith('SELECT role FROM business_memberships'))return params[0]===business?{role:'viewer'}:null;
+    throw Error('Unexpected first query');
+   },
+   async all(){
+    if(!sql.includes('FROM tenant_records')||!sql.includes('LIMIT 51'))throw Error('Unbounded catalogue');
+    reads++;
+    assert.equal(params[0],business);assert.equal(params[1],'jobs');
+    return {results:source.filter(row=>row.id>params[2]).slice(0,51)};
+   },
+   async run(){writes++;throw Error('Catalogue must not write')}
+  }}}}
+ };
+ const env={...envBase,TF_DB:store},options={fetchJwks:jwksResponse};
+ const first=await api(req(prefix,signed),env,options);
+ assert.equal(first.status,200);
+ const body=await first.json();assert.equal(body.items.length,50);assert.equal(body.nextCursor,'job_049');
+ assert.equal(body.items[0].record.name,'Synthetic job 0');
+ assert.equal(body.items[0].revision,2);
+ const next=await api(req(prefix+'?after='+body.nextCursor,signed),env,options);
+ assert.equal(next.status,200);assert.equal((await next.json()).items.length,1);
+ assert.equal((await api(req(prefix+'?after=not%2Fsafe',signed),env,options)).status,400);
+ assert.equal((await api(req(prefix+'?limit=10000',signed),env,options)).status,400);
+ assert.equal((await api(req('/api/v1/businesses/business_999/records/jobs',signed),env,options)).status,403);
+ assert.equal((await api(req(prefix),env,options)).status,401);
+ assert.equal(reads,2);assert.equal(writes,0);
+});
+
+test('API rejects crew administration by members despite owner-like fields in the roster payload',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/records/crew/crew_001';
+ const request=new Request('https://pilot.example.test'+path,{method:'PUT',headers:{Authorization:'Bearer '+signed,'Content-Type':'application/json'},body:JSON.stringify({revision:0,record:{name:'Display only',role:'owner',permissions:['members:manage']}})});
+ const res=await api(request,{...envBase,TF_DB:db('member'),TF_EXTENDED_RECORDS_ENABLED:'true'},{fetchJwks:jwksResponse});assert.equal(res.status,403);
+});
+
+test('read-only context route verifies identity and rejects client role/tool/scope overrides',async()=>{
+ const signed=await token(),path='/api/v1/businesses/'+business+'/intelligence/context';
+ const contextDb={prepare(sql){return {bind(...args){return {first:async()=>args[0]===business?{role:'member'}:null,all:async()=>({results:[{record_type:'jobs',id:'job_123',revision:2,updated_at:'2026-10-30',payload:JSON.stringify({id:'job_123',businessId:business,title:'Authorized job'})}]})}}}}};
+ const env={...envBase,TF_DB:contextDb},options={fetchJwks:jwksResponse};const good=await api(req(path,signed),env,options);assert.equal(good.status,200);const data=await good.json();assert.equal(data.readOnly,true);assert.equal(data.executionAuthority,false);assert.equal(data.records[0].id,'job_123');assert.equal(data.permission.role,'member');
+ assert.equal((await api(req(path),env,options)).status,401);
+ assert.equal((await api(req(path.replace(business,'business_999'),signed),env,options)).status,403);
+ for(const suffix of ['?role=owner','?businessId=foreign','?tools=send','?jobId=job_123&jobId=other'])assert.equal((await api(req(path+suffix,signed),env,options)).status,400);
+ assert.equal((await api(req(path,signed,'POST'),env,options)).status,405);
+});
+
+test('record and catalogue reads deny revocation during retrieval instead of returning private data or an empty success',async()=>{
+ const signed=await token();for(const catalogue of [false,true]){
+  let revoked=false;
+  const scopedDb={prepare(sql){return {bind(...args){return {
+   first:async()=>{if(sql.startsWith('SELECT role FROM business_memberships'))return revoked?null:{role:'owner'};assert.match(sql,/EXISTS \(SELECT 1 FROM business_memberships m/);revoked=true;return {payload:'{"name":"Must not expose"}',revision:1,updated_at:'2026-10-30'}},
+   all:async()=>{assert.match(sql,/EXISTS \(SELECT 1 FROM business_memberships m/);assert.deepEqual(args.slice(-3),[business,issuer,'user_123']);revoked=true;return {results:[{id:'private_01',revision:1,updated_at:'2026-10-30',payload:'{"name":"Must not expose"}'}]}}
+  }}}}};
+  const path='/api/v1/businesses/'+business+'/records/jobs'+(catalogue?'':'/private_01'),res=await api(req(path,signed),{...envBase,TF_DB:scopedDb},{fetchJwks:jwksResponse});assert.equal(res.status,403);assert.ok(!(await res.text()).includes('Must not expose'));
+ }
+});
+
+test('authenticated tenant reads fail closed on conflicting embedded record identities',async()=>{
+ const signed=await token(),secret='SYNTHETIC_FOREIGN_CUSTOMER_CONTENT';
+ let payload={name:'Allowed legacy job'},writes=0;
+ const scopedDb={prepare(sql){return {bind(...args){return {
+  async first(){
+   if(sql.startsWith('SELECT role FROM business_memberships'))return {role:'owner'};
+   if(sql.includes('FROM tenant_records')){
+    assert.equal(args[0],business);
+    return {payload:JSON.stringify(payload),revision:2,updated_at:'2026-10-31'};
+   }
+   throw Error('Unexpected SQL during scoped read');
+  },
+  async all(){
+   assert.match(sql,/FROM tenant_records/);
+   assert.equal(args[0],business);
+   return {results:[{id:'job_1',revision:2,updated_at:'2026-10-31',payload:JSON.stringify(payload)}]};
+  },
+  async run(){writes++;throw Error('Read-only identity check must not mutate database')}
+ }}}}};
+ const env={...envBase,TF_DB:scopedDb},options={fetchJwks:jwksResponse};
+ const record='/api/v1/businesses/'+business+'/records/jobs/job_1';
+ const catalogue='/api/v1/businesses/'+business+'/records/jobs';
+ for(const path of [record,catalogue]){
+  const allowed=await api(req(path,signed),env,options);
+  assert.equal(allowed.status,200,'legacy payload without embedded IDs remains compatible');
+ }
+ for(const invalid of [
+  {id:'job_1',businessId:'other_business',name:secret},
+  {id:'job_2',businessId:business,name:secret},
+  {id:'job_1',businessId:0,name:secret},
+  ['invalid_payload',secret]
+ ]){
+  payload=invalid;
+  for(const path of [record,catalogue]){
+   const denied=await api(req(path,signed),env,options);
+   assert.equal(denied.status,503,'corrupt nested cloud identity must not escape authenticated API');
+   const body=await denied.text();
+   assert.equal(body.includes(secret),false,'wrong tenant content must never appear in error response');
+   assert.match(body,/Request could not be completed/);
+  }
+ }
+ assert.equal(writes,0);
+});
+
+test('TF-MI blocker-answer API authenticates principal, checks office grant, never executes commands',async()=>{
+ const signed=await token();
+ const blocker={schemaVersion:1,eventId:'blocker_01',idempotencyKey:'op_01',
+  kind:'job_blocker_reported',actorId:'crew_01',actorIssuer:issuer,
+  note:'Missing panel breakers',eventAt:'2026-11-07T06:00:00Z'};
+ let writes=0,reads=0;
+ const blockedDb=(grant=true,role='member')=>({prepare(sql){return {bind(...params){return {
+  async first(){
+   if(sql.startsWith('SELECT role FROM business_memberships'))
+    return params[0]===business?{role}:null;
+   if(sql.includes('FROM tenant_records t')&&sql.includes('job_access_grants')){
+    reads++;assert.deepEqual(params,[issuer,'user_123',business,'job_123']);
+    if(!grant)return null;
+    return {job_payload:JSON.stringify({id:'job_123',businessId:business,
+     fieldUpdates:[blocker]}),job_revision:4,viewer_role:role,
+     office_grant_revision:grant?2:null};
+   }
+   throw Error('Unexpected SQL');
+  },
+  async all(){return {results:[]}}
+ }}}}});
+ const base='/api/v1/businesses/'+business+'/intelligence/jobs/job_123/blockers/blocker_01/answer';
+ const url=base+'?question='+encodeURIComponent('What is blocking this job?')+
+  '&threadId=thread_01&expectedJobRevision=4';
+ const run=(db,path=url,bearer=signed,method='GET')=>api(req(path,bearer,method),
+  {...envBase,TF_DB:db},{fetchJwks:jwksResponse});
+ const answer=await run(blockedDb());
+ assert.equal(answer.status,200);
+ const body=await answer.json();
+ assert.equal(body.source.revision,4);
+ assert.equal(body.thread.id,'thread_01');
+ assert.equal(body.thread.bindingVerified,false);
+ assert.equal(body.commandExecuted,false);
+ assert.equal(body.proposal.commandId,'draft.prepare');
+ assert.equal(body.proposal.status,'proposal_only');
+ assert.equal(body.executionAuthority,false);
+ assert.equal(writes,0);assert.equal(reads,1);
+ const denied=await run(blockedDb(false));
+ assert.equal(denied.status,403);
+ const viewer=await run(blockedDb(true,'viewer'));
+ assert.equal(viewer.status,403);
+ assert.equal((await run(blockedDb(),url,null)).status,401);
+ assert.equal((await run(blockedDb(),url+'&question=duplicate')).status,400);
+ assert.equal((await run(blockedDb(),url+'&unexpected=1')).status,400);
+ assert.equal((await run(blockedDb(),url.replace('expectedJobRevision=4','expectedJobRevision=3'))).status,409);
+ assert.equal((await run(blockedDb(),url,signed,'POST')).status,405);
+ assert.equal(writes,0);
+});
+
+test('TF-MI office response POST route requires verified OIDC and explicit same-origin approval',async()=>{
+ const tokenValue=await token();
+ const path='/api/v1/businesses/'+business+'/intelligence/jobs/job_123/blockers/blocker_01/respond';
+ const body=JSON.stringify({approved:true,eventId:'office_reply_01',
+  idempotencyKey:'office_reply_once',expectedJobRevision:4,
+  text:'Confirm supplier delivery date'});
+ const request=(headers={})=>new Request('https://pilot.example.test'+path,{
+  method:'POST',headers:{
+   'Content-Type':'application/json',...headers
+  },body
+ });
+ const environment={...envBase,TF_DB:db('member')};
+ const noSession=await api(request({
+  Origin:'https://pilot.example.test','X-TradeFlow-Approval':'confirmed'
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(noSession.status,401);
+ const absentApproval=await api(request({
+  Authorization:'Bearer '+tokenValue
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(absentApproval.status,403);
+ const foreignOrigin=await api(request({
+  Authorization:'Bearer '+tokenValue,Origin:'https://other.example',
+  'X-TradeFlow-Approval':'confirmed'
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(foreignOrigin.status,403);
+ const wrongType=await api(new Request('https://pilot.example.test'+path,{
+  method:'POST',headers:{'Content-Type':'text/plain',
+   Authorization:'Bearer '+tokenValue,Origin:'https://pilot.example.test',
+   'X-TradeFlow-Approval':'confirmed'},body
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(wrongType.status,415);
 });

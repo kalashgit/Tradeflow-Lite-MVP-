@@ -5,9 +5,9 @@ const canonical=x=>JSON.stringify(x===null||typeof x!=='object'?x:Array.isArray(
 function sorted(x){if(!x||typeof x!=='object')return x;if(Array.isArray(x))return x.map(sorted);return Object.fromEntries(Object.keys(x).sort().map(k=>[k,sorted(x[k])]))}
 const copy=x=>JSON.parse(JSON.stringify(x));
 async function checksum(x){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(x)))),b=>b.toString(16).padStart(2,'0')).join('')}
-function optional(store,version){return version<4&&!['customers','quotes','jobs','tasks','events','expenses','settings'].includes(store)||store==='pins'||store==='payments'&&version<5||['invoices','jobCosts'].includes(store)&&version<6||['marketingCampaigns','crew','routePlans'].includes(store)&&version<7||['suppliers','supplyOrders','commandLog'].includes(store)&&version<8||['calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'].includes(store)&&version<9}
+function optional(store,version){return ['aiConversationThreads','aiConversationTurns'].includes(store)&&version<10||version<4&&!['customers','quotes','jobs','tasks','events','expenses','settings'].includes(store)||store==='pins'||store==='payments'&&version<5||['invoices','jobCosts'].includes(store)&&version<6||['marketingCampaigns','crew','routePlans'].includes(store)&&version<7||['suppliers','supplyOrders','commandLog'].includes(store)&&version<8||['calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'].includes(store)&&version<9}
 function normalize(data,stores){
- if(!data||data.format!=='tradeflow-lite'||!Number.isInteger(data.version)||data.version<1||data.version>9||!data.stores||Array.isArray(data.stores)||typeof data.stores!=='object')throw Error('Invalid or unsupported local backup');
+ if(!data||data.format!=='tradeflow-lite'||!Number.isInteger(data.version)||data.version<1||data.version>10||!data.stores||Array.isArray(data.stores)||typeof data.stores!=='object')throw Error('Invalid or unsupported local backup');
  if(Object.keys(data.stores).some(s=>!stores.includes(s)))throw Error('Backup contains an unknown store; refusing silent data loss');
  const normalized={};let total=0;
  for(const store of stores){
@@ -37,7 +37,7 @@ function readStores(db,stores){return new Promise((resolve,reject)=>{
  for(const store of stores){const req=tx.objectStore(store).getAll();req.onsuccess=()=>result[store]=req.result}
 })}
 async function createBackup(db,stores){
- const payload={format:'tradeflow-lite',version:9,exportedAt:new Date().toISOString(),stores:await readStores(db,stores)};
+ const payload={format:'tradeflow-lite',version:stores.includes('aiConversationThreads')&&stores.includes('aiConversationTurns')?10:9,exportedAt:new Date().toISOString(),stores:await readStores(db,stores)};
  normalize(payload,stores);
  return {...payload,integrity:{algorithm:'SHA-256',sha256:await checksum(payload)}};
 }
@@ -79,11 +79,17 @@ async function latestRecovery(indexedDB){return vault(indexedDB,db=>new Promise(
  tx.oncomplete=()=>resolve(req.result?.snapshot||null);tx.onabort=tx.onerror=()=>reject(tx.error);
 }))}
 async function restoreBackup({db,stores,snapshot,approve,saveRecovery:save}){
- const checked=await validateBackup(snapshot,stores),before=await createBackup(db,stores),plan=summarize(checked.stores,before.stores);
+ const checked=await validateBackup(snapshot,stores),before=await createBackup(db,stores);
+ // A pre-v10 backup never contained AI history. Preserve current local conversations
+ // rather than treating their historical absence as a request to erase them.
+ const replaceStores=snapshot.version<10?stores.filter(s=>!['aiConversationThreads','aiConversationTurns'].includes(s)):stores;
+ const incoming=Object.fromEntries(replaceStores.map(s=>[s,checked.stores[s]]));
+ const current=Object.fromEntries(replaceStores.map(s=>[s,before.stores[s]]));
+ const plan=summarize(incoming,current);
  if(!await approve({...plan,checksumVerified:checked.checksumVerified}))return {status:'cancelled'};
  // Persist the full rollback point before opening any destructive transaction. Failure means no replacement.
  await save(before);
- await replaceAtomically(db,stores,checked.stores,before.stores);
+ await replaceAtomically(db,replaceStores,incoming,current);
  return {status:'restored',plan};
 }
 return Object.freeze({validateBackup,createBackup,readStores,summarize,replaceAtomically,restoreBackup,saveRecovery,latestRecovery});

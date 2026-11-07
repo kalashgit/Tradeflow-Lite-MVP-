@@ -1,6 +1,7 @@
 const DB='tradeflow-lite-v1', STORES=['customers','quotes','jobs','tasks','events','expenses','settings','opportunities','pins','payments','invoices','jobCosts','marketingCampaigns','crew','routePlans','suppliers','supplyOrders','commandLog','calendars','calendarEntries','calendarProposals','calendarPreferences','calendarAudit'];let db,tab='dashboard',query='',modal=null,toast='';let tfMotionNext='',tfRecordListContext=null;let prefs={company:'TradeFlow Lite',accent:'#10cfe1',primaryTrade:'',categories:[]};
+const BACKUP_STORES=[...STORES,'aiConversationThreads','aiConversationTurns'];
 const $=s=>document.querySelector(s);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const euro=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n)||0);const today=()=>new Date().toISOString().slice(0,10);const uid=()=>crypto.randomUUID();
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,9);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,window.TradeFlowConversationStore?.VERSION||10);r.onupgradeneeded=()=>{for(const s of STORES)if(!r.result.objectStoreNames.contains(s))r.result.createObjectStore(s,{keyPath:'id'});window.TradeFlowConversationStore?.upgrade(r.result)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function tx(store,mode,cb){return new Promise((res,rej)=>{const t=db.transaction(store,mode),s=t.objectStore(store),r=cb(s);t.oncomplete=()=>res(r?.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})}const all=s=>tx(s,'readonly',x=>x.getAll());const put=(s,v)=>window.TradeFlowBusinessEvents?.write(db,s,v,tfPilotContext())||tx(s,'readwrite',x=>x.put(v));const del=(s,id)=>tx(s,'readwrite',x=>x.delete(id));const get=(s,id)=>tx(s,'readonly',x=>x.get(id));
 async function tfExecuteCommand(kind,payload,requestKey){const data=Object.fromEntries(await Promise.all(STORES.map(async store=>[store,await all(store)])));return window.TradeFlowCore.execute({db,kind,payload,data,uid,requestKey});}
 async function event(text){await put('events',{id:uid(),text,date:new Date().toISOString()})}let tfToastSequence=0;
@@ -381,10 +382,129 @@ function tfFinancePhotoSection(record,target){
  return '<div class="tf-photo-finance-attached"><strong>Attached paper record</strong><img src="'+saved+'" alt="Photo attached to financial record"><small>Kept locally with this record and included in JSON backup.</small></div>';
 }
 
-/* TradeFlow AI preview: chat remains in memory, private code stays in sessionStorage,
-   and only opted-in aggregate context crosses the network. */
-let tfChatMessages=[],tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='';
+/* AI preview threads remain in this device's local workspace. The app's local-owner
+   identity is NOT an authenticated cloud identity, and history is never synchronized. */
+let tfChatMessages=[],tfChatThreads=[],tfActiveChatThreadId=null,tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='',tfAiReviewJobId=null,tfAiReviewThreadId=null;
+const tfAiLocalScope=Object.freeze({kind:'local',businessId:'local-business',actorId:'local-owner'});
+ // Persistent metadata is a verified local pointer, not cached decision authority.
+ async function tfAiRestoreJobContext(expectedThread=tfActiveChatThreadId){
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  if(!expectedThread)return false;
+  try{
+   const context=await window.TradeFlowConversationStore.readJobContext(db,tfAiLocalScope,expectedThread);
+   if(tfActiveChatThreadId!==expectedThread||!context)return false;
+   const job=await get('jobs',context.jobId);
+   if(tfActiveChatThreadId!==expectedThread||!job||job.businessId&&job.businessId!=='local-business')return false;
+   tfAiReviewJobId=job.id;tfAiReviewThreadId=expectedThread;return true;
+  }catch{return false}
+ }
+ async function tfAiClearJobContext(){
+  const thread=tfActiveChatThreadId;
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  if(thread)await window.TradeFlowConversationStore.setJobContext(db,tfAiLocalScope,thread,null);
+ }
+ async function tfAiBindJobContext(jobId,savedTurn){
+  const thread=savedTurn?.threadId;
+  if(!thread||thread!==tfActiveChatThreadId)throw Error('Conversation switched before job context save');
+  await window.TradeFlowConversationStore.setJobContext(db,tfAiLocalScope,thread,{jobId,sourceTurnId:savedTurn.id});
+  if(thread!==tfActiveChatThreadId)throw Error('Conversation switched during job context save');
+  tfAiReviewJobId=jobId;tfAiReviewThreadId=thread;
+ }
+
+/* AI-owned adapter: UI motion consumes this public surface; app state remains authoritative. */
+function tfHostRead(){
+ const selected=['jobs','tasks','quotes','customers'].includes(tab)&&tfRecordDetailId?
+  {store:tab,id:tfRecordDetailId}:null;
+ return {actorId:tfAiLocalScope.actorId,businessId:tfAiLocalScope.businessId,screen:tab,
+  selected,threadId:tfActiveChatThreadId,contextRecordId:tfAiReviewThreadId===tfActiveChatThreadId?tfAiReviewJobId:null};
+}
+function tfHostDraftRead(){return document.getElementById('tfAiPrompt')?.value??document.getElementById('tfAiQuickPrompt')?.value??tfAiPanelDraft??''}
+function tfHostDraftWrite(value){tfAiPanelDraft=value;const prompt=document.getElementById('tfAiPrompt')||document.getElementById('tfAiQuickPrompt');if(prompt)prompt.value=value}
+async function tfAiLoadHistory(){
+ const store=window.TradeFlowConversationStore;
+ if(!store){tfChatError='Local conversation storage module unavailable; sending is disabled.';return}
+ try{
+  tfChatThreads=await store.listThreads(db,tfAiLocalScope);
+  if(!tfChatThreads.some(t=>t.id===tfActiveChatThreadId))tfActiveChatThreadId=tfChatThreads[0]?.id||null;
+  tfChatMessages=tfActiveChatThreadId?await store.listTurns(db,tfAiLocalScope,tfActiveChatThreadId):[];
+  await tfAiRestoreJobContext(tfActiveChatThreadId);
+ }catch(error){tfChatMessages=[];tfChatError='Could not read local AI history. No messages were sent; inspect browser storage.'}
+}
+async function tfAiEnsureThread(title){
+ const store=window.TradeFlowConversationStore;
+ if(!store)throw Error('Local conversation storage unavailable');
+ if(!tfActiveChatThreadId){
+  const thread=await store.createThread(db,tfAiLocalScope,title);
+  tfActiveChatThreadId=thread.id;
+ }
+ return tfActiveChatThreadId;
+}
+async function tfAiSaveTurn(turn){
+ const store=window.TradeFlowConversationStore;
+ if(!store)throw Error('Local conversation storage unavailable');
+ const threadId=await tfAiEnsureThread(turn.role==='user'?turn.content.slice(0,64):'New conversation');
+ const saved=await store.appendTurn(db,tfAiLocalScope,threadId,turn);
+ tfChatMessages.push(saved);
+ tfChatThreads=await store.listThreads(db,tfAiLocalScope);
+ if(turn.role==='assistant'&&window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech.speak(saved.content,tfAiKey());
+ return saved;
+}
+async function tfAiSwitchThread(threadId){
+ window.TradeFlowSpeech?.stop();
+ if(tfChatBusy)return;
+ const store=window.TradeFlowConversationStore;
+ try{
+  if(!tfChatThreads.some(t=>t.id===threadId))throw Error('Conversation no longer available');
+  const turns=await store.listTurns(db,tfAiLocalScope,threadId);
+  tfActiveChatThreadId=threadId;tfChatMessages=turns;tfChatError='';
+  await tfAiRestoreJobContext(threadId);
+ }catch(error){tfChatError='Could not open the selected local conversation.'}
+ await tfAiUpdateChatUI();
+}
+async function tfAiNewThread(){
+ window.TradeFlowSpeech?.stop();
+ if(tfChatBusy)return;
+ try{
+  const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
+  tfActiveChatThreadId=thread.id;tfChatMessages=[];tfChatError='';
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  tfChatThreads=await window.TradeFlowConversationStore.listThreads(db,tfAiLocalScope);
+ }catch(error){tfChatError='Could not create local conversation; no new thread was saved.'}
+ await tfAiUpdateChatUI();
+}
+async function tfAiDeleteThread(){
+ window.TradeFlowSpeech?.stop();
+ if(tfChatBusy||!tfActiveChatThreadId)return;
+ if(!confirm('Permanently delete this local conversation and all its messages from this device?'))return;
+ try{
+  await window.TradeFlowConversationStore.deleteThread(db,tfAiLocalScope,tfActiveChatThreadId);
+  tfActiveChatThreadId=null;tfChatError='';
+  tfAiReviewJobId=null;tfAiReviewThreadId=null;
+  await tfAiLoadHistory();
+ }catch(error){tfChatError='Could not delete conversation. Local history was not confirmed deleted.'}
+ await tfAiUpdateChatUI();
+}
+async function tfAiExportThread(){
+ if(!tfActiveChatThreadId)return;
+ try{
+  const thread=tfChatThreads.find(t=>t.id===tfActiveChatThreadId);
+  const turns=await window.TradeFlowConversationStore.listTurns(db,tfAiLocalScope,tfActiveChatThreadId);
+  const output={format:'tradeflow-local-ai-thread',version:1,syncState:'local_only',title:thread?.title||'Conversation',
+   exportedAt:new Date().toISOString(),messages:turns.map(({role,content,modality,source,refs,at})=>({role,content,modality,source,refs,at}))};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(output,null,2)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download='tradeflow-local-ai-thread.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ }catch(error){tfChatError='Conversation export failed; no history was deleted.';await tfAiUpdateChatUI()}
+}
+function tfAiHistoryView(){
+ return '<div class="tf-ai-history"><label for="tfAiThreadPicker">Local conversation</label><select id="tfAiThreadPicker" aria-label="Saved local conversations" '+(tfChatBusy?'disabled':'')+'>'+(
+  tfChatThreads.length?tfChatThreads.map(t=>'<option value="'+esc(t.id)+'" '+(t.id===tfActiveChatThreadId?'selected':'')+'>'+esc(t.title)+'</option>').join(''):
+  '<option value="">No saved conversation</option>')+'</select><button type="button" data-action="tfAiNewThread" '+(tfChatBusy?'disabled':'')+'>New</button>'+
+  '<button type="button" data-action="tfAiExportThread" '+(!tfActiveChatThreadId?'disabled':'')+'>Export</button>'+
+  '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
+}
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
+if(window.TradeFlowSpeech)window.TradeFlowSpeech.previewCode=tfAiKey;
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
  return {
@@ -397,19 +517,29 @@ function tfAiContext(data){
   month_expenses:expenses.filter(x=>String(x.date||'').startsWith(month)).reduce((n,x)=>n+(Number(x.amount)||0),0)
  };
 }
+function tfAiAttribution(message){
+ if(message.role!=='assistant'||!message.source)return '';
+ if(message.source==='device_local_evidence')return '<div class="tf-ai-evidence"><span>LOCAL RECORD EVIDENCE · NOT VERIFIED CLOUD DATA</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
+ const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':message.source==='unverified_model'?'UNVERIFIED MODEL RESPONSE':'MODEL UNAVAILABLE';
+ const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x)).slice(0,8):[];
+ return '<div class="tf-ai-evidence"><span>'+esc(mode)+'</span>'+(refs.length?'<small>Evidence: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
+}
 function tfAIChatView(data){
  const unlocked=!!tfAiKey();
- const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p></div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
- const examples=[['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
+ const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
+ const examples=[['Business update','TradeFlow, give me an update on my business. What needs attention?'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
+ const reviewJobs=(data.jobs||[]).filter(job=>typeof job.id==='string'&&job.id&&typeof job.title==='string').slice(0,5);
+ const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
+ const conversationReview=tfAiReviewJobId&&tfAiReviewThreadId===tfActiveChatThreadId?'<section class="tf-ai-preview-gate" aria-label="Conversation job approval"><strong>Job review and approval</strong><p>Local evidence only. Internal review actions require explicit approval; invoice preparation remains blocked where billing evidence is missing.</p><div data-decision-job="'+esc(tfAiReviewJobId)+'">'+(window.TradeFlowPilot?.decisions?.view(tfAiReviewJobId)||'')+'</div></section>':'';
  const gate=unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
- return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(tfChatBusy?'disabled':'')+' aria-label="Clear conversation">Clear</button></div>'+gate+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(unlocked&&!tfChatBusy?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(unlocked&&!tfChatBusy?'':'disabled')+' placeholder="'+(unlocked?'Ask TradeFlow AI...':'Unlock private preview to chat')+'"></textarea><button type="submit" '+(unlocked&&!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Messages are sent for inference but not saved in TradeFlow.</p></section>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>TradeFlow AI <span>PREVIEW</span></h2><p>Business intelligence assistant'+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="1200" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
 }
 
 /* TradeFlow Intelligence node: screen-aware preview UI, no silent data access/actions. */
 let tfAiPanelOpen=false,tfAiPanelDraft='';
 const tfAiScreenTitles={library:'Library',dashboard:'Home',map:'Opportunity Map',opportunities:'Opportunities',expenses:'Finance',customers:'Customers',quotes:'Quotations',jobs:'Jobs',tasks:'Tasks',settings:'More',preferences:'Settings',ai:'Intelligence'};
 const tfAiScreenPrompts={
- dashboard:[['Priorities','Help me plan the top three priorities for my electrical contracting business this week.'],['Grow','Suggest practical ways to find more suitable electrical jobs.']],
+ dashboard:[['Business update','TradeFlow, give me an update on my business. What needs attention?'],['Priorities','Help me plan the top three priorities for my electrical contracting business this week.'],['Grow','Suggest practical ways to find more suitable electrical jobs.']],
  map:[['Qualify a project','How should I evaluate a construction project signal before pursuing electrical work?'],['Find opportunities','Which publicly available sources are useful for finding electrical subcontracting opportunities?']],
  opportunities:[['Next steps','Help me qualify a possible electrical project and determine next steps.'],['Pipeline','How should I organize my project opportunity pipeline?']],
  expenses:[['Cash flow','Explain a practical cash-flow review for a small electrical contractor.'],['Costs','What expenses should I monitor to protect job margins?']],
@@ -427,10 +557,10 @@ function tfAiOverlayView(){
  const emblem='<span class="tf-brand-mark" aria-hidden="true"><span class="tf-brand-top"></span><span class="tf-brand-stem"></span><span class="tf-brand-accent"></span></span>';
  const orb='<button type="button" class="tf-ai-orb" title="Tap to talk to TradeFlow" data-action="tfAiToggle" aria-label="Talk to TradeFlow" aria-expanded="false" aria-controls="tfAiOverlayRoot"><span class="tf-ai-orb-icon">'+emblem+'</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
  if(!isOpen)return orb;
- const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p></div>').join('');
+ const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join('');
  const promptButtons=tfAiCurrentPrompts().map(([title,prompt])=>'<button type="button" data-action="tfAiPanelPrompt" data-prompt="'+esc(prompt)+'" '+(tfChatBusy?'disabled':'')+'>'+esc(title)+'</button>').join('');
  const gate=!unlocked?'<form id="tfAiUnlockForm" class="tf-ai-mini-gate"><label for="tfAiPreviewCode">Private AI preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter your existing code" required><button type="submit">Unlock</button></div><small>Use the same private preview code. No account is created.</small></form>':'';
- return orb+'<section class="tf-ai-mini-panel" id="tfAiPanel" role="dialog" aria-modal="false" aria-labelledby="tfAiPanelTitle"><header class="tf-ai-mini-head"><span class="tf-ai-mini-grip" aria-hidden="true"></span><div class="tf-ai-mini-mark">'+emblem+'</div><div><small>TRADEFLOW / INTELLIGENCE</small><h2 id="tfAiPanelTitle">AI command panel</h2></div><button type="button" class="tf-ai-mini-close" data-action="tfAiClose" aria-label="Close AI panel">×</button></header><div class="tf-ai-mini-context"><span class="tf-ai-mini-live" aria-hidden="true"></span>Viewing '+esc(tfAiScreenTitles[tab]||'TradeFlow')+' <span>· Preview</span></div><div class="tf-ai-mini-thread" id="tfAiMiniThread" role="log" aria-live="polite">'+(msgs||'<div class="tf-ai-mini-empty">How can I help you on this screen?</div>')+(tfChatBusy?'<div class="tf-ai-mini-thinking">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-mini-error" role="alert">'+esc(tfChatError)+'</p>':'')+gate+'<div class="tf-ai-mini-suggestions">'+promptButtons+'</div><form id="tfAiQuickForm" class="tf-ai-mini-compose"><label for="tfAiQuickPrompt">Ask TradeFlow AI</label><div><textarea id="tfAiQuickPrompt" name="prompt" rows="2" maxlength="1200" placeholder="'+(unlocked?'Ask a question or describe a task…':'Unlock the preview to send a message')+'" '+(unlocked&&!tfChatBusy?'':'disabled')+' required>'+esc(tfAiPanelDraft)+'</textarea><button type="submit" aria-label="Send to TradeFlow AI" '+(unlocked&&!tfChatBusy?'':'disabled')+'>➤</button></div><label class="tf-ai-mini-optin"><input type="checkbox" id="tfAiQuickContext" '+(tfChatWithSummary?'checked':'')+' '+(unlocked&&!tfChatBusy?'':'disabled')+'> Share anonymous business totals</label></form><footer class="tf-ai-mini-foot"><span>Screen name is shared; records stay private unless totals are enabled.</span><button type="button" data-action="tfAiOpenFull">Expand ↗</button></footer><label class="tf-ai-haptic-setting"><input type="checkbox" switch id="tfAiHaptics" '+(tfUiHapticsEnabled?'checked':'')+'> Tactile feedback <small>(supported devices)</small></label></section>';
+ return orb+'<section class="tf-ai-mini-panel" id="tfAiPanel" role="dialog" aria-modal="false" aria-labelledby="tfAiPanelTitle"><header class="tf-ai-mini-head"><span class="tf-ai-mini-grip" aria-hidden="true"></span><div class="tf-ai-mini-mark">'+emblem+'</div><div><small>TRADEFLOW / INTELLIGENCE</small><h2 id="tfAiPanelTitle">AI command panel</h2></div><button type="button" class="tf-ai-mini-close" data-action="tfAiClose" aria-label="Close AI panel">×</button></header><div class="tf-ai-mini-context"><span class="tf-ai-mini-live" aria-hidden="true"></span>Viewing '+esc(tfAiScreenTitles[tab]||'TradeFlow')+' <span>· Preview'+(tfAiPreviewMode?' · SYNTHETIC DEMO':'')+'</span></div><div class="tf-ai-mini-thread" id="tfAiMiniThread" role="log" aria-live="polite">'+(msgs||'<div class="tf-ai-mini-empty">How can I help you on this screen?</div>')+(tfChatBusy?'<div class="tf-ai-mini-thinking">✦ Thinking…</div>':'')+'</div>'+(tfChatError?'<p class="tf-ai-mini-error" role="alert">'+esc(tfChatError)+'</p>':'')+gate+'<div class="tf-ai-mini-suggestions">'+promptButtons+'</div><form id="tfAiQuickForm" class="tf-ai-mini-compose"><label for="tfAiQuickPrompt">Ask TradeFlow AI</label><div><textarea id="tfAiQuickPrompt" name="prompt" rows="2" maxlength="1200" placeholder="'+(unlocked?'Ask a question or describe a task…':'Unlock the preview to send a message')+'" '+(unlocked&&!tfChatBusy?'':'disabled')+' required>'+esc(tfAiPanelDraft)+'</textarea><button type="submit" aria-label="Send to TradeFlow AI" '+(unlocked&&!tfChatBusy?'':'disabled')+'>➤</button></div><label class="tf-ai-mini-optin"><input type="checkbox" id="tfAiQuickContext" '+(tfChatWithSummary?'checked':'')+' '+(unlocked&&!tfChatBusy?'':'disabled')+'> Share anonymous business totals</label></form><footer class="tf-ai-mini-foot"><span>'+(tfAiPreviewMode?'Synthetic records only. No business actions.':'Screen name is shared; records stay private unless totals are enabled.')+'</span><button type="button" data-action="tfAiOpenFull">Expand ↗</button></footer><label class="tf-ai-haptic-setting"><input type="checkbox" switch id="tfAiHaptics" '+(tfUiHapticsEnabled?'checked':'')+'> Tactile feedback <small>(supported devices)</small></label></section>';
 }
 function tfAiRefreshOverlay(){
  const host=document.getElementById('tfAiOverlayRoot');
@@ -510,6 +640,7 @@ document.addEventListener('click',event=>{
 document.addEventListener('input',event=>{if(event.target.id==='tfAiQuickPrompt')tfAiPanelDraft=event.target.value;const form=event.target.closest?.('#tfOdContactWorkflowForm');if(form&&['contact_phone','contact_email'].includes(event.target.name))window.TradeFlowDossier?.syncQuickLinks(form)});
 document.addEventListener('change',event=>{
  if(event.target.id==='tfAiQuickContext')tfChatWithSummary=event.target.checked;
+  if(event.target.id==='tfAiThreadPicker'){void tfAiSwitchThread(event.target.value);return}
  if(event.target.id==='tfAiHaptics'){
   tfUiHapticsEnabled=!!event.target.checked;
   try{localStorage.setItem('tf-ui-haptics',tfUiHapticsEnabled?'on':'off')}catch(e){}
@@ -525,7 +656,8 @@ async function tfAiHealthCheck(){
  const response=await fetch('/api/ai/health',{method:'GET',cache:'no-store'});
  const body=await response.json().catch(()=>null);
  if(!response.ok||!body?.online)throw Error('AI endpoint unreachable (HTTP '+response.status+')');
- tfAiStatus=!body.secretConfigured?'Endpoint reachable, but TF_AI_PREVIEW_TOKEN has not been saved in Cloudflare.':!body.aiBound?'Endpoint reachable, but the AI binding is missing.':'Endpoint online. AI binding and access-code configuration detected.';
+ tfAiPreviewMode=body.syntheticDemo?String(body.modelMode||'mock'):'';
+ tfAiStatus=body.syntheticDemo?(body.modelMode==='live'&&!body.modelReady?'Synthetic preview online; local Qwen is not ready. Responses will show MODEL UNAVAILABLE.':'Synthetic development demo online. Only synthetic records can be used.'):!body.secretConfigured?'Endpoint reachable, but TF_AI_PREVIEW_TOKEN has not been saved in Cloudflare.':!body.aiBound?'Endpoint reachable, but the AI binding is missing.':'Endpoint online. AI binding and access-code configuration detected.';
  return body;
 }
 async function tfAiDescribeError(err){
@@ -539,22 +671,148 @@ async function tfAiDescribeError(err){
   return 'Network error: the browser could not reach /api/ai/chat or /api/ai/health ('+message.slice(0,60)+'). Open the preview directly in Safari, disable content blockers/VPN if applicable, and retry.';
  }
 }
+async function tfAiLocalBriefingFollowUp(content){
+ const {classifyBriefingFollowUp}=await import('./intelligence-briefing.js');
+ const kind=classifyBriefingFollowUp(content);
+ if(!kind||!tfAiReviewJobId||tfAiReviewThreadId!==tfActiveChatThreadId)return false;
+ const job=await get('jobs',tfAiReviewJobId);
+ if(!job||job.businessId&&job.businessId!=='local-business'){tfAiReviewJobId=null;tfAiReviewThreadId=null;return false}
+ await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  let answer='',refs=['jobs:'+job.id+'@0'];
+  if(kind==='labor_cause'||kind==='job_blockers'){
+    if(!window.TradeFlowPilot?.decisions?.investigate)throw Error('Existing job investigation unavailable');
+    const thread=tfActiveChatThreadId;
+    const decision=await window.TradeFlowPilot.decisions.investigate(job.id,{threadId:thread});
+    if(tfAiReviewThreadId!==thread||tfActiveChatThreadId!==thread||tfAiReviewJobId!==job.id)
+     throw Error('Conversation context changed during review');
+    const {inspectCurrentLocalCase}=await import('./intelligence-case.js');
+    const {localEvidence}=await import('./intelligence-evidence.js');
+    let freshSnapshot=null;
+    const freshness=await inspectCurrentLocalCase({caseFile:decision.case,decision,scope:decision.scope,
+      threadId:thread,accessGranted:true,readCurrent:async scope=>{freshSnapshot=await tfPilotSnapshot();return localEvidence(freshSnapshot,scope)}});
+    if(freshness.status!=='current')throw Error('Job evidence '+freshness.status+'; review the job again');
+    if(tfAiReviewThreadId!==thread||tfActiveChatThreadId!==thread||tfAiReviewJobId!==job.id)
+     throw Error('Conversation changed during evidence refresh');
+    const currentJob=(freshSnapshot.jobs||[]).find(r=>r.id===job.id&&(!r.businessId||r.businessId==='local-business'));
+    if(!currentJob)throw Error('Selected job is no longer available');
+    if(kind==='labor_cause'){
+     const {explainLaborFollowUp}=await import('./intelligence-briefing.js');
+     const explanation=explainLaborFollowUp(decision,currentJob);
+     answer=explanation.content;refs=explanation.refs;
+    }else{
+     const {assessInvoiceReadiness}=await import('./job-intelligence-request.js');
+     const {explainJobBlockers}=await import('./intelligence-briefing.js');
+     const readiness=assessInvoiceReadiness({job:currentJob,invoices:freshSnapshot.invoices||[],quotes:freshSnapshot.quotes||[]});
+     const explanation=explainJobBlockers(decision,currentJob,readiness);
+     answer=explanation.content;refs=explanation.refs;
+    }
+   }else if(kind==='why_blocked'||kind==='who_approves'){
+   const {assessInvoiceReadiness}=await import('./job-intelligence-request.js');
+   const [invoices,quotes]=await Promise.all([all('invoices'),all('quotes')]);
+   const readiness=assessInvoiceReadiness({job,invoices,quotes});
+   answer=kind==='who_approves'?
+    'The saved job does not identify who is authorized to approve completion, change orders, or its billing milestone. Check the customer contract and recorded approval evidence. No authorization is inferred.':
+    'Latest invoice readiness for '+String(job.title||job.id)+': '+readiness.status+'. Recorded blockers: '+readiness.blockers.join(', ')+'. No invoice was prepared.';
+  }else if(kind==='show_evidence'||kind==='open_review'){
+   if(!window.TradeFlowPilot?.decisions?.investigate||!window.TradeFlowPilot?.decisions?.open)throw Error('Existing job evidence controls unavailable');
+   const decision=await window.TradeFlowPilot.decisions.investigate(job.id,{threadId:tfActiveChatThreadId});
+   refs=[...new Set(['jobs:'+job.id+'@0',...decision.observations.flatMap(o=>(o.refs||[]).map(r=>r.type+':'+r.id+'@'+(r.revision||0)))] )].slice(0,8);
+   await window.TradeFlowPilot.decisions.open(job.id);
+   answer=kind==='show_evidence'?
+    'Opened the existing job evidence review for '+String(job.title||job.id)+'. Review the cited records and uncertainties there. No record was changed.':
+    'Opened the existing review controls for '+String(job.title||job.id)+'. Internal task proposals require explicit approval. No invoice or task was created.';
+  }else if(kind==='open_job'){
+   const runtime=window.TradeFlowPilot?.commands;
+   if(!runtime?.prepare||!runtime?.execute)throw Error('Shared navigation commands unavailable');
+   const plan=await runtime.prepare({commandId:'record.open',params:{ref:{store:'jobs',id:job.id}}});
+   if(plan.status!=='ready')throw Error(plan.error?.message||'Job navigation requires review');
+   const outcome=await runtime.execute(plan.id);
+   if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Could not open job');
+   answer='Opened the saved job through the shared navigation command. No business record was changed.';
+  }
+  await tfAiSaveTurn({role:'assistant',content:answer,modality:'text',status:'committed',source:'device_local_evidence',refs});
+ }catch(error){tfChatError='Follow-up unavailable: '+String(error.message||error).slice(0,160)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI()}
+ return true;
+}
+async function tfAiLocalBusinessBriefing(content){
+ const {isBusinessBriefingRequest,createOperationalBriefing}=await import('./intelligence-briefing.js');
+ if(!isBusinessBriefingRequest(content))return false;
+ if(!window.TradeFlowPilot?.evaluate)throw Error('Existing local operational detectors unavailable');
+ await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  await tfAiClearJobContext();
+  const snapshot=await tfPilotSnapshot();
+  const evaluation=await window.TradeFlowPilot.evaluate();
+  const result=createOperationalBriefing({data:snapshot,evaluation,businessId:'local-business'});
+  const oneJob=result.blockedJobIds.length===1?result.blockedJobIds[0]:null;
+  const sourceRefs=[...new Set([...(oneJob?['jobs:'+oneJob+'@0']:[]),...result.refs.slice(0,8).map(r=>r+'@0')])].slice(0,8);
+  const saved=await tfAiSaveTurn({role:'assistant',content:result.content.slice(0,2500),modality:'text',status:'committed',source:'device_local_evidence',refs:sourceRefs});
+  if(oneJob)await tfAiBindJobContext(oneJob,saved);
+ }catch(error){tfChatError='Business briefing unavailable: '+String(error.message||error).slice(0,160)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI()}
+ return true;
+}
+async function tfAiLocalJobReview(content){
+ const {resolveJobReviewIntent,explainJobDecision,assessInvoiceReadiness}=await import('./job-intelligence-request.js');
+ const jobs=await all('jobs'),request=resolveJobReviewIntent(content,jobs);
+ if(request.status==='not_job_review')return false;
+ await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  let answer='',refs=[];
+  await tfAiClearJobContext();
+  if(request.status==='empty')answer='No saved jobs are available in this local workspace. No action was taken.';
+  else if(request.status==='too_many')answer='This review exceeds the 20-job safety limit. Narrow the question to a specific saved job. No action was taken.';
+  else if(request.status==='ambiguous')answer='Which job should I investigate? '+request.jobs.map(x=>x.title).join('; ')+'. No action was taken.';
+  else {
+   if(!window.TradeFlowPilot?.decisions?.investigate)throw Error('Local authorized investigation unavailable');
+   const summaries=[];
+   const [invoiceRecords,quoteRecords]=await Promise.all([all('invoices'),all('quotes')]);
+   for(const job of request.jobs){
+    const decision=await window.TradeFlowPilot.decisions.investigate(job.id,{threadId:tfActiveChatThreadId});
+    const readiness=assessInvoiceReadiness({job,invoices:invoiceRecords,quotes:quoteRecords});
+    const explanation=explainJobDecision(job,decision,readiness);
+    summaries.push(explanation.content);refs.push(...explanation.refs);
+   }
+   answer='DEVICE-LOCAL EVIDENCE REVIEW (not an authenticated cloud tenant)\n'+summaries.join('\n\n');
+   }
+  const oneJob=request.status==='selected'&&request.jobs.length===1?request.jobs[0].id:null;
+  const sourceRefs=[...new Set([...(oneJob?['jobs:'+oneJob+'@0']:[]),...refs])].slice(0,8);
+  const saved=await tfAiSaveTurn({role:'assistant',content:answer.slice(0,2400),modality:'text',status:'committed',source:'device_local_evidence',refs:sourceRefs});
+  if(oneJob)await tfAiBindJobContext(oneJob,saved);
+ }catch(error){tfAiReviewJobId=null;tfAiReviewThreadId=null;tfChatError='Local job investigation was not completed: '+String(error.message||error).slice(0,160)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI();if(tfAiReviewJobId)await window.TradeFlowPilot?.decisions?.open(tfAiReviewJobId)}
+ return true;
+}
 async function tfAISend(text){
  const content=String(text||'').trim().slice(0,1200);
- if(!content||tfChatBusy||!tfAiKey())return;
+ if(!content||tfChatBusy)return;
+ if(await tfAiLocalBriefingFollowUp(content))return;
+  if(await tfAiLocalBusinessBriefing(content))return;
+  if(await tfAiLocalJobReview(content))return;
+ if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
  tfChatError='';
- tfChatMessages.push({role:'user',content});
+ try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
+ catch(error){tfChatError='Your message could not be saved locally; nothing was sent. Check available device storage.';await tfAiUpdateChatUI();return}
  tfChatBusy=true;
  await tfAiUpdateChatUI();
  try{
   let business=null;
   if(tfChatWithSummary){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
-  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages:tfChatMessages.slice(-8),business,screen}),cache:'no-store'});
+  const messages=tfChatMessages.slice(-8).map(({role,content})=>({role,content}));
+  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
-  tfChatMessages.push({role:'assistant',content:payload.reply.trim().slice(0,2500)});
+  tfAiPreviewMode=payload.syntheticDemo?String(payload.source||'mock'):tfAiPreviewMode;
+  await tfAiSaveTurn({role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
+   source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable'].includes(payload.source)?payload.source:'unverified_model',
+   refs:payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
  }catch(err){tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
 }
@@ -568,7 +826,8 @@ document.addEventListener('submit',async e=>{
    const result=await response.json().catch(()=>({}));
    if(!response.ok||!result.authorized)throw Error((result.error||'Cannot verify this access code')+' (HTTP '+response.status+')');
    try{sessionStorage.setItem('tf-ai-preview-code',code)}catch(err){throw Error('This browser does not allow session storage.')}
-   tfChatError='';tfAiStatus='Access verified. AI connection available.';
+   tfAiPreviewMode=result.syntheticDemo?String(result.modelMode||'mock'):'';
+   tfChatError='';tfAiStatus=result.syntheticDemo?'Synthetic development preview unlocked. No real business records are accessible.':'Access verified. AI connection available.';
   }catch(err){tfChatError=await tfAiDescribeError(err);tfAiStatus='Access verification unsuccessful.';}
   await tfAiUpdateChatUI();return;
  }
@@ -627,7 +886,7 @@ function tfAIView(d){
  ]]
  };
  const [answer,lines]=responses[tfAIQuestion]||responses.priorities;
- return '<section class="tf-ai-screen">'+tfAIChatView(d)+'<header class="tf-ai-heading">'+tfAIIcon+'<div><h1>TradeFlow Intelligence</h1><p>Your local business briefing.</p></div></header><div class="tf-ai-tags"><span>OFFLINE</span><span>NO AI API CALLS</span><span>LOCAL DATA ONLY</span></div><section class="tf-ai-panel"><div class="tf-ai-section-head"><h2>Ask your headquarters</h2><small>Choose a briefing</small></div><div class="tf-ai-questions">'+[['priorities','My priorities'],['cash','Cash flow'],['pipeline','Pipeline'],['tasks','Tasks']].map(([key,label])=>'<button type="button" data-action="tfAIQuestion" data-question="'+key+'" class="'+(tfAIQuestion===key?'active':'')+'">'+label+'</button>').join('')+'</div><div class="tf-ai-answer"><h3>'+esc(answer)+'</h3><ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><p class="tf-ai-disclosure">These are rule-based summaries of records on this device, not generative AI or financial advice. Figures depend on the records you entered.</p></section><section class="tf-ai-pro"><div class="tf-ai-pro-head"><span>✦</span><div><h2>TradeFlow AI Pro</h2><p>Advanced capabilities planned</p></div><span class="tf-ai-locked">LOCKED</span></div><div class="tf-ai-pro-lines"><div>Document and handwriting extraction</div><div>AI-assisted follow-up drafts</div><div>Business recommendations</div></div><button type="button" data-action="tfAIProInfo">About future Pro access</button><p>Not for sale or active yet. Pro will require verified account entitlements and a secure server connection.</p></section></section>';
+ return '<section class="tf-ai-screen">'+tfAIChatView(d)+'<header class="tf-ai-heading">'+tfAIIcon+'<div><h1>TradeFlow Intelligence</h1><p>Your local business briefing.</p></div></header><div class="tf-ai-tags">'+(tfAiPreviewMode?'<span>SYNTHETIC DEMO</span><span>READ-ONLY</span><span>NO CUSTOMER DATA</span>':'<span>OFFLINE</span><span>NO AI API CALLS</span><span>LOCAL DATA ONLY</span>')+'</div><section class="tf-ai-panel"><div class="tf-ai-section-head"><h2>Ask your headquarters</h2><small>Choose a briefing</small></div><div class="tf-ai-questions">'+[['priorities','My priorities'],['cash','Cash flow'],['pipeline','Pipeline'],['tasks','Tasks']].map(([key,label])=>'<button type="button" data-action="tfAIQuestion" data-question="'+key+'" class="'+(tfAIQuestion===key?'active':'')+'">'+label+'</button>').join('')+'</div><div class="tf-ai-answer"><h3>'+esc(answer)+'</h3><ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><p class="tf-ai-disclosure">These are rule-based summaries of records on this device, not generative AI or financial advice. Figures depend on the records you entered.</p></section><section class="tf-ai-pro"><div class="tf-ai-pro-head"><span>✦</span><div><h2>TradeFlow AI Pro</h2><p>Advanced capabilities planned</p></div><span class="tf-ai-locked">LOCKED</span></div><div class="tf-ai-pro-lines"><div>Document and handwriting extraction</div><div>AI-assisted follow-up drafts</div><div>Business recommendations</div></div><button type="button" data-action="tfAIProInfo">About future Pro access</button><p>Not for sale or active yet. Pro will require verified account entitlements and a secure server connection.</p></section></section>';
 }
 
 
@@ -707,6 +966,7 @@ return tfRecordHubView(d)}
 
 /* Compact record command cards and context panels, shared across the four record types. */
 let tfRecordDetailId=null;
+let tfContactQuotePrefill='';
 let tfCalendarLinkedReturn=false;
 /* Keep the list exactly where the user left it when viewing a record.
    The record ID and on-screen offset provide a fallback if the list changes. */
@@ -794,7 +1054,8 @@ function tfCustomerContactForm(d,customerId){
  '<form id="tfContactLogForm" data-customer-id="'+esc(customerId)+'">'+
  '<label>Contact method<select name="method" required>'+['Phone','Email','Meeting','Site visit','Other'].map(x=>'<option value="'+x+'">'+x+'</option>').join('')+'</select></label>'+
  '<label>Related quotation (optional)<select name="quoteId"><option value="">Customer-level contact</option>'+
- quotes.map(q=>'<option value="'+esc(q.id)+'">'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ quotes.map(q=>'<option value="'+esc(q.id)+'"'+(tfContactQuotePrefill===q.id?' selected':'')+'>'+esc(String(q.title||q.id).slice(0,100))+'</option>').join('')+'</select></label>'+
+ '<label>Outcome<select name="outcome" required><option value="attempted">Attempted — customer not reached</option><option value="reached">Customer reached — owner attests actual conversation or reply</option></select></label>'+
  '<label>Outcome / notes<textarea name="notes" required maxlength="1000" rows="2" placeholder="What happened and what is the agreed next step?"></textarea></label>'+
  '<button type="submit" class="tf-record-dossier-primary">Save contact log</button>'+
  '</form><small>Manual record only. TradeFlow cannot verify that a call or email was delivered.</small></section>';
@@ -864,6 +1125,59 @@ function tfCustomerRelationshipHistory(d,customerId){
  (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label)+'</p>').join(''):'<p>No dated linked activity has been recorded yet.</p>')+
  '<small>Drawn from local TradeFlow records only; calls, emails and external systems are not synchronized.</small></section>';
 }
+function tfQuotationRecordedHistory(d,quote){
+ const linkedTasks=(d.tasks||[]).filter(t=>t.quoteId===quote.id&&t.customerId===quote.customerId);
+ const contacts=(d.events||[]).filter(e=>e.kind==='customer_contact'&&
+  e.quoteId===quote.id&&e.customerId===quote.customerId);
+ const rows=[];
+ for(const task of linkedTasks){
+  const when=String(task.createdAt||task.updatedAt||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))
+   rows.push({date:when,kind:'Internal task',label:String(task.title||'Task')+' · '+String(task.status||'Open')});
+ }
+ for(const contact of contacts){
+  const when=String(contact.date||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(when))
+   rows.push({date:when,kind:'Manually recorded contact',label:(contact.outcome==='reached'?'Owner-attested reached':'Attempted / unspecified')+' · '+String(contact.method||'Other')+' · '+String(contact.notes||'')});
+ }
+ rows.sort((a,b)=>b.date.localeCompare(a.date)||a.kind.localeCompare(b.kind));
+ return '<section class="tf-record-dossier-box" aria-label="Quotation recorded activity"><h3>Quotation activity</h3>'+
+ (rows.length?rows.slice(0,12).map(x=>'<p><strong>'+esc(x.date)+' · '+esc(x.kind)+'</strong> — '+esc(x.label.slice(0,150))+'</p>').join(''):
+ '<p>No linked follow-up task or contact has been recorded for this quotation.</p>')+
+ '<small>Task creation is not customer contact. Contact entries are operator-reported and have no independent provider delivery verification.</small></section>';
+}
+// Display only already-persisted read-only labor observations that still agree
+// with the CURRENT local job-cost rows. Stale observations cannot trigger actions.
+function tfSavedProactiveLaborFinding(data,job){
+ if(!job?.id||job.businessId&&job.businessId!=='local-business')return null;
+ const costs=(data.jobCosts||[]).filter(c=>c.jobId===job.id&&c.category==='Labor'&&
+  ['estimate','actual'].includes(c.type)&&c.laborHours!=null);
+ if(!costs.length||costs.some(c=>c.businessId&&c.businessId!=='local-business'||
+  !Number.isFinite(c.laborHours)||c.laborHours<=0))return null;
+ const planned=costs.filter(c=>c.type==='estimate').reduce((n,c)=>n+c.laborHours,0);
+ const recorded=costs.filter(c=>c.type==='actual').reduce((n,c)=>n+c.laborHours,0);
+ if(planned<=0||recorded<=planned)return null;
+ const binding=window.TradeFlowBusinessEvents?.laborCostBinding?.(data.jobCosts||[],job.id,'local-business');
+ if(!binding||Math.abs(binding.estimated-planned)>0.000001||Math.abs(binding.recorded-recorded)>0.000001)return null;
+ const sources=(data.commandLog||[]).filter(e=>e.kind==='domain.event'&&e.status==='processed'&&
+  e.businessId==='local-business'&&e.actor==='local-owner'&&Array.isArray(e.result?.laborFindings));
+ for(const event of sources.reverse()){
+  if(event.result?.reactiveLaborCase){
+   const verified=window.TradeFlowBusinessEvents?.inspectReactiveLaborCase?.({
+    event,records:{jobs:data.jobs||[],jobCosts:data.jobCosts||[]},
+    businessId:'local-business',actor:'local-owner'
+   });
+   if(verified?.status!=='current'||verified.reviewStatus!=='owner_review_available')continue;
+  }
+  const matched=event.result.laborFindings.find(item=>item?.jobId===job.id&&
+   item.detectorId==='job.labor_hours_variance_review'&&item.executionAuthority===false&&
+   typeof item.sourceCostBinding==='string'&&item.sourceCostBinding===binding.proof&&
+   item.estimatedLaborHours===planned&&item.recordedLaborHours===recorded&&
+   item.timesheetVerified===false&&item.payrollVerified===false);
+  if(matched)return matched;
+ }
+ return null;
+}
 function tfRecordDetailView(d,record,type){
  const title=type==='customers'?record.name:record.title||'Untitled';
  const status=tfRecordStatus(record,type);
@@ -882,15 +1196,33 @@ function tfRecordDetailView(d,record,type){
   sections+='<section class="tf-record-dossier-box"><h3>Linked records</h3><div class="tf-record-related-grid">'+related.map(([key,name,count])=>'<button type="button" data-action="tfRecordRelated" data-type="'+key+'" data-id="'+esc(record.id)+'">'+tfRecordIcon(key==='payments'?'cash':key,19)+'<span>'+name+'<small>'+count+' records</small></span>'+tfRecordIcon('arrow',17)+'</button>').join('')+'</div></section>';
   sections+=tfCustomerRelationshipHistory(d,record.id);
   sections+=tfCustomerRecordedEconomics(d,record.id);
+  if((d.jobs||[]).some(j=>j.customerId===record.id))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfCustomerEconomicsReview" data-id="'+esc(record.id)+'">Review recorded customer contribution</button>';
   sections+=tfCustomerContactForm(d,record.id);
  }else{
   const person=record.customerId?tfRecordPerson(d,record.customerId):'';
   sections+='<section class="tf-record-dossier-box">'+tfRecordInfoRow('customers','Customer',person)+tfRecordInfoRow('jobs','Trade',record.category||'')+(type==='quotes'?tfRecordInfoRow('cash','Estimated value',euro(record.amount))+tfRecordInfoRow('calendar','Date sent',tfRecordDay(record.sentDate)):type==='jobs'?tfRecordInfoRow('calendar','Scheduled',tfRecordDay(record.date)):tfRecordInfoRow('calendar','Due date',tfRecordDay(record.due)))+tfRecordInfoRow('check','Status',status||'Not set')+'</section>';
-  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Use as a starting point for a new quote</button>';
+  if(type==='quotes')sections+=tfQuotationRecordedHistory(d,record);
+  if(type==='quotes')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteReuse" data-id="'+esc(record.id)+'">Create reviewed draft from this quote</button>';
+  if(type==='quotes'&&record.status==='Sent'&&record.followupResolution?.status!=='owner_attested_reached')
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteFollowupReview" data-id="'+esc(record.id)+'">Review follow-up task</button>';
+  if(type==='quotes'&&record.status==='Sent'&&record.customerId)
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfQuoteContactOutcome" data-id="'+esc(record.id)+'">Record actual contact outcome</button>';
+  if(type==='quotes'&&record.followupResolution?.status==='owner_attested_reached')
+   sections+='<p>Owner-attested customer reached. Linked internal follow-up tasks resolved. Provider delivery remains unverified.</p>';
   if(type==='quotes'&&record.status==='Accepted'&&!d.jobs.some(j=>j.quoteId===record.id))
    sections+='<button type="button" class="tf-record-dossier-primary" data-convert="'+esc(record.id)+'">Create job from accepted quote</button>';
+  if(type==='jobs'&&Array.isArray(record.changeOrders))for(const change of record.changeOrders){
+   if(change?.status!=='proposed'||typeof change.id!=='string'||!change.id.trim()||record.changeOrders.filter(x=>x?.id===change.id).length!==1)continue;
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfChangeOrderReview" data-id="'+esc(record.id)+'" data-change-id="'+esc(change.id)+'">Review proposed change: '+esc(String(change.description||change.id).slice(0,100))+'</button>';
+  }
   if(type==='tasks'&&record.status!=='Done')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark task complete</button>';
+  if(type==='jobs'){const laborAttention=tfSavedProactiveLaborFinding(d,record);sections+='<section class="tf-record-dossier-box"><h3>Operational reasoning</h3>'+(laborAttention?'<p data-proactive-labor-finding="'+esc(record.id)+'"><strong>Master Intelligence · Labor attention recorded</strong><br>Estimated '+esc(laborAttention.estimatedLaborHours)+' h · manually recorded '+esc(laborAttention.recordedLaborHours)+' h · variance +'+esc(laborAttention.varianceHours)+' h.<br><small>This saved observation is read-only. Hours are not verified timesheets or payroll. Review alternatives and approve any internal task explicitly.</small></p>':'')+'<button type="button" class="tf-record-dossier-primary" data-action="tfDecisionExplain" data-id="'+esc(record.id)+'">Explain recorded job exceptions</button><div data-decision-job="'+esc(record.id)+'">'+(window.TradeFlowPilot?.decisions?.view(record.id)||'')+'</div></section>'}
   if(type==='jobs'&&record.status!=='Completed')sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfRecordComplete" data-id="'+esc(record.id)+'">Mark job completed</button>';
+  if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.type==='estimate'))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobCostReview" data-id="'+esc(record.id)+'">Review recorded job cost overrun</button>';
+  if(type==='jobs'&&(d.jobCosts||[]).some(c=>c.jobId===record.id&&c.category==='Labor'&&c.type==='estimate'))
+   sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobLaborReview" data-id="'+esc(record.id)+'">Review recorded labor-hour variance</button>';
  }
  if(type==='jobs'&&record.status==='Completed'&&!(d.invoices||[]).some(i=>i.jobId===record.id&&i.status!=='Void'))sections+='<button type="button" class="tf-record-dossier-primary" data-action="tfJobInvoiceDraft" data-id="'+esc(record.id)+'">Prepare invoice draft for completed job</button>';
  if(type==='jobs')sections+=window.TradeFlowJobForms?.panel(record)||'';
@@ -960,26 +1292,29 @@ function tfReusableQuoteFields(source){
  };
 }
 async function tfSyncQuoteFollowUp(id,quote,previous={}){
+ // Legacy compatibility only: existing automatic tasks are preserved and updated.
+ // A newly sent quote must not silently create a task; use the explicit
+ // quotation.followup.schedule command in the existing quotation dossier.
  const tasks=(await all('tasks')).filter(t=>t.quoteId===id);
- const automatic=tasks.find(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
- const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ const linked=tasks.filter(t=>t.taskKind==='quotation_follow_up'||t.followupAuto===true||
+  String(t.title||'').startsWith('Follow up quote: '));
+ const active=linked.filter(t=>!['done','completed','cancelled','canceled'].includes(String(t.status||'').toLowerCase()));
  const terminal=['Accepted','Declined'].includes(quote.status);
- if(terminal&&automatic&&automatic.status!=='Done'){
-  await put('tasks',{...automatic,status:'Done',completedReason:'quotation_closed',updatedAt:new Date().toISOString()});return;
+ if(terminal){
+  for(const task of active)await put('tasks',{...task,status:'Done',
+   completedReason:'quotation_closed',updatedAt:new Date().toISOString()});
+  return;
  }
  if(quote.status!=='Sent')return;
- const due=validDate(quote.followup_date)?quote.followup_date:
-   validDate(previous.followup_date)?previous.followup_date:
-   (()=>{const x=new Date();x.setDate(x.getDate()+3);return window.TradeFlowCommands?.dateText?.(x)||x.toISOString().slice(0,10)})();
- if(!automatic){
-  if(tasks.some(t=>!['Done','Cancelled'].includes(t.status)))return;
-  await put('tasks',{id:uid(),title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),customerId:quote.customerId,
-    due,status:'Open',quoteId:id,followupAuto:true,createdAt:new Date().toISOString()});return;
+ const legacy=active.filter(t=>t.followupAuto===true||String(t.title||'').startsWith('Follow up quote: '));
+ const validDate=x=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(x||''))return false;const parsed=new Date(x+'T12:00:00Z');return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===x};
+ for(const old of legacy){
+  const updated={...old,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),
+   customerId:quote.customerId,due:validDate(quote.followup_date)?quote.followup_date:old.due,
+   updatedAt:new Date().toISOString()};
+  if(updated.due!==old.due||updated.title!==old.title||updated.customerId!==old.customerId)
+   await put('tasks',updated);
  }
- if(['Done','Cancelled'].includes(automatic.status))return;
- const updated={...automatic,title:'Follow up quote: '+String(quote.title||'Quotation').slice(0,120),customerId:quote.customerId,
-  due:validDate(quote.followup_date)?due:automatic.due,updatedAt:new Date().toISOString()};
- if(updated.due!==automatic.due||updated.title!==automatic.title||updated.customerId!==automatic.customerId)await put('tasks',updated);
 }
 async function saveForm(form){const f={...modal.draftDefaults,...Object.fromEntries(new FormData(form))};if(modal.commandDraft){try{window.TradeFlowCommands.validateDraft({...modal.commandDraft,fields:f},await tfPilotSnapshot(),tfPilotContext())}catch(error){alert('Draft needs review: '+error.message);return}}if(tab==='customers'){if(!modal.id&&!String(f.phone||'').trim()){alert('Customer phone number is required.');return}f.email=f.email.trim().toLowerCase();const existing=(await all('customers')).find(c=>c.id!==modal.id&&((f.email&&c.email===f.email)||(f.phone&&c.phone===f.phone)));if(existing&&!confirm('A customer already has this email or phone. Save anyway?'))return}if(tab==='jobs'&&f.closeoutStatus==='Complete'&&String(f.closeoutEvidence||'').trim().length<12){alert('Document the actual closeout evidence before marking documentation complete.');return}
 if(tab==='jobs'&&f.closeoutStatus==='Waived'&&String(f.closeoutEvidence||'').trim().length<12){alert('Record who waived closeout documentation and why.');return}
@@ -991,22 +1326,55 @@ document.addEventListener('submit',async function(e){
  const customer=await get('customers',customerId);
  if(!customer){alert('Customer is no longer available. Refresh before saving.');return}
  const values=new FormData(e.target),method=String(values.get('method')||''),
-  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim();
+  quoteId=String(values.get('quoteId')||''),notes=String(values.get('notes')||'').trim(),contactOutcome=String(values.get('outcome')||'attempted');
  if(!['Phone','Email','Meeting','Site visit','Other'].includes(method)||notes.length<3||notes.length>1000){alert('Choose a contact method and enter the actual outcome.');return}
  const quote=quoteId?await get('quotes',quoteId):null;
  if(quoteId&&(!quote||quote.customerId!==customerId)){alert('Related quotation no longer matches this customer.');return}
- const timestamp=new Date().toISOString();
- await put('events',{id:uid(),kind:'customer_contact',text:'Customer contact recorded',customerId,
-  quoteId,method,notes,date:timestamp});
- if(quote){await put('quotes',{...quote,lastContactAt:timestamp,updatedAt:timestamp})}
- await notify('Contact logged against customer record');
+ try{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime unavailable');
+  const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(row=>row.kind==='pilot.command'&&
+   row.commandId==='customer.contact.record'&&row.status==='executing'&&
+   row.params?.ref?.store==='customers'&&row.params.ref.id===customerId&&
+   (row.params.quoteId||'')===quoteId&&row.actor==='local-owner'&&
+   row.businessId==='local-business');
+  if(interrupted.length){
+   for(const previous of interrupted){
+    const verified=await commands.reconcile(previous.id);
+    if(verified.status!=='succeeded')
+     throw Error('Earlier customer contact is unresolved. Review the contact and audit history before retrying.');
+   }
+   await notify('Earlier contact outcome verified after interruption. No duplicate contact was recorded.');
+   return;
+  }
+  const plan=await commands.prepare({commandId:'customer.contact.record',
+   params:{ref:{store:'customers',id:customerId},quoteId,method,notes,outcome:contactOutcome}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Contact record requires fresh review');
+  const confirmation=contactOutcome==='reached'?
+   'Confirm you actually reached this customer? This is a manual owner attestation, NOT verified provider delivery. Linked quotation follow-up tasks will be marked complete.':
+   'Record an attempted contact without claiming the customer was reached? Linked quotation follow-up tasks stay open.';
+  if(!confirm(confirmation)){await commands.reject(plan.id);return}
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Contact relationships changed; review again');
+  const outcome=await commands.execute(plan.id);
+  if(outcome.status!=='succeeded')throw Error(outcome.error?.message||'Contact record outcome requires recovery review');
+  const saved=outcome.result;
+  if(!saved?.id)throw Error('Contact operation did not confirm persistence');
+  tfContactQuotePrefill='';
+  await notify(saved.outcome==='reached'?
+   'Owner-attested customer contact recorded; linked open follow-up tasks resolved. Provider delivery remains unverified.':
+   'Contact attempt recorded. Customer was not marked reached; follow-up tasks remain open.');
+ }catch(error){
+  alert('Contact was not confirmed. Review the customer history before retrying: '+String(error.message||error));
+ }
 });
 function tfDownloadBackup(data){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`tradeflow-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-async function exportData(){try{tfDownloadBackup(await window.TradeFlowLocalRecovery.createBackup(db,STORES))}catch(error){alert('Backup failed: '+error.message)}}
+async function exportData(){try{tfDownloadBackup(await window.TradeFlowLocalRecovery.createBackup(db,BACKUP_STORES))}catch(error){alert('Backup failed: '+error.message)}}
 async function restore(file){try{
  if(file.size>64*1024*1024)throw Error('Backup exceeds 64 MB');
  const snapshot=JSON.parse(await file.text());
- const result=await window.TradeFlowLocalRecovery.restoreBackup({db,stores:STORES,snapshot,
+ const result=await window.TradeFlowLocalRecovery.restoreBackup({db,stores:BACKUP_STORES,snapshot,
   approve:plan=>confirm(`Restore preview: ${plan.creates} new, ${plan.updates} changed, ${plan.deletes} removed, ${plan.unchanged} unchanged.\n${plan.checksumVerified?'Checksum verified.':'Legacy backup: no checksum available.'} ${plan.missingReferences.length} missing linked references.\nReplace local records? A pre-restore recovery copy will be retained on this device.`),
   saveRecovery:before=>window.TradeFlowLocalRecovery.saveRecovery(indexedDB,before)});
  if(result.status==='restored')await notify('Backup restored. Previous records are available as a recovery backup.');
@@ -1096,10 +1464,19 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   input?.focus();
   return;
  }
+ if(el.dataset.action==='tfAiReviewJob'){
+  const id=el.dataset.id;
+  if(!id||!(await get('jobs',id))){notify('Saved job is no longer available.');return}
+  tfResetWorkspace('jobs');tfRecordDetailId=id;await render();
+  await window.TradeFlowPilot?.decisions?.open(id);
+  return;
+ }
  if(el.dataset.action==='tfAiPrompt'){const field=document.getElementById('tfAiPrompt');if(field){field.value=el.dataset.prompt||'';field.focus()}return}
  if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}await tfAiUpdateChatUI();return}
- if(el.dataset.action==='tfAiClear'){tfChatMessages=[];tfChatError='';await tfAiUpdateChatUI();return}
- if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatMessages=[];tfChatError='';tfAiStatus='';await tfAiUpdateChatUI();return}
+ if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
+  if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
+  if(el.dataset.action==='tfAiExportThread'){await tfAiExportThread();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatError='';tfAiStatus='';tfAiPreviewMode='';await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 
@@ -1122,13 +1499,64 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   return;
  }
  if(el.dataset.action==='tfRecordEdit'){modal={id:el.dataset.id};await render();return}
+ if(el.dataset.action==='tfQuoteContactOutcome'){
+  const quote=await get('quotes',el.dataset.id);
+  if(!quote?.customerId){notify('Quotation has no linked customer.');return}
+  const customer=await get('customers',quote.customerId);
+  if(!customer){notify('Linked customer is unavailable.');return}
+  tfContactQuotePrefill=quote.id;
+  tfResetWorkspace('customers');tfRecordDetailId=customer.id;
+  await render();return;
+ }
+ if(el.dataset.action==='tfQuoteFollowupReview'){
+  const quote=await get('quotes',el.dataset.id);
+  if(quote?.status!=='Sent'){notify('Only sent quotations can schedule follow-ups.');return}
+  const result=await tfReviewQuotationFollowup(quote);
+  if(result?.status==='succeeded'){
+   await render();
+   notify(result.result?.reused?'Existing open follow-up task confirmed':'Follow-up task saved. Customer contact is still outstanding.');
+  }
+  return;
+ }
+ if(el.dataset.action==='tfChangeOrderReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobChangeOrder(job,el.dataset.changeId):null;
+  if(result?.status==='succeeded'){await render();notify('Internal authorization-review task verified. Customer approval is still unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfDecisionExplain'){await window.TradeFlowPilot?.decisions?.open(el.dataset.id);return;}
+ if(el.dataset.action==='tfJobCostReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobCost(job):null;
+  if(result?.status==='succeeded'){await render();notify('Internal job-cost reconciliation task saved. Profit and settlement remain unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfJobLaborReview'){
+  const job=await get('jobs',el.dataset.id);
+  const result=job?await tfReviewJobLabor(job):null;
+  if(result?.status==='succeeded'){await render();notify('Internal labor-hour variance review saved. Timesheets and payroll remain unverified.');}
+  return;
+ }
+ if(el.dataset.action==='tfBidQualificationReview'){
+  const opportunity=await get('opportunities',el.dataset.id);
+  const result=opportunity?await tfReviewBidQualification(opportunity):null;
+  if(result?.status==='succeeded'){await render();notify('Internal bid qualification task saved. No bid was submitted or customer commitment created.');}
+  return;
+ }
+ if(el.dataset.action==='tfCustomerEconomicsReview'){
+  const customer=await get('customers',el.dataset.id);
+  const result=customer?await tfReviewCustomerEconomics(customer):null;
+  if(result?.status==='succeeded'){await render();notify('Internal customer economics review saved. Final profit and bank settlement remain unverified.');}
+  return;
+ }
  if(el.dataset.action==='tfQuoteReuse'){
    const source=await get('quotes',el.dataset.id);
    if(!source)return;
-   tfResetWorkspace('quotes');
-   modal={draftDefaults:tfReusableQuoteFields(source)};
-   await render();
-   notify('New draft prepared. Choose the customer and recheck scope and pricing before saving.');
+   const outcome=await tfCreateQuoteReuseDraft(source);
+   if(outcome?.status==='succeeded'){
+    tfResetWorkspace('quotes');tfRecordDetailId=outcome.result.id;
+    await render();notify('Unsent draft saved. Choose a customer and recheck scope and pricing before sending.');
+   }
    return;
  }
  if(el.dataset.action==='tfJobInvoiceDraft'){
@@ -1730,7 +2158,12 @@ ${details}<div class="tf-op3-list">${filtered.slice(0,200).map(x=>`<article clas
 }
 
 window.TradeFlowSupply?.configure({get,put,all,render,notify,uid,execute:tfExecuteCommand,resolveLocations:tfResolveSupplyLocations,navigate:async function(next,options={}){if(next==='map'&&options.network)tfMapNetworkFocus=true;tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}});
-window.TradeFlowJobForms?.configure({get,put,render,uid});
+window.TradeFlowJobForms?.configure({get,put,render,uid,
+ recordCustomerApproval:async(jobId,changeOrderId,evidence)=>{
+  const job=await get('jobs',jobId);
+  if(!job)throw Error('Job no longer exists');
+  return tfRecordChangeOrderAuthorization(job,changeOrderId,evidence);
+ }});
 
 /* Atomic local calendar approval: recompute from authoritative records while
  * the IndexedDB write transaction holds the scheduling stores. */
@@ -1861,9 +2294,9 @@ function tfInitializePilot(){
  const commands=window.TradeFlowCommands;
  const intelligence=window.TradeFlowIntelligence.createEngine({commands,calendar:window.TradeFlowCalendar,revenue:window.TradeFlowRevenue?.financials,detectors:[...window.TradeFlowIntelligence.builtinDetectors,...window.TradeFlowIntelligence.optimizationDetectors]});
  const runtime=commands.createRuntime({snapshot:tfPilotSnapshot,context:tfPilotContext,uid,
-  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:customer.create'].includes(permission),
+  ledger:commands.createLedger(()=>db),can:(permission,c)=>c.actor==='local-owner'&&c.businessId==='local-business'&&['navigate','read','draft','modify:quotation.convert','modify:quotation.reuse.create','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:customer.economics_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'].includes(permission),
   ports:{review:async()=>evaluateSnapshot(await tfPilotSnapshot()),navigate:tfNavigateWorkspace,openRecord:tfPilotOpenRecord,filter:tfPilotApplyFilter,prepareDraft:tfPilotPrepareDraft,
-   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
+   operation:async(kind,payload,proof)=>window.TradeFlowCore.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true,calendar:window.TradeFlowCalendar,sourceText:kind==='customer.create'?window.TradeFlowCustomerCapture?.sourceForRequest(proof.requestId):undefined})}
  });
  // Header evaluation does not copy image payloads or the growing command journal.
  const intelligenceStores=['customers','quotes','jobs','tasks','invoices','payments','opportunities','suppliers','crew','events','jobCosts','expenses','supplyOrders','calendarEntries','calendars','calendarPreferences'];
@@ -2036,14 +2469,311 @@ function tfInitializePilot(){
   return {status:'unsupported'};
  }
  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
-  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,
+  let decisionController=null,decisionLoading=null;
+  const investigateJob=async (id,request={})=>{
+   if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation changed before investigation');
+   if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
+    decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
+     readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope),onOutcome:async ({jobId,status})=>{if(tfAiReviewJobId!==jobId||!tfAiReviewThreadId||tfAiReviewThreadId!==tfActiveChatThreadId)return;const content=status==='verified'?'Internal review task saved and verified against the command receipt. The underlying exception and invoice-readiness blockers are not resolved.':status==='cancelled'?'Approval cancelled. No business task was created.':'The command result is not verified. Inspect the receipt; no automatic retry was performed.';try{await tfAiSaveTurn({role:'assistant',content,modality:'text',status:'committed',source:'device_local_evidence',refs:[]});await tfAiUpdateChatUI()}catch(error){tfChatError='Unable to save outcome in local conversation.'}}});
+   })().catch(error=>{decisionLoading=null;throw error});
+   await decisionLoading;
+   const {localEvidence}=await import('./intelligence-evidence.js');
+   const {createDecisionProtocol}=await import('./master-intelligence.js');
+   const scope={mode:'local',actor:'local-owner',businessId:'local-business',jobId:id,today:tfPilotContext().today};
+   const context=await localEvidence(await tfPilotSnapshot(),scope);
+   const decision=await createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}).review({objective:'Review job operations',context,scope,today:scope.today,threadId:request.threadId||null});
+   if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation switched during investigation');
+   return decision;
+  };
+  const decisions=Object.freeze({view:id=>decisionController?.view(id)||'',investigate:investigateJob,open:async id=>{
+   if(!decisionLoading)decisionLoading=(async()=>{const [{localEvidence},{createDecisionProtocol},{createDecisionController}]=await Promise.all([import('./intelligence-evidence.js'),import('./master-intelligence.js'),import('./decision-ui.js')]);
+    decisionController=createDecisionController({document,protocol:createDecisionProtocol({engine:intelligence,definitions:commands.definitions,resolve:commands.resolve}),runtime,uid,confirm:message=>window.confirm(message),
+     readScope:async jobId=>({mode:'local',actor:'local-owner',businessId:'local-business',jobId,today:tfPilotContext().today}),readCurrent:async scope=>localEvidence(await tfPilotSnapshot(),scope)});
+   })().catch(error=>{decisionLoading=null;throw error});
+   try{await decisionLoading;await decisionController.open(id)}catch(error){notify('Explanation unavailable: '+error.message)}
+  }});
+  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
+}
+if(window.TradeFlowHostLifecycleFactory){
+ window.TradeFlowHostLifecycle=window.TradeFlowHostLifecycleFactory.createHostLifecycle({
+  read:tfHostRead,readDraft:tfHostDraftRead,writeDraft:tfHostDraftWrite,
+  stopMicrophone:()=>window.TradeFlowVoice?.stopMicrophoneNow?.(),
+  recordExists:async ref=>!!(await get(ref.store,ref.id))&&(!((await get(ref.store,ref.id))?.businessId)||((await get(ref.store,ref.id))?.businessId)==='local-business'),
+  navigate:async target=>{if(target.selected)await tfPilotOpenRecord(target.selected);else await tfNavigateWorkspace(target.screen)},
+  restoreFocus:target=>{const el=target.screen==='ai'?document.getElementById('tfAiPrompt'):document.querySelector('[data-tab="'+target.screen+'"]:visible');el?.focus?.()},
+  closeVisual:()=>{tfAiPanelOpen=false;window.TradeFlowVoice?.close?.();tfAiRefreshOverlay()}
+ });
 }
 async function tfPilotNavigateCommand(workspace){
  if(!window.TradeFlowPilot)return tfNavigateWorkspace(workspace);
  const command=await window.TradeFlowPilot.commands.prepare({commandId:'workspace.open',params:{workspace}});
  const result=command.status==='ready'?await window.TradeFlowPilot.commands.execute(command.id):command;
  if(result.status!=='succeeded')notify(result.error?.message||'Command could not complete');
+}
+async function tfReviewQuotationFollowup(quote){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command foundation unavailable. Reload TradeFlow.');return null}
+ // A browser restart can occur after the task commit but before command finalization.
+ // Inspect interrupted journal entries first, never silently create a second request.
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='quotation.followup.schedule'&&x.status==='executing'&&
+  x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.store==='quotes'&&
+  x.params.ref.id===quote.id);
+ if(interrupted.length){
+  for(const pending of interrupted){
+   const recovery=await commands.reconcile(pending.id);
+   if(recovery.status!=='succeeded'){
+    notify('An earlier follow-up is unresolved. Review the task and audit history before continuing.');
+    return {status:'indeterminate'};
+   }
+  }
+  notify('Existing follow-up task verified after interruption. No duplicate task was created.');
+  return {status:'reconciled'};
+ }
+ const planned=String(quote.followup_date||'');
+ const due=window.TradeFlowCommands.isDate(planned)?planned:(()=>{
+  const d=new Date();d.setDate(d.getDate()+3);return window.TradeFlowCommands.dateText(d);
+ })();
+ const plan=await commands.prepare({commandId:'quotation.followup.schedule',
+  params:{ref:{store:'quotes',id:quote.id},due}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Follow-up review unavailable');return null}
+ const label=String(quote.title||'Quotation').slice(0,100);
+ if(!confirm('Create an internal follow-up task for “'+label+'” due '+due+'? This does not contact the customer.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approved=await commands.approve(plan.id);
+ if(approved.status!=='approved'){notify(approved.error?.message||'Quotation changed; review again.');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Follow-up task outcome requires review.');
+ return result;
+}
+async function tfReviewJobChangeOrder(job,changeOrderId){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Authorized command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='job.change_order.review.schedule'&&x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&
+  x.params?.ref?.id===job.id&&x.params.changeOrderId===changeOrderId);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Prior change-order review has uncertain execution. Inspect the task and audit before retrying.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const change=job.changeOrders?.find(x=>x?.id===changeOrderId&&x.status==='proposed');
+ if(!change){notify('Proposed change order unavailable');return null}
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.change_order.review.schedule',
+  params:{ref:{store:'jobs',id:job.id},changeOrderId,due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Change order requires a fresh review');return null}
+ if(!confirm('Create an internal task to verify CUSTOMER authorization for “'+String(change.description||changeOrderId).slice(0,100)+'”? Owner approval creates a task only; it does not authorize the extra work or contact the customer.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Change-order review result requires inspection');
+ return result;
+}
+async function tfReviewJobCost(job){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='job.cost_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===job.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier job cost review has uncertain execution. Inspect the task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.cost_review.schedule',params:{ref:{store:'jobs',id:job.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'No reliable recorded overrun to review');return null}
+ const data=plan.result;
+ if(!confirm('Create an internal task to reconcile “'+String(job.title||job.id).slice(0,100)+'”? Local budget $'+data.budget.toFixed(2)+
+  ', recorded costs $'+data.recordedCosts.toFixed(2)+'. Costs may overlap or be incomplete. This is NOT verified profit, bank settlement or accounting reconciliation.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Job financial records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Job cost review requires inspection');
+ return result;
+}
+async function tfReviewJobLabor(job){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='job.labor_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===job.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier labor review has uncertain execution. Inspect task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'job.labor_review.schedule',params:{ref:{store:'jobs',id:job.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'No recorded labor overrun to review');return null}
+ const data=plan.result;
+ if(!confirm('Create an internal labor review for “'+String(job.title||job.id).slice(0,100)+'”? Estimated '+
+  data.estimatedLaborHours+' h, manually recorded '+data.recordedLaborHours+' h. These are NOT verified timesheets, payroll or billable hours.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Labor evidence changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Labor review requires inspection');
+ return result;
+}
+async function tfReviewInvoicePayments(invoice){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='invoice.payment_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===invoice.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier payment review has uncertain execution. Inspect task and receipt; no automatic retry.');
+   return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'invoice.payment_review.schedule',params:{ref:{store:'invoices',id:invoice.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Payment records require manual verification');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal reconciliation for invoice “'+String(invoice.reference||invoice.id).slice(0,100)+'”? Invoice $'+
+  evidence.invoiceTotal.toFixed(2)+', manually recorded payments $'+evidence.recordedPayments.toFixed(2)+
+  '. These are NOT verified bank settlements or synchronized accounting records. No payments will be changed.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Payment evidence changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Payment review requires inspection');
+ return result;
+}
+async function tfReviewBidQualification(opportunity){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='opportunity.bid_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===opportunity.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier bid review has uncertain execution. Inspect task and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'opportunity.bid_review.schedule',params:{ref:{store:'opportunities',id:opportunity.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Bid readiness requires a new review');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal bid-qualification review for “'+String(opportunity.project_name||opportunity.id).slice(0,100)+'”? Invitation: '+
+  evidence.invitation+'; scope: '+evidence.scope+'; crew capacity: '+evidence.capacity+
+  '. Entries are operator-reported and NOT independently verified. No bid is submitted or external message sent.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Opportunity changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Bid review requires inspection');
+ return result;
+}
+async function tfCreateQuoteReuseDraft(source){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='quotation.reuse.create'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===source.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier reuse has uncertain execution. Inspect draft and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+  if(recovered.result?.id)return recovered;
+ }
+ const plan=await commands.prepare({commandId:'quotation.reuse.create',params:{ref:{store:'quotes',id:source.id}}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Source quotation requires review');return null}
+ const fields=plan.result;
+ if(!confirm('Create an UNSENT, owner-reviewed draft from “'+String(source.title||source.id).slice(0,100)+'” for $'+
+  fields.amount.toFixed(2)+'? Only title, trade category and recorded amount are reused. Customer, acceptance, signature and contact history are NOT copied. Recheck scope and pricing before sending.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Source quote changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Quote reuse requires inspection');
+ return result;
+}
+async function tfReviewCustomerEconomics(customer){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands){notify('Command runtime unavailable');return null}
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&x.commandId==='customer.economics_review.schedule'&&
+  x.status==='executing'&&x.actor==='local-owner'&&x.businessId==='local-business'&&x.params?.ref?.id===customer.id);
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded'){
+   notify('Earlier customer review has uncertain execution. Inspect task and receipt; no automatic retry.');return {status:'indeterminate'};
+  }
+ }
+ if(interrupted.length)return {status:'succeeded',result:{reconciled:true}};
+ const due=new Date();due.setDate(due.getDate()+3);
+ const plan=await commands.prepare({commandId:'customer.economics_review.schedule',params:{ref:{store:'customers',id:customer.id},
+  due:window.TradeFlowCommands.dateText(due)}});
+ if(plan.status!=='needs_review'){notify(plan.error?.message||'Recorded customer evidence requires reconciliation');return null}
+ const evidence=plan.result;
+ if(!confirm('Create internal customer contribution review for “'+String(customer.name||customer.id).slice(0,100)+'”? Recorded receipts $'+
+  evidence.received.toFixed(2)+', linked recorded costs $'+evidence.recordedCosts.toFixed(2)+'. This is NOT verified customer profit, bank settlement or lifetime value. Costs and expenses may overlap.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved'){notify(approval.error?.message||'Customer economics records changed; review again');return null}
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')notify(result.error?.message||'Customer review requires inspection');
+ return result;
+}
+async function tfRecordChangeOrderAuthorization(job,changeOrderId,evidence){
+ const commands=window.TradeFlowPilot?.commands;
+ if(!commands)throw Error('Authorized command runtime unavailable');
+ const snapshot=await tfPilotSnapshot();
+ const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+  x.commandId==='job.change_order.authorization.record'&&x.status==='executing'&&
+  x.params?.ref?.id===job.id&&x.params.changeOrderId===changeOrderId&&x.actor==='local-owner'&&x.businessId==='local-business');
+ for(const previous of interrupted){
+  const recovered=await commands.reconcile(previous.id);
+  if(recovered.status!=='succeeded')throw Error('An earlier customer-authorization record has uncertain execution. Inspect the job, task and audit; no automatic replay.');
+ }
+ if(interrupted.length){await render();return {status:'reconciled'}};
+ const plan=await commands.prepare({commandId:'job.change_order.authorization.record',
+  params:{ref:{store:'jobs',id:job.id},changeOrderId,evidence}});
+ if(plan.status!=='needs_review')throw Error(plan.error?.message||'Change-order review is not ready');
+ if(!confirm('OWNER ATTESTATION: You separately verified actual customer consent and the reference “'+String(evidence).slice(0,100)+'”. Record that evidence and close the internal review task? This does not send a message, sign a contract, or independently verify consent.')){
+  await commands.reject(plan.id);return {status:'rejected'};
+ }
+ const approval=await commands.approve(plan.id);
+ if(approval.status!=='approved')throw Error(approval.error?.message||'Change order changed; review again');
+ const result=await commands.execute(plan.id);
+ if(result.status!=='succeeded')throw Error(result.error?.message||'Authorization record requires manual review');
+ await render();notify('Owner-attested customer approval reference recorded. Independent customer verification remains outstanding.');
+ return result;
 }
 async function tfReviewQuotationHandoff(quote){
  const commands=window.TradeFlowPilot?.commands;
@@ -2059,7 +2789,51 @@ async function tfReviewQuotationHandoff(quote){
 }
 
 window.TradeFlowCalendar?.configure({
- get,put,all,del,render,notify,uid,commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
+ get,put,all,del,render,notify,uid,
+ resolveConflict:async(event,date,time)=>{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime unavailable');
+  const snapshot=await tfPilotSnapshot();
+  const interrupted=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='calendar.conflict.reschedule'&&x.params?.ref?.id===event.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(interrupted.length){
+   for(const pending of interrupted){
+    const recovery=await commands.reconcile(pending.id);
+    if(recovery.status!=='succeeded')
+     return {status:'indeterminate',error:{code:'RECOVERY_UNVERIFIED',
+      message:'Earlier calendar change cannot be verified. Review the audit before another change.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
+  const cal=window.TradeFlowCalendar;
+  if(!cal?.conflicts)throw Error('Calendar conflict verification is unavailable');
+  const scope={...snapshot};
+  for(const store of ['tasks','jobs','calendarEntries'])scope[store]=(snapshot[store]||[]).map(x=>({
+   ...x,assignedTo:x.assignedTo||x.assigneeId||x.ownerId||'local-owner'
+  }));
+  const involves=issue=>issue.a?.key==='event:'+event.id||issue.b?.key==='event:'+event.id;
+  const current=cal.conflicts(scope,{from:event.date,until:event.date}).filter(involves);
+  if(!current.length)throw Error('This event is no longer in a recorded scheduling conflict');
+  const proposed={...scope,calendarEntries:scope.calendarEntries.map(x=>
+   x.id===event.id?{...x,date,time}:x)};
+  if(cal.conflicts(proposed,{from:date,until:date}).some(involves))
+   throw Error('Replacement slot overlaps another recorded commitment. Choose a different time.');
+  const against=current.map(c=>c.a.key==='event:'+event.id?c.b:c.a);
+  const conflictNames=[...new Set(against.map(x=>String(x.title||'Other booking').slice(0,80)))].slice(0,3);
+  const plan=await commands.prepare({commandId:'calendar.conflict.reschedule',
+   params:{ref:{store:'calendarEntries',id:event.id},date,time}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Calendar event is not eligible for reschedule');
+  if(!confirm('Move standalone event “'+String(event.title||event.id).slice(0,110)+
+   '” from '+String(event.date)+' '+String(event.time)+' to '+date+' '+time+
+   '? Current conflict with: '+conflictNames.join('; ')+'. This changes a local calendar booking. Linked jobs and tasks are not rescheduled; no notifications are sent.')){
+   await commands.reject(plan.id);return {status:'rejected'};
+  }
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Schedule changed; review again');
+  return commands.execute(plan.id);
+ },
+ commitScheduleProposal:tfApproveCalendarProposal,completeSession:tfCompleteCalendarSession,
  navigate:async function(next){tab=next;modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()},
  openRecord:async function(kind,id){
   if(!id)return;
@@ -2085,7 +2859,36 @@ window.TradeFlowMapExperience?.configure({
 });
 window.TradeFlowResearch?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowMarketing?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
-window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
+window.TradeFlowRevenue?.configure({get,put,all,del,render,notify,uid,
+ reviewInvoicePayments:tfReviewInvoicePayments,
+ scheduleInvoiceFollowup:async(invoice,due)=>{
+  const commands=window.TradeFlowPilot?.commands;
+  if(!commands)throw Error('Authorized command runtime is unavailable.');
+  const snapshot=await tfPilotSnapshot();
+  const prior=(snapshot.commandLog||[]).filter(x=>x.kind==='pilot.command'&&
+   x.commandId==='invoice.followup.schedule'&&x.params?.ref?.store==='invoices'&&
+   x.params.ref.id===invoice.id&&x.status==='executing'&&
+   x.actor==='local-owner'&&x.businessId==='local-business');
+  if(prior.length){
+   for(const pending of prior){
+    const recovered=await commands.reconcile(pending.id);
+    if(recovered.status!=='succeeded')
+     return {status:'indeterminate',error:{message:'Earlier invoice follow-up could not be verified. Review the audit before retrying.'}};
+   }
+   return {status:'succeeded',result:{reused:true,reconciled:true}};
+  }
+  const plan=await commands.prepare({commandId:'invoice.followup.schedule',
+   params:{ref:{store:'invoices',id:invoice.id},due}});
+  if(plan.status!=='needs_review')throw Error(plan.error?.message||'Invoice is not eligible for a reviewed follow-up.');
+  if(!confirm('Schedule an internal task for overdue invoice '+String(invoice.reference||invoice.id).slice(0,80)+
+   ' due '+due+'? Check recorded payments and contact preferences first. No email or payment request will be sent.')){
+   await commands.reject(plan.id);return {status:'rejected'};
+  }
+  const approval=await commands.approve(plan.id);
+  if(approval.status!=='approved')throw Error(approval.error?.message||'Invoice or payment records changed; review again.');
+  return commands.execute(plan.id);
+ },
+ navigate:async function(next){tab=next;modal=null;tfAiPanelOpen=false;await render()}});
 window.TradeFlowNotifications?.configure({
  get,put,render,uid,intelligence:data=>window.TradeFlowPilot?.evaluateSnapshot(data)||null,openRecord:tfPilotOpenRecord,navigate:async function(next){tab=next;query='';modal=null;tfRecordDetailId=null;tfAiPanelOpen=false;await render()}
 });
@@ -2111,7 +2914,7 @@ async function tfReceiveSiriCustomer(){
  await window.TradeFlowCustomerEntry.openReview(instruction,{source:'transcript'});
 }
 window.addEventListener('hashchange',()=>{void tfReceiveSiriCustomer()});
-(async()=>{try{db=await openDB();tfInitializePilot();const accountReturn=new URL(location.href).searchParams.get('account')==='connected';if(accountReturn)tab='preferences';await render();if(accountReturn){history.replaceState(null,'',location.pathname);showSettingsPanel('account')}await tfReceiveSiriCustomer();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
+(async()=>{try{db=await openDB();tfInitializePilot();await tfAiLoadHistory();const accountReturn=new URL(location.href).searchParams.get('account')==='connected';if(accountReturn)tab='preferences';await render();if(accountReturn){history.replaceState(null,'',location.pathname);showSettingsPanel('account')}await tfReceiveSiriCustomer();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}catch(e){$('#app').innerHTML=`<div class="content"><h2>Storage unavailable</h2><p>${esc(e.message)}</p><p>Try a normal browser tab outside private browsing.</p></div>`}})();
 
 // V0.5: online MapLibre street tiles are optional. Records, pins and CRM stay in IndexedDB.
 let tfMapNetworkFocus=false;
