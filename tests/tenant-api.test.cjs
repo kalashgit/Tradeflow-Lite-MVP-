@@ -266,3 +266,36 @@ test('TF-MI blocker-answer API authenticates principal, checks office grant, nev
  assert.equal((await run(blockedDb(),url,signed,'POST')).status,405);
  assert.equal(writes,0);
 });
+
+test('TF-MI office response POST route requires verified OIDC and explicit same-origin approval',async()=>{
+ const tokenValue=await token();
+ const path='/api/v1/businesses/'+business+'/intelligence/jobs/job_123/blockers/blocker_01/respond';
+ const body=JSON.stringify({approved:true,eventId:'office_reply_01',
+  idempotencyKey:'office_reply_once',expectedJobRevision:4,
+  text:'Confirm supplier delivery date'});
+ const request=(headers={})=>new Request('https://pilot.example.test'+path,{
+  method:'POST',headers:{
+   'Content-Type':'application/json',...headers
+  },body
+ });
+ const environment={...envBase,TF_DB:db('member')};
+ const noSession=await api(request({
+  Origin:'https://pilot.example.test','X-TradeFlow-Approval':'confirmed'
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(noSession.status,401);
+ const absentApproval=await api(request({
+  Authorization:'Bearer '+tokenValue
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(absentApproval.status,403);
+ const foreignOrigin=await api(request({
+  Authorization:'Bearer '+tokenValue,Origin:'https://other.example',
+  'X-TradeFlow-Approval':'confirmed'
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(foreignOrigin.status,403);
+ const wrongType=await api(new Request('https://pilot.example.test'+path,{
+  method:'POST',headers:{'Content-Type':'text/plain',
+   Authorization:'Bearer '+tokenValue,Origin:'https://pilot.example.test',
+   'X-TradeFlow-Approval':'confirmed'},body
+ }),environment,{fetchJwks:jwksResponse});
+ assert.equal(wrongType.status,415);
+});
