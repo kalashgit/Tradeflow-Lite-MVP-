@@ -41,6 +41,7 @@ const token='synthetic-browser-local-private-test-token';
     await page.locator('#tfAiUnlockForm input[name="code"]').fill(token);
     await page.locator('#tfAiUnlockForm button[type="submit"]').click();
     await page.waitForFunction(()=>sessionStorage.getItem('tf-ai-preview-code')!==null);
+    await page.locator('[data-tab="settings"]:visible').first().click();
     await page.locator('.tf-more-menu [data-tab="ai"]').click();
     await page.locator('#tfAiChatForm textarea[name="prompt"]').fill('What should I prioritize today to improve profitability?');
     await page.locator('#tfAiChatForm button[type="submit"]').click();
