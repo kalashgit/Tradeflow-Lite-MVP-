@@ -29,7 +29,7 @@ function createController({getHost,motion,notify=()=>{}}){
 function connect({document,getHost,motion,notify}){
  const app=document.getElementById('app');if(!app)return;
  function report(message,detail={status:'unavailable',kind:'navigation'}){
-  let region=document.getElementById('tfHostFeedback');if(!region){region=document.createElement('section');region.id='tfHostFeedback';region.className='tf-host-feedback';region.setAttribute('role','alert');(app.querySelector('.tf-ai-chat-box,.tf-record-dossier,.content')||app).prepend(region)}
+  let region=document.getElementById('tfHostFeedback');if(!region){region=document.createElement('section');region.id='tfHostFeedback';region.className='tf-host-feedback';region.setAttribute('role','alert');(app.querySelector('.tf-ai-chat-box')||app.querySelector('.tf-record-dossier')||app.querySelector('.content')||app).prepend(region)}
   region.dataset.hostStatus=detail.status;const title=document.createElement('strong');title.textContent=detail.kind==='close'?'Panel remains open':'Couldn’t open that workspace';const text=document.createElement('p');text.textContent=message;const dismiss=document.createElement('button');dismiss.type='button';dismiss.dataset.hostDismiss='';dismiss.textContent='Dismiss notice';region.replaceChildren(title,text,dismiss);
   const input=document.getElementById('tfAiPrompt');if(input){const ids=new Set((input.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean));ids.add(region.id);input.setAttribute('aria-describedby',[...ids].join(' '))}
  }
