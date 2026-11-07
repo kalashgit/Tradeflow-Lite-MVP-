@@ -81,8 +81,9 @@ jobs:
                 for(const r of [page,app,voice,speech,health])assert.equal(r.status,200,r.url+' unavailable');
                 assert.equal(unauthorized.status,401);
                 assert.match(await page.text(),/ai-speech\.js\?v=aura-unified-01/);
-                assert.match(await app.text(),/tf-master-welcome/);
-                assert.match(await app.text(),/TradeFlowVoiceGreeting/);
+                const appBody=await app.text();
+                assert.match(appBody,/tf-master-welcome/);
+                assert.match(appBody,/TradeFlowVoiceGreeting/);
                 assert.match(await voice.text(),/enableWake/);
                 assert.match(await speech.text(),/tf-master-message\.is-assistant/);
                 assert.equal((await health.json()).aiBound,true);
