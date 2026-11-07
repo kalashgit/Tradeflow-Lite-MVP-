@@ -7,6 +7,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const {createPreviewServer}=require('./local-ai-preview-server.cjs');
+const {verifyVisualReference}=require('./master-visual-acceptance.cjs');
 const token='synthetic-browser-local-private-test-token';
 (async()=>{
  const {server,metrics}=createPreviewServer({secret:token,mode:'mock'});
@@ -36,6 +37,7 @@ const token='synthetic-browser-local-private-test-token';
     await page.locator('.tf-master-welcome h1').waitFor();
     assert.match(await page.locator('.tf-master-welcome h1').innerText(),/Master Intelligence/);
     assert.equal(await page.locator('.tf-master-conversation').count(),0);
+    await verifyVisualReference(page,out,viewport);
     await page.locator('#tfAiChatForm textarea[name="prompt"]').fill('What should I prioritize today to improve profitability?');
     await page.locator('#tfAiChatForm button[type="submit"]').click();
     await page.locator('.tf-ai-pending-connection').waitFor();
