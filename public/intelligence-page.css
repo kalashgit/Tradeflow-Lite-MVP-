@@ -1,0 +1,54 @@
+/* Master Intelligence presentation. Existing conversation/approval services own state. */
+#app .tf-ai-official{--ai-line:#292e32;background:#000;color:#f5f5f5;border:0;border-radius:0;box-shadow:none;display:flex;flex-direction:column;min-height:calc(100dvh - 150px);max-width:1100px;margin:auto;padding:16px;gap:16px}
+.tf-ai-official .tf-ai-chat-top{padding:0;border:0;gap:12px;flex-wrap:wrap}
+.tf-ai-official .tf-ai-chat-top h2{font-size:18px;letter-spacing:.02em}
+.tf-ai-official .tf-ai-chat-top h2 span{background:none;border:0;padding:0;margin:0;color:var(--tf-accent,#65d3e1);font:inherit;letter-spacing:inherit}
+.tf-ai-official .tf-ai-chat-top p{color:#a9adb2;margin:3px 0;font-size:13px}
+.tf-ai-official .tf-ai-chat-symbol{color:var(--tf-accent,#65d3e1);background:none;font-size:32px;font-weight:900;font-style:italic;width:32px}
+.tf-ai-official .tf-ai-back,.tf-ai-official .tf-ai-clear{background:#080a0b;color:#eee;border:1px solid var(--ai-line);border-radius:14px;min-height:44px;min-width:44px}
+.tf-ai-official .tf-ai-clear{margin-left:auto}
+.tf-ai-tools{font-size:12px;color:#a9adb2}
+.tf-ai-tools summary{cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:flex-end}
+.tf-ai-official .tf-ai-preview-gate,.tf-ai-official .tf-ai-history{background:#0b0d0f;border-color:var(--ai-line);border-radius:12px}
+.tf-ai-official .tf-ai-chat-thread{height:auto;min-height:0;flex:1;overflow:visible;background:none;padding:8px 0}
+.tf-ai-official .tf-ai-welcome{text-align:center;padding:12px 0 8px}
+.tf-ai-welcome-orbit{width:160px;height:160px;margin:8px auto 24px;border-radius:50%;border:2px solid #41d8e9;box-shadow:inset 0 0 25px #04c8f144,0 0 22px #04c8f133;display:grid;place-items:center;background:radial-gradient(ellipse at 28% 18%,#0783a044,transparent 55%)}
+.tf-ai-welcome-orbit .tf-brand-mark{transform:scale(1.5)}
+.tf-ai-official .tf-ai-welcome h3{font-size:clamp(26px,4vw,42px);color:#f5f5f5;margin:12px 0}
+.tf-ai-official .tf-ai-welcome p{color:#a9adb2;line-height:1.5;font-size:15px}
+.tf-ai-ready{display:inline-block;border:1px solid var(--ai-line);border-radius:30px;padding:9px 15px;color:#c3c9cc;font-size:12px;margin-top:10px}
+.tf-ai-official .tf-ai-chat-suggestions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0;background:none}
+.tf-ai-official .tf-ai-chat-suggestions button{background:#06090a;border:1px solid var(--ai-line);border-radius:18px;color:#eee;min-height:90px;padding:12px 8px;text-align:left;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.tf-ai-official.has-messages .tf-ai-chat-suggestions{display:none}
+.tf-ai-official .tf-ai-bubble{background:none;border:0;max-width:95%;margin-bottom:24px;padding:10px 12px}
+.tf-ai-official .tf-ai-mine{background:#007d92;color:white;border:1px solid #16bfd0;border-radius:20px;margin-left:auto;width:fit-content}
+.tf-ai-official .tf-ai-theirs{margin-right:auto}
+.tf-ai-official .tf-ai-bubble p{white-space:pre-wrap;font-size:16px;line-height:1.65;color:inherit;overflow-wrap:anywhere}
+.tf-ai-official .tf-ai-bubble>small{font-size:10px;color:#a9adb2}
+.tf-ai-official .tf-ai-chat-composer{position:sticky;bottom:12px;background:#000;border:0;padding:8px 0;margin-top:auto;z-index:2}
+.tf-ai-official .tf-ai-compose-row{border:1px solid var(--ai-line);border-radius:30px;background:#0b0e10;padding:8px 10px;align-items:center}
+.tf-ai-official .tf-ai-compose-row textarea{resize:vertical;max-height:180px;min-height:40px;padding:8px;font-size:16px;color:#f5f5f5}
+.tf-ai-official .tf-ai-compose-row button{background:#f5f5f5;color:#080a0b;border-radius:50%;height:44px;width:44px;flex-basis:44px}
+.tf-ai-official .tf-ai-prompt-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.tf-ai-official .tf-ai-context,.tf-ai-official .tf-ai-privacy{font-size:11px;color:#a9adb2;line-height:1.5}
+body:has(.tf-ai-official){background:#000}
+@media(max-width:600px){#app .tf-ai-official{padding:8px;gap:10px}.tf-ai-official .tf-ai-chat-suggestions button{font-size:12px}.tf-ai-official .tf-ai-chat-top h2{font-size:16px}.tf-ai-official .tf-ai-chat-composer{bottom:calc(95px + env(safe-area-inset-bottom,0px))}}
+/* The AI route is a dedicated workspace, not a card inside the legacy dashboard. */
+#app .tf-ai-official{position:fixed;inset:0;z-index:1500;max-width:none;min-height:0;height:100dvh;box-sizing:border-box;overflow-y:auto;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,calc((100vw - 1000px)/2)) calc(8px + env(safe-area-inset-bottom,0px))}
+#app .tf-ai-official .tf-ai-chat-suggestions button{white-space:normal;min-width:0;overflow-wrap:normal;display:flex;align-items:center;font-size:13px;line-height:1.5;word-break:normal}
+#app .tf-ai-official .tf-ai-chat-composer{bottom:0;background:#000;flex-shrink:0}
+#app .tf-ai-official .tf-ai-compose-row{background:#0b0e10;border-radius:30px}
+#app .tf-ai-official .tf-ai-compose-row textarea{background:transparent;border:0;box-shadow:none}
+#app .tf-ai-official .tf-ai-compose-row button{background:#f5f5f5;color:#080a0b}
+#app .tf-ai-official .tf-ai-chat-top{flex-shrink:0}
+@media(min-width:700px){.tf-ai-welcome-orbit{width:210px;height:210px}}
+body:has(.tf-ai-official){overflow:hidden}
+#app:has(.tf-ai-official) .tf-ai-screen>:not(.tf-ai-official),#app:has(.tf-ai-official) .sidebar,#app:has(.tf-ai-official) .main>header,#app:has(.tf-ai-official) .mobilebar,#app:has(.tf-ai-official) #tfAiOverlayRoot{display:none}
+#app:has(.tf-ai-official) .content{padding:0;min-height:0}
+#app .tf-ai-official .tf-ai-compose-row textarea{background:transparent!important}
+#app .tf-ai-official .tf-ai-compose-row button{background:#f5f5f5!important;color:#080a0b!important}
+.tf-ai-welcome-orbit{position:relative;box-shadow:none;border:0;background:none}
+.tf-ai-welcome-orbit canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tf-ai-welcome-orbit .tf-brand-mark{z-index:1}
+#app .tf-ai-official .tf-ai-chat-suggestions button{flex-direction:column;align-items:flex-start;gap:8px;justify-content:center}
+.tf-ai-shortcut-icon svg{width:24px;height:24px;color:#f5f5f5}
