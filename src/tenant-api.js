@@ -1,4 +1,5 @@
 import {readIntelligenceContext} from './intelligence-context.js';
+import {answerOfficeBlockerQuestion} from './office-blocker-conversation.js';
 import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
 import {RECORD_TYPES,LEGACY_RECORD_TYPES,recordIdentity} from '../public/record-model.js';
@@ -37,6 +38,29 @@ export async function tenantApi(request,env,options={}){
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
    return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[],capabilities:await schemaCapabilities(env)});
+  }
+  // Job-specific read-only answer, authenticated by the existing OIDC verifier.
+  // No client-supplied role, job record, stored thread proof, or execution authority.
+  const blockerRoute=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/jobs\/([^/]+)\/blockers\/([^/]+)\/answer$/.exec(url.pathname);
+  if(blockerRoute){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   const allowed=new Set(['question','threadId','expectedJobRevision']);
+   if([...url.searchParams.keys()].some(k=>!allowed.has(k))||
+      [...allowed].some(k=>url.searchParams.getAll(k).length>1))
+    return json({error:'Unsupported or duplicate answer parameter'},400);
+   const question=url.searchParams.get('question');
+   const threadId=url.searchParams.get('threadId');
+   const expected=url.searchParams.get('expectedJobRevision');
+   if(typeof question!=='string'||question.length>300||
+      (threadId!==null&&!/^[A-Za-z0-9_-]{1,100}$/.test(threadId))||
+      (expected!==null&&(!/^[1-9][0-9]{0,14}$/.test(expected)||
+       !Number.isSafeInteger(Number(expected)))))
+    return json({error:'Invalid scoped answer parameters'},400);
+   return json(await answerOfficeBlockerQuestion({
+    db:env.TF_DB,principal,businessId:requireBusinessId(blockerRoute[1]),
+    jobId:blockerRoute[2],eventId:blockerRoute[3],question,threadId,
+    expectedJobRevision:expected===null?null:Number(expected)
+   }));
   }
   const contextRoute=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/context$/.exec(url.pathname);
   if(contextRoute){
