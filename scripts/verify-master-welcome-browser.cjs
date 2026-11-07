@@ -44,7 +44,7 @@ const token='synthetic-browser-local-private-test-token';
     await page.waitForFunction(()=>sessionStorage.getItem('tf-ai-preview-code')!==null);
     await page.locator('.tf-master-conversation .tf-master-message.is-assistant').waitFor({timeout:30000});
     assert.equal(await page.locator('.tf-master-conversation .tf-master-message.is-user').count(),1);
-    assert.match(await page.locator('.tf-master-conversation .tf-ai-evidence').innerText(),/SYNTHETIC.*MOCK/);
+    assert.match(await page.locator('.tf-master-conversation .tf-master-message.is-assistant').getAttribute('title'),/Source: synthetic mock/);
     assert.equal(await page.locator('.tf-master-error:visible').count(),0);
     await page.reload();
     await page.locator('[data-tab="settings"]:visible').first().click();
