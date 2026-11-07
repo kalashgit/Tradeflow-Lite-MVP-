@@ -57,3 +57,5 @@ body:has(.tf-ai-official){overflow:hidden}
    workspace scrolls; flex compression must never cover actionable controls. */
 #app .tf-ai-official>*{flex-shrink:0}
 #app .tf-ai-official .tf-ai-chat-thread{flex:1 0 auto}
+/* Existing notification controls may be opened from the saved operating picture. */
+#app:has(.tf-ai-official) .main>header:has(.tf-notif-panel){display:flex;position:fixed;inset:0 0 auto;z-index:1800;background:#050505}
