@@ -7,6 +7,7 @@
  * never trusts a caller-supplied principal, role, command receipt or record.
  */
 import {createAuthenticatedOfficeReplyFetcher} from './authenticated-office-reply-fetcher.js';
+import {createApprovedOfficeResponseSender} from './approved-office-response-sender.js';
 import {createOfficeConversationEvidenceBridge,
  verifiedAccountConversationScope} from './conversation-evidence-bridge.js';
 import {createVerifiedConversationRetention} from './verified-conversation-retention.js';
@@ -21,6 +22,7 @@ export function createVerifiedIntelligenceHost({
     typeof fetcher!=='function'||!Array.isArray(definitions))
   throw Error('Existing verified-account conversation host ports required');
  const fetchOfficeReply=createAuthenticatedOfficeReplyFetcher({fetcher});
+ const sendApprovedOfficeResponse=createApprovedOfficeResponseSender({fetcher});
  const retention=createVerifiedConversationRetention({db,store,readSession});
  const bridge=createOfficeConversationEvidenceBridge({
   db,store,session:readSession,readHost,fetchOfficeReply,definitions
@@ -66,8 +68,31 @@ export function createVerifiedIntelligenceHost({
   return bridge.attach({businessId,jobId,eventId,threadId,
    question,expectedJobRevision});
  }
+ async function approveOfficeResponse({businessId,jobId,threadId,
+    reportEventId,eventId,idempotencyKey,expectedJobRevision,text,
+    approvedByUser=false}={}){
+  if(approvedByUser!==true)
+   throw Error('Office response requires explicit user confirmation');
+  const original=await active(businessId,threadId,jobId);
+  const result=await sendApprovedOfficeResponse({
+   businessId,jobId,reportEventId,eventId,idempotencyKey,
+   expectedJobRevision,text,approvedByUser
+  });
+  // A write may have committed even if the client switched accounts during
+  // the network request. Never put its receipt into the new account thread.
+  let originCurrent=false;
+  try{
+   const fresh=await active(businessId,threadId,jobId);
+   originCurrent=store.scopeKey(original)===store.scopeKey(fresh);
+  }catch{originCurrent=false}
+  if(!originCurrent)return Object.freeze({
+   ...result,status:'response_requires_original_account_recheck',
+   originCurrent:false,requiresRecheck:true,receipt:null
+  });
+  return Object.freeze({...result,originCurrent:true});
+ }
  return Object.freeze({
-  ask,retention,
+  ask,approveOfficeResponse,retention,
   securityMode:'verified_account_only',
   commandExecution:'disabled_in_this_adapter',
   cloudThreadPersistence:false
