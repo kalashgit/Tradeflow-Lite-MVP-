@@ -12,7 +12,7 @@ test('real TradeFlow page loads approved welcome layout and living mesh adapter'
 });
 test('TradeFlow AI route reuses existing Master Intelligence and conversation executor',()=>{
  const app=read('public/app.js');
- assert.match(app,/function tfAIView\(d\)\{\s*return tfAIMasterView\(d\)/);
+ assert.match(app,/function tfAIView\(d\)\{\s*if\(!tfAIShowLegacySnapshot\)return tfAIMasterView\(d\)/);
  assert.match(app,/const chatting=tfAiConversationStarted\|\|tfChatMessages.length>0/);
  assert.match(app,/tfAiConversationStarted=true;\s*await tfAISend/);
  assert.match(app,/await tfAiSaveTurn\(\{role:'user'/);

@@ -6,7 +6,7 @@ const source=fs.readFileSync('public/app.js','utf8');
 const css=fs.readFileSync('public/master-intelligence.css','utf8');
 
 test('Intelligence route uses the clean welcome/chat surface',()=>{
- assert.match(source,/function tfAIView\(d\)\{\s*return tfAIMasterView\(d\)/);
+ assert.match(source,/function tfAIView\(d\)\{\s*if\(!tfAIShowLegacySnapshot\)return tfAIMasterView\(d\)/);
  assert.match(source,/const chatting=tfAiConversationStarted/);
  assert.match(source,/chatting\?'<div class="tf-master-conversation"/);
  assert.match(source,/:'<div class="tf-master-welcome"/);
