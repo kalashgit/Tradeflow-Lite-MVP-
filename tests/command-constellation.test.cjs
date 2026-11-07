@@ -19,7 +19,8 @@ test('constellation offers real route targets and no invented customer statuses'
  }
  assert.match(c,/Not assessed on this map/);
  assert.doesNotMatch(c,/Rebalance crew allocation and clear 3 overdue jobs/);
- assert.match(c,/if\(!n\[4\]\)/);
+ assert.match(c,/const planned=!n\[4\]/);
+ assert.match(c,/title="Planned section"/);
 });
 test('new assets are included in the existing runtime without replacing core app',()=>{
  const html=read('public/index.html');
