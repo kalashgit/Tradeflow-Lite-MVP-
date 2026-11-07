@@ -543,7 +543,7 @@ async function tfAiUpdateChatUI(){
 }
 let tfAiConversationStarted=false;
 function tfAIMasterView(){
- const chatting=tfAiConversationStarted;
+ const chatting=tfAiConversationStarted||tfChatMessages.length>0;
  const mark='<span class="tf-master-mark" aria-hidden="true">T</span>';
  const actions=[['Business Overview','briefcase-business','TradeFlow, give me an update on my business. What needs attention?'],['Prepare a Quotation','file-text','Help me prepare a quotation for an electrical job.'],['Schedule Work','calendar-days','Help me schedule work for this week.'],['Analyze Profitability','chart-no-axes-column','Help me review job profitability.']];
  const symbols=['▣','▤','▦','▥'];
