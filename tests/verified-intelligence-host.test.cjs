@@ -46,7 +46,14 @@ async function fixture(){
  };
  const fetcher=async(url,options)=>{
   calls.push({url,options});
-  return new Response(JSON.stringify(sourceReply()),{status:200,
+  const result=options.method==='POST'?{
+   kind:'tradeflow.role_exchange.result.v1',businessId,jobId,
+   eventId:'reply_01',status:'readback_verified',
+   approvalStatus:'explicit_user_request_received',readbackVerified:true,
+   recordWriteReceipt:{kind:'tenant_job_write_readback.v1',
+    businessId,jobId,eventId:'reply_01',revision:5}
+  }:sourceReply();
+  return new Response(JSON.stringify(result),{status:200,
    headers:{'Content-Type':'application/json'}});
  };
  const api=createVerifiedIntelligenceHost({db,store,definitions:commands.definitions,
@@ -109,4 +116,33 @@ test('failed remote answer cannot create a verified assistant turn',async()=>{
  await assert.rejects(g.api.ask({...args,retainLocally:true}));
  assert.equal(g.saved.length,0);
  assert.equal(g.calls.length,0);
+});
+
+test('signed-in user approved response reaches domain route and returns an actual internal receipt',async()=>{
+ const f=await fixture();
+ const response=await f.api.approveOfficeResponse({
+  businessId,jobId,threadId,reportEventId:eventId,
+  eventId:'reply_01',idempotencyKey:'approved_reply_once',
+  expectedJobRevision:4,text:'Supplier arrival must be confirmed',
+  approvedByUser:true
+ });
+ assert.equal(response.status,'server_readback_verified');
+ assert.equal(response.originCurrent,true);
+ assert.equal(response.readbackVerified,true);
+ assert.equal(response.receipt.kind,'tenant_job_write_readback.v1');
+ assert.equal(response.actualCrewNotified,false);
+ assert.equal(f.calls.length,1);
+ assert.equal(f.calls[0].options.headers['X-TradeFlow-Approval'],'confirmed');
+ assert.equal(f.saved.length,0,'action receipt is not fabricated as chat content');
+});
+test('approval absent or different signed-in host prevents authenticated write',async()=>{
+ const f=await fixture();
+ const args={businessId,jobId,threadId,reportEventId:eventId,
+  eventId:'reply_01',idempotencyKey:'approved_reply_once',
+  expectedJobRevision:4,text:'Follow up with supplier'};
+ await assert.rejects(f.api.approveOfficeResponse(args),/explicit user confirmation/);
+ assert.equal(f.calls.length,0);
+ f.host.contextRecordId='job_02';
+ await assert.rejects(f.api.approveOfficeResponse({...args,approvedByUser:true}));
+ assert.equal(f.calls.length,0);
 });
