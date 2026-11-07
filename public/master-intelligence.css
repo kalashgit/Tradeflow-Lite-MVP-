@@ -12,6 +12,9 @@ body:has(.tf-master) .content{padding:0!important;overflow:hidden}
 .tf-master-header-actions{margin-left:auto;display:flex;gap:9px}
 .tf-master-welcome{flex:1;min-height:0;display:flex;align-items:center;flex-direction:column;justify-content:center;text-align:center;padding:10px 20px 22px;overflow:auto}
 .tf-master-orb{width:190px;height:190px;position:relative;display:grid;place-items:center;margin:0 auto 18px;border-radius:50%;isolation:isolate}
+.tf-master-orb{background:transparent;border:0;color:inherit;cursor:pointer;padding:0}
+.tf-master-orb:focus-visible{outline:2px solid #20d8ef;outline-offset:5px}
+.tf-master-orb.is-wake-listening{box-shadow:0 0 0 3px #20d8ef,inset 0 0 25px #20d8ef44}
 .tf-master-orb-mesh{position:absolute;inset:7%;border-radius:43% 55% 51% 47%;border:1px solid #00dfff;box-shadow:inset 0 0 22px #009dde99,0 0 25px #00cdf655;background:repeating-radial-gradient(ellipse at 38% 63%,transparent 0 6px,#00bbed55 7px,transparent 8px 14px),radial-gradient(ellipse at 65% 40%,#00345f88,transparent 65%);animation:tf-master-breathe 8s ease-in-out infinite alternate}
 .tf-master-orb>.tf-master-mark{font-size:66px}
 .tf-master-welcome h1{font-size:clamp(30px,5.5vw,45px);letter-spacing:-.04em;margin:2px 0 5px;line-height:1.15}

@@ -420,9 +420,11 @@ async function tfAiSaveTurn(turn){
  const saved=await store.appendTurn(db,tfAiLocalScope,threadId,turn);
  tfChatMessages.push(saved);
  tfChatThreads=await store.listThreads(db,tfAiLocalScope);
+ if(turn.role==='assistant'&&window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech.speak(saved.content,tfAiKey());
  return saved;
 }
 async function tfAiSwitchThread(threadId){
+ window.TradeFlowSpeech?.stop();
  if(tfChatBusy)return;
  const store=window.TradeFlowConversationStore;
  try{
@@ -434,6 +436,7 @@ async function tfAiSwitchThread(threadId){
  await tfAiUpdateChatUI();
 }
 async function tfAiNewThread(){
+ window.TradeFlowSpeech?.stop();
  if(tfChatBusy)return;
  try{
   const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
@@ -444,6 +447,7 @@ async function tfAiNewThread(){
  await tfAiUpdateChatUI();
 }
 async function tfAiDeleteThread(){
+ window.TradeFlowSpeech?.stop();
  if(tfChatBusy||!tfActiveChatThreadId)return;
  if(!confirm('Permanently delete this local conversation and all its messages from this device?'))return;
  try{
@@ -473,6 +477,14 @@ function tfAiHistoryView(){
   '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
 }
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
+window.TradeFlowVoiceGreeting=(message)=>{
+ const text=String(message||'Hello, what do you need?').slice(0,120);
+ const fallback=()=>{if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang='en-US';utterance.rate=.95;window.speechSynthesis.speak(utterance)};
+ const code=tfAiKey();
+ if(code&&window.TradeFlowSpeech?.speak)void window.TradeFlowSpeech.speak(text,code).then(ok=>{if(!ok)fallback()});
+ else fallback();
+};
+if(window.TradeFlowSpeech)window.TradeFlowSpeech.previewCode=tfAiKey;
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
  return {
@@ -551,7 +563,7 @@ function tfAIMasterView(){
  const messages=tfChatMessages.map(m=>'<article class="tf-master-message '+(m.role==='user'?'is-user':'is-assistant')+'">'+(m.role==='user'?'':mark)+'<div class="tf-master-message-body"><div class="tf-master-message-text">'+esc(m.content)+'</div>'+tfAiAttribution(m)+'</div></article>').join('');
  return '<section class="tf-master" aria-label="Master Intelligence"><header class="tf-master-header"><button type="button" class="tf-master-header-button" data-tab="dashboard" aria-label="Back to Home">‹</button><div class="tf-master-identity">'+mark+'<div><strong>TRADE<span>FLOW</span></strong><small>Master Intelligence</small></div></div><div class="tf-master-header-actions"><button type="button" class="tf-master-header-button" data-action="tfAiHistoryToggle" aria-label="Conversation history">◷</button><button type="button" class="tf-master-header-button" data-action="tfAiOptionsToggle" aria-label="Conversation options">•••</button></div></header>'+
  '<div class="tf-master-toolbar" id="tfMasterToolbar" hidden>'+tfAiHistoryView()+'<button type="button" data-action="tfAiNewThread">New conversation</button><button type="button" data-action="tfAiSnapshotToggle">Business snapshot</button><button type="button" data-action="tfAiExportThread">Export</button><button type="button" data-action="tfAiClear">Delete conversation</button><details><summary>AI preview connection</summary>'+(tfAiKey()?'<span>Preview unlocked</span><button data-action="tfAiLock" type="button">Disconnect</button>':'<form id="tfAiUnlockForm"><input name="code" type="password" minlength="12" maxlength="200" placeholder="Private access code" required><button type="submit">Unlock</button></form>')+'<button data-action="tfAiTestConnection" type="button">Check connection</button><p>'+esc(tfAiStatus)+'</p></details></div>'+
- (chatting?'<div class="tf-master-conversation" id="tfAiThread" role="log" aria-live="polite">'+messages+(tfChatBusy?'<div class="tf-master-thinking">TradeFlow is thinking…</div>':'')+'</div>':'<div class="tf-master-welcome"><div class="tf-master-orb" aria-hidden="true"><div class="tf-master-orb-mesh"></div>'+mark+'</div><h1>Master Intelligence</h1><p>Your TradeFlow AI. Business, operations and execution.</p><div class="tf-master-ready"><span></span>Ready · Local-first</div><div class="tf-master-starters">'+actions.map(([label,,prompt],i)=>'<button type="button" data-action="tfAiStarter" data-prompt="'+esc(prompt)+'"><span aria-hidden="true">'+symbols[i]+'</span>'+label+'</button>').join('')+'</div></div>')+
+ (chatting?'<div class="tf-master-conversation" id="tfAiThread" role="log" aria-live="polite">'+messages+(tfChatBusy?'<div class="tf-master-thinking">TradeFlow is thinking…</div>':'')+'</div>':'<div class="tf-master-welcome"><button type="button" class="tf-master-orb" data-action="tfAiVoice" aria-label="Start AI orb and hear TradeFlow greeting"><span class="tf-master-orb-mesh" aria-hidden="true"></span>'+mark+'</button><h1>Master Intelligence</h1><p>Your TradeFlow AI. Business, operations and execution.</p><div class="tf-master-ready"><span></span>Ready · Local-first</div><div class="tf-master-starters">'+actions.map(([label,,prompt],i)=>'<button type="button" data-action="tfAiStarter" data-prompt="'+esc(prompt)+'"><span aria-hidden="true">'+symbols[i]+'</span>'+label+'</button>').join('')+'</div></div>')+
  (tfChatError?'<p class="tf-master-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<form id="tfAiChatForm" class="tf-master-compose"><button type="button" class="tf-master-round" data-action="tfAiOptionsToggle" aria-label="More options">+</button><label for="tfAiPrompt" class="tf-ai-prompt-label">Message TradeFlow</label><textarea id="tfAiPrompt" name="prompt" rows="1" maxlength="1200" required '+(tfChatBusy?'disabled':'')+' placeholder="Message TradeFlow..."></textarea><button type="button" class="tf-master-round" data-action="tfAiVoice" aria-label="Talk to TradeFlow">♩</button><button type="submit" class="tf-master-send" '+(tfChatBusy?'disabled':'')+' aria-label="Send message">↑</button><input id="tfAiContext" type="checkbox" hidden '+(tfChatWithSummary?'checked':'')+'></form></section>';
 }
 function tfAiClosePanel(){if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
@@ -581,7 +593,7 @@ document.addEventListener('pointerdown',event=>{
  orb.classList.add('tf-ai-liquid-pressed');
  // Start recognition from the actual pointer gesture; waiting for a hold timer can lose browser user activation.
  // The following synthetic click is suppressed, so it cannot toggle recognition off again.
- if(window.TradeFlowVoice?.startListening){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.startListening();}
+ if(window.TradeFlowVoice?.start){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.start();}
  return;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -1393,7 +1405,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   tfAiCancelHold();
   tfAiPanelOpen=false;
   tfUiHaptic('selection');
-  if(window.TradeFlowVoice?.startListening)window.TradeFlowVoice.startListening();
+  if(window.TradeFlowVoice?.start)window.TradeFlowVoice.start();
   else notify('Voice assistant is loading. Please refresh this preview.');
   return;
  }
@@ -1427,7 +1439,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   const toolbar=document.getElementById('tfMasterToolbar');if(toolbar)toolbar.hidden=!toolbar.hidden;return;
  }
  if(el.dataset.action==='tfAiSnapshotToggle'){tfAIShowLegacySnapshot=!tfAIShowLegacySnapshot;await render();return}
- if(el.dataset.action==='tfAiVoice'){window.TradeFlowVoice?.startListening?.();return}
+ if(el.dataset.action==='tfAiVoice'){window.TradeFlowVoice?.start?.();return}
  if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
   if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
