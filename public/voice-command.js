@@ -142,6 +142,7 @@ function createController(host){
  }
  function toggle(){
   if(!open||busy)return;
+  globalThis.TradeFlowSpeech?.stop?.();
   if(recognition){const active=recognition;active.stopping=true;listening=false;waveAudio?.stop();void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
   const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
   if(!Engine){message='Speech recognition is unavailable in this browser. Try keyboard dictation.';void repaint();return}

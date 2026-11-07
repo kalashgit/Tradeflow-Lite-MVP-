@@ -188,3 +188,8 @@
 .tf-ai-history button:disabled{opacity:.4;cursor:not-allowed}
 .tf-ai-local-label{flex-basis:100%;font-size:10px;font-weight:700;letter-spacing:.09em;color:#9cd5df}
 @media(max-width:440px){.tf-ai-history{padding:10px;gap:7px}.tf-ai-history button{padding:8px}.tf-ai-history select{min-width:130px}}
+.tf-ai-speech-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(130,174,192,.2);font-size:12px;color:#bcd4dd}
+.tf-ai-speech-controls label{display:inline-flex;align-items:center;gap:6px}
+.tf-ai-speech-controls button,.tf-ai-speech-controls select,.tf-ai-theirs [data-ai-speech-play]{background:#172a33;color:#d9f8ff;border:1px solid #375766;border-radius:9px;padding:6px 10px;font:inherit;cursor:pointer}
+.tf-ai-speech-controls button:focus-visible,.tf-ai-theirs [data-ai-speech-play]:focus-visible{outline:2px solid #10cfe1;outline-offset:2px}
+.tf-ai-theirs [data-ai-speech-play]{margin-top:8px;font-size:12px}

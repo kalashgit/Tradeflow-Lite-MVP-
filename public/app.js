@@ -446,9 +446,11 @@ async function tfAiSaveTurn(turn){
  const saved=await store.appendTurn(db,tfAiLocalScope,threadId,turn);
  tfChatMessages.push(saved);
  tfChatThreads=await store.listThreads(db,tfAiLocalScope);
+ if(turn.role==='assistant'&&window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech.speak(saved.content,tfAiKey());
  return saved;
 }
 async function tfAiSwitchThread(threadId){
+ window.TradeFlowSpeech?.stop();
  if(tfChatBusy)return;
  const store=window.TradeFlowConversationStore;
  try{
@@ -460,6 +462,7 @@ async function tfAiSwitchThread(threadId){
  await tfAiUpdateChatUI();
 }
 async function tfAiNewThread(){
+ window.TradeFlowSpeech?.stop();
  if(tfChatBusy)return;
  try{
   const thread=await window.TradeFlowConversationStore.createThread(db,tfAiLocalScope);
@@ -470,6 +473,7 @@ async function tfAiNewThread(){
  await tfAiUpdateChatUI();
 }
 async function tfAiDeleteThread(){
+ window.TradeFlowSpeech?.stop();
  if(tfChatBusy||!tfActiveChatThreadId)return;
  if(!confirm('Permanently delete this local conversation and all its messages from this device?'))return;
  try{
@@ -500,6 +504,7 @@ function tfAiHistoryView(){
   '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
 }
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
+if(window.TradeFlowSpeech)window.TradeFlowSpeech.previewCode=tfAiKey;
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
  return {
