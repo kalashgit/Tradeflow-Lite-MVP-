@@ -15,7 +15,7 @@ body:has(.tf-master) .content{padding:0!important;overflow:hidden}
 .tf-master-orb{background:transparent;border:0;color:inherit;cursor:pointer;padding:0}
 .tf-master-orb:focus-visible{outline:2px solid #20d8ef;outline-offset:5px}
 .tf-master-orb.is-wake-listening{box-shadow:0 0 0 3px #20d8ef,inset 0 0 25px #20d8ef44}
-.tf-master-orb-mesh{display:block;width:100%;height:100%;object-fit:contain;filter:saturate(1.15);border-radius:50%}
+.tf-master-orb-mesh{display:block;width:100%;height:100%;object-fit:contain;filter:brightness(2.75) saturate(1.25);mix-blend-mode:screen;border-radius:50%}
 .tf-master-welcome h1{font-size:clamp(30px,5.5vw,45px);letter-spacing:-.04em;margin:2px 0 5px;line-height:1.15}
 .tf-master-welcome>p{font-size:clamp(13px,2.5vw,17px);color:#a8b2bc;margin:10px 0 19px}
 .tf-master-ready{display:flex;align-items:center;gap:9px;border:1px solid #2e444a;border-radius:100px;padding:8px 16px;color:#e4e8eb;font-size:13px}
@@ -88,3 +88,23 @@ body:has(.tf-master) .content{padding:0!important;overflow:hidden}
  .tf-master-compose textarea{min-height:45px;max-height:106px}
 }
 @media(max-width:365px){.tf-master-message{font-size:14px}}
+
+/* Founder visual-reference calibration v1. Avoid browser chrome in geometry checks. */
+@media(max-width:650px){
+ .tf-master-header{padding-inline:18px}
+ .tf-master-header-button{width:37px;height:37px}
+ .tf-master-identity>.tf-master-mark{width:26px;height:26px}
+ .tf-master-identity strong{font-size:13px}
+ .tf-master-identity small{font-size:11px}
+ .tf-master-orb{margin-bottom:41px}
+ .tf-master-welcome{transform:translateY(15px)}
+ .tf-master-welcome h1{font-size:clamp(24px,6.6vw,31px)}
+ .tf-master-welcome>p{font-size:11px}
+ .tf-master-ready{font-size:10px;padding:8px 7px;gap:6px}
+ .tf-master-ready span{width:7px;height:7px}
+ .tf-master-starters{width:92%}
+}
+@media(max-width:650px) and (max-height:630px){
+ .tf-master-orb{margin-bottom:12px}
+ .tf-master-welcome{transform:none}
+}
