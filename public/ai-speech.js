@@ -50,9 +50,15 @@
   }
   const wake=controls?.querySelector('[data-ai-wake-toggle]');
   if(wake){const status=root.TradeFlowVoice?.wakeStatus?.()||'off';const label=wakeActive?'Stop wake listening':status==='unsupported'?'Wake phrase unsupported in this browser':status==='permission_denied'?'Microphone permission denied — retry':'Enable “Hey TradeFlow”';if(wake.textContent!==label)wake.textContent=label;wake.setAttribute('aria-pressed',String(wakeActive))}
+  // Speech remains available from AI & Voice settings; no per-message Listen buttons.
   for(const bubble of panel?.querySelectorAll('.tf-ai-theirs,.tf-master-message.is-assistant')||[]){
-   if(bubble.querySelector('[data-ai-speech-play]'))continue;
-   const button=document.createElement('button');button.type='button';button.dataset.aiSpeechPlay='';button.textContent='▶ Listen';button.setAttribute('aria-label','Read this assistant response aloud');bubble.append(button);
+   bubble.querySelectorAll('[data-ai-speech-play]').forEach(button=>button.remove());
+   const message=bubble.querySelector('.tf-master-message-text');
+   if(message){
+    // Plain text presentation: remove raw Markdown emphasis markers without HTML injection.
+    const clean=message.textContent.replace(/\\*\\*([^*\\n]+)\\*\\*/g,'$1').replace(/(^|\\s)\\* (?=\\S)/gm,'$1• ');
+    if(clean!==message.textContent)message.textContent=clean;
+   }
   }
   const stateLabel=controls?.querySelector('[data-ai-speech-status]');
   const label=state==='idle'?'Speech ready':state;
