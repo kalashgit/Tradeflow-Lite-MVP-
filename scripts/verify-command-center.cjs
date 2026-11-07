@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),seed=require('../tests/fixtures/contractor-operating-flow-v1.json');
 const root=path.resolve('public'),out='artifacts/command-center';fs.mkdirSync(out,{recursive:true});
 const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://local'),file=path.resolve(root,'.'+(url.pathname==='/'?'/index.html':url.pathname));if(!file.startsWith(root+'/')){res.writeHead(403);res.end();return}fs.readFile(file,(error,bytes)=>{if(error){res.writeHead(404);res.end();return}res.setHeader('Content-Type',({'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml'})[path.extname(file)]||'application/octet-stream');res.end(bytes)})});
-async function openIntelligence(page){await page.locator('.tf-ai-orb').click();await page.locator('.tf-voice-sheet [data-host-action="open"]').click();await page.locator('#tfAiPrompt').waitFor()}
+async function openIntelligence(page){await page.locator('.tf-ai-orb').click();await page.locator('#tfAiPrompt').waitFor();await page.locator('.tf-ai-tools summary').click()}
 let browser;
 (async()=>{await new Promise(r=>server.listen(4207,'127.0.0.1',r));browser=await chromium.launch({args:['--no-sandbox']});const results=[];
 for(const viewport of [{width:375,height:667},{width:390,height:844},{width:430,height:740},{width:1280,height:900}]){

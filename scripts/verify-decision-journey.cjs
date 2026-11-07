@@ -32,6 +32,7 @@ let browser,activePage;
   assert.match(await page.locator('.tf-ai-chat-thread').innerText(),/Review Synthetic panel replacement job costs/);
   await page.locator('[data-decision-job="job_01"] [data-decision-action="review"]').first().waitFor({timeout:15000});
   assert.equal(await page.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),6,'Single-job investigation persists in the shared conversation');
+  await page.locator('.tf-ai-tools summary').click();
   const aiJob=page.locator('[data-action="tfAiReviewJob"][data-id="job_01"]');
   await aiJob.waitFor();
   await aiJob.click();
@@ -104,19 +105,19 @@ let browser,activePage;
   assert.equal(approvedRecords.commandLog.filter(x=>x.kind==='job.cost_review.schedule').length,1,'Exactly one durable command receipt');
   assert.deepEqual(approvedRecords.invoices.sort((a,b)=>a.id.localeCompare(b.id)),expectedInvoices,'Invoice records are unchanged by internal approval');
   const originalThreadId=await approvalPage.locator('#tfAiThreadPicker').inputValue();
-  await approvalPage.locator('[data-action="tfAiNewThread"]').click();
+  if(!await approvalPage.locator('[data-action="tfAiNewThread"]').isVisible())await approvalPage.locator('.tf-ai-tools summary').click();await approvalPage.locator('[data-action="tfAiNewThread"]').click();
   // Thread creation changes IndexedDB and asynchronously repaints the AI workspace.
   // Observe the newly active empty thread before checking cross-thread isolation.
   await approvalPage.waitForFunction(()=>document.querySelectorAll('.tf-ai-chat-thread .tf-ai-bubble').length===0&&!document.querySelector('[data-decision-job="job_01"]'),null,{timeout:10000});
   assert.equal(await approvalPage.locator('[data-decision-job="job_01"]').count(),0,'Unrelated conversation cannot display previous approval controls');
   assert.equal(await approvalPage.locator('.tf-ai-chat-thread .tf-ai-bubble').count(),0,'Unrelated conversation has no previous evidence');
-  await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
+  if(!await approvalPage.locator('#tfAiThreadPicker').isVisible())await approvalPage.locator('.tf-ai-tools summary').click();await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'));
   await approvalPage.reload();await approvalPage.waitForFunction(()=>!!window.TradeFlowPilot);
   await approvalPage.locator('[data-tab="settings"]:visible').first().click();
   await approvalPage.locator('.tf-more-menu [data-tab="ai"]').click();
   // A newer, empty thread may be selected after reload; reopen the exact original.
-  await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
+  if(!await approvalPage.locator('#tfAiThreadPicker').isVisible())await approvalPage.locator('.tf-ai-tools summary').click();await approvalPage.locator('#tfAiThreadPicker').selectOption(originalThreadId);
   await approvalPage.waitForFunction(()=>document.querySelector('.tf-ai-chat-thread')?.textContent.includes('Internal review task saved and verified against the command receipt'),null,{timeout:15000});
   const afterReload=await approvalPage.evaluate(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));const d=await window.TradeFlowLocalRecovery.readStores(db,['tasks','commandLog','invoices']);db.close();return d});
   assert.equal(afterReload.tasks.filter(t=>t.taskKind==='job_cost_reconciliation').length,1,'Reload must not replay approved command');

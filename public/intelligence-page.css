@@ -52,3 +52,4 @@ body:has(.tf-ai-official){overflow:hidden}
 .tf-ai-welcome-orbit .tf-brand-mark{z-index:1}
 #app .tf-ai-official .tf-ai-chat-suggestions button{flex-direction:column;align-items:flex-start;gap:8px;justify-content:center}
 .tf-ai-shortcut-icon svg{width:24px;height:24px;color:#f5f5f5}
+#app .tf-ai-official .tf-ai-compose-row textarea{min-height:44px}
