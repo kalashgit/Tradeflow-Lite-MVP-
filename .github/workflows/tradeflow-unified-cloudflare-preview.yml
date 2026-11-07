@@ -1,0 +1,94 @@
+name: TradeFlow Isolated Unified Cloudflare Preview
+on:
+  push:
+    branches:
+      - integration/tf-unified-preview-20261107
+    paths:
+      - ".github/workflows/tradeflow-unified-cloudflare-preview.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tradeflow-library-pilot-preview
+  cancel-in-progress: false
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    environment: tradeflow-preview
+    steps:
+      - name: Checkout exact isolated branch head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Guard exact source and preview-only configuration
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const cp=require('node:child_process');
+          const assert=require('node:assert/strict');
+          assert.equal(cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),process.env.GITHUB_SHA);
+          const config=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
+          assert.equal(config.name,'tradeflow-v05-preview');
+          assert.equal(config.assets?.directory,'./public');
+          assert.equal(config.main,'./src/index.js');
+          assert.equal(config.d1_databases?.find(x=>x.binding==='TF_DB')?.database_name,'tradeflow-pilot-isolated');
+          assert.equal(config.vars?.TF_BACKUP_EXPORT_ENABLED,'false');
+          NODE
+      - name: Verify regressions
+        run: |
+          node --check public/app.js
+          node --check public/host-presentation.js
+          node --check public/command-constellation.js
+          node --check public/master-intelligence-reference.js
+          npm test
+          npm run test:contractors
+          npm run test:storage
+      - name: Verify actual browser journeys
+        run: |
+          npx playwright install --with-deps chromium
+          node scripts/verify-local-ai-chat-browser.cjs
+          node scripts/verify-home-founder-layout.cjs
+          node scripts/verify-master-welcome-browser.cjs
+      - name: Confirm Cloudflare preview has not been updated by another worker
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const root='https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev';
+          (async()=>{
+            const r=await fetch(root+'/release.json?handoff='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
+            assert.equal(r.status,200,'Preview release manifest must exist');
+            const x=await r.json();
+            assert.equal(x.worker,'tradeflow-library-pilot-preview');
+            assert.ok(['eda453a7e5933d0d5c0a097978494206cb7d24c7',process.env.GITHUB_SHA].includes(x.commit),
+              'Preview changed; do not overwrite a newer unreviewed release');
+            console.log('Verified prior preview source '+x.commit);
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Stamp exact source and asset digests
+        run: node automation/preview-release.cjs build
+      - name: Deploy isolated Cloudflare preview (no production)
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx wrangler deploy --config wrangler.jsonc --name tradeflow-library-pilot-preview --keep-vars --message "$GITHUB_SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Verify exact live source and every shipped asset
+        run: node automation/preview-release.cjs verify https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev
+      - name: Confirm unauthenticated business API denies access
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const r=await fetch('https://tradeflow-library-pilot-preview.bartoszszarafinski.workers.dev/api/v1/me',{redirect:'manual',signal:AbortSignal.timeout(15000)});
+            if(![302,303,307,401,403].includes(r.status))throw Error('Business API did not fail closed: '+r.status);
+            console.log('Unauthenticated business API rejected:',r.status);
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
