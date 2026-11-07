@@ -504,6 +504,13 @@ function tfAiHistoryView(){
   '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
 }
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||''}catch(e){return ''}}
+window.TradeFlowVoiceGreeting=(message)=>{
+ const text=String(message||'Hello, what do you need?').slice(0,120);
+ const fallback=()=>{if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang='en-US';utterance.rate=.95;window.speechSynthesis.speak(utterance)};
+ const code=tfAiKey();
+ if(code&&window.TradeFlowSpeech?.speak)void window.TradeFlowSpeech.speak(text,code).then(ok=>{if(!ok)fallback()});
+ else fallback();
+};
 if(window.TradeFlowSpeech)window.TradeFlowSpeech.previewCode=tfAiKey;
 function tfAiContext(data){
  const month=today().slice(0,7),payments=data.payments||[],expenses=data.expenses||[];
@@ -600,7 +607,7 @@ document.addEventListener('pointerdown',event=>{
  orb.classList.add('tf-ai-liquid-pressed');
  // Start recognition from the actual pointer gesture; waiting for a hold timer can lose browser user activation.
  // The following synthetic click is suppressed, so it cannot toggle recognition off again.
- if(window.TradeFlowVoice?.startListening){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.startListening();}
+ if(window.TradeFlowVoice?.start){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.start();}
  return;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -1443,7 +1450,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   tfAiCancelHold();
   tfAiPanelOpen=false;
   tfUiHaptic('selection');
-  if(window.TradeFlowVoice?.startListening)window.TradeFlowVoice.startListening();
+  if(window.TradeFlowVoice?.start)window.TradeFlowVoice.start();
   else notify('Voice assistant is loading. Please refresh this preview.');
   return;
  }

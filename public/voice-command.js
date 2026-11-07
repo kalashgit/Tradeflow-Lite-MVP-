@@ -3,6 +3,7 @@
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalized=v=>String(v||'').trim().replace(/^(?:hey|hello|hi|okay|ok)\s+trade\s*flow\b[,!:. ]*/i,'').trim();
+const wakePhrase=v=>/\b(?:hey|hi|hello|okay|ok)[,\s]+trade\s*flow\b/i.test(String(v||''));
 function intent(input){
  const original=normalized(input),s=original.toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim();
  const tokens=s.split(' '),has=words=>words.some(w=>tokens.includes(w));
@@ -45,12 +46,34 @@ function tomorrowWork(data,date,calendarRecords){
 }
 function createController(host){
  let open=false,busy=false,listening=false,recognition=null,draft='',message='',showCalendarDate='';
+ let wakeRecognition=null,wakeActive=false,wakeStatus='off';
  const doc=host.document,repaint=()=>host.repaint();
  const waveAudio=globalThis.TradeFlowFlowWaveAudio?.createMeter({document:doc});
- function stopMicrophoneNow(){waveAudio?.stop();if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false}
+ function stopWake(){wakeActive=false;wakeStatus='off';if(wakeRecognition){const active=wakeRecognition;wakeRecognition=null;try{active.abort()}catch{}}}
+ function stopMicrophoneNow(){stopWake();globalThis.speechSynthesis?.cancel?.();waveAudio?.stop();if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false}
  function close(){stopMicrophoneNow();showCalendarDate='';open=false;draft='';message='';void repaint()}
- function start(){open=true;draft='';message='';showCalendarDate='';void repaint()}
+ function greet(){(host.greet||globalThis.TradeFlowVoiceGreeting)?.('Hello, what do you need?')}
+ function start(){stopWake();open=true;draft='';message='Hello, what do you need?';showCalendarDate='';void repaint();greet()}
  function startListening(){if(!open){open=true;draft='';message=''};if(!recognition&&!busy)toggle();else void repaint()}
+ function enableWake(){
+  if(wakeActive){stopWake();void repaint();return false}
+  const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
+  if(!Engine){wakeStatus='unsupported';void repaint();return false}
+  if(recognition)stopMicrophoneNow();
+  const active=new Engine();wakeRecognition=active;wakeActive=true;wakeStatus='listening';
+  active.lang='en-US';active.continuous=true;active.interimResults=false;
+  active.onresult=event=>{
+   if(wakeRecognition!==active||!wakeActive)return;
+   const results=Array.from(event.results||[]).filter(result=>result.isFinal!==false);
+   const transcript=results.map(result=>result?.[0]?.transcript||'').join(' ').trim();
+   if(!wakePhrase(transcript))return;
+   stopWake();open=true;draft=normalized(transcript);message='Hello, what do you need?';
+   void repaint();greet();
+  };
+  active.onerror=event=>{if(wakeRecognition!==active)return;stopWake();wakeStatus=event.error==='not-allowed'?'permission_denied':'unavailable';void repaint()};
+  active.onend=()=>{if(wakeRecognition!==active)return;stopWake();wakeStatus='ended';void repaint()};
+  try{active.start();void repaint();return true}catch{stopWake();wakeStatus='unavailable';void repaint();return false}
+ }
  async function submit(text){
   if(busy)return;const instruction=String(text||'').trim();draft=instruction;
   if(!instruction){message='Speak or enter a command first.';await repaint();return}
@@ -143,6 +166,7 @@ function createController(host){
  function toggle(){
   if(!open||busy)return;
   globalThis.TradeFlowSpeech?.stop?.();
+  globalThis.speechSynthesis?.cancel?.();
   if(recognition){const active=recognition;active.stopping=true;listening=false;waveAudio?.stop();void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
   const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
   if(!Engine){message='Speech recognition is unavailable in this browser. Try keyboard dictation.';void repaint();return}
@@ -164,7 +188,9 @@ function createController(host){
  doc.addEventListener('click',e=>{const quick=e.target.closest?.('[data-voice-workspace]');if(quick){e.preventDefault();const workspace=quick.dataset.voiceWorkspace;close();if(host.navigate)void host.navigate(workspace);return}const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='calendar'){if(showCalendarDate&&host.openCalendar)void host.openCalendar(showCalendarDate).then(()=>close()).catch(error=>{message=String(error.message||error);void repaint()});return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
  doc.addEventListener('submit',e=>{if(e.target.id!=='tfVoiceForm')return;e.preventDefault();void submit(e.target.querySelector('#tfVoiceText')?.value||'')});
  doc.addEventListener('input',e=>{if(e.target.id==='tfVoiceText')draft=e.target.value});
- return Object.freeze({start,startListening,close,stopMicrophoneNow,view,submit});
+ doc.addEventListener('visibilitychange',()=>{if(doc.hidden)stopMicrophoneNow()});
+ globalThis.addEventListener?.('pagehide',stopMicrophoneNow);
+ return Object.freeze({start,startListening,enableWake,stopWake,wakeStatus:()=>wakeStatus,isWakeActive:()=>wakeActive,close,stopMicrophoneNow,view,submit});
 }
-return Object.freeze({createController,intent,tomorrowDate,tomorrowWork});
+return Object.freeze({createController,intent,wakePhrase,tomorrowDate,tomorrowWork});
 });

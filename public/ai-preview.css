@@ -193,3 +193,5 @@
 .tf-ai-speech-controls button,.tf-ai-speech-controls select,.tf-ai-theirs [data-ai-speech-play]{background:#172a33;color:#d9f8ff;border:1px solid #375766;border-radius:9px;padding:6px 10px;font:inherit;cursor:pointer}
 .tf-ai-speech-controls button:focus-visible,.tf-ai-theirs [data-ai-speech-play]:focus-visible{outline:2px solid #10cfe1;outline-offset:2px}
 .tf-ai-theirs [data-ai-speech-play]{margin-top:8px;font-size:12px}
+.tf-ai-orb.is-wake-listening{outline:2px solid #10cfe1;outline-offset:4px;box-shadow:0 0 0 7px rgba(16,207,225,.15)}
+.tf-ai-orb.is-wake-listening::after{content:'MIC';position:absolute;right:-5px;bottom:-5px;background:#087b8d;color:white;font-size:9px;padding:2px 5px;border-radius:8px}
