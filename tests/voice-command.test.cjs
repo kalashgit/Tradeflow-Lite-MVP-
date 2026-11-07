@@ -1,6 +1,24 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const voice=require('../public/voice-command.js');
+test('ordinary speech routes to the shared conversation, without command writes',async()=>{
+ let transcript='',writes=0;
+ const controller=voice.createController({document:{addEventListener:()=>{}},repaint:async()=>{},
+  chatCommand:async text=>{transcript=text},snapshot:async()=>({}),now:()=>new Date(),
+  commands:{prepare:async()=>{writes++}},customer:{openReview:async()=>{writes++}}});
+ controller.start();await controller.submit('I am testing you can you speak to me?');
+ assert.equal(transcript,'I am testing you can you speak to me?');
+ assert.equal(writes,0);
+ assert.equal(controller.view(),'');
+});
+test('ambiguous scheduling speech moves into chat rather than pretending to schedule',async()=>{
+ let transcript='',writes=0;
+ const controller=voice.createController({document:{addEventListener:()=>{}},repaint:async()=>{},
+  chatCommand:async text=>{transcript=text},snapshot:async()=>({}),now:()=>new Date(),
+  commands:{prepare:async()=>{writes++}},customer:{openReview:async()=>{writes++}}});
+ controller.start();await controller.submit('Help me schedule a job');
+ assert.equal(transcript,'Help me schedule a job');assert.equal(writes,0);
+});
 test('routes conversational commands to distinct local intents',()=>{
  assert.equal(voice.intent('Hey TradeFlow, make a new customer John Smith, phone 512-555-0198').kind,'customer');
  assert.equal(voice.intent('Hey TradeFlow, what jobs do I have tomorrow?').kind,'tomorrow');

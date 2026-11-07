@@ -555,6 +555,16 @@ async function tfAiUpdateChatUI(){
 }
 let tfAiConversationStarted=false;
 let tfAIShowLegacySnapshot=false;
+let tfAiPendingPrompt='';
+function showVoiceSettings(){
+ const box=document.getElementById('tfSettingsPanel');if(!box)return;
+ box.innerHTML='<div class="tf-settings-panelhead"><h3>AI &amp; Voice</h3><button type="button" data-action="settingsPanel" data-panel="close" aria-label="Close">×</button></div>'+
+ '<p>Cloudflare-hosted Llama is used for general chat when this private preview is unlocked. Business actions still require review. Aura-1 provides spoken replies.</p>'+
+ '<div class="tf-ai-connection-settings"><strong>AI chat connection</strong><p>'+(tfAiKey()?'Preview access connected.':'Private preview access is required to use AI chat.')+'</p>'+
+ (tfAiKey()?'<button type="button" data-action="tfAiLock">Disconnect AI preview</button>':'<form id="tfAiUnlockForm"><label for="tfSettingsAiCode">Private preview code</label><input id="tfSettingsAiCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" required><button type="submit">Connect</button></form>')+
+ '<button type="button" data-action="tfAiTestConnection">Check AI connection</button><p role="status">'+esc(tfAiStatus)+'</p></div><section data-tf-voice-settings-host aria-label="Speech and wake-word settings"></section>';
+ box.hidden=false;box.scrollIntoView({behavior:'smooth',block:'start'});window.TradeFlowSpeech?.mount?.();
+}
 function tfAIMasterView(){
  const chatting=tfAiConversationStarted||tfChatMessages.length>0;
  const mark='<img class="tf-master-mark" src="./brand/tradeflow-mark.svg" alt="" aria-hidden="true">';
@@ -562,9 +572,9 @@ function tfAIMasterView(){
  const symbols=['<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h5M8 12h8M8 16h8"/></svg>','<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/></svg>','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20v-6M9 20V9M14 20V4M19 20V12"/></svg>'];
  const messages=tfChatMessages.map(m=>'<article class="tf-master-message '+(m.role==='user'?'is-user':'is-assistant')+'">'+(m.role==='user'?'':mark)+'<div class="tf-master-message-body"><div class="tf-master-message-text">'+esc(m.content)+'</div>'+tfAiAttribution(m)+'</div></article>').join('');
  return '<section class="tf-master" aria-label="Master Intelligence"><header class="tf-master-header"><button type="button" class="tf-master-header-button" data-tab="dashboard" aria-label="Back to Home">‹</button><div class="tf-master-identity">'+mark+'<div><strong>TRADE<span>FLOW</span></strong><small>Master Intelligence</small></div></div><div class="tf-master-header-actions"><button type="button" class="tf-master-header-button" data-action="tfAiHistoryToggle" aria-label="Conversation history">◷</button><button type="button" class="tf-master-header-button" data-action="tfAiOptionsToggle" aria-label="Conversation options">•••</button></div></header>'+
- '<div class="tf-master-toolbar" id="tfMasterToolbar" hidden>'+tfAiHistoryView()+'<button type="button" data-action="tfAiNewThread">New conversation</button><button type="button" data-action="tfAiSnapshotToggle">Business snapshot</button><button type="button" data-action="tfAiExportThread">Export</button><button type="button" data-action="tfAiClear">Delete conversation</button><details><summary>AI preview connection</summary>'+(tfAiKey()?'<span>Preview unlocked</span><button data-action="tfAiLock" type="button">Disconnect</button>':'<form id="tfAiUnlockForm"><input name="code" type="password" minlength="12" maxlength="200" placeholder="Private access code" required><button type="submit">Unlock</button></form>')+'<button data-action="tfAiTestConnection" type="button">Check connection</button><p>'+esc(tfAiStatus)+'</p></details></div>'+
+ '<div class="tf-master-toolbar" id="tfMasterToolbar" hidden>'+tfAiHistoryView()+'<button type="button" data-action="tfAiNewThread">New conversation</button><button type="button" data-action="tfAiSnapshotToggle">Business snapshot</button><button type="button" data-action="tfAiExportThread">Export</button><button type="button" data-action="tfAiClear">Delete conversation</button><button type="button" data-action="tfAiOpenVoiceSettings">AI &amp; Voice settings</button></div>'+
  (chatting?'<div class="tf-master-conversation" id="tfAiThread" role="log" aria-live="polite">'+messages+(tfChatBusy?'<div class="tf-master-thinking">TradeFlow is thinking…</div>':'')+'</div>':'<div class="tf-master-welcome"><button type="button" class="tf-master-orb" data-action="tfAiVoice" aria-label="Start AI orb and hear TradeFlow greeting"><img class="tf-master-orb-mesh" src="./orb-concept-b/reference.gif" alt="" aria-hidden="true"></button><h1>Master Intelligence</h1><p>Your TradeFlow AI. Business, operations and execution.</p><div class="tf-master-ready"><span></span>Ready · Local-first</div><div class="tf-master-starters">'+actions.map(([label,,prompt],i)=>'<button type="button" data-action="tfAiStarter" data-prompt="'+esc(prompt)+'"><span aria-hidden="true">'+symbols[i]+'</span>'+label+'</button>').join('')+'</div></div>')+
- (tfChatError?'<p class="tf-master-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<form id="tfAiChatForm" class="tf-master-compose"><button type="button" class="tf-master-round" data-action="tfAiOptionsToggle" aria-label="More options">+</button><label for="tfAiPrompt" class="tf-ai-prompt-label">Message TradeFlow</label><textarea id="tfAiPrompt" name="prompt" rows="1" maxlength="1200" required '+(tfChatBusy?'disabled':'')+' placeholder="Message TradeFlow..."></textarea><button type="button" class="tf-master-round" data-action="tfAiVoice" aria-label="Talk to TradeFlow">♩</button><button type="submit" class="tf-master-send" '+(tfChatBusy?'disabled':'')+' aria-label="Send message">↑</button><input id="tfAiContext" type="checkbox" hidden '+(tfChatWithSummary?'checked':'')+'></form></section>';
+ (tfChatError?'<p class="tf-master-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<form id="tfAiChatForm" class="tf-master-compose"><button type="button" class="tf-master-round" data-action="tfAiOptionsToggle" aria-label="More options">+</button><label for="tfAiPrompt" class="tf-ai-prompt-label">Message TradeFlow</label><textarea id="tfAiPrompt" name="prompt" rows="1" maxlength="1200" required '+(tfChatBusy?'disabled':'')+' placeholder="Message TradeFlow...">'+esc(tfAiPendingPrompt)+'</textarea><button type="button" class="tf-master-round" data-action="tfAiVoice" aria-label="Talk to TradeFlow">♩</button><button type="submit" class="tf-master-send" '+(tfChatBusy?'disabled':'')+' aria-label="Send message">↑</button><input id="tfAiContext" type="checkbox" hidden '+(tfChatWithSummary?'checked':'')+'></form></section>';
 }
 function tfAiClosePanel(){if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
 /* Haptics are progressive enhancement: iOS Safari doesn't provide arbitrary web vibration.
@@ -750,13 +760,14 @@ async function tfAiLocalJobReview(content){
  finally{tfChatBusy=false;await tfAiUpdateChatUI();if(tfAiReviewJobId)await window.TradeFlowPilot?.decisions?.open(tfAiReviewJobId)}
  return true;
 }
-async function tfAISend(text){
+async function tfAISend(text,{speakReply=false}={}){
  const content=String(text||'').trim().slice(0,1200);
  if(!content||tfChatBusy)return;
  if(await tfAiLocalBriefingFollowUp(content))return;
   if(await tfAiLocalBusinessBriefing(content))return;
   if(await tfAiLocalJobReview(content))return;
- if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
+ if(!tfAiKey()){tfAiPendingPrompt=content;tfChatError='AI chat is locked. Open More → Settings → AI & Voice to connect, then send your message again.';await tfAiUpdateChatUI();return}
+ tfAiPendingPrompt='';
  const screen=tab;
  tfChatError='';
  try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
@@ -775,6 +786,7 @@ async function tfAISend(text){
   await tfAiSaveTurn({role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
    source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable'].includes(payload.source)?payload.source:'unverified_model',
    refs:payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
+  if(speakReply&&!window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech?.speak?.(payload.reply.trim().slice(0,1200),tfAiKey());
  }catch(err){tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
 }
@@ -791,6 +803,7 @@ document.addEventListener('submit',async e=>{
    tfAiPreviewMode=result.syntheticDemo?String(result.modelMode||'mock'):'';
    tfChatError='';tfAiStatus=result.syntheticDemo?'Synthetic development preview unlocked. No real business records are accessible.':'Access verified. AI connection available.';
   }catch(err){tfChatError=await tfAiDescribeError(err);tfAiStatus='Access verification unsuccessful.';}
+  if(tab==='preferences')showVoiceSettings();
   await tfAiUpdateChatUI();return;
  }
  if(e.target.id==='tfAiQuickForm'){
@@ -1438,13 +1451,14 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfAiHistoryToggle'||el.dataset.action==='tfAiOptionsToggle'){
   const toolbar=document.getElementById('tfMasterToolbar');if(toolbar)toolbar.hidden=!toolbar.hidden;return;
  }
+ if(el.dataset.action==='tfAiOpenVoiceSettings'){tfResetWorkspace('preferences');await render();showVoiceSettings();return}
  if(el.dataset.action==='tfAiSnapshotToggle'){tfAIShowLegacySnapshot=!tfAIShowLegacySnapshot;await render();return}
  if(el.dataset.action==='tfAiVoice'){window.TradeFlowVoice?.start?.();return}
- if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}await tfAiUpdateChatUI();return}
+ if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
   if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
   if(el.dataset.action==='tfAiExportThread'){await tfAiExportThread();return}
- if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatError='';tfAiStatus='';tfAiPreviewMode='';await tfAiUpdateChatUI();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}tfChatError='';tfAiStatus='';tfAiPreviewMode='';if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 
@@ -2436,7 +2450,7 @@ function tfInitializePilot(){
   }
   return {status:'unsupported'};
  }
- if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+ if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,chatCommand:async instruction=>{tfResetWorkspace('ai');tfAiConversationStarted=true;await tfAISend(instruction,{speakReply:true})},calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   let decisionController=null,decisionLoading=null;
   const investigateJob=async (id,request={})=>{
    if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation changed before investigation');

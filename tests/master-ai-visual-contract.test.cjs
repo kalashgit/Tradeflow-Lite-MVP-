@@ -21,9 +21,9 @@ test('welcome stays four-wide on phone and chat keeps the same source-backed thr
  assert.match(app,/id="tfAiChatForm" class="tf-master-compose"/);
 });
 
-test('speech options mount in the hidden menu without blocking the welcome screen',()=>{
+test('speech options mount in Settings without blocking the welcome screen',()=>{
  const speech=read('ai-speech.js');
- assert.match(speech,/panel\.querySelector\('#tfMasterToolbar'\)/);
+ assert.match(speech,/document\.querySelector\('\[data-tf-voice-settings-host\]'\)/);
  assert.match(speech,/if\(options\)options\.append\(controls\)/);
  assert.match(speech,/data-ai-speech-speaker/);
  assert.match(speech,/data-ai-wake-toggle/);

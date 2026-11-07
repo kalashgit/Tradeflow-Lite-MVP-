@@ -26,32 +26,37 @@
  }
  root.TradeFlowSpeech={speak,stop,get state(){return state},get auto(){return auto},get speaker(){return speaker},setAuto(value){auto=!!value;if(!auto)stop()},subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn)}};
  function mount(){
+  const settings=document.querySelector('.tf-settings-v2');
+  if(settings&&!settings.querySelector('[data-ai-voice-settings-entry]')){
+   const group=settings.querySelector('.tf-settings-group');
+   if(group){const button=document.createElement('button');button.type='button';button.className='tf-settings-row';button.dataset.action='tfAiOpenVoiceSettings';button.dataset.aiVoiceSettingsEntry='';button.innerHTML='<span class="tf-settings-rowicon" aria-hidden="true">◉</span><span class="tf-settings-rowcopy"><strong>AI &amp; Voice</strong><small>AI connection, speakers and Hey TradeFlow</small></span><span class="tf-settings-rowarrow" aria-hidden="true">›</span>';group.append(button)}
+  }
   const wakeActive=!!root.TradeFlowVoice?.isWakeActive?.();
   for(const orb of document.querySelectorAll('.tf-ai-orb,.tf-master-orb')){
    orb.classList.toggle('is-wake-listening',wakeActive);
    if(orb.matches('.tf-ai-orb'))orb.setAttribute('aria-label',wakeActive?'Hey TradeFlow microphone listening':'Talk to TradeFlow');
   }
   const panel=document.querySelector('.tf-master,.tf-ai-chat-box');
-  if(!panel)return;
-  const options=panel.matches('.tf-master')?panel.querySelector('#tfMasterToolbar'):null;
-  let controls=panel.querySelector('[data-ai-speech-controls]');
+  const options=document.querySelector('[data-tf-voice-settings-host]');
+  if(!panel&&!options)return;
+  let controls=options?.querySelector('[data-ai-speech-controls]')||panel?.querySelector('[data-ai-speech-controls]');
   if(!controls){
    controls=document.createElement('div');controls.dataset.aiSpeechControls='';controls.className='tf-ai-speech-controls';
    controls.innerHTML='<label><input type="checkbox" data-ai-speech-auto> Speak replies</label> <label>Voice <select data-ai-speech-speaker aria-label="Speech voice"><option value="orion">Orion</option><option value="asteria">Asteria</option><option value="angus">Angus</option><option value="orpheus">Orpheus</option><option value="luna">Luna</option></select></label> <button type="button" data-ai-speech-stop>Stop audio</button> <button type="button" data-ai-wake-toggle>Enable “Hey TradeFlow”</button> <small data-ai-speech-status role="status">Speech ready</small>';
    if(options)options.append(controls);
-   else (panel.querySelector('.tf-ai-chat-top')||panel.firstElementChild)?.after(controls);
-   controls.querySelector('[data-ai-speech-auto]').checked=auto;
-   controls.querySelector('[data-ai-speech-speaker]').value=speaker;
+   else if(panel?.matches('.tf-ai-chat-box'))(panel.querySelector('.tf-ai-chat-top')||panel.firstElementChild)?.after(controls);
+   else controls=null;
+   if(controls){controls.querySelector('[data-ai-speech-auto]').checked=auto;controls.querySelector('[data-ai-speech-speaker]').value=speaker}
   }
-  const wake=controls.querySelector('[data-ai-wake-toggle]');
+  const wake=controls?.querySelector('[data-ai-wake-toggle]');
   if(wake){const status=root.TradeFlowVoice?.wakeStatus?.()||'off';const label=wakeActive?'Stop wake listening':status==='unsupported'?'Wake phrase unsupported in this browser':status==='permission_denied'?'Microphone permission denied — retry':'Enable “Hey TradeFlow”';if(wake.textContent!==label)wake.textContent=label;wake.setAttribute('aria-pressed',String(wakeActive))}
-  for(const bubble of panel.querySelectorAll('.tf-ai-theirs,.tf-master-message.is-assistant')){
+  for(const bubble of panel?.querySelectorAll('.tf-ai-theirs,.tf-master-message.is-assistant')||[]){
    if(bubble.querySelector('[data-ai-speech-play]'))continue;
    const button=document.createElement('button');button.type='button';button.dataset.aiSpeechPlay='';button.textContent='▶ Listen';button.setAttribute('aria-label','Read this assistant response aloud');bubble.append(button);
   }
-  const stateLabel=controls.querySelector('[data-ai-speech-status]');
+  const stateLabel=controls?.querySelector('[data-ai-speech-status]');
   const label=state==='idle'?'Speech ready':state;
-  if(stateLabel.textContent!==label)stateLabel.textContent=label;
+  if(stateLabel&&stateLabel.textContent!==label)stateLabel.textContent=label;
  }
  root.TradeFlowSpeech.mount=mount;
  root.TradeFlowSpeech.subscribe(()=>{const label=document.querySelector('[data-ai-speech-status]');if(label)label.textContent=state==='idle'?'Speech ready':state});

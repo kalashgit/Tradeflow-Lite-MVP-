@@ -45,6 +45,11 @@ body:has(.tf-master) .content{padding:0!important;overflow:hidden}
 .tf-master-toolbar .tf-ai-speech-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #34454b;color:#d9f8ff;font-size:12px}
 .tf-master-toolbar .tf-ai-speech-controls select{background:#17262c;color:#fff;border:1px solid #3c5360;border-radius:8px;padding:7px}
 .tf-master-toolbar .tf-ai-speech-controls label{display:flex;align-items:center;gap:5px}
+[data-tf-voice-settings-host] .tf-ai-speech-controls{display:grid;gap:14px;padding:18px 0;color:#edfaff}
+[data-tf-voice-settings-host] .tf-ai-speech-controls label{display:flex;align-items:center;justify-content:space-between;gap:12px}
+[data-tf-voice-settings-host] .tf-ai-speech-controls button,[data-tf-voice-settings-host] .tf-ai-speech-controls select,.tf-ai-connection-settings button,.tf-ai-connection-settings input{min-height:44px;border:1px solid #35515b;background:#0d1b20;color:#f2fbff;border-radius:12px;padding:10px}
+.tf-ai-connection-settings{display:grid;gap:10px;padding:14px 0;border-bottom:1px solid #304049}
+.tf-ai-connection-settings form{display:grid;gap:8px}
 .tf-master-error{margin:0 24px;color:#ffbe9f;padding:8px 12px;background:#3b1e18;border-radius:9px}
 @keyframes tf-master-breathe{to{transform:rotate(14deg) scale(1.07);border-radius:56% 44% 47% 53%}}
 @media(prefers-reduced-motion:reduce){.tf-master-orb-mesh{animation:none}}

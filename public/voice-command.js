@@ -153,7 +153,13 @@ function createController(host){
      if(plan.status!=='ready')message=plan.error?.message||'Could not prepare quotation draft.';
      else{const result=await host.commands.execute(plan.id);if(result.status==='succeeded'){close();return}message=result.error?.message||'Could not open quotation draft.'}
     }
-   }else message='I understood your words, but this action is not connected yet. Try a specific customer, job, task, invoice, calendar, finance, or map command.';
+   }else if(host.chatCommand){
+    // Ordinary conversation is not a business command. Route the finalized transcript
+    // into the same Master Intelligence thread as typed text, without granting writes.
+    close();mapExecuted=true;
+    await host.chatCommand(instruction);
+    return;
+   }else message='This request needs Master Intelligence chat, which is not available in this session.';
   }catch(error){message=String(error.message||error);if(mapExecuted)host.mapError?.(message)}finally{busy=false;if(!mapExecuted)await repaint()}
  }
  function finish(active){
