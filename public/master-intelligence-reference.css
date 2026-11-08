@@ -106,3 +106,37 @@ body:has(.tf-master) .tf-master{height:100dvh!important;min-height:0!important;b
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   background:transparent!important;
 }
+
+
+/* AI WELCOME ONLY — approved 60-frame, 30-fps cinematic orb.
+   Overrides earlier canvas/mesh treatments without affecting chat or the
+   independently mounted voice orb. Keep the welcome button's click target. */
+.tf-master-welcome .tf-master-orb{
+ position:relative;isolation:isolate;overflow:visible;background:#000;
+}
+.tf-master-welcome .tf-master-orb-video,
+.tf-master-welcome .tf-master-orb-gif-fallback{
+ display:block!important;position:absolute;inset:0;
+ width:100%;height:100%;object-fit:contain;
+ pointer-events:none;border:0;border-radius:0;
+ -webkit-mask:none!important;mask:none!important;
+ filter:none!important;
+ transform:scale(1.28);transform-origin:center;
+ transition:opacity 180ms ease;
+}
+.tf-master-welcome .tf-master-orb-video{
+ z-index:2;opacity:0;visibility:visible;
+}
+.tf-master-welcome .tf-master-orb-gif-fallback{
+ z-index:1;opacity:1;visibility:visible;
+}
+.tf-master-welcome .tf-master-orb.video-ready .tf-master-orb-video{opacity:1}
+.tf-master-welcome .tf-master-orb.video-ready .tf-master-orb-gif-fallback{opacity:0}
+.tf-master-welcome .tf-master-orb canvas.tf-master-live-mesh{display:none!important}
+@media(prefers-reduced-motion:reduce){
+ .tf-master-welcome .tf-master-orb{
+  background:#000 url("./orb-concept-b/poster.png") center/100% 100% no-repeat!important;
+ }
+ .tf-master-welcome .tf-master-orb-video,
+ .tf-master-welcome .tf-master-orb-gif-fallback{display:none!important;transition:none}
+}
