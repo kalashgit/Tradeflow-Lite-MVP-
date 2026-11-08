@@ -37,6 +37,40 @@ const token='synthetic-browser-local-private-test-token';
     await page.locator('.tf-master-welcome h1').waitFor();
     assert.match(await page.locator('.tf-master-welcome h1').innerText(),/Master Intelligence/);
     assert.equal(await page.locator('.tf-master-conversation').count(),0);
+    // Motion is an acceptance criterion: static screenshots alone cannot pass.
+    await page.waitForFunction(()=>{
+      const orb=document.querySelector('.tf-master-orb');
+      const canvas=orb?.querySelector('canvas.tf-master-live-mesh');
+      return orb?.dataset.meshState==='flowing' && Number(canvas?.dataset.motionFrames)>=3;
+    },null,{timeout:15000});
+    const orbMotion=await page.evaluate(async()=>{
+      const orb=document.querySelector('.tf-master-orb');
+      const canvas=orb.querySelector('canvas.tf-master-live-mesh');
+      const style=getComputedStyle(canvas);
+      const sample=()=>{
+        const ctx=canvas.getContext('2d');
+        const {width:w,height:h}=canvas;
+        const data=ctx.getImageData(0,0,w,h).data;
+        const out=[];
+        for(let y=Math.round(h*.18);y<h*.82;y+=Math.max(1,Math.floor(h/45))){
+          for(let x=Math.round(w*.18);x<w*.82;x+=Math.max(1,Math.floor(w/45))){
+            const i=(y*w+x)*4;out.push(data[i],data[i+1],data[i+2]);
+          }
+        }
+        return out;
+      };
+      const first=sample(),before=Number(canvas.dataset.motionFrames);
+      await new Promise(resolve=>setTimeout(resolve,600));
+      const second=sample(),after=Number(canvas.dataset.motionFrames);
+      let changed=0;
+      for(let i=0;i<first.length;i++)changed+=Math.abs(first[i]-second[i]);
+      return {before,after,changed,visible:style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)>0,mode:orb.dataset.meshState};
+    });
+    assert.equal(orbMotion.visible,true,'Orb canvas is hidden');
+    assert.ok(orbMotion.after-orbMotion.before>=8,'Orb frames did not advance');
+    assert.ok(orbMotion.changed>=1500,'Orb canvas looks static despite advancing frames');
+    console.log('PASS: visual orb motion verified over 600ms',orbMotion);
+
     await verifyVisualReference(page,out,viewport);
     await page.locator('#tfAiChatForm textarea[name="prompt"]').fill('What should I prioritize today to improve profitability?');
     await page.locator('#tfAiChatForm button[type="submit"]').click();
