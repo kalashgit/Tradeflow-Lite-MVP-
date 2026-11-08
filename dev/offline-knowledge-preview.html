@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TradeFlow Offline Knowledge — Developer Proof</title>
+<style>
+body{margin:0;background:#0b0d11;color:#f6f8fa;font:16px system-ui,sans-serif}main{max-width:740px;margin:auto;padding:32px 18px}h1{font-size:24px}p,.meta{color:#aab9c5}label{display:block;margin:22px 0 7px}form{display:flex;gap:8px}input{flex:1;min-width:0;padding:13px;border-radius:12px;border:1px solid #31404b;background:#17212a;color:white}button{padding:13px 20px;background:#13c5d7;color:#0b1116;border:0;border-radius:12px;font-weight:700}article{margin:15px 0;padding:16px;border:1px solid #263b45;border-radius:14px;background:#121920}article h2{font-size:17px;margin:0 0 9px}article p{color:#f1f6f8}.warning{color:#edc67b}small{display:block;color:#95a8b4}code{font-size:12px;overflow-wrap:anywhere}
+</style></head><body><main>
+<h1>TradeFlow / Offline Knowledge Proof</h1>
+<p class="warning">DEVELOPER-ONLY · SYNTHETIC TEXT · NO ELECTRICAL-CODE OR MODEL EXPERTISE</p>
+<p>Searches the packaged local JSON in this browser. No network inference, cloud provider, business records, or automatic action. Once loaded, disconnect the network and search again.</p>
+<div id="status" role="status">Loading local pack…</div>
+<form id="form"><input id="query" aria-label="Search local demo references" placeholder="Try: material blocker" value="material blocker"><button type="submit">Search</button></form>
+<div id="results" aria-live="polite"></div>
+</main><script src="/offline-knowledge-pack.js"></script><script>
+const status = document.getElementById('status'), results = document.getElementById('results'); let index;
+async function init(){try{const response=await fetch('/fixture');if(!response.ok)throw Error('Fixture unavailable');index=await TradeFlowOfflineKnowledge.openPack(await response.json());status.textContent=`Ready locally: ${index.manifest.sourceCount} synthetic sources, ${index.manifest.passageCount} passages`;search()}catch(e){status.textContent='Unavailable: '+e.message}}
+function search(){if(!index)return;results.replaceChildren();const found=index.search(document.getElementById('query').value);if(!found.length){results.textContent='No matching passage. This is a small synthetic fixture, not a general model.';return}for(const hit of found){const article=document.createElement('article'),h2=document.createElement('h2'),body=document.createElement('p'),meta=document.createElement('small'),warning=document.createElement('small');h2.textContent=hit.heading;body.textContent=hit.text;meta.textContent=`${hit.title} · ${hit.documentVersion} · ${hit.passageId} · SHA-256 ${hit.sha256}`;warning.textContent=hit.status+' — '+hit.limitations.join(' ');article.append(h2,body,meta,warning);results.append(article)}}
+document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();search()});init();
+</script></body></html>

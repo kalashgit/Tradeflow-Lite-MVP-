@@ -519,6 +519,8 @@ function tfAiContext(data){
 }
 function tfAiAttribution(message){
  if(message.role!=='assistant'||!message.source)return '';
+ if(message.source==='offline_knowledge')return '<div class="tf-ai-evidence"><span>OFFLINE OSHA REFERENCE · ORIGINAL PARAPHRASE</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Passages: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
+ if(message.source==='academy_metadata')return '<div class="tf-ai-evidence"><span>OFFLINE ACADEMY CATALOG · METADATA ONLY</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Catalog: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
  if(message.source==='device_local_evidence')return '<div class="tf-ai-evidence"><span>LOCAL RECORD EVIDENCE · NOT VERIFIED CLOUD DATA</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
  const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':message.source==='unverified_model'?'UNVERIFIED MODEL RESPONSE':'MODEL UNAVAILABLE';
  const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x)).slice(0,8):[];
@@ -788,11 +790,48 @@ async function tfAiLocalJobReview(content){
  finally{tfChatBusy=false;await tfAiUpdateChatUI();if(tfAiReviewJobId)await window.TradeFlowPilot?.decisions?.open(tfAiReviewJobId)}
  return true;
 }
+let tfAcademyIndexPromise=null;
+async function tfAiLocalAcademy(content){
+ const retrieval=window.TradeFlowAcademyRetrieval;
+ if(!retrieval?.isAcademyQuestion(content))return false;
+ await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  if(!tfAcademyIndexPromise)tfAcademyIndexPromise=fetch('./academy-catalog.json',{cache:'force-cache'})
+   .then(response=>{if(!response.ok)throw Error('Academy catalog could not be loaded');return response.json()})
+   .then(catalog=>retrieval.create(catalog));
+  const index=await tfAcademyIndexPromise;
+  const result=index.answer(content);
+  await tfAiSaveTurn({role:'assistant',content:result.content,modality:'text',status:'committed',source:'academy_metadata',refs:result.refs.slice(0,8)});
+ }catch(error){tfAcademyIndexPromise=null;tfChatError='Offline Academy lookup unavailable: '+String(error.message||error).slice(0,120)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI()}
+ return true;
+}
+let tfElectricalReferencePromise=null;
+async function tfAiLocalElectricalReference(content){
+ const chat=window.TradeFlowElectricalReferenceChat;
+ if(!chat?.isElectricalReferenceQuestion(content))return false;
+ try{await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'})}
+ catch(error){tfChatError='Your message could not be saved locally; no lookup occurred.';await tfAiUpdateChatUI();return true}
+ tfChatBusy=true;await tfAiUpdateChatUI();
+ try{
+  if(!tfElectricalReferencePromise)tfElectricalReferencePromise=fetch('./osha-electrical-safety-pack.json',{cache:'force-cache'})
+   .then(response=>{if(!response.ok)throw Error('Electrical reference pack unavailable');return response.json()})
+   .then(pack=>window.TradeFlowOfflineKnowledge.openPack(pack))
+   .then(index=>chat.create(index));
+  const result=(await tfElectricalReferencePromise).answer(content);
+  await tfAiSaveTurn({role:'assistant',content:result.content,modality:'text',status:'committed',source:'offline_knowledge',refs:result.refs.slice(0,8)});
+ }catch(error){tfElectricalReferencePromise=null;tfChatError='Offline electrical reference unavailable: '+String(error.message||error).slice(0,120)}
+ finally{tfChatBusy=false;await tfAiUpdateChatUI()}
+ return true;
+}
 async function tfAISend(text){
  const content=String(text||'').trim().slice(0,1200);
  if(!content||tfChatBusy)return;
  if(await tfAiLocalBriefingFollowUp(content))return;
   if(await tfAiLocalBusinessBriefing(content))return;
+  if(await tfAiLocalAcademy(content))return;
+  if(await tfAiLocalElectricalReference(content))return;
   if(await tfAiLocalJobReview(content))return;
  if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
