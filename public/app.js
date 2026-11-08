@@ -833,7 +833,7 @@ async function tfAISend(text,{speakReply=false}={}){
  if(tfAiOfflinePreview){
   try{
    await tfAiSaveTurn({role:'user',content,modality:'text',status:'committed',source:'user'});
-   await tfAiSaveTurn({role:'assistant',content:'Online AI is disabled in this private offline preview. Ask an Academy or OSHA electrical-safety question to use the local knowledge pack.',modality:'text',status:'committed',source:'offline_notice'});
+   await tfAiSaveTurn({role:'assistant',content:'Online AI is disabled in this private offline preview. Ask an Academy or OSHA electrical-safety question to use the local knowledge pack.',modality:'text',status:'committed',source:'system_notice'});
    tfChatError='';
   }catch(error){tfChatError='Unable to save this conversation on your device.'}
   await tfAiUpdateChatUI();return;

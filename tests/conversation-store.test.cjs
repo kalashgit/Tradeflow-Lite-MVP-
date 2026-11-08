@@ -47,3 +47,10 @@ test('only final bounded transcript text and labelled assistant replies are dura
  assert.equal(reply.source,'synthetic_mock');
  assert.equal(reply.refs[0],'jobs:synthetic_job_01@1');
 });
+
+test('offline iPhone preview notice uses a valid persistent conversation source',()=>{
+ const source=require('node:fs').readFileSync(require('node:path').join(__dirname,'../public/app.js'),'utf8');
+ assert.match(source,/Online AI is disabled in this private offline preview[\s\S]{0,350}source:'system_notice'/);
+ assert.doesNotMatch(source,/source:'offline_notice'/);
+ assert.equal(store.sanitizeTurn({role:'assistant',content:'Online AI is disabled in this private offline preview.',status:'committed',source:'system_notice'}).source,'system_notice');
+});
