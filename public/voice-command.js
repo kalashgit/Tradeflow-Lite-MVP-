@@ -50,7 +50,15 @@ function createController(host){
  function stopMicrophoneNow(){waveAudio?.stop();if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false}
  function close(){stopMicrophoneNow();showCalendarDate='';open=false;draft='';message='';void repaint()}
  function start(){open=true;draft='';message='';showCalendarDate='';void repaint()}
- function startListening(){if(!open){open=true;draft='';message=''};if(!recognition&&!busy)toggle();else void repaint()}
+ function startListening(){if(open){close();return}open=true;draft='';message='';if(!recognition&&!busy)toggle();else void repaint()}
+ async function sendConversation(text){
+  if(busy||!String(text||'').trim())return;
+  if(!host.sendConversation){message='Conversation is not available. You can still run a local command.';void repaint();return}
+  const content=String(text).trim();busy=true;message='';stopMicrophoneNow();
+  try{await host.sendConversation(content);draft='';message='Sent to Master Intelligence.'}
+  catch(error){message=String(error.message||error)}
+  finally{busy=false;await repaint()}
+ }
  async function submit(text){
   if(busy)return;const instruction=String(text||'').trim();draft=instruction;
   if(!instruction){message='Speak or enter a command first.';await repaint();return}
@@ -138,7 +146,7 @@ function createController(host){
   active.finished=true;recognition=null;listening=false;waveAudio?.stop();
   if(active.timeout)clearTimeout(active.timeout);
   const text=String(active.transcript||draft||'').trim();
-  if(text){draft=text;void submit(text)}else{message=active.error||'No speech captured. Try again or type your command.';void repaint()}
+  if(text){draft=text;message='Review your transcript, then send or run a command.';void repaint()}else{message=active.error||'No speech captured. Try again or type your message.';void repaint()}
  }
  function toggle(){
   if(!open||busy)return;
@@ -156,14 +164,13 @@ function createController(host){
  }
  function wave(){return '<div class="tf-voice-wave '+(listening?'is-listening':busy?'is-processing':'is-idle')+'" aria-hidden="true">'+(globalThis.TradeFlowFlowWave?.render?.()||'')+'</div>'}
  function view(){if(!open)return '';
-  const state=listening?'Listening…':busy?'Processing…':'Ready when you are.';
-  const actions=[['calendar','Schedule a job','<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M8 17h3"/>'],['customers','Find a customer','<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 6a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 5"/>'],['quotes','Create a quote','<path d="M6 2h8l5 5v15H6zM14 2v6h5M9 13h7M9 17h6"/>']];
-  return '<div class="tf-voice-overlay" role="dialog" aria-modal="true" aria-label="TradeFlow Master Intelligence"><section class="tf-voice-sheet"><div class="tf-voice-top"><div><small>TRADEFLOW / INTELLIGENCE</small></div><button type="button" data-voice="close" aria-label="Close assistant">×</button></div><div class="tf-voice-intro"><h2>What would you like to do?</h2><p>Speak naturally or type a command.</p></div>'+wave()+'<div class="tf-voice-state" role="status">'+state+'</div><button class="tf-voice-mic" type="button" data-voice="mic" aria-pressed="'+listening+'" aria-label="'+(listening?'Stop and process speech':'Start listening')+'"><span class="tf-voice-mic-dot"></span>'+(listening?'Stop & process':'Tap to speak')+'</button><div class="tf-voice-actions">'+actions.map(([id,label,svg])=>'<button type="button" class="tf-voice-action" data-voice-workspace="'+id+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+svg+'</svg><span>'+label+'</span></button>').join('')+'</div><form id="tfVoiceForm" class="tf-voice-composer"><label for="tfVoiceText" class="tf-voice-sr">Type a command</label><input id="tfVoiceText" type="text" placeholder="Type a command…" autocomplete="off" value="'+esc(draft)+'"><button type="submit" '+(busy?'disabled':'')+' aria-label="Run command">➜</button></form>'+(message?'<div class="tf-voice-result" role="status">'+esc(message)+'</div>':'')+(showCalendarDate?'<button type="button" class="tf-voice-calendar-link" data-voice="calendar">View tomorrow in Calendar →</button>':'')+'<small class="tf-voice-approval">Business changes still require the appropriate approval.</small></section></div>';
+  const state=listening?'Listening…':recognition?'Stopping microphone…':busy?'Processing…':draft?'Review message':'Ready · text or microphone';
+  return '<section class="tf-orb-bubble" id="tfOrbBubble" role="region" aria-label="TradeFlow conversation" data-voice-state="'+(listening?'listening':busy?'thinking':message?'error':'active')+'"><header class="tf-orb-bubble-head"><span id="tfOrbStatus" role="status" aria-live="polite">'+state+'</span><button type="button" data-voice="close" aria-label="Close conversation and stop microphone">×</button></header><form id="tfVoiceForm" class="tf-orb-compose"><label for="tfVoiceText" class="tf-voice-sr">Message TradeFlow</label><textarea id="tfVoiceText" rows="2" maxlength="1200" placeholder="Message TradeFlow…" '+(busy?'disabled':'')+'>'+esc(draft)+'</textarea><div class="tf-orb-actions"><button type="button" data-voice="mic" aria-pressed="'+listening+'" aria-label="'+(listening?'Stop microphone':'Start microphone')+'">'+(listening?'■ Stop':'◉ Mic')+'</button><button type="button" data-voice="command" '+(busy?'disabled':'')+' title="Use the existing approval-gated command registry">Run command</button><button type="submit" '+(busy?'disabled':'')+'>Send ↑</button></div></form>'+(message?'<p class="tf-orb-feedback" role="status">'+esc(message)+'</p>':'')+'<small class="tf-orb-capability">'+(typeof(globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition)==='function'?'Speech may require network.':'Speech unavailable here; type or use keyboard dictation.')+'</small></section>';
  }
- doc.addEventListener('click',e=>{const quick=e.target.closest?.('[data-voice-workspace]');if(quick){e.preventDefault();const workspace=quick.dataset.voiceWorkspace;close();if(host.navigate)void host.navigate(workspace);return}const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='calendar'){if(showCalendarDate&&host.openCalendar)void host.openCalendar(showCalendarDate).then(()=>close()).catch(error=>{message=String(error.message||error);void repaint()});return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
- doc.addEventListener('submit',e=>{if(e.target.id!=='tfVoiceForm')return;e.preventDefault();void submit(e.target.querySelector('#tfVoiceText')?.value||'')});
+ doc.addEventListener('click',e=>{const quick=e.target.closest?.('[data-voice-workspace]');if(quick){e.preventDefault();const workspace=quick.dataset.voiceWorkspace;close();if(host.navigate)void host.navigate(workspace);return}const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='command'){void submit(draft);return}if(button.dataset.voice==='calendar'){if(showCalendarDate&&host.openCalendar)void host.openCalendar(showCalendarDate).then(()=>close()).catch(error=>{message=String(error.message||error);void repaint()});return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
+ doc.addEventListener('submit',e=>{if(e.target.id!=='tfVoiceForm')return;e.preventDefault();void sendConversation(e.target.querySelector('#tfVoiceText')?.value||'')});
  doc.addEventListener('input',e=>{if(e.target.id==='tfVoiceText')draft=e.target.value});
- return Object.freeze({start,startListening,close,stopMicrophoneNow,view,submit});
+ return Object.freeze({start,startListening,close,stopMicrophoneNow,view,submit,state:()=>({open,listening,busy,draft,message})});
 }
 return Object.freeze({createController,intent,tomorrowDate,tomorrowWork});
 });
