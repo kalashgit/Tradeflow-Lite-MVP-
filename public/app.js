@@ -574,7 +574,7 @@ function tfAiRefreshOverlay(){
 let tfAiVoiceStatus='Offline text references ready. On-device speech availability is checked when you tap the microphone.';
 const tfAiVoiceSession=window.TradeFlowAIOfflineVoice?.create?.({
  onStatus:status=>{tfAiVoiceStatus=status;tfAiMountVoiceControls()},
- onFinal:transcript=>{void tfAISend(transcript)}
+ onFinal:transcript=>{void tfAISend(transcript,{offlineOnly:true})}
 })||{start:async()=>({started:false}),stop:()=>{},isListening:()=>false};
 async function tfAiStartOfflineVoice(){
  await tfAiVoiceSession.start();
@@ -859,7 +859,7 @@ async function tfAiLocalElectricalReference(content){
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
  return true;
 }
-async function tfAISend(text){
+async function tfAISend(text,{offlineOnly=false}={}){
  const content=String(text||'').trim().slice(0,1200);
  if(!content||tfChatBusy)return;
  if(await tfAiLocalBriefingFollowUp(content))return;
@@ -867,6 +867,7 @@ async function tfAISend(text){
   if(await tfAiLocalAcademy(content))return;
   if(await tfAiLocalElectricalReference(content))return;
   if(await tfAiLocalJobReview(content))return;
+ if(offlineOnly){tfChatError='This question is not covered by the installed offline knowledge. No cloud request was sent. Type a supported local question or reconnect for online AI.';await tfAiUpdateChatUI();return}
  if(!tfAiKey()){tfChatError='This question requires the private AI preview. Job evidence reviews remain available locally.';await tfAiUpdateChatUI();return}
  const screen=tab;
  tfChatError='';

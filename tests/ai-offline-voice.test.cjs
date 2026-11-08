@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../public/ai-offline-voice.js'),'utf8');
+const appSource=fs.readFileSync(require('node:path').join(__dirname,'../public/app.js'),'utf8');
 function load(scope={}){scope.globalThis=scope;vm.runInNewContext(source,scope);return scope.TradeFlowAIOfflineVoice}
 
 test('offline speech refuses browsers without verified local-only recognition',async()=>{
@@ -45,4 +46,11 @@ test('cancelled voice session ignores stale results',async()=>{
  const voice=load({SpeechRecognition:Speech}).create({onFinal:x=>finals.push(x)});
  await voice.start();voice.stop();instance.onresult({results:[{isFinal:true,0:{transcript:'stale'}}]});
  assert.deepEqual(finals,[]);
+});
+test('offline microphone transcripts cannot enter online AI inference fallback',()=>{
+ assert.match(appSource,/onFinal:transcript=>\{void tfAISend\(transcript,\{offlineOnly:true\}\)\}/);
+ const offlineGate=appSource.indexOf('if(offlineOnly){tfChatError=');
+ const remoteRequest=appSource.indexOf("fetch('/api/ai/chat'",offlineGate);
+ assert.ok(offlineGate>0&&remoteRequest>offlineGate);
+ assert.match(appSource.slice(offlineGate,remoteRequest),/No cloud request was sent/);
 });
