@@ -1,0 +1,65 @@
+name: TradeFlow Latest UI Private iPhone Preview
+
+on:
+  push:
+    branches:
+      - codex/latest-mi-iphone-20261108
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeflow-pr16-private-iphone-preview
+  cancel-in-progress: false
+
+jobs:
+  private-iphone-preview:
+    name: Verify Access, then deploy isolated iPhone shell
+    runs-on: ubuntu-latest
+    environment: tradeflow-preview
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Assert the exact candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test -z "$(git status --porcelain)"
+      - name: Install and verify
+        run: |
+          npm ci --no-audit --no-fund
+          bash scripts/build-welcome-orb-media.sh
+          node --test tests/iphone-preview-isolation.test.cjs
+          npm test
+          npx wrangler deploy --dry-run --config wrangler.iphone-preview.jsonc
+      - name: Require pre-existing owner-only Cloudflare Access protection
+        env:
+          PRIVATE_PREVIEW_URL: https://tradeflow-pr16-private.bartoszszarafinski.workers.dev
+        run: |
+          code=$(curl --silent --show-error --max-time 15 --max-redirs 0 -o /dev/null -w '%{http_code}' "$PRIVATE_PREVIEW_URL" || true)
+          case "$code" in
+            302|303|307|308|401|403) echo "Anonymous access blocked (HTTP $code)" ;;
+            *) echo "BLOCKED: Access is not verified as enforced (HTTP $code)"; exit 1 ;;
+          esac
+      - name: Deploy frontend-only private Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx wrangler deploy --config wrangler.iphone-preview.jsonc
+      - name: Verify anonymous traffic remains blocked
+        env:
+          PRIVATE_PREVIEW_URL: https://tradeflow-pr16-private.bartoszszarafinski.workers.dev
+        run: |
+          code=$(curl --silent --show-error --max-time 15 --max-redirs 0 -o /dev/null -w '%{http_code}' "$PRIVATE_PREVIEW_URL" || true)
+          case "$code" in
+            302|303|307|308|401|403) echo "PASS: private preview still requires Access (HTTP $code)" ;;
+            *) echo "FAIL: preview protection could not be verified (HTTP $code)"; exit 1 ;;
+          esac

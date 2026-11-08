@@ -1,0 +1,49 @@
+{
+  "schema": "tradeflow.offline-knowledge.v1",
+  "id": "tradeflow-synthetic-workflow-demo",
+  "version": "1.0.0",
+  "builtOn": "2026-11-08",
+  "audience": "synthetic_demo",
+  "sources": [
+    {
+      "id": "fictional-crew-workflow",
+      "title": "Fictional Crew-to-Office Workflow",
+      "publisher": "TradeFlow test fixture",
+      "documentVersion": "Synthetic v1",
+      "reviewedOn": "2026-11-08",
+      "jurisdictions": ["UNKNOWN"],
+      "kind": "synthetic_demo",
+      "rights": "original_demonstration",
+      "rightsEvidence": "Original synthetic text authored solely for TradeFlow testing",
+      "contentStatus": "available_excerpt"
+    },
+    {
+      "id": "fictional-owner-workflow",
+      "title": "Fictional Estimate-to-Cost Review",
+      "publisher": "TradeFlow test fixture",
+      "documentVersion": "Synthetic v1",
+      "reviewedOn": "2026-11-08",
+      "jurisdictions": ["UNKNOWN"],
+      "kind": "synthetic_demo",
+      "rights": "original_demonstration",
+      "rightsEvidence": "Original synthetic text authored solely for TradeFlow testing",
+      "contentStatus": "available_excerpt"
+    }
+  ],
+  "passages": [
+    {
+      "id": "crew-blocker",
+      "sourceId": "fictional-crew-workflow",
+      "heading": "Missing material report",
+      "text": "Synthetic field report: A crew member flags a missing material item against a job. The office reviews the blocker and can prepare a response. This example does not send or acknowledge anything.",
+      "sha256": "4e7b697fbf0c0072761b2f838d37a0222379b5c232974f0892e71f1f4fb714fd"
+    },
+    {
+      "id": "owner-cost-review",
+      "sourceId": "fictional-owner-workflow",
+      "heading": "Estimate and actual cost comparison",
+      "text": "Synthetic owner review: Compare an accepted estimate with recorded labor and material costs. Missing rates, scope changes and billing evidence remain unknown until verified. Do not claim a loss, invoice or payment from this example.",
+      "sha256": "197bc19ef7eac44b2c143104fcdcbe3f72e645601abdf1f3ccd2b63ee8071dc7"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tradeflow-pr16-private",
+  "main": "./src/iphone-preview.js",
+  "compatibility_date": "2026-10-13",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "vars": {
+    "TF_IPHONE_PREVIEW_MODE": "synthetic-offline-only"
+  }
+}
