@@ -40,7 +40,7 @@
    probe=0;
    if(disposed||host!==button||!button.isConnected)return;
    const stats=renderer?.stats?.();
-   if(!stats?.ready||stats.backend==='animated-reference'||stats.contextLost){
+   if(!stats?.ready||stats.backend!=='webgl-flow'||stats.contextLost){
     if(firstReady&&now-firstReady>1800)button.dataset.meshState='fallback';
     else probe=root.requestAnimationFrame(check);
     return;
