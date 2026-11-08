@@ -87,8 +87,8 @@ const token='synthetic-browser-local-private-test-token';
     assert.equal(controls[0].background,'rgb(248, 250, 251)','Send button must always be white');
     assert.ok(controls.every(x=>x.offset!==null&&x.offset<=2.5),'Control glyphs must be centered in buttons');
     await page.locator('.tf-master-header [aria-label="Back to More"]').click();
-    await page.locator('.tf-more-menu').waitFor({state:'visible'});
-    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    await page.locator('.tf-more-menu [data-tab="ai"]:visible').waitFor({state:'visible'});
+    await page.locator('.tf-more-menu [data-tab="ai"]:visible').click();
     await page.locator('.tf-master-welcome h1').waitFor();
     console.log('PASS: white send button, centered icons, Back → More → AI',controls);
 
