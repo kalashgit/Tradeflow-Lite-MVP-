@@ -106,3 +106,152 @@ body:has(.tf-master) .tf-master{height:100dvh!important;min-height:0!important;b
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   background:transparent!important;
 }
+
+
+/* AI WELCOME ONLY — approved 60-frame, 30-fps cinematic orb.
+   Overrides earlier canvas/mesh treatments without affecting chat or the
+   independently mounted voice orb. Keep the welcome button's click target. */
+.tf-master-welcome .tf-master-orb{
+ position:relative;isolation:isolate;overflow:visible;background:#000;
+}
+.tf-master-welcome .tf-master-orb-video,
+.tf-master-welcome .tf-master-orb-gif-fallback{
+ display:block!important;position:absolute;inset:0;
+ width:100%;height:100%;object-fit:contain;
+ pointer-events:none;border:0;border-radius:0;
+ -webkit-mask:none!important;mask:none!important;
+ filter:none!important;
+ transform:scale(1.28);transform-origin:center;
+ transition:opacity 180ms ease;
+}
+.tf-master-welcome .tf-master-orb-video{
+ z-index:2;opacity:0;visibility:visible;
+}
+.tf-master-welcome .tf-master-orb-gif-fallback{
+ z-index:1;opacity:1;visibility:visible;
+}
+.tf-master-welcome .tf-master-orb.video-ready .tf-master-orb-video{opacity:1}
+.tf-master-welcome .tf-master-orb.video-ready .tf-master-orb-gif-fallback{opacity:0}
+.tf-master-welcome .tf-master-orb canvas.tf-master-live-mesh{display:none!important}
+@media(prefers-reduced-motion:reduce){
+ .tf-master-welcome .tf-master-orb{
+  background:#000 url("./orb-concept-b/poster.png") center/100% 100% no-repeat!important;
+ }
+ .tf-master-welcome .tf-master-orb-video,
+ .tf-master-welcome .tf-master-orb-gif-fallback{display:none!important;transition:none}
+}
+
+
+/* Founder reference correction 2026-11-08.
+   Keep all animation implementation unchanged; correct positioning, contrast,
+   icon alignment and send control on both welcome and conversation screens. */
+body:has(.tf-master) .tf-master,
+body:has(.tf-master) .tf-master-welcome,
+body:has(.tf-master) .tf-master-conversation{background:#000!important}
+.tf-master .tf-master-header-button,
+.tf-master .tf-master-round,
+.tf-master .tf-master-send{
+ appearance:none!important;-webkit-appearance:none!important;
+ display:grid!important;place-items:center!important;
+ align-items:center!important;justify-items:center!important;
+ padding:0!important;line-height:1!important;text-align:center!important;
+ position:relative!important;flex-shrink:0!important;
+}
+.tf-master .tf-master-header-button >svg,
+.tf-master .tf-master-round >svg,
+.tf-master .tf-master-send >svg{
+ display:block!important;position:static!important;
+ flex-shrink:0!important;margin:0!important;
+ transform:none!important;vertical-align:middle!important;
+ pointer-events:none!important;
+}
+.tf-master .tf-master-send,
+.tf-master .tf-master-send:hover,
+.tf-master .tf-master-send:focus,
+.tf-master .tf-master-send:active,
+.tf-master .tf-master-send:disabled{
+ background:#f8fafb!important;
+ background-image:none!important;
+ color:#090c0f!important;
+ border:0!important;
+ border-radius:50%!important;
+ opacity:1!important;
+ box-shadow:none!important;
+}
+.tf-master .tf-master-send svg{
+ width:26px!important;height:26px!important;
+ stroke:#090c0f!important;fill:none!important;
+ stroke-width:2.5!important;
+}
+.tf-master .tf-master-round{
+ background:#080d0f!important;
+ background-image:none!important;
+ border:1px solid #304047!important;
+ color:#f5f7f8!important;
+ border-radius:50%!important;
+}
+.tf-master .tf-master-header-button{
+ background:#050708!important;
+ background-image:none!important;
+ border:1px solid #30393e!important;
+ color:#f6f7f8!important;
+ border-radius:14px!important;
+}
+.tf-master .tf-master-identity{align-items:center!important}
+.tf-master .tf-master-identity .tf-master-mark{object-fit:contain!important;display:block}
+.tf-master .tf-master-starters button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
+.tf-master .tf-master-starters button span{display:flex!important;align-items:center!important;justify-content:flex-start!important;flex-shrink:0}
+.tf-master .tf-master-starters button span svg{display:block;margin:0}
+.tf-master .tf-master-compose{align-items:center!important}
+.tf-master .tf-master-compose textarea{align-self:center!important;margin:0!important}
+@media(max-width:650px){
+ .tf-master .tf-master-header{height:70px;gap:10px;padding:10px 15px}
+ .tf-master .tf-master-header-button{width:42px!important;height:42px!important}
+ .tf-master .tf-master-header-button svg{height:22px!important;width:22px!important}
+ .tf-master .tf-master-identity{gap:10px}
+ .tf-master .tf-master-identity>.tf-master-mark{width:32px!important;height:32px!important}
+ .tf-master .tf-master-identity strong{font-size:15px!important;letter-spacing:.025em}
+ .tf-master .tf-master-identity small{font-size:12px!important}
+ .tf-master .tf-master-header-actions{gap:9px}
+ .tf-master .tf-master-welcome{transform:none!important;padding:8px 14px 18px}
+ .tf-master .tf-master-orb{width:clamp(178px,52vw,220px)!important;height:clamp(178px,52vw,220px)!important;margin-bottom:18px!important}
+ .tf-master .tf-master-welcome h1{font-size:clamp(26px,7.25vw,32px)!important;letter-spacing:-.04em;line-height:1.16}
+ .tf-master .tf-master-welcome>p{font-size:clamp(12px,3.1vw,14px)!important;line-height:1.4;max-width:97%;margin:13px auto 19px}
+ .tf-master .tf-master-ready{font-size:11px!important;padding:8px 8px!important;gap:8px!important}
+ .tf-master .tf-master-ready span{width:9px!important;height:9px!important}
+ .tf-master .tf-master-starters{width:94%!important;gap:8px!important;margin-top:29px!important}
+ .tf-master .tf-master-starters button{min-height:112px!important;border-radius:18px!important;padding:12px 9px!important;font-size:clamp(10px,2.75vw,13px)!important;line-height:1.34}
+ .tf-master .tf-master-starters button span{margin-bottom:11px!important}
+ .tf-master .tf-master-starters button svg{height:25px!important;width:25px!important}
+ .tf-master .tf-master-compose{gap:9px!important;padding:10px 12px calc(14px + env(safe-area-inset-bottom))!important}
+ .tf-master .tf-master-round,.tf-master .tf-master-send{height:45px!important;width:45px!important}
+ .tf-master .tf-master-compose textarea{min-height:49px!important;font-size:15px!important;padding:13px 15px!important}
+}
+@media(max-width:365px){
+ .tf-master .tf-master-starters{width:98%!important;gap:6px!important}
+ .tf-master .tf-master-starters button{padding:10px 6px!important;font-size:10px!important;min-height:104px!important}
+ .tf-master .tf-master-round,.tf-master .tf-master-send{height:40px!important;width:40px!important}
+ .tf-master .tf-master-compose{gap:6px!important;padding-inline:8px!important}
+}
+
+
+/* Override the global .content button[type=submit] cyan action rule,
+   including hover/active/disabled states. The founder's AI send is white. */
+.content .tf-master .tf-master-compose button.tf-master-send,
+.content .tf-master .tf-master-compose button.tf-master-send:hover,
+.content .tf-master .tf-master-compose button.tf-master-send:focus,
+.content .tf-master .tf-master-compose button.tf-master-send:active,
+.content .tf-master .tf-master-compose button.tf-master-send:disabled{
+  background:#f8fafb!important;background-color:#f8fafb!important;
+  background-image:none!important;
+  color:#090c0f!important;
+  border:0!important;border-color:transparent!important;
+  box-shadow:none!important;
+  opacity:1!important;filter:none!important;
+  transform:none!important;
+  display:grid!important;place-items:center!important;
+}
+.content .tf-master .tf-master-compose button.tf-master-send svg{
+  stroke:#090c0f!important;fill:none!important;
+  transform:none!important;margin:0!important;
+}

@@ -18,7 +18,7 @@ const rows=Object.freeze([
  {record_type:'jobs',id:'synthetic_job_01',revision:1,updated_at:now,payload:JSON.stringify({id:'synthetic_job_01',businessId,status:'In Progress'})},
  {record_type:'jobCosts',id:'synthetic_cost_01',revision:1,updated_at:now,payload:JSON.stringify({id:'synthetic_cost_01',businessId,jobId:'synthetic_job_01',type:'actual',category:'Labor',laborHours:52,amount:1300,currency:'USD'})}
 ]);
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon','.webmanifest':'application/manifest+json','.woff2':'font/woff2'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.gif':'image/gif','.mp4':'video/mp4','.ico':'image/x-icon','.webmanifest':'application/manifest+json','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin'};
 const send=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(body))};
 function authorized(code,secret){

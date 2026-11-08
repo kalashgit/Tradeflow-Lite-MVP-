@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/unified-voice-preview-20261107
+      - codex/ai-welcome-orb-video-20261108
   workflow_dispatch:
 
 permissions:
@@ -27,6 +28,25 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Install video encoder
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Build deterministic 60-frame welcome orb media
+        run: bash scripts/build-welcome-orb-media.sh
+      - name: Verify packaged video and GIF
+        run: |
+          test -s public/assets/tradeflow_orb_smooth_60_frames.mp4
+          test -s public/assets/tradeflow_orb_60_frames.gif
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,nb_frames,r_frame_rate -of default=noprint_wrappers=1 public/assets/tradeflow_orb_smooth_60_frames.mp4
+      - name: Upload generated orb media evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradeflow-orb-video-60frames
+          path: |
+            public/assets/tradeflow_orb_smooth_60_frames.mp4
+            public/assets/tradeflow_orb_60_frames.gif
+          retention-days: 14
       - name: Verify unified GUI and wake code
         run: |
           node --check public/app.js
@@ -95,6 +115,15 @@ jobs:
                 assert.match(await voice.text(),/enableWake/);
                 assert.match(await speech.text(),/tf-master-message\.is-assistant/);
                 assert.equal((await health.json()).aiBound,true);
+                const media=await Promise.all([
+                  fetch(root+'/assets/tradeflow_orb_smooth_60_frames.mp4?check='+stamp,{signal:AbortSignal.timeout(12000)}),
+                  fetch(root+'/assets/tradeflow_orb_60_frames.gif?check='+stamp,{signal:AbortSignal.timeout(12000)})
+                ]);
+                for(const m of media)assert.equal(m.status,200,m.url+' media unavailable');
+                assert.match(media[0].headers.get('content-type')||'',/video\/mp4/);
+                assert.match(media[1].headers.get('content-type')||'',/image\/gif/);
+                assert.match(appBody,/tradeflow_orb_smooth_60_frames\.mp4/);
+                console.log('PASS: actual MP4 and GIF live, no pilot DB binding');
                 console.log('Unified preview verified; speech protected; no D1 binding in deployment config.');
                 return;
               }catch(error){if(n===11)throw error;await new Promise(r=>setTimeout(r,3500))}
