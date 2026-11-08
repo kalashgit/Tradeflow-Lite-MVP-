@@ -83,7 +83,7 @@
  }`;
  function shader(gl,type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const reason=gl.getShaderInfoLog(s);gl.deleteShader(s);throw Error(reason);}return s;}
- function createRenderer(canvas,{root,document,button}={}){
+ function createRenderer(canvas,{root,document,button,continuousFlow=false,referenceMode=false,onReady}={}){
   let gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:true,powerPreference:'low-power'});
   const supportsVertexFlow=!!gl&&gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS)>=2;
   let ctx=null,program=null,buffer=null,indexBuffer=null,meshTransport=false,indexCount=0,textures=[],uniforms={},disposed=false,ready=false,raf=0;
@@ -127,13 +127,13 @@
    if(gl){
     const meshNeeded=supportsVertexFlow&&Math.max(w,h)>256;
     if(meshNeeded!==meshTransport){textures.forEach(t=>gl.deleteTexture(t));gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);gl.deleteProgram(program);indexBuffer=null;initGL();}
-    gl.viewport(0,0,w,h);gl.uniform1f(uniforms.frameIndex,i);gl.uniform1f(uniforms.blend,mix);gl.uniform1f(uniforms.energy,energy);gl.uniform1f(uniforms.motionEnergy,reduced?.matches?0:energy);
-    gl.uniform1f(uniforms.clockTime,seconds);gl.uniform1f(uniforms.referenceLight,reference?1:0);if(meshTransport)gl.drawElements(gl.TRIANGLES,indexCount,gl.UNSIGNED_SHORT,0);else gl.drawArrays(gl.TRIANGLES,0,6);
+    gl.viewport(0,0,w,h);gl.uniform1f(uniforms.frameIndex,i);gl.uniform1f(uniforms.blend,mix);gl.uniform1f(uniforms.energy,energy);gl.uniform1f(uniforms.motionEnergy,reduced?.matches?0:continuousFlow?Math.max(.35,energy):energy);
+    gl.uniform1f(uniforms.clockTime,seconds);gl.uniform1f(uniforms.referenceLight,(reference||referenceMode)?1:0);if(meshTransport)gl.drawElements(gl.TRIANGLES,indexCount,gl.UNSIGNED_SHORT,0);else gl.drawArrays(gl.TRIANGLES,0,6);
    }else if(ctx){
     // Measured fallback: continuous crossfade, same artwork/identity; no flow warp.
     ctx.clearRect(0,0,w,h);ctx.globalAlpha=1;ctx.drawImage(images[0],(i%3)*420,Math.floor(i/3)*408,420,408,0,0,w,h);
     const j=(i+1)%9;ctx.globalAlpha=mix;ctx.drawImage(images[0],(j%3)*420,Math.floor(j/3)*408,420,408,0,0,w,h);ctx.globalAlpha=1;
-    if(!reference){
+    if(!(reference||referenceMode)){
      const pixels=ctx.getImageData(0,0,w,h),data=pixels.data,gain=.48+energy*.82;
      for(let y=0;y<h;y++)for(let x=0;x<w;x++){
       const r=Math.hypot((x+.5)/w-.5,(y+.5)/h-.5),v=clamp((r-.15)/.09,0,1),blue=energy*v*v*(3-2*v),p=(y*w+x)*4;
@@ -151,7 +151,7 @@
    if(now-speechAt>600){speaking=false;level=0;}
    activity+=( (speaking?level:0)-activity)*(1-Math.exp(-dt*(speaking?7:3)));
    speechPresence+=((speaking?1:0)-speechPresence)*(1-Math.exp(-dt*(speaking?7:3)));
-   if(!reduced?.matches)time+=elapsed*(1-.82*speechPresence);
+   if(!reduced?.matches)time+=elapsed*(continuousFlow?1-.15*speechPresence:1-.82*speechPresence);
    const shouldPaint=!motionReduced||motionReduced!==previousReduced||Math.abs(activity-oldActivity)>.001;previousReduced=motionReduced;
    if(shouldPaint&&(lastPaint===null||now-lastPaint>=interval)){
     if(lastPaint!==null){intervals.push(now-lastPaint);if(intervals.length>300)intervals.shift();}
@@ -173,7 +173,7 @@
   document.addEventListener('visibilitychange',visibility);reduced?.addEventListener?.('change',resume);root.addEventListener('pageshow',resume);
   canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('webglcontextrestored',restored);
   const resize=new root.ResizeObserver(resume);resize.observe(canvas);
-  Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();}).catch(e=>{loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';});
+  Promise.all(images.map(im=>im.decode())).then(()=>{if(disposed)return;if(gl)initGL();ready=true;resume();if(typeof onReady==='function')onReady();}).catch(e=>{loadError=String(e);fallbackActive=true;if(button)button.dataset.orbBackend='animated-reference';});
   return Object.freeze({isAttached:()=>canvas.isConnected&&canvas.parentNode===button,renderAt,resetStats(){costs.length=0;intervals.length=0;frames=0;lastPaint=null;},stats:()=>({frames,time,activity,speechPresence,scheduled:!!raf,lastTick:last,visible:!document.hidden,motionSpeed:1-.82*speechPresence,speaking,ready:ready||fallbackActive,loadError,contextLost,transport:meshTransport?'48x48 shared vertex field':'fragment transport',timingKind:'CPU command submission, not GPU completion',backend:fallbackActive?'animated-reference':gl?'webgl-flow':'canvas-crossfade',quality:interval?'adaptive-30hz':'full',paintMs:costs.slice(),frameIntervals:intervals.slice(),reducedMotion:!!reduced?.matches,canvasPx:{width:canvas.width,height:canvas.height}}),
    dispose(){disposed=true;if(raf)root.cancelAnimationFrame(raf);resize.disconnect();root.removeEventListener('tradeflow:speech-features',speech);root.removeEventListener('tradeflow:voice-state',voice);document.removeEventListener('visibilitychange',visibility);reduced?.removeEventListener?.('change',resume);root.removeEventListener('pageshow',resume);canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('webglcontextrestored',restored);
     if(gl&&!contextLost){textures.forEach(t=>gl.deleteTexture(t));if(buffer)gl.deleteBuffer(buffer);if(indexBuffer)gl.deleteBuffer(indexBuffer);if(program)gl.deleteProgram(program);}}
