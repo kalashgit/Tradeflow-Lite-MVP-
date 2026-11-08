@@ -1,0 +1,22 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const load=()=>import('../public/job-intelligence-request.js');
+const jobs=[{id:'a',title:'Warehouse rewiring',status:'Active'},{id:'b',title:'Completed office fitout',status:'Completed'}];
+test('natural-language review resolves selected and whole portfolio without side effects',async()=>{const {resolveJobReviewIntent}=await load();assert.deepEqual(resolveJobReviewIntent('Review Warehouse rewiring costs',jobs).jobs.map(x=>x.id),['a']);assert.equal(resolveJobReviewIntent('Review my active jobs and invoice readiness',jobs).jobs.length,2);assert.equal(resolveJobReviewIntent('Hi there',jobs).status,'not_job_review')});
+test('last job must resolve only from unique completed-job evidence, never row order',async()=>{
+ const {resolveJobReviewIntent}=await load();
+ assert.deepEqual(resolveJobReviewIntent('Review my last job. What did it cost, and is it ready to invoice?',jobs).jobs.map(x=>x.id),['b']);
+ const many=[{id:'a',title:'Older',status:'Completed'},{id:'b',title:'Later',status:'Completed'}];
+ assert.equal(resolveJobReviewIntent('Review my last job costs',many).status,'ambiguous');
+ assert.deepEqual(resolveJobReviewIntent('Review my most recent job costs',many.map((x,i)=>({...x,completedAt:i?'2026-10-20':'2026-10-01'}))).jobs.map(x=>x.id),['b']);
+ assert.equal(resolveJobReviewIntent('Review my last job costs',many.map(x=>({...x,completedAt:'2026-10-20'}))).status,'ambiguous');
+});
+test('ambiguous, empty and oversized scopes fail closed',async()=>{const {resolveJobReviewIntent}=await load();assert.equal(resolveJobReviewIntent('Review job cost',jobs).status,'ambiguous');assert.equal(resolveJobReviewIntent('Review my jobs',[]).status,'empty');assert.equal(resolveJobReviewIntent('Review all jobs',Array.from({length:21},(_,i)=>({id:String(i),title:'Job '+i,status:'Active'}))).status,'too_many')});
+test('explanation reports uncertainty and cannot claim invoice readiness or execution',async()=>{const {explainJobDecision}=await load();const d={observations:[{text:'Recorded cost exception',refs:[{type:'jobs',id:'b',revision:2}]}],unknowns:[{code:'external_settlement_and_payroll_unverified'}],proposals:[]};const x=explainJobDecision(jobs[1],d);assert.match(x.content,/invoice readiness requires/);assert.match(x.content,/No record was changed/);assert.deepEqual(x.refs,['jobs:b@2'])});
+
+test('invoice readiness blocks unsupported signoff, financial scope and existing invoices',async()=>{const {assessInvoiceReadiness}=await load();const job={id:'j1',status:'Completed',customerId:'c1',quoteId:'q1'};const r=assessInvoiceReadiness({job,quotes:[{id:'q1',status:'Accepted'}]});assert.equal(r.status,'blocked');assert.equal(r.mayPrepareInvoice,false);assert.ok(r.blockers.includes('completion_signoff_unverified'));assert.ok(r.blockers.includes('billing_terms_unverified'));assert.ok(r.blockers.includes('change_order_approval_unverified'));const b=assessInvoiceReadiness({job,invoices:[{jobId:'j1',status:'Draft'}]});assert.ok(b.blockers.includes('existing_invoice_requires_review'));const other=assessInvoiceReadiness({job,invoices:[{jobId:'j1',status:'Draft',businessId:'foreign-business'}]});assert.equal(other.invoiceCount,0);});
+test('foreign-tenant completed jobs are excluded from local natural-language review',async()=>{
+ const {resolveJobReviewIntent}=await load();
+ const input=[{id:'private',businessId:'other-tenant',title:'Foreign job',status:'Completed'}];
+ assert.equal(resolveJobReviewIntent('Review my completed jobs',input).status,'empty');
+ assert.equal(resolveJobReviewIntent('Review Foreign job costs',input).status,'ambiguous');
+});

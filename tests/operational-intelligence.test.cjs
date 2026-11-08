@@ -53,3 +53,16 @@ test('foreign business records are excluded and no fabricated outcomes or execut
  const data=records();for(const s of Object.keys(data))if(Array.isArray(data[s]))data[s]=data[s].map(x=>({...x,businessId:'another-business'}));assert.equal(evaluate(data).findings.length,0);
  const finding=evaluate(records()).findings.find(x=>x.detectorId==='quotation.stale_open');assert.equal(finding.confidence,'limited');const resolved=commands.resolve(finding.proposedAction,records(),{today:'2026-10-18'});assert.equal(resolved.effect,'draft');assert.equal(resolved.approval,'review_on_save');
 });
+
+test('invoice follow-up task never clears overdue finding without recorded payment resolution',()=>{
+ const data=records();
+ const initial=evaluate(data).findings.filter(f=>f.detectorId==='invoice.overdue');
+ assert.equal(initial.length,1);
+ data.tasks.push({id:'invoice-followup',invoiceId:'i1',customerId:'c1',
+  taskKind:'invoice_follow_up',title:'Review unpaid invoice',status:'Open',due:'2026-10-19'});
+ const afterTask=evaluate(data).findings.filter(f=>f.detectorId==='invoice.overdue');
+ assert.equal(afterTask.length,1,'Internal task does not equal payment or customer contact');
+ data.payments.push({id:'payment-i1',invoiceId:'i1',customerId:'c1',amount:100,currency:'USD'});
+ const afterPayment=evaluate(data).findings.filter(f=>f.detectorId==='invoice.overdue');
+ assert.equal(afterPayment.length,0,'Recorded full balance resolves local-ledger warning');
+});

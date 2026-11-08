@@ -23,6 +23,7 @@ test('unknown or invalid amounts cannot be copied into a draft as money',()=>{
 });
 test('existing quotation detail offers reuse, retaining the existing editor and save path',()=>{
  assert.ok(source.includes('data-action="tfQuoteReuse"'));
- assert.ok(source.includes('modal={draftDefaults:tfReusableQuoteFields(source)}'));
+ assert.ok(source.includes("commandId:'quotation.reuse.create'"));
+ assert.ok(source.includes('tfRecordDetailId=outcome.result.id'));
  assert.ok(source.includes("if(tab==='quotes')await tfSyncQuoteFollowUp(id,f,old)"));
 });

@@ -47,7 +47,8 @@ function createController(host){
  let open=false,busy=false,listening=false,recognition=null,draft='',message='',showCalendarDate='';
  const doc=host.document,repaint=()=>host.repaint();
  const waveAudio=globalThis.TradeFlowFlowWaveAudio?.createMeter({document:doc});
- function close(){waveAudio?.stop();showCalendarDate='';if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false;open=false;draft='';message='';void repaint()}
+ function stopMicrophoneNow(){waveAudio?.stop();if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false}
+ function close(){stopMicrophoneNow();showCalendarDate='';open=false;draft='';message='';void repaint()}
  function start(){open=true;draft='';message='';showCalendarDate='';void repaint()}
  function startListening(){if(!open){open=true;draft='';message=''};if(!recognition&&!busy)toggle();else void repaint()}
  async function submit(text){
@@ -141,6 +142,7 @@ function createController(host){
  }
  function toggle(){
   if(!open||busy)return;
+  globalThis.TradeFlowSpeech?.stop?.();
   if(recognition){const active=recognition;active.stopping=true;listening=false;waveAudio?.stop();void repaint();try{active.stop()}catch{finish(active)}active.timeout=setTimeout(()=>finish(active),1200);return}
   const Engine=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
   if(!Engine){message='Speech recognition is unavailable in this browser. Try keyboard dictation.';void repaint();return}
@@ -162,7 +164,7 @@ function createController(host){
  doc.addEventListener('click',e=>{const quick=e.target.closest?.('[data-voice-workspace]');if(quick){e.preventDefault();const workspace=quick.dataset.voiceWorkspace;close();if(host.navigate)void host.navigate(workspace);return}const button=e.target.closest?.('[data-voice],[data-voice-example],[data-action="tfVoiceOpen"]');if(!button)return;e.preventDefault();if(button.dataset.action==='tfVoiceOpen'){start();return}if(button.dataset.voice==='close'){close();return}if(button.dataset.voice==='calendar'){if(showCalendarDate&&host.openCalendar)void host.openCalendar(showCalendarDate).then(()=>close()).catch(error=>{message=String(error.message||error);void repaint()});return}if(button.dataset.voice==='mic'){toggle();return}if(button.dataset.voiceExample){draft=button.dataset.voiceExample;void submit(draft)}});
  doc.addEventListener('submit',e=>{if(e.target.id!=='tfVoiceForm')return;e.preventDefault();void submit(e.target.querySelector('#tfVoiceText')?.value||'')});
  doc.addEventListener('input',e=>{if(e.target.id==='tfVoiceText')draft=e.target.value});
- return Object.freeze({start,startListening,close,view,submit});
+ return Object.freeze({start,startListening,close,stopMicrophoneNow,view,submit});
 }
 return Object.freeze({createController,intent,tomorrowDate,tomorrowWork});
 });

@@ -1,17 +1,29 @@
+import {readIntelligenceContext} from './intelligence-context.js';
+import {answerOfficeBlockerQuestion} from './office-blocker-conversation.js';
+import {approvedOfficeBlockerResponse} from './approved-office-blocker-response.js';
+import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
-import {RECORD_TYPES,LEGACY_RECORD_TYPES,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
+import {RECORD_TYPES,LEGACY_RECORD_TYPES,recordIdentity} from '../public/record-model.js';
 import {planTenantRestore} from './tenant-restore-plan.js';
 import {exportTenantSnapshot} from './tenant-export.js';
 import {writeTenantRecord} from './tenant-record-store.js';
 import {verifyBearerToken} from './oidc-verifier.js';
-import {authorizeBusiness,tenantRecordQuery,AuthorizationError,requireBusinessId} from './tenant-security.js';
+import {authorizeBusiness,authorizedTenantReadQuery,TENANT_READ_GUARD_SQL,AuthorizationError,requireBusinessId} from './tenant-security.js';
 const json=(payload,status=200)=>Response.json(payload,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Authorization'}});
+// Defense in depth: tenant-scoped SQL alone cannot make a malformed embedded
+// business/record identifier safe to return in an authenticated read response.
+const scopedPayload=(businessId,type,id,payload)=>{
+ const record=JSON.parse(payload);
+ recordIdentity({businessId,type,id,record});
+ return record;
+};
 export async function tenantApi(request,env,options={}){
  const url=new URL(request.url);
  if(!url.pathname.startsWith('/api/v1/'))return null;
  if(!['GET','PUT','POST'].includes(request.method))return json({error:'Method not allowed'},405);
  if(request.method==='PUT' && !/^\/api\/v1\/businesses\/[^/]+\/records\/[^/]+\/[^/]+$/.test(url.pathname))return json({error:'Method not allowed'},405);
- if(request.method==='POST' && !/^\/api\/v1\/businesses\/[^/]+\/backup\/dry-run$/.test(url.pathname))return json({error:'Method not allowed'},405);
+ if(request.method==='POST' && !/^\/api\/v1\/businesses\/[^/]+\/backup\/dry-run$/.test(url.pathname)&&
+   !/^\/api\/v1\/businesses\/[^/]+\/intelligence\/jobs\/[^/]+\/blockers\/[^/]+\/respond$/.test(url.pathname))return json({error:'Method not allowed'},405);
  // No membership changes, self-provisioning, automatic backup storage, or restore.
  if(!env.TF_OIDC_ISSUER||!env.TF_OIDC_AUDIENCE||!env.TF_OIDC_JWKS_URL||!env.TF_DB)
   return json({error:'Secure business API is not configured'},503);
@@ -28,6 +40,43 @@ export async function tenantApi(request,env,options={}){
     'SELECT b.id AS business_id,b.name AS business_name,m.role FROM business_memberships m JOIN businesses b ON b.id=m.business_id WHERE m.issuer=? AND m.subject=? AND m.status=? ORDER BY b.name LIMIT 100'
    ).bind(principal.issuer,principal.subject,'active').all();
    return json({identity:{issuer:principal.issuer,subject:principal.subject},businesses:items.results||[],capabilities:await schemaCapabilities(env)});
+  }
+  const approvedReply=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/jobs\/([^/]+)\/blockers\/([^/]+)\/respond$/.exec(url.pathname);
+  if(approvedReply){
+   return await approvedOfficeBlockerResponse({
+    request,db:env.TF_DB,principal,
+    businessId:requireBusinessId(approvedReply[1]),
+    jobId:approvedReply[2],reportEventId:approvedReply[3]
+   });
+  }
+  // Job-specific read-only answer, authenticated by the existing OIDC verifier.
+  // No client-supplied role, job record, stored thread proof, or execution authority.
+  const blockerRoute=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/jobs\/([^/]+)\/blockers\/([^/]+)\/answer$/.exec(url.pathname);
+  if(blockerRoute){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   const allowed=new Set(['question','threadId','expectedJobRevision']);
+   if([...url.searchParams.keys()].some(k=>!allowed.has(k))||
+      [...allowed].some(k=>url.searchParams.getAll(k).length>1))
+    return json({error:'Unsupported or duplicate answer parameter'},400);
+   const question=url.searchParams.get('question');
+   const threadId=url.searchParams.get('threadId');
+   const expected=url.searchParams.get('expectedJobRevision');
+   if(typeof question!=='string'||question.length>300||
+      (threadId!==null&&!/^[A-Za-z0-9_-]{1,100}$/.test(threadId))||
+      (expected!==null&&(!/^[1-9][0-9]{0,14}$/.test(expected)||
+       !Number.isSafeInteger(Number(expected)))))
+    return json({error:'Invalid scoped answer parameters'},400);
+   return json(await answerOfficeBlockerQuestion({
+    db:env.TF_DB,principal,businessId:requireBusinessId(blockerRoute[1]),
+    jobId:blockerRoute[2],eventId:blockerRoute[3],question,threadId,
+    expectedJobRevision:expected===null?null:Number(expected)
+   }));
+  }
+  const contextRoute=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/context$/.exec(url.pathname);
+  if(contextRoute){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   if([...url.searchParams.keys()].some(key=>key!=='jobId')||url.searchParams.getAll('jobId').length>1)return json({error:'Unsupported context parameter'},400);
+   return json(await readIntelligenceContext({db:env.TF_DB,principal,businessId:requireBusinessId(contextRoute[1]),...(url.searchParams.has('jobId')?{jobId:url.searchParams.get('jobId')}:{})}));
   }
   const preview=/^\/api\/v1\/businesses\/([^/]+)\/backup\/dry-run$/.exec(url.pathname);
   if(preview){
@@ -50,11 +99,32 @@ export async function tenantApi(request,env,options={}){
    const snapshot=await exportTenantSnapshot(env.TF_DB,permission);
    return new Response(JSON.stringify(snapshot),{status:200,headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="tradeflow-tenant-backup.json"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Authorization'}});
   }
+  // Explicit, read-only cloud catalogue for a future reviewed device retrieval.
+  // Stable ID cursor and bounded pages; never silently claim a complete snapshot.
+  const catalogue=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)$/.exec(url.pathname);
+  if(catalogue){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   const businessId=requireBusinessId(catalogue[1]),type=catalogue[2];
+   if(!RECORD_TYPES.includes(type)||!LEGACY_RECORD_TYPES.includes(type)&&!(await schemaCapabilities(env)).recordTypes.includes(type))
+    return json({error:'Record type is unavailable in the current server schema'},400);
+   const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
+   const cursor=url.searchParams.get('after')||'';
+   if(cursor&&!/^[A-Za-z0-9_-]{1,100}$/.test(cursor))return json({error:'Invalid record cursor'},400);
+   if([...url.searchParams.keys()].some(key=>key!=='after'))return json({error:'Unsupported catalogue parameter'},400);
+   const page=await env.TF_DB.prepare(
+    'SELECT id,revision,updated_at,payload FROM tenant_records WHERE business_id=? AND record_type=? AND id>? AND deleted_at IS NULL '+TENANT_READ_GUARD_SQL+' ORDER BY id LIMIT 51'
+   ).bind(authorization.businessId,type,cursor,authorization.businessId,authorization.issuer,authorization.subject).all();
+   await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
+   const rows=page.results||[];
+   if(!Array.isArray(rows)||rows.length>51)return json({error:'Invalid record catalogue result'},503);
+   const items=rows.slice(0,50).map(row=>({id:row.id,revision:row.revision,updatedAt:row.updated_at,record:scopedPayload(authorization.businessId,type,row.id,row.payload)}));
+   return json({businessId,type,items,nextCursor:rows.length>50?items[items.length-1].id:null});
+  }
   const match=/^\/api\/v1\/businesses\/([^/]+)\/records\/([^/]+)\/([^/]+)$/.exec(url.pathname);
   if(!match)return json({error:'Not found'},404);
   const businessId=requireBusinessId(match[1]);
   if(!RECORD_TYPES.includes(match[2])||!LEGACY_RECORD_TYPES.includes(match[2])&&!(await schemaCapabilities(env)).recordTypes.includes(match[2]))return json({error:'Record type is unavailable in the current server schema'},400);
-  const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:request.method==='PUT'?(FINANCIAL_RECORD_TYPES.includes(match[2])?'records:finance:write':'records:write'):'records:read'});
+  const authorization=await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:request.method==='PUT'?recordWritePermission(match[2]):'records:read'});
   if(request.method==='PUT'){
    if(!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type')||''))return json({error:'JSON required'},415);
    if(!request.body)return json({error:'JSON body required'},400);
@@ -62,12 +132,13 @@ export async function tenantApi(request,env,options={}){
    for await(const part of stream){raw+=part;if(raw.length>32000)return json({error:'Request too large'},413)}
    let body;try{body=JSON.parse(raw)}catch{return json({error:'Invalid JSON'},400)}
    const saved=await writeTenantRecord(env.TF_DB,authorization,match[2],match[3],body);
-   return json({id:match[3],type:match[2],...saved},saved.revision===1?201:200);
+   return json({businessId:authorization.businessId,id:match[3],type:match[2],...saved},saved.revision===1?201:200);
   }
-  const query=tenantRecordQuery({authorization,table:match[2],recordId:match[3]});
+  const query=authorizedTenantReadQuery({authorization,table:match[2],recordId:match[3]});
   const item=await env.TF_DB.prepare(query.sql).bind(...query.params).first();
+  await authorizeBusiness({db:env.TF_DB,principal,businessId,permission:'records:read'});
   if(!item||item.deleted_at)return json({error:'Not found'},404);
-  return json({id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:JSON.parse(item.payload)});
+  return json({businessId:authorization.businessId,id:match[3],type:match[2],revision:item.revision,updatedAt:item.updated_at,record:scopedPayload(authorization.businessId,match[2],match[3],item.payload)});
  }catch(error){
   if(error instanceof AuthorizationError)return json({error:error.message},error.status);
   return json({error:'Request could not be completed'},503);

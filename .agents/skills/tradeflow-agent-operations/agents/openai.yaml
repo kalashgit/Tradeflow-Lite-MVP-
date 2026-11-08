@@ -1,0 +1,3 @@
+interface:
+  display_name: TradeFlow Agent Operations Manager
+  short_description: Scoped agent tasks and single-writer coordination

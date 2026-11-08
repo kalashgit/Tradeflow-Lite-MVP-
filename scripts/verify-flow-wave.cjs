@@ -14,7 +14,7 @@ const out=process.env.OUTPUT_DIR||'/tmp/tradeflow-flow-wave';fs.mkdirSync(out,{r
    await page.waitForFunction(()=>!!window.TradeFlowVoice);
    // Isolated browser profile only; never seed fake customer, job or financial records.
    await page.evaluate(async()=>{
-    const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+    const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
     const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put({id:'business',company:'Visual verification',primaryTrade:'Electrical'});
     await new Promise(r=>tx.oncomplete=r);db.close();
    });

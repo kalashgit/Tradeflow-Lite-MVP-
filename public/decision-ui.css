@@ -1,0 +1,8 @@
+.tf-decision-review{overflow-wrap:anywhere;font-size:13px;line-height:1.5}
+.tf-decision-review h4{margin:18px 0 8px;font-size:14px}
+.tf-decision-review ul{margin:8px 0 16px;padding-inline-start:20px}
+.tf-record-dossier-box .tf-decision-review p{margin:8px 0}
+.tf-decision-review .tf-decision-secondary{background:var(--tf-graphite-raised)!important;color:var(--tf-graphite-text)!important;border-color:var(--tf-graphite-border)!important}
+.tf-decision-review .tf-decision-close{border:0;background:transparent;color:var(--tf-graphite-subtext);min-height:44px;padding:8px 0;text-decoration:underline}
+.tf-decision-review button:focus-visible{outline:2px solid var(--tf-accent);outline-offset:3px}
+body:has(.tf-decision-review) .tf-ai-orb{visibility:hidden;pointer-events:none}

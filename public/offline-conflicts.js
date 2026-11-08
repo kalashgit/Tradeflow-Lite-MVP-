@@ -1,4 +1,4 @@
-import {RECORD_TYPES} from './record-model.js';
+import {recordIdentity,validRecordRevision} from './record-model.js';
 /* Offline replay policy: never silently merge conflicting contractor records.
  * This module is pure and does not send data over the network or touch IndexedDB.
  * Callers must persist the queue themselves and obtain an authenticated session.
@@ -8,11 +8,9 @@ export const OFFLINE_OUTCOME=Object.freeze({
 });
 const keyPart=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(s);
 export function classifyOfflineChange(change,remote){
- if(!change||!keyPart(change.businessId)||!keyPart(change.id)||
-   !RECORD_TYPES.includes(change.type)||
-   !Number.isSafeInteger(change.baseRevision)||change.baseRevision<0||
-   !change.record||typeof change.record!=='object'||Array.isArray(change.record))
-  return {status:OFFLINE_OUTCOME.INVALID};
+ try{recordIdentity(change)}catch{return {status:OFFLINE_OUTCOME.INVALID}}
+ if(!validRecordRevision(change.baseRevision)||!change.record||
+  typeof change.record!=='object'||Array.isArray(change.record))return {status:OFFLINE_OUTCOME.INVALID};
  if(!remote)return change.baseRevision===0?{status:OFFLINE_OUTCOME.ACCEPT,expectedRevision:0}:
   {status:OFFLINE_OUTCOME.PENDING,reason:'Remote state unavailable'};
  if(remote.businessId!==change.businessId||remote.type!==change.type||remote.id!==change.id)
@@ -30,8 +28,11 @@ export function planOfflineReplay(queue,remoteByKey){
   throw Error('Invalid offline queue');
  const seen=new Set();
  return queue.map(change=>{
-  const identity=change&&keyPart(change.businessId)&&keyPart(change.type)&&keyPart(change.id)?
-   [change.businessId,change.type,change.id].join(':'):null;
+  let identity=null;
+  try{
+   if(!validRecordRevision(change?.baseRevision)||!change?.record)throw Error('Invalid revision or record');
+   identity=recordIdentity(change).key;
+  }catch{identity=null}
   if(!identity)return {change,status:OFFLINE_OUTCOME.INVALID};
   if(seen.has(identity))return {change,status:OFFLINE_OUTCOME.CONFLICT,reason:'More than one unsent edit for record; review in order'};
   seen.add(identity);

@@ -1,0 +1,113 @@
+{
+  "schema": "tradeflow.offline-knowledge.v1",
+  "id": "osha-electrical-safety-us-v1",
+  "version": "1.0.0",
+  "audience": "redistributable_reference",
+  "builtOn": "2026-11-08",
+  "sources": [
+    {
+      "id": "osha-1926-417",
+      "title": "OSHA 29 CFR 1926.417 — Lockout and tagging of circuits",
+      "publisher": "U.S. Department of Labor, OSHA",
+      "documentVersion": "OSHA web regulation, reviewed 2026-11-08",
+      "reviewedOn": "2026-11-08",
+      "jurisdictions": [
+        "US"
+      ],
+      "rights": "public_domain",
+      "rightsEvidence": "Original TradeFlow paraphrase based on US federal OSHA regulatory text written by federal employees; US government works generally lack US copyright under 17 USC 105. No third-party illustrations reproduced.",
+      "contentStatus": "available_excerpt",
+      "kind": "official",
+      "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.417"
+    },
+    {
+      "id": "osha-1910-333",
+      "title": "OSHA 29 CFR 1910.333 — Selection and use of work practices",
+      "publisher": "U.S. Department of Labor, OSHA",
+      "documentVersion": "OSHA web regulation, reviewed 2026-11-08",
+      "reviewedOn": "2026-11-08",
+      "jurisdictions": [
+        "US"
+      ],
+      "rights": "public_domain",
+      "rightsEvidence": "Original TradeFlow paraphrase based on US federal OSHA regulatory text written by federal employees; US government works generally lack US copyright under 17 USC 105. No third-party illustrations reproduced.",
+      "contentStatus": "available_excerpt",
+      "kind": "official",
+      "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.333"
+    },
+    {
+      "id": "osha-1926-404",
+      "title": "OSHA 29 CFR 1926.404 — Wiring design and protection",
+      "publisher": "U.S. Department of Labor, OSHA",
+      "documentVersion": "OSHA web regulation, reviewed 2026-11-08",
+      "reviewedOn": "2026-11-08",
+      "jurisdictions": [
+        "US"
+      ],
+      "rights": "public_domain",
+      "rightsEvidence": "Original TradeFlow paraphrase based on US federal OSHA regulatory text written by federal employees; US government works generally lack US copyright under 17 USC 105. No third-party illustrations reproduced.",
+      "contentStatus": "available_excerpt",
+      "kind": "official",
+      "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.404"
+    },
+    {
+      "id": "osha-1926-400",
+      "title": "OSHA 29 CFR 1926.400 — Construction electrical safety scope",
+      "publisher": "U.S. Department of Labor, OSHA",
+      "documentVersion": "OSHA web regulation, reviewed 2026-11-08",
+      "reviewedOn": "2026-11-08",
+      "jurisdictions": [
+        "US"
+      ],
+      "rights": "public_domain",
+      "rightsEvidence": "Original TradeFlow paraphrase based on US federal OSHA regulatory text written by federal employees; US government works generally lack US copyright under 17 USC 105. No third-party illustrations reproduced.",
+      "contentStatus": "available_excerpt",
+      "kind": "official",
+      "url": "https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.400"
+    }
+  ],
+  "passages": [
+    {
+      "id": "construction-lockout-tags",
+      "sourceId": "osha-1926-417",
+      "heading": "Construction circuits: lockout and tagging",
+      "text": "For construction electrical work under 29 CFR 1926.417, circuits or equipment made deenergized must be made inoperative and identified with tags at potential reenergization points. Deactivated controls also need tags, and tags must clearly identify the equipment or circuit involved. This is a high-level reminder to use the employer's qualified-person energy-control procedure, not a field instruction for establishing an electrically safe work condition.",
+      "sha256": "6a4a7735a8acaccec2ed15bccf4020108ff9dacf7fd7a9220a4908403baa8876"
+    },
+    {
+      "id": "deenergize-before-work",
+      "sourceId": "osha-1910-333",
+      "heading": "Deenergize before work on exposed live parts",
+      "text": "For covered general-industry tasks, 29 CFR 1910.333 generally calls for exposed live parts to be deenergized before employees work on or near them. The rule identifies limited situations where deenergizing creates greater hazards or is infeasible and requires other protective work practices then. Whether this standard or a construction-specific rule applies depends on the work. Do not assume that a business preference for avoiding downtime alone makes energized work safe or authorized.",
+      "sha256": "05501873d672f07912c813d1aa46e4f472092ede354911cdf31f4a9d31f588a3"
+    },
+    {
+      "id": "verify-absence-of-voltage",
+      "sourceId": "osha-1910-333",
+      "heading": "Qualified-person verification of deenergized condition",
+      "text": "Under 29 CFR 1910.333(b)(2)(iv), deenergized status requires verification before work proceeds. A qualified person checks that equipment cannot restart and uses appropriate test equipment to establish the absence of voltage, including the risk of backfeed or induced energy. This summary intentionally omits test sequences and instrument selection: those require a qualified worker, applicable procedures, suitable equipment and current site conditions.",
+      "sha256": "02fa01e719bc668e7daef34f5bca22128b4e560cfd6ea52e382c803fa6c2d873"
+    },
+    {
+      "id": "no-switch-as-sole-isolator",
+      "sourceId": "osha-1910-333",
+      "heading": "Control switches are not sole energy isolation",
+      "text": "For tasks covered by 29 CFR 1910.333(b)(2)(ii), push buttons, selectors and interlocks are not sufficient by themselves to deenergize equipment. The employer's energy-control method must address every relevant electrical source and stored energy. A chat answer cannot certify isolation, release a lock or authorize work on an energized panel.",
+      "sha256": "808ef97abfe382fa3cf954f05d92faf0835f09c092f99938c2b4d7b1769744c3"
+    },
+    {
+      "id": "jobsite-gfci-or-grounding-program",
+      "sourceId": "osha-1926-404",
+      "heading": "Jobsite ground-fault protection programs",
+      "text": "For construction-site employee protection, 29 CFR 1926.404(b)(1) requires a compliant ground-fault protection approach using GFCI protection or an assured equipment grounding conductor program as applicable. The regulation has specific coverage rules, exceptions, inspection and testing obligations. An employer should verify the exact requirements for its receptacles and equipment rather than treating this summary as a blanket device selection rule.",
+      "sha256": "b308b629b886e0a4cce560047cde4eca017e1b77979e435751c34402dc720ccb"
+    },
+    {
+      "id": "construction-electrical-scope",
+      "sourceId": "osha-1926-400",
+      "heading": "Electrical hazards covered on construction jobsites",
+      "text": "OSHA 29 CFR 1926 Subpart K addresses electrical hazards around construction-jobsite power, equipment and installations, including possible contact with energized lines on or near a site. Classify the task and governing rules before applying specific controls. Electrical safety requirements vary by task, equipment, employer responsibilities and location; additional standards and local adopted codes may apply.",
+      "sha256": "3232622ddcf962833369fb71f0d2e5e2074745310dcb6dacf16d5e97cbb0d71c"
+    }
+  ]
+}

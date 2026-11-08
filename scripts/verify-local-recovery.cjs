@@ -1,7 +1,7 @@
 // Real browser/IndexedDB recovery and offline reload; isolated synthetic test data only.
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const out=process.env.OUTPUT_DIR||'/tmp/tradeflow-recovery';fs.mkdirSync(out,{recursive:true});
+const out=process.env.OUTPUT_DIR||'artifacts/local-recovery';fs.mkdirSync(out,{recursive:true});
 const root=path.resolve('public'),types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json'};
 const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://local'),p=path.resolve(root,'.'+(url.pathname==='/'?'/index.html':url.pathname));if(!p.startsWith(root+'/')){res.writeHead(403);res.end();return}fs.readFile(p,(error,body)=>{if(error){res.writeHead(404);res.end();return}res.setHeader('Content-Type',types[path.extname(p)]||'application/octet-stream');res.end(body)})});
 (async()=>{
@@ -11,7 +11,7 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   page.on('dialog',async dialog=>{dialogs.push({type:dialog.type(),message:dialog.message()});await dialog.accept().catch(()=>{})});
   await page.goto('http://127.0.0.1:4192');await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery);
   const backup=await page.evaluate(async()=>{
-   const req=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>req.onsuccess=()=>r(req.result)),stores=[...db.objectStoreNames];
+   const req=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>req.onsuccess=()=>r(req.result)),stores=[...db.objectStoreNames];
    const tx=db.transaction(stores,'readwrite');for(const s of stores)tx.objectStore(s).clear();
    tx.objectStore('settings').put({id:'business',company:'Recovery test',primaryTrade:'Electrical',onboardingComplete:true});
    tx.objectStore('customers').put({id:'recovery-customer',name:'Before edit',custom:'Preserved field'});
@@ -26,31 +26,37 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   const dialogSeen=page.waitForEvent('dialog',{timeout:10000});
   await page.locator('#restoreFile').setInputFiles({name:'recovery.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
   await page.getByText('Backup restored. Previous records are available as a recovery backup.',{exact:true}).waitFor();
-  await page.waitForFunction(async()=>{const q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),tx=db.transaction('customers'),r=tx.objectStore('customers').get('recovery-customer');const row=await new Promise(resolve=>r.onsuccess=()=>resolve(r.result));db.close();return row?.name==='Before edit'});
+  await page.waitForFunction(async()=>{const q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result)),tx=db.transaction('customers'),r=tx.objectStore('customers').get('recovery-customer');const row=await new Promise(resolve=>r.onsuccess=()=>resolve(r.result));db.close();return row?.name==='Before edit'});
   await dialogSeen;
   assert.ok(dialogs.some(d=>d.type==='confirm'&&d.message.includes('Restore preview')),JSON.stringify(dialogs));
   assert.ok(!dialogs.some(d=>d.type==='alert'&&d.message.includes('failed')));
   await page.reload();
   const result=await page.evaluate(async()=>{
-   const old=await window.TradeFlowLocalRecovery.latestRecovery(indexedDB),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const old=await window.TradeFlowLocalRecovery.latestRecovery(indexedDB),q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
    const now=await window.TradeFlowLocalRecovery.createBackup(db,[...db.objectStoreNames]);db.close();return {old,now};
   });
   assert.equal(result.old.stores.customers[0].name,'After edit');assert.equal(result.now.stores.customers[0].name,'Before edit');
-  assert.equal(result.now.stores.payments[0].jobId,'recovery-job');assert.equal(result.now.version,9);
+  assert.equal(result.now.stores.payments[0].jobId,'recovery-job');assert.equal(result.now.version,10);
+  // Service-worker registration readiness may precede control of an already open tab.
+  await page.evaluate(()=>navigator.serviceWorker.ready);
+  if(!await page.evaluate(()=>navigator.serviceWorker.controller!==null)){
+   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery);
+  }
   await page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
   await context.setOffline(true);await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery&&!!window.TradeFlowPilot);
   await page.evaluate(async()=>{
-   const {createSyncQueue}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const {createSyncQueue}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
    const queue=createSyncQueue({db,businessId:'business_001',session:async()=>({status:'signed_out'}),transport:{read:async()=>{throw Error('Must not send')},write:async()=>{throw Error('Must not send')}}});
    await queue.enqueue({type:'customers',id:'offline-test',operationId:'offline-op',baseRevision:0,record:{id:'offline-test',name:'Synthetic queued record'}});db.close();
   });
   await page.reload();await page.waitForFunction(()=>!!window.TradeFlowLocalRecovery);
   const queueResult=await page.evaluate(async()=>{
-   const {createSyncQueue}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1',9),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
+   const {createSyncQueue,summarizeSyncIntents}=await import('/sync-queue.js'),q=indexedDB.open('tradeflow-lite-v1'),db=await new Promise(r=>q.onsuccess=()=>r(q.result));
    const queue=createSyncQueue({db,businessId:'business_001',session:async()=>({status:'signed_out'}),transport:{read:async()=>{throw Error('Must not send')},write:async()=>{throw Error('Must not send')}}});
-   const rows=await queue.list(),drained=await queue.drain();db.close();return {rows:rows.length,status:drained.status};
+   const rows=await queue.list(),drained=await queue.drain(),projection=summarizeSyncIntents(rows,'business_001');db.close();
+   return {rows:rows.length,status:drained.status,projected:projection.items.map(r=>r.state),externalCommitted:projection.items.some(r=>r.externalCommitted)};
   });
-  assert.equal(queueResult.rows,1);assert.equal(queueResult.status,'authorization_required');
+  assert.equal(queueResult.rows,1);assert.equal(queueResult.status,'authorization_required');assert.deepEqual(queueResult.projected,['queued_local']);assert.equal(queueResult.externalCommitted,false,'Offline action is not externally committed');
   await page.screenshot({path:path.join(out,'offline-'+viewport.width+'.png')});
   await page.evaluate(async()=>{const c=window.TradeFlowPilot.commands,p=await c.prepare('open settings');const r=await c.execute(p.id);if(r.status!=='succeeded')throw Error('Settings failed')});
   const account=page.locator('[data-action="settingsPanel"][data-panel="account"]');
@@ -58,7 +64,7 @@ const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://loc
   await account.click();await page.waitForFunction(()=>{const el=document.querySelector('[data-account-status]');return el&&!el.textContent.includes('Checking')});
   assert.equal(await page.locator('a[href="/api/v1/session/login"]').count(),1);
   await page.screenshot({path:path.join(out,'account-offline-'+viewport.width+'.png')});
-  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:9,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,accountLabelLayout:true,offlineAccountStatus:true,dialogs},null,2));
+  fs.writeFileSync(path.join(out,'result-'+viewport.width+'.json'),JSON.stringify({viewport,restored:true,recoverySurvivedReload:true,linkedRecordsPreserved:true,schema:10,offlineReload:true,offlineQueueSurvivedReload:true,unauthenticatedDrainBlocked:true,offlineSyncState:'queued_local',cloudCommitVerified:false,accountLabelLayout:true,offlineAccountStatus:true,dialogs},null,2));
   await context.close();
  }}finally{await browser.close();await new Promise(r=>server.close(r))}
  console.log('PASS: mobile and desktop real UI restore, recovery after reload, linked records and offline reload');
