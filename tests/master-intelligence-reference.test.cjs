@@ -25,9 +25,11 @@ test('mobile four-across welcome cards, accessible fixed composer and reduced mo
  assert.match(base,/prefers-reduced-motion:reduce/);
  assert.match(base,/\.tf-master-conversation/);
 });
-test('orb uses actual TradeFlow canvas renderer with disposal on removal',()=>{
+test('orb has a live canvas animation loop, cleanup, and GIF fallback',()=>{
  const script=read('public/master-intelligence-reference.js');
- assert.match(script,/TradeFlowOrbIdle\?\.createRenderer\?\./);
- assert.match(script,/renderer\.dispose\(\)/);
+ assert.match(script,/getContext\('2d'/);
+ assert.match(script,/requestAnimationFrame\(frame\)/);
+ assert.match(script,/disposeAnimation\?\.\(\)/);
  assert.match(script,/MutationObserver\(sync\)/);
+ assert.match(script,/dataset\.meshState='fallback'/);
 });
