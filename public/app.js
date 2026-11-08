@@ -476,7 +476,7 @@ function tfAiHistoryView(){
   '<button type="button" data-action="tfAiExportThread" '+(!tfActiveChatThreadId?'disabled':'')+'>Export</button>'+
   '<span class="tf-ai-local-label">LOCAL ONLY · NOT SYNCED</span></div>';
 }
-const tfAiOfflinePreview=window.location.hostname==='tradeflow-pr16-private.bartoszszarafinski.workers.dev';
+const tfAiOfflinePreview=window.location?.hostname==='tradeflow-pr16-private.bartoszszarafinski.workers.dev';
 let tfAiCookieReady=false;
 function tfAiKey(){try{return sessionStorage.getItem('tf-ai-preview-code')||(tfAiCookieReady?'preview-session':'')}catch(e){return tfAiCookieReady?'preview-session':''}}
 async function tfAiRestoreSession(){
