@@ -517,7 +517,7 @@ function tfAiAttribution(message){
 }
 function tfAIChatView(data){
  const unlocked=!!tfAiKey()||tfAiOfflinePreview;
- const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
+ const chat=tfChatMessages.length?tfChatMessages.slice(-16).map(m=>'<div class="tf-ai-bubble '+(m.role==='user'?'tf-ai-mine':'tf-ai-theirs')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+tfAiMessageActions(m)+'</div>').join(''):'<div class="tf-ai-welcome"><span class="tf-ai-sparkle">✦</span><h3>What can I help you solve?</h3><p>Ask a business question, prepare a quotation, or explore your next decision.</p></div>';
  const examples=[['Business update','TradeFlow, give me an update on my business. What needs attention?'],['Quote strategy','How should I price a small electrical service job?'],['Profitability','How can I improve profit margins?'],['Business planning','What should I focus on this week?']];
  const reviewJobs=(data.jobs||[]).filter(job=>typeof job.id==='string'&&job.id&&typeof job.title==='string').slice(0,5);
  const jobReviews=reviewJobs.length?'<section class="tf-ai-preview-gate" aria-label="Review saved job evidence"><strong>Review saved job evidence</strong><small>Local records only. Open a job to see evidence-backed exceptions and reviewable internal actions; this does not send its details to the model.</small><div>'+reviewJobs.map(job=>'<button type="button" data-action="tfAiReviewJob" data-id="'+esc(job.id)+'">Review '+esc(job.title)+'</button>').join('')+'</div></section>':'';
@@ -595,12 +595,62 @@ function tfAiReferenceTime(message){
  if(!Number.isFinite(date.getTime()))return '';
  return '<time class="tf-master-message-time" datetime="'+esc(date.toISOString())+'">'+esc(date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}))+'</time>';
 }
+
+let tfReplyFeedbackOpen=null,tfReplySpeaking=null;
+const tfReplyIcons={
+ copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+ feedback:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3ZM7 10l5-7a2 2 0 0 1 3 2l-1 5h5a3 3 0 0 1 3 3l-2 5a3 3 0 0 1-3 2H7"/></svg>',
+ listen:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6M8 6v12M12 3v18M16 7v10M20 10v4"/></svg>',
+ share:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2v6"/></svg>'
+};
+function tfReplyVote(id){try{let x=localStorage.getItem('tf-reply-feedback:'+id);return x==='yes'||x==='no'?x:''}catch{return ''}}
+function tfAiMessageActions(m){
+ if(m.role!=='assistant'||!m.id)return '';
+ const id=esc(m.id),vote=tfReplyVote(m.id),open=tfReplyFeedbackOpen===m.id;
+ const actions=[['copy','Copy'],['feedback','Feedback'],['listen',tfReplySpeaking===m.id?'Stop reading':'Read aloud'],['share','Share']].map(([act,label])=>'<button type="button" class="tf-reply-action" data-action="tfReplyAction" data-id="'+id+'" data-kind="'+act+'" aria-label="'+label+'" title="'+label+'">'+tfReplyIcons[act]+'</button>').join('');
+ return '<div class="tf-reply-tools"><div class="tf-reply-tools-row" role="group" aria-label="Response actions">'+actions+'</div>'+(open?'<div class="tf-reply-feedback" role="group" aria-label="Feedback"><button type="button" data-action="tfReplyVote" data-id="'+id+'" data-vote="yes" aria-pressed="'+(vote==='yes')+'">Helpful</button><button type="button" data-action="tfReplyVote" data-id="'+id+'" data-vote="no" aria-pressed="'+(vote==='no')+'">Not helpful</button></div>':'')+'</div>';
+}
+function tfReplyStatus(msg){let n=document.getElementById('tfReplyLive');if(!n){n=document.createElement('div');n.id='tfReplyLive';n.className='tf-reply-live';n.setAttribute('role','status');document.body.append(n)}n.textContent=msg}
+async function tfReplyCopy(text){
+ if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(text);
+ const x=document.createElement('textarea');x.value=text;x.style.position='fixed';x.style.opacity='0';document.body.append(x);x.select();
+ const ok=document.execCommand?.('copy');x.remove();if(!ok)throw Error('Clipboard unavailable');
+}
+function tfReplyRead(m){
+ if(tfReplySpeaking===m.id){window.speechSynthesis?.cancel();tfReplySpeaking=null;tfReplyStatus('Reading stopped');return}
+ if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){tfReplyStatus('Speech unavailable');return}
+ window.speechSynthesis.cancel();
+ const utterance=new SpeechSynthesisUtterance(tfAiReferencePlainText(m.content).slice(0,6000));
+ utterance.lang='en-US';utterance.rate=1;tfReplySpeaking=m.id;
+ utterance.onend=()=>{if(tfReplySpeaking===m.id){tfReplySpeaking=null;tfReplyStatus('Reading finished')}};
+ utterance.onerror=()=>{if(tfReplySpeaking===m.id){tfReplySpeaking=null;tfReplyStatus('Speech unavailable')}};
+ try{window.speechSynthesis.speak(utterance);tfReplyStatus('Reading aloud')}catch{tfReplySpeaking=null;tfReplyStatus('Speech unavailable')}
+}
+document.addEventListener('click',async e=>{
+ const b=e.target.closest?.('[data-action="tfReplyAction"],[data-action="tfReplyVote"]');if(!b)return;
+ const m=tfChatMessages.find(x=>x.id===b.dataset.id&&x.role==='assistant');if(!m)return;
+ if(b.dataset.action==='tfReplyVote'){
+  if(!['yes','no'].includes(b.dataset.vote))return;
+  try{localStorage.setItem('tf-reply-feedback:'+m.id,b.dataset.vote);tfReplyStatus('Feedback saved on this device')}catch{tfReplyStatus('Feedback could not be saved')}
+  tfReplyFeedbackOpen=null;await tfAiUpdateChatUI();return;
+ }
+ switch(b.dataset.kind){
+  case 'copy':try{await tfReplyCopy(m.content);tfReplyStatus('Copied')}catch{tfReplyStatus('Copy unavailable')}break;
+  case 'feedback':tfReplyFeedbackOpen=tfReplyFeedbackOpen===m.id?null:m.id;await tfAiUpdateChatUI();break;
+  case 'listen':tfReplyRead(m);break;
+  case 'share':
+   if(navigator.share){try{await navigator.share({title:'TradeFlow Intelligence',text:m.content});tfReplyStatus('Shared')}catch(err){if(err?.name!=='AbortError')tfReplyStatus('Sharing failed')}}
+   else try{await tfReplyCopy(m.content);tfReplyStatus('Copied for sharing')}catch{tfReplyStatus('Share unavailable')}
+ }
+});
+window.addEventListener('pagehide',()=>{try{window.speechSynthesis?.cancel()}catch{}tfReplySpeaking=null});
+
 function tfAIMasterView(){
  const chatting=tfAiConversationStarted||tfChatMessages.length>0;
  const mark='<img class="tf-master-mark" src="./brand/tradeflow-mark.svg" alt="" aria-hidden="true">';
  const actions=[['Business Overview','briefcase-business','TradeFlow, give me an update on my business. What needs attention?'],['Prepare a Quotation','file-text','Help me prepare a quotation for an electrical job.'],['Schedule Work','calendar-days','Help me schedule work for this week.'],['Analyze Profitability','chart-no-axes-column','Help me review job profitability.']];
  const symbols=['<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l5 5v15H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v6h5M8 12h8M8 16h8"/></svg>','<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/></svg>','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20v-6M9 20V9M14 20V4M19 20V12"/></svg>'];
- const messages=tfChatMessages.map(m=>'<article class="tf-master-message '+(m.role==='user'?'is-user':'is-assistant')+'"'+(m.role==='assistant'&&m.source?' title="Source: '+esc(m.source.replace(/_/g,' '))+'"':'')+'>'+(m.role==='user'?'':mark)+'<div class="tf-master-message-body"><div class="tf-master-message-text">'+esc(tfAiReferencePlainText(m.content))+'</div>'+tfAiReferenceTime(m)+'</div></article>').join('');
+ const messages=tfChatMessages.map(m=>'<article class="tf-master-message '+(m.role==='user'?'is-user':'is-assistant')+'"'+(m.role==='assistant'&&m.source?' title="Source: '+esc(m.source.replace(/_/g,' '))+'"':'')+'>'+(m.role==='user'?'':mark)+'<div class="tf-master-message-body"><div class="tf-master-message-text">'+esc(tfAiReferencePlainText(m.content))+'</div>'+tfAiReferenceTime(m)+tfAiMessageActions(m)+'</div></article>').join('');
  return '<section class="tf-master" aria-label="Master Intelligence"><header class="tf-master-header"><button type="button" class="tf-master-header-button" data-tab="settings" aria-label="Back to More"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button><div class="tf-master-identity">'+mark+'<div><strong>TRADE<span>FLOW</span></strong><small>Master Intelligence</small></div></div><div class="tf-master-header-actions"><button type="button" class="tf-master-header-button" data-action="tfAiHistoryToggle" aria-label="Conversation history"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg></button><button type="button" class="tf-master-header-button" data-action="tfAiOptionsToggle" aria-label="Conversation options"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg></button></div></header>'+
  '<div class="tf-master-toolbar" id="tfMasterToolbar" hidden>'+tfAiHistoryView()+'<button type="button" data-action="tfAiNewThread">New conversation</button><button type="button" data-action="tfAiSnapshotToggle">Business snapshot</button><button type="button" data-action="tfAiExportThread">Export</button><button type="button" data-action="tfAiClear">Delete conversation</button><button type="button" data-action="tfAiOpenVoiceSettings">AI &amp; Voice settings</button><small class="tf-master-trust-note">AI answers are suggestions, not independently verified business records.</small></div>'+
  (chatting?'<div class="tf-master-conversation" id="tfAiThread" role="log" aria-live="polite">'+messages+(tfChatBusy?'<div class="tf-master-thinking">TradeFlow is thinking…</div>':'')+'</div>':'<div class="tf-master-welcome"><button type="button" class="tf-master-orb" data-action="tfAiVoice" aria-label="Start AI orb and hear TradeFlow greeting"><video class="tf-master-orb-video" autoplay muted loop playsinline webkit-playsinline preload="auto" poster="./orb-concept-b/poster.png" aria-hidden="true" tabindex="-1"><source src="./assets/tradeflow_orb_smooth_60_frames.mp4?v=orb60-01" type="video/mp4"></video><img class="tf-master-orb-gif-fallback" src="./assets/tradeflow_orb_60_frames.gif?v=orb60-01" alt="" aria-hidden="true"></button><h1>Master Intelligence</h1><p>Your TradeFlow AI. Business, operations and execution.</p><div class="tf-master-ready"><span></span>Ready · Local-first</div><div class="tf-master-starters">'+actions.map(([label,,prompt],i)=>'<button type="button" data-action="tfAiStarter" data-prompt="'+esc(prompt)+'"><span aria-hidden="true">'+symbols[i]+'</span>'+label+'</button>').join('')+'</div></div>')+

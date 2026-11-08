@@ -108,3 +108,15 @@ body:has(.tf-master) .content{padding:0!important;overflow:hidden}
  .tf-master-orb{margin-bottom:12px}
  .tf-master-welcome{transform:none}
 }
+
+/* Per-reply actions on both iPhone and desktop. */
+.tf-reply-tools{margin-top:8px;white-space:normal}
+.tf-reply-tools-row{display:flex;gap:4px;align-items:center}
+.tf-reply-action{display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:10px;background:transparent;color:#aab4bc;cursor:pointer;touch-action:manipulation}
+.tf-reply-action svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.tf-reply-action:focus-visible,.tf-reply-feedback button:focus-visible{outline:2px solid #18cde9;outline-offset:2px}
+.tf-reply-action:hover,.tf-reply-action:active{color:#fff;background:#1d292d}
+.tf-reply-feedback{display:flex;flex-wrap:wrap;gap:8px;margin-top:7px}
+.tf-reply-feedback button{background:#152127;color:#f1f6f8;border:1px solid #405159;border-radius:12px;padding:8px 12px;font-size:12px}
+.tf-reply-feedback button[aria-pressed="true"]{border-color:#1dd3e9}
+.tf-reply-live{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9999;background:#193037;border-radius:12px;padding:8px 12px;color:white;font-size:12px;pointer-events:none}
