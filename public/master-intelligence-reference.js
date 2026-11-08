@@ -21,8 +21,12 @@
   canvas.className='tf-master-live-mesh';
   canvas.setAttribute('aria-hidden','true');
   host.appendChild(canvas);
-  renderer=root.TradeFlowOrbIdle?.createRenderer?.(canvas,{document:root.document,root})||null;
-  host.dataset.meshState=renderer?'animated':'unavailable';
+  host.dataset.meshState='loading';
+  renderer=root.TradeFlowOrbIdle?.createRenderer?.(canvas,{
+   document:root.document,root,continuousFlow:true,referenceMode:true,
+   onReady:()=>{if(host===current&&host.isConnected)host.dataset.meshState='flowing'}
+  })||null;
+  if(!renderer)host.dataset.meshState='unavailable';
   const cards=root.document.querySelectorAll('.tf-master-starters button span');
   cards.forEach((el,i)=>{if(!iconPaths[i]||el.querySelector('svg'))return;el.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+iconPaths[i]+'</svg>'});
  }
