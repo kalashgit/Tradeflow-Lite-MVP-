@@ -95,3 +95,14 @@ body:has(.tf-master) .tf-master{height:100dvh!important;min-height:0!important;b
 @media(prefers-reduced-motion:reduce){
  .tf-master-orb .tf-master-orb-mesh{transition:none}
 }
+
+/* Seamless membrane compositing: hide the square black source-asset backing.
+   This radial alpha matte applies to both the animated canvas and its GIF fallback. */
+.tf-master-orb .tf-master-orb-mesh,
+.tf-master-orb canvas.tf-master-live-mesh{
+  -webkit-mask-image:radial-gradient(circle at center,#000 0%,#000 43%,rgba(0,0,0,.96) 45%,transparent 49.8%);
+  mask-image:radial-gradient(circle at center,#000 0%,#000 43%,rgba(0,0,0,.96) 45%,transparent 49.8%);
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  background:transparent!important;
+}
