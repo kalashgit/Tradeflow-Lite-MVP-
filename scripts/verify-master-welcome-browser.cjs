@@ -70,6 +70,30 @@ const token='synthetic-browser-local-private-test-token';
     assert.ok(orbMotion.after-orbMotion.before>=8,'Orb frames did not advance');
     assert.ok(orbMotion.changed>=1500,'Orb canvas looks static despite advancing frames');
     console.log('PASS: visual orb motion verified over 600ms',orbMotion);
+    // Check short-interval continuity; a static or periodic stop/start orb
+    // must not pass solely because its initial/final images look different.
+    const temporal=await page.evaluate(async()=>{
+      const canvas=document.querySelector('.tf-master-live-mesh');
+      const sample=()=>{
+        const {width:w,height:h}=canvas,rgba=canvas.getContext('2d').getImageData(0,0,w,h).data,values=[];
+        for(let y=Math.floor(h*.24);y<h*.76;y+=Math.max(1,Math.floor(h/30)))
+          for(let x=Math.floor(w*.24);x<w*.76;x+=Math.max(1,Math.floor(w/30))){
+            const k=4*(y*w+x);values.push(rgba[k],rgba[k+1],rgba[k+2]);
+          }
+        return values;
+      };
+      let last=sample();const deltas=[];
+      for(let n=0;n<8;n++){
+        await new Promise(resolve=>setTimeout(resolve,75));
+        const next=sample();let diff=0;
+        for(let k=0;k<last.length;k++)diff+=Math.abs(next[k]-last[k]);
+        deltas.push(diff);last=next;
+      }
+      return {deltas,min:Math.min(...deltas),max:Math.max(...deltas)};
+    });
+    assert.ok(temporal.min>180,'Orb stops between animation frames');
+    assert.ok(temporal.max/temporal.min<18,'Orb animation changes too abruptly between neighboring samples');
+    console.log('PASS: orb temporal continuity',temporal);
 
     await verifyVisualReference(page,out,viewport);
     await page.locator('#tfAiChatForm textarea[name="prompt"]').fill('What should I prioritize today to improve profitability?');
