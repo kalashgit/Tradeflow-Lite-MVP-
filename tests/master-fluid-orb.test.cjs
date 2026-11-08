@@ -25,3 +25,11 @@ test('orb pauses offscreen, respects reduced motion, and does not touch business
  assert.match(adapter,/prefers-reduced-motion: reduce/);
  assert.doesNotMatch(adapter,/executeCommand\(/);
 });
+
+test('floating membrane eliminates the square asset backing in canvas and GIF fallback',()=>{
+ assert.match(css,/\.tf-master-orb \.tf-master-orb-mesh,/);
+ assert.match(css,/\.tf-master-orb canvas\.tf-master-live-mesh/);
+ assert.match(css,/-webkit-mask-image:radial-gradient/);
+ assert.match(css,/mask-image:radial-gradient/);
+ assert.match(css,/transparent 49\.8%/);
+});
