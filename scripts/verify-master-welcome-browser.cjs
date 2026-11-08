@@ -65,6 +65,33 @@ const token='synthetic-browser-local-private-test-token';
     console.log('PASS: decoded 60-frame MP4 continuously changes the orb',motion);
 
     await verifyVisualReference(page,out,viewport);
+    // Reference controls must match the approved iPhone screenshot regardless
+    // of global application button-theme selectors.
+    const controls=await page.evaluate(()=>{
+      const refs=[
+        document.querySelector('.tf-master-send'),
+        document.querySelector('.tf-master-compose [aria-label="Talk to TradeFlow"]'),
+        document.querySelector('.tf-master-header [aria-label="Back to More"]'),
+        document.querySelector('.tf-master-header [aria-label="Conversation history"]')
+      ];
+      return refs.map(node=>{
+        if(!node)throw Error('Founder control missing');
+        const button=node.getBoundingClientRect(),glyph=node.querySelector('svg')?.getBoundingClientRect();
+        const style=getComputedStyle(node);
+        return {label:node.getAttribute('aria-label'),
+          background:style.backgroundColor,
+          offset:glyph?Math.hypot((glyph.left+glyph.width/2)-(button.left+button.width/2),(glyph.top+glyph.height/2)-(button.top+button.height/2)):null
+        };
+      });
+    });
+    assert.equal(controls[0].background,'rgb(248, 250, 251)','Send button must always be white');
+    assert.ok(controls.every(x=>x.offset!==null&&x.offset<=2.5),'Control glyphs must be centered in buttons');
+    await page.locator('.tf-master-header [aria-label="Back to More"]').click();
+    await page.locator('.tf-more-menu').waitFor({state:'visible'});
+    await page.locator('.tf-more-menu [data-tab="ai"]').click();
+    await page.locator('.tf-master-welcome h1').waitFor();
+    console.log('PASS: white send button, centered icons, Back → More → AI',controls);
+
     await page.locator('#tfAiChatForm textarea[name="prompt"]').fill('What should I prioritize today to improve profitability?');
     await page.locator('#tfAiChatForm button[type="submit"]').click();
     await page.locator('.tf-ai-pending-connection').waitFor();
