@@ -823,7 +823,7 @@ async function tfAiLocalElectricalReference(content){
  return true;
 }
 async function tfAISend(text,{speakReply=false}={}){
- const content=String(text||'').trim().slice(0,1200);
+ const content=String(text||'').trim().slice(0,6000);
  if(!content||tfChatBusy)return;
  if(await tfAiLocalBriefingFollowUp(content))return;
   if(await tfAiLocalBusinessBriefing(content))return;

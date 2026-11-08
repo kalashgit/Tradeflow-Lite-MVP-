@@ -53,7 +53,7 @@
  function sanitizeTurn(value) {
   if (!value || typeof value !== 'object' || !ROLES.has(value.role) ||
       !MODALITIES.has(value.modality || 'text') || value.status !== 'committed' ||
-      typeof value.content !== 'string' || !value.content.trim() || value.content.length > 2500 ||
+      typeof value.content !== 'string' || !value.content.trim() || value.content.length > 6000 ||
       !SOURCES.has(value.source) || !['user', 'system_notice'].includes(value.role) && value.source === 'user' ||
       (value.role === 'user' && value.source !== 'user') || value.audio || value.rawAudio) {
    throw Error('Only bounded, final, text-only conversation turns may be saved');
