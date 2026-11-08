@@ -83,7 +83,7 @@ test('TradeFlow Intelligence stores references in the same thread before cloud g
  assert.ok(app.includes('async function tfAiLocalElectricalReference(content)'));
  assert.ok(app.includes("source:'offline_knowledge'"));
  assert.ok(app.includes('await tfAiSaveTurn({role:\'user\',content,modality:\'text\''));
- assert.ok(send.indexOf('if(await tfAiLocalElectricalReference(content))return;')<send.indexOf('if(!tfAiKey())await tfAiRestoreSession()'));
+ assert.ok(send.indexOf('if(await tfAiLocalElectricalReference(content))return;')<send.indexOf('if(!tfAiOfflinePreview&&!tfAiKey())await tfAiRestoreSession()'));
  assert.match(app,/OFFLINE OSHA REFERENCE · ORIGINAL PARAPHRASE/);
  assert.ok(store.includes("'offline_knowledge'"));
  assert.ok(html.includes('offline-knowledge-pack.js?v=osha-v1'));

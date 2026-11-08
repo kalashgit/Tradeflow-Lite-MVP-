@@ -40,7 +40,7 @@ test('existing conversation is wired before private cloud fallback and cached fo
  const app=read('public/app.js'),html=read('public/index.html'),sw=read('public/sw.js'),conversation=read('public/conversation-store.js');
  const send=app.slice(app.indexOf('async function tfAISend('));
  assert.match(app,/if\(await tfAiLocalAcademy\(content\)\)return;/);
- assert.ok(send.indexOf('if(await tfAiLocalAcademy(content))return;')<send.indexOf('if(!tfAiKey())await tfAiRestoreSession()'));
+ assert.ok(send.indexOf('if(await tfAiLocalAcademy(content))return;')<send.indexOf('if(!tfAiOfflinePreview&&!tfAiKey())await tfAiRestoreSession()'));
  assert.match(app,/source:'academy_metadata'/);
  assert.match(html,/academy-retrieval\.js\?v=academy-v1/);
  assert.match(sw,/\.\/academy-catalog\.json/);
