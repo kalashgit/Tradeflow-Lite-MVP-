@@ -1,5 +1,5 @@
-/* Master Intelligence welcome orb — reliable, smoothly interpolated canvas.
-   Nine native membrane atlas frames are blended using requestAnimationFrame.
+/* Master Intelligence welcome orb — continuously flowing frame-spline canvas.
+   Nine native membrane atlas frames are blended with cubic B-spline weights.
    The reference GIF stays visible until canvas draws its first frame and is
    used as fallback when Canvas2D, image decode or animation is unavailable.
    No business data, microphone, or command authority is used. */
@@ -49,10 +49,12 @@
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     const phase=elapsed/SECONDS_PER_FRAME;
     const index=Math.floor(phase)%FRAME_COUNT;
-    const fraction=phase-Math.floor(phase);
-    // Smoothstep prevents an abrupt velocity jump at frame boundaries.
-    const blend=fraction*fraction*(3-2*fraction);
-    const next=(index+1)%FRAME_COUNT;
+    const t=phase-Math.floor(phase);
+    // Cubic uniform B-spline blends four adjacent frames, providing continuous
+    // position, velocity and acceleration at every boundary. Unlike smoothstep
+    // crossfades, it never brakes to a stop between adjacent atlas frames.
+    const t2=t*t,t3=t2*t;
+    const weights=[(1-3*t+3*t2-t3)/6,(4-6*t2+3*t3)/6,(1+3*t+3*t2-3*t3)/6,t3/6];
     context.clearRect(0,0,w,h);
     context.save();
     context.translate(w/2,h/2);
@@ -60,12 +62,13 @@
     const sway=reduced?.matches?0:.012*Math.sin(elapsed*.83);
     context.rotate(sway);
     context.scale(breath,breath);
-    const sx=index%3*FRAME_WIDTH,sy=Math.floor(index/3)*FRAME_HEIGHT;
-    const nx=next%3*FRAME_WIDTH,ny=Math.floor(next/3)*FRAME_HEIGHT;
-    context.globalAlpha=1;
-    context.drawImage(image,sx,sy,FRAME_WIDTH,FRAME_HEIGHT,-w/2,-h/2,w,h);
-    context.globalAlpha=blend;
-    context.drawImage(image,nx,ny,FRAME_WIDTH,FRAME_HEIGHT,-w/2,-h/2,w,h);
+    context.globalCompositeOperation='lighter';
+    for(let k=0;k<4;k++){
+     const frameIndex=(index+k+FRAME_COUNT-1)%FRAME_COUNT;
+     context.globalAlpha=weights[k];
+     context.drawImage(image,(frameIndex%3)*FRAME_WIDTH,Math.floor(frameIndex/3)*FRAME_HEIGHT,
+      FRAME_WIDTH,FRAME_HEIGHT,-w/2,-h/2,w,h);
+    }
     context.restore();
     paintCount++;
     canvas.dataset.motionFrames=String(paintCount);
