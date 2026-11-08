@@ -571,9 +571,39 @@ function tfAiRefreshOverlay(){
  const log=host.querySelector('#tfAiMiniThread');
  if(log)log.scrollTop=log.scrollHeight;
 }
+let tfAiVoiceStatus='Offline text references ready. On-device speech availability is checked when you tap the microphone.';
+const tfAiVoiceSession=window.TradeFlowAIOfflineVoice?.create?.({
+ onStatus:status=>{tfAiVoiceStatus=status;tfAiMountVoiceControls()},
+ onFinal:transcript=>{void tfAISend(transcript)}
+})||{start:async()=>({started:false}),stop:()=>{},isListening:()=>false};
+async function tfAiStartOfflineVoice(){
+ await tfAiVoiceSession.start();
+ tfAiMountVoiceControls();
+}
+function tfAiMountVoiceControls(){
+ for(const id of ['tfAiChatForm','tfAiQuickForm']){
+  const form=document.getElementById(id);
+  if(!form)continue;
+  let control=form.querySelector('.tf-ai-local-voice');
+  if(!control){
+   control=document.createElement('div');control.className='tf-ai-local-voice';
+   control.innerHTML='<div class="tf-ai-capabilities"><span>● OFFLINE · Local business data, Academy catalog and OSHA reference</span><span>◌ ONLINE · General AI and cloud voice require connection and access</span></div><button type="button" data-ai-local-mic aria-label="Use verified offline voice input">🎙 Offline mic</button><small role="status" aria-live="polite"></small>';
+   form.appendChild(control);
+  }
+  control.querySelector('button').textContent=tfAiVoiceSession.isListening()?'■ Stop offline mic':'🎙 Offline mic';
+  control.querySelector('small').textContent=tfAiVoiceStatus;
+ }
+}
+document.addEventListener('click',event=>{
+ const mic=event.target.closest?.('[data-ai-local-mic]');
+ if(!mic)return;
+ event.preventDefault();
+ void tfAiStartOfflineVoice();
+});
 async function tfAiUpdateChatUI(){
  if(tab==='ai'){await render();const log=document.getElementById('tfAiThread');if(log)log.scrollTop=log.scrollHeight}
  else tfAiRefreshOverlay();
+ tfAiMountVoiceControls();
 }
 function tfAiClosePanel(){if(!tfAiPanelOpen)return;tfAiPanelOpen=false;tfAiRefreshOverlay()}
 /* Haptics are progressive enhancement: iOS Safari doesn't provide arbitrary web vibration.
@@ -602,7 +632,11 @@ document.addEventListener('pointerdown',event=>{
  orb.classList.add('tf-ai-liquid-pressed');
  // Start recognition from the actual pointer gesture; waiting for a hold timer can lose browser user activation.
  // The following synthetic click is suppressed, so it cannot toggle recognition off again.
- if(window.TradeFlowVoice?.startListening){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.startListening();}
+ tfAiSkipClickUntil=Date.now()+1000;
+ tfAiPanelOpen=true;
+ tfUiHaptic('selection');
+ tfAiRefreshOverlay();
+ void tfAiStartOfflineVoice();
  return;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -3398,6 +3432,7 @@ async function render(){if(tab!=='map')window.TradeFlowMapExperience?.close();co
   tfLastOpenedPageKey=nextPageKey;
   tfScrollOpenedPageToTop();
  }
+ tfAiMountVoiceControls();
  if(tab==='map')setTimeout(()=>initializeMap(data),0)}
 // Touch acknowledgement uses transform/opacity only. Never delays an action or a data write.
 const tfPressTarget='button:not(:disabled),a[href],label[for]';

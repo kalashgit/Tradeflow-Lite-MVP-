@@ -193,3 +193,9 @@
 .tf-ai-speech-controls button,.tf-ai-speech-controls select,.tf-ai-theirs [data-ai-speech-play]{background:#172a33;color:#d9f8ff;border:1px solid #375766;border-radius:9px;padding:6px 10px;font:inherit;cursor:pointer}
 .tf-ai-speech-controls button:focus-visible,.tf-ai-theirs [data-ai-speech-play]:focus-visible{outline:2px solid #10cfe1;outline-offset:2px}
 .tf-ai-theirs [data-ai-speech-play]{margin-top:8px;font-size:12px}
+.tf-ai-local-voice{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;color:#b8d7df;font-size:12px}
+.tf-ai-local-voice button{min-height:42px;border:1px solid #3a8ea5;border-radius:10px;background:#102f3d;color:#e5faff;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+.tf-ai-local-voice small{flex:1 1 170px;line-height:1.45;color:#b1c7d3}
+.tf-ai-capabilities{display:flex;flex:1 0 100%;flex-direction:column;gap:5px;font-size:11px;line-height:1.35}
+.tf-ai-capabilities span:first-child{color:#8be0d0}
+.tf-ai-capabilities span:last-child{color:#b8c0d0}
