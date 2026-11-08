@@ -6,9 +6,9 @@ const app=fs.readFileSync('public/app.js','utf8');
 const css=fs.readFileSync('public/master-intelligence.css','utf8');
 const speech=fs.readFileSync('public/ai-speech.js','utf8');
 
-test('reference view shares the real brand logo and animated mesh between welcome and conversation',()=>{
+test('reference view preserves brand logo and uses approved welcome video',()=>{
  assert.match(app,/const mark='<img class="tf-master-mark" src="\.\/brand\/tradeflow-mark\.svg"/);
- assert.match(app,/class="tf-master-orb-mesh" src="\.\/orb-concept-b\/reference\.gif"/);
+ assert.match(app,/class="tf-master-orb-video" autoplay muted loop playsinline/);
  assert.match(app,/tf-master-conversation/);
  assert.match(css,/\.tf-master-starters\{display:grid;grid-template-columns:repeat\(4/);
 });
