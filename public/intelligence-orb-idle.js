@@ -143,7 +143,7 @@
     }
    }
    if(button){button.dataset.orbState=energy>.12?'speaking':'idle';button.dataset.orbBackend=gl?'webgl-flow':'canvas-crossfade';}
-   costs.push(root.performance.now()-start);if(costs.length>300)costs.shift();frames++;
+   costs.push(root.performance.now()-start);if(costs.length>300)costs.shift();frames++;canvas.dataset.motionFrames=String(frames);
   }
   function tick(now){
    raf=0;if(disposed||document.hidden||!canvas.isConnected||contextLost)return;
