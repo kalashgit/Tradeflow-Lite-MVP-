@@ -17,10 +17,10 @@ test('iPhone preview only exposes constrained chat and health; other APIs fail c
  assert.match(source,/url\.pathname==='\/api\/ai\/chat'/);
  assert.match(source,/url\.pathname==='\/api\/ai\/health'/);
  assert.match(source,/url\.pathname\.startsWith\('\/api\/'\)/);
- assert.match(source,/status:503/);
+ assert.match(source,/json\(\{error:'This private preview does not enable business record APIs'\},503\)/);
  assert.match(source,/env\.ASSETS\.fetch\(request\)/);
  assert.match(source,/body\?\.business!==null/);
- assert.match(source,/messages\.length===0/);
+ assert.match(source,/raw\.length===0/);
 });
 test('private online preview never asks for legacy app-level code and excludes customer context',()=>{
  const app=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');
