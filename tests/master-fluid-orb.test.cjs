@@ -7,9 +7,11 @@ const css=fs.readFileSync('public/master-intelligence-reference.css','utf8');
 test('welcome orb runs Canvas2D on requestAnimationFrame and interpolates atlas frames',()=>{
  assert.match(adapter,/getContext\('2d'/);
  assert.match(adapter,/requestAnimationFrame\(frame\)/);
- assert.match(adapter,/const blend=fraction\*fraction\*\(3-2\*fraction\)/);
- assert.match(adapter,/drawImage\(image,sx,sy/);
- assert.match(adapter,/drawImage\(image,nx,ny/);
+ assert.match(adapter,/const weights=\[/);
+ assert.match(adapter,/t3\/6\]/);
+ assert.match(adapter,/globalCompositeOperation='lighter'/);
+ assert.match(adapter,/for\(let k=0;k<4;k\+\+\)/);
+ assert.match(adapter,/context\.drawImage\(image,\(frameIndex%3\)/);
  assert.match(adapter,/dataset\.motionFrames=String\(paintCount\)/);
 });
 test('animated GIF remains fallback until actual frames are painted',()=>{
