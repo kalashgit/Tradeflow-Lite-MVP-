@@ -10,6 +10,9 @@
     "run_worker_first": true
   },
   "vars": {
-    "TF_IPHONE_PREVIEW_MODE": "synthetic-offline-only"
+    "TF_IPHONE_PREVIEW_MODE": "private-online-chat-no-customer-data"
+  },
+  "ai": {
+    "binding": "AI"
   }
 }
