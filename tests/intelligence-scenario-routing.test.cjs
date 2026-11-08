@@ -12,7 +12,7 @@ test('owner-entered multi-project scenario goes to AI, not local-record briefing
  assert.equal(mod.isBusinessBriefingRequest('Give me my local business briefing'),true);
  assert.equal(mod.isBusinessBriefingRequest('business overview'),true);
  assert.equal(mod.isBusinessBriefingRequest('What is our business situation and how do we fix it?'),false);
- assert.match(source,/const content=String\(text\|\|'\)\.trim\(\)\.slice\(0,6000\)/);
+ assert.ok(source.includes("const content=String(text||'').trim().slice(0,6000)"));
 });
 test('frontend and Worker permit bounded 6000-character scenario input',()=>{
  const worker=fs.readFileSync(path.join(__dirname,'../src/iphone-preview.js'),'utf8');

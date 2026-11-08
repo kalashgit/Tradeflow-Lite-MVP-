@@ -36,7 +36,7 @@ test('only final bounded transcript text and labelled assistant replies are dura
  assert.deepEqual(valid.refs,[]);
  const negatives=[
   {...base,status:'provisional'},{...base,status:'interrupted'}, {...base,content:'  '},
-  {...base,content:'x'.repeat(2501)}, {...base,rawAudio:[1,2,3]},
+  {...base,content:'x'.repeat(6001)}, {...base,rawAudio:[1,2,3]},
   {...base,refs:['jobs:job01@2']},{...base,source:'general_advice'},
   {...base,role:'assistant',source:'user'}, {...base,id:'../bad'},
   {...base,refs:['fake-reference']}, {...base,modality:'not-a-modality'}

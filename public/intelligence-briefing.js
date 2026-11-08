@@ -4,7 +4,7 @@ const text=x=>typeof x==='string'?x.trim():'';
 const scoped=(rows,id)=>Array.isArray(rows)?rows.filter(x=>x&&(!x.businessId||x.businessId===id)):[];
 const ref=x=>x&&text(x.store)&&text(x.id)?x.store+':'+x.id:null;
 export function isBusinessBriefingRequest(s){
- return typeof s==='string'&&s.trim().length<=160&&/^(?:(?:please\s+)?(?:give|show|prepare|create|generate|run|pull|fetch|get)\s+(?:me\s+)?(?:a|an|my|the|our)?\s*)?(?:(?:local|saved|recorded|device-local)\s+)?(?:business|company|operations|operational)\s+(?:briefing|overview|status|update|snapshot|summary)(?:\s+(?:from|using|of|on)\s+(?:my|our|the)?\s*(?:local|saved|recorded|device-local)?\s*(?:records|data))?[.!?]?$/i.test(s.trim());
+ return typeof s==='string'&&s.trim().length<=160&&(/^(?:give|show|send) me (?:an? )?(?:update|briefing|overview|status) (?:on|of) my business[.!?]?$/i.test(s.trim())||/^(?:(?:please\s+)?(?:give|show|prepare|create|generate|run|pull|fetch|get)\s+(?:me\s+)?(?:a|an|my|the|our)?\s*)?(?:(?:local|saved|recorded|device-local)\s+)?(?:business|company|operations|operational)\s+(?:briefing|overview|status|update|snapshot|summary)(?:\s+(?:from|using|of|on)\s+(?:my|our|the)?\s*(?:local|saved|recorded|device-local)?\s*(?:records|data))?[.!?]?$/i.test(s.trim()));
 }
 export function createOperationalBriefing({data,evaluation,businessId='local-business'}={}){
  if(!text(businessId)||!data||!evaluation||!Array.isArray(evaluation.findings))throw Error('Authorized snapshot and existing detector evaluation required');
