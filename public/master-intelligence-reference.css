@@ -86,7 +86,7 @@ body:has(.tf-master) .tf-master{height:100dvh!important;min-height:0!important;b
 .tf-master-orb[data-mesh-state="flowing"] canvas.tf-master-live-mesh{
  display:block!important;visibility:visible!important;opacity:1!important;
  position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;
- filter:brightness(1.7) saturate(1.22);
+ filter:brightness(2.05) saturate(1.28);
 }
 .tf-master-orb:not([data-mesh-state="flowing"]) canvas.tf-master-live-mesh{
  display:none!important
