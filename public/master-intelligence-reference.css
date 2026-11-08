@@ -233,3 +233,25 @@ body:has(.tf-master) .tf-master-conversation{background:#000!important}
  .tf-master .tf-master-round,.tf-master .tf-master-send{height:40px!important;width:40px!important}
  .tf-master .tf-master-compose{gap:6px!important;padding-inline:8px!important}
 }
+
+
+/* Override the global .content button[type=submit] cyan action rule,
+   including hover/active/disabled states. The founder's AI send is white. */
+.content .tf-master .tf-master-compose button.tf-master-send,
+.content .tf-master .tf-master-compose button.tf-master-send:hover,
+.content .tf-master .tf-master-compose button.tf-master-send:focus,
+.content .tf-master .tf-master-compose button.tf-master-send:active,
+.content .tf-master .tf-master-compose button.tf-master-send:disabled{
+  background:#f8fafb!important;background-color:#f8fafb!important;
+  background-image:none!important;
+  color:#090c0f!important;
+  border:0!important;border-color:transparent!important;
+  box-shadow:none!important;
+  opacity:1!important;filter:none!important;
+  transform:none!important;
+  display:grid!important;place-items:center!important;
+}
+.content .tf-master .tf-master-compose button.tf-master-send svg{
+  stroke:#090c0f!important;fill:none!important;
+  transform:none!important;margin:0!important;
+}
