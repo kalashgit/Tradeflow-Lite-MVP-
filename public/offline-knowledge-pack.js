@@ -20,6 +20,9 @@
  const STOP_WORDS = new Set(['a','an','the','is','are','was','were','and','or','of','to','for','in','on','with','what','which','how','do','does','my','our','at','by','from']);
  const MAX_PASSAGES = 2000;
  const MAX_TEXT = 1800;
+ // An open index is trusted only after this module has verified every passage digest.
+ // A caller-controlled manifest or citation() method must not impersonate that result.
+ const openedPacks = new WeakSet();
 
  function requireString(value, label, max = 240) {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw Error('Invalid ' + label);
@@ -128,8 +131,18 @@
      'Check current jurisdiction, edition, source context and site conditions before use.']
    }));
   }
-  return Object.freeze({manifest:Object.freeze({schema:pack.schema, id:pack.id, version:pack.version,
-   audience:pack.audience, builtOn:pack.builtOn, sourceCount:pack.sources.size, passageCount:pack.passages.length}), search});
+  function citation(id, {scope:requestScope} = {}) {
+   if (privateScope && normalizeScope(requestScope) !== privateScope) throw Error('Local knowledge scope mismatch');
+   if (typeof id !== 'string' || !ID.test(id)) throw Error('Invalid passage citation');
+   const item = indexed.find(entry => entry.passage.id === id);
+   if (!item) return null;
+   return Object.freeze({passage:Object.freeze({...item.passage}), source:Object.freeze({...item.source})});
+  }
+  const opened = Object.freeze({manifest:Object.freeze({schema:pack.schema, id:pack.id, version:pack.version,
+   audience:pack.audience, builtOn:pack.builtOn, sourceCount:pack.sources.size, passageCount:pack.passages.length}), search,citation});
+  openedPacks.add(opened);
+  return opened;
  }
- return Object.freeze({SCHEMA, MAX_PASSAGES, verifyPack, digest, openPack});
+ function isVerifiedPack(value) { return !!value && typeof value === 'object' && openedPacks.has(value); }
+ return Object.freeze({SCHEMA, MAX_PASSAGES, verifyPack, digest, openPack, isVerifiedPack});
 });
