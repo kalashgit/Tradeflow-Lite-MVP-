@@ -22,3 +22,15 @@ test('invalid external event, overpayment and foreign customer fail closed',()=>
 test('stable trace hashes and deterministic outputs on replay',()=>{
  const a=run(),b=run();assert.deepEqual(a,b);assert.equal(new Set(cases.map(x=>x.id)).size,cases.length);
 });
+test('strict Gregorian dates reject impossible, malformed and timezone-bearing input without state mutation',()=>{
+ const bad=['2026-02-30','2025-02-29','2026-04-31','1900-02-29','2026-13-01','2026-00-12','2026-01-00','2026-1-02','2026-01-2','2026-01-01T00:00:00Z','2026-01-01+02:00','2026-01-01 ','0000-01-01','2026-02-29'];
+ const s=session('TF-SIM-12'),before=s.read(),hash=s.reset();
+ for(const date of bad){assert.throws(()=>s.apply({type:'delay',date}),/Invalid Gregorian date/,date);assert.deepEqual(s.read(),before);assert.equal(s.reset(),hash);assert.deepEqual(s.trace(),[])}
+});
+test('Gregorian leap-year and timezone-independent date-only arithmetic',()=>{
+ const s=session('TF-SIM-12');
+ for(const date of ['2000-02-29','2024-02-29','2028-02-29','2400-02-29','2026-02-28','2026-12-31','2026-01-01']){
+  s.reset();s.apply({type:'delay',date});assert.equal(s.read().simulatedDeliveryDate,date);assert.equal(s.trace().length,1);
+ }
+ assert.throws(()=>s.apply({type:'delay',date:'2100-02-29'}),/Invalid Gregorian date/);
+});
