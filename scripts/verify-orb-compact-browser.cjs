@@ -37,6 +37,7 @@ async function bounds(page,width){
  try{
   for(const width of [360,390,430,1280]){
    const context=await browser.newContext({viewport:{width,height:844},serviceWorkers:'block',reducedMotion:'reduce'});
+   await context.tracing.start({screenshots:true,snapshots:true,sources:true});
    context._g02Url='http://127.0.0.1:'+server.address().port;
    const page=await context.newPage();
    await page.addInitScript(()=>{
@@ -85,6 +86,7 @@ async function bounds(page,width){
    assert.match(await page.locator('#tfOrbBubble').innerText(),/Speech recognition is unavailable|Speech unavailable/);
    await page.locator('[data-voice="close"]').click();
    evidence.push({width,bounds:b,captureStarts:1,closeAborts:true,reducedMotion:true,lockedSendRejected:true,permissionFailure:true,unsupportedFallback:true});
+   await context.tracing.stop({path:path.join(output,'trace-'+width+'.zip')});
    await context.close();
   }
   fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(evidence,null,2));

@@ -28,6 +28,7 @@ async function readTurns(page){
  try{
   for(const width of [390,1280]){
    const context=await browser.newContext({viewport:{width,height:844},serviceWorkers:'block',reducedMotion:'reduce'});
+   await context.tracing.start({screenshots:true,snapshots:true,sources:true});
    const page=await context.newPage();
    await page.addInitScript(()=>{
     window.__tf64Recognition=null;
@@ -83,7 +84,9 @@ async function readTurns(page){
    assert.ok(turns.filter(x=>x.role==='assistant').every(x=>x.source==='user_scenario'));
    assert.ok(turns.some(x=>x.role==='assistant'&&/cash|clarif|conflict|ambig/i.test(x.content)));
    assert.ok(!turns.some(x=>x.source==='verified_account'||x.source==='synthetic_mock'));
+   assert.ok(turns.every(x=>x.syncState===undefined),'conversation turns must not masquerade as synced tenant records');
    console.log('X01 '+width+'px: same scoped IndexedDB thread, 4 turns, corrected financial ambiguity and reload PASS');
+   await context.tracing.stop({path:path.join(out,'trace-'+width+'.zip')});
    await context.close();
   }
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve))}

@@ -24,6 +24,8 @@ jobs:
         run: npm test
       - name: X01 focused text and voice contract
         run: node --test tests/tf64-unified-voice-contract.test.cjs tests/orb-compact.test.cjs tests/voice-command.test.cjs tests/voice-wake.test.cjs tests/intelligence-message-contract.test.cjs tests/intelligence-payroll-risk.test.cjs tests/intelligence-scenario-routing.test.cjs
+      - name: Worker boundary, tenant authorization, and approved receipt regressions
+        run: node --test tests/intelligence-message-contract.test.cjs tests/tenant-api.test.cjs tests/tenant-security.test.cjs tests/voice-turn-protocol.test.cjs tests/invoice-followup-execution.test.cjs
       - name: Storage permissions and migrations
         run: npm run test:storage
       - name: Existing contractor workflows
