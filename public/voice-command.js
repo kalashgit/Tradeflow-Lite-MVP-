@@ -48,14 +48,14 @@ function createController(host){
  const doc=host.document,repaint=()=>host.repaint();
  const waveAudio=globalThis.TradeFlowFlowWaveAudio?.createMeter({document:doc});
  function stopMicrophoneNow(){waveAudio?.stop();if(recognition){const active=recognition;recognition=null;try{active.abort()}catch{}}listening=false}
- function close(){stopMicrophoneNow();showCalendarDate='';open=false;draft='';message='';void repaint()}
+ function close(){stopMicrophoneNow();showCalendarDate='';open=false;draft='';message='';void Promise.resolve(repaint()).then(()=>doc.querySelector?.('.tf-ai-orb')?.focus?.())}
  function start(){open=true;draft='';message='';showCalendarDate='';void repaint()}
  function startListening(){if(open){close();return}open=true;draft='';message='';if(!recognition&&!busy)toggle();else void repaint()}
  async function sendConversation(text){
   if(busy||!String(text||'').trim())return;
   if(!host.sendConversation){message='Conversation is not available. You can still run a local command.';void repaint();return}
   const content=String(text).trim();busy=true;message='';stopMicrophoneNow();
-  try{await host.sendConversation(content);draft='';message='Sent to Master Intelligence.'}
+  try{const outcome=await host.sendConversation(content);if(outcome===false)throw Error('Message was not sent. Check Intelligence access and connectivity.');draft='';message='Sent to Master Intelligence.'}
   catch(error){message=String(error.message||error)}
   finally{busy=false;await repaint()}
  }

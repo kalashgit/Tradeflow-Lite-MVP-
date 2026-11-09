@@ -2425,7 +2425,7 @@ function tfInitializePilot(){
   }
   return {status:'unsupported'};
  }
- if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,sendConversation:tfAISend,navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+  if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,sendConversation:async text=>{const before=tfChatMessages.filter(m=>m.role==='user').length;await tfAISend(text);return tfChatMessages.filter(m=>m.role==='user').length>before&&!tfChatError},navigate:tfNavigateWorkspace,mapError:notify,calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   let decisionController=null,decisionLoading=null;
   const investigateJob=async (id,request={})=>{
    if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation changed before investigation');
