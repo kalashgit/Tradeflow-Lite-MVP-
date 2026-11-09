@@ -59,6 +59,32 @@ test('linked records must exist in the same business and share one customer; rev
  delete links.quotes;await assert.rejects(save(db,auth,'jobs','job_01',{revision:0,record:{quoteId:'q1'}}),{status:400});
 });
 
+test('linked payload cannot override the tenant or record identity of its SQL row',async()=>{
+ const links={customers:{payload:JSON.stringify({id:'customer_1',businessId:auth.businessId}),revision:1}};
+ let writes=0;
+ const db={prepare(sql){return {bind(...params){return {first:async()=>{
+  if(sql.startsWith('SELECT payload'))return links[params[1]]||null;
+  writes++;return {revision:1,updated_at:'now'};
+ }}}}}};
+ const request={revision:0,record:{customerId:'customer_1'}};
+ await save(db,auth,'invoices','invoice_1',request);
+ assert.equal(writes,1,'valid linked identity should retain legacy compatibility');
+ for(const corrupt of [
+  {id:'someone_else',businessId:auth.businessId},
+  {id:'customer_1',businessId:'business_other'},
+  {id:123,businessId:auth.businessId},
+  ['not','a','record'],
+  null
+ ]){
+  links.customers.payload=JSON.stringify(corrupt);
+  await assert.rejects(save(db,auth,'invoices','invoice_1',request),{status:503});
+ }
+ assert.equal(writes,1,'no invoice write is allowed from a corrupt linked payload');
+ links.customers.payload=JSON.stringify({name:'legacy customer without embedded identity'});
+ await save(db,auth,'invoices','invoice_1',request);
+ assert.equal(writes,2,'legacy linked records without embedded identity remain readable');
+});
+
 test('server rejects a queued request intended for a different authenticated actor before reading or writing',async()=>{
  const db={prepare(){throw Error('Actor mismatch must fail before database access')}};
  for(const expectedActor of [null,{issuer:auth.issuer,subject:'other_actor'},{issuer:'other_issuer',subject:auth.subject}]){
@@ -71,4 +97,26 @@ test('crew writes reject ordinary members below the API and keep commit-time rol
  let used='';const db={prepare(sql){used=sql;return {bind(){return {first:async()=>({revision:1,updated_at:'now'})}}}}};
  await assert.rejects(save(db,{...auth,role:'member'},'crew','crew_001',{revision:0,record:{name:'Self-appointed owner',role:'owner'}}),{status:403});assert.equal(used,'');
  await save(db,auth,'crew','crew_001',{revision:0,record:{name:'Electrician',role:'Foreman'}});assert.match(used,/role IN \('owner','admin'\)/);
+});
+
+test('sourceKind references reject a corrupt quote payload before any job write',async()=>{
+ const quote={payload:JSON.stringify({id:'quote_other',businessId:auth.businessId,customerId:'customer_1'}),revision:3};
+ let writes=0;
+ const db={prepare(sql){return {bind(...params){return {first:async()=>{
+  if(sql.startsWith('SELECT payload')){
+   assert.deepEqual(params,[auth.businessId,'quotes','quote_1']);
+   return quote;
+  }
+  writes++;
+  return {revision:1,updated_at:'now'};
+ }}}}}};
+ const body={revision:0,record:{sourceKind:'quote',sourceId:'quote_1',customerId:'customer_1'}};
+ await assert.rejects(save(db,auth,'jobs','job_01',body),{status:503});
+ assert.equal(writes,0,'corrupt quote identity cannot become authoritative job evidence');
+ quote.payload=JSON.stringify({id:'quote_1',businessId:'other_business',customerId:'customer_1'});
+ await assert.rejects(save(db,auth,'jobs','job_01',body),{status:503});
+ assert.equal(writes,0,'cross-business quote payload cannot be used');
+ quote.payload=JSON.stringify({id:'quote_1',businessId:auth.businessId,customerId:'customer_1'});
+ await save(db,auth,'jobs','job_01',body);
+ assert.equal(writes,1,'valid quote source remains usable');
 });

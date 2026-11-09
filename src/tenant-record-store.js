@@ -1,5 +1,5 @@
 import {mayWriteRecord,MANAGED_RECORD_TYPES} from '../public/record-permissions.js';
-import {linksForRecord,FINANCIAL_RECORD_TYPES} from '../public/record-model.js';
+import {linksForRecord,FINANCIAL_RECORD_TYPES,recordIdentity} from '../public/record-model.js';
 import {AuthorizationError,tenantRecordQuery} from './tenant-security.js';
 
 export const RECORD_WRITE_SQL =`INSERT INTO tenant_records
@@ -53,6 +53,10 @@ export async function writeTenantRecord(db,authorization,recordType,recordId,bod
   const linked=await db.prepare(query.sql).bind(...query.params).first();
   if(!linked||linked.deleted_at)throw new AuthorizationError('Linked record is unavailable in this business',400);
   let record;try{record=JSON.parse(linked.payload)}catch{throw new AuthorizationError('Linked record is invalid',503)}
+  // The SQL row is tenant-scoped, but its JSON payload can be legacy or corrupt.
+  // Never use relationship fields from a payload asserting another identity.
+  try{recordIdentity({businessId:authorization.businessId,type,id:body.record[field],record})}
+  catch{throw new AuthorizationError('Linked record identity is invalid',503)}
   if(record.customerId)customers.add(record.customerId);
   if(!Number.isSafeInteger(linked.revision)||linked.revision<1)throw new AuthorizationError('Linked revision invalid',503);
   guards.push('AND EXISTS (SELECT 1 FROM tenant_records WHERE business_id=? AND record_type=? AND id=? AND revision=? AND deleted_at IS NULL)');
