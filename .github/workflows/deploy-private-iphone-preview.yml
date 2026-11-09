@@ -33,18 +33,13 @@ jobs:
       - name: Install and verify
         run: |
           npm ci --no-audit --no-fund
-          node --test tests/iphone-preview-isolation.test.cjs tests/ai-offline-voice.test.cjs
+          node --test tests/iphone-preview-isolation.test.cjs tests/ai-offline-voice.test.cjs tests/private-access-preflight.test.cjs
           npm test
           npx wrangler deploy --dry-run --config wrangler.iphone-preview.jsonc
       - name: Require pre-existing owner-only Cloudflare Access protection
         env:
           PRIVATE_PREVIEW_URL: https://tradeflow-pr16-private.bartoszszarafinski.workers.dev
-        run: |
-          code=$(curl --silent --show-error --max-time 15 --max-redirs 0 -o /dev/null -w '%{http_code}' "$PRIVATE_PREVIEW_URL" || true)
-          case "$code" in
-            302|303|307|308|401|403) echo "Anonymous access blocked (HTTP $code)" ;;
-            *) echo "BLOCKED: Access is not verified as enforced (HTTP $code)"; exit 1 ;;
-          esac
+        run: node scripts/verify-private-access.cjs
       - name: Deploy frontend-only private Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -56,9 +51,4 @@ jobs:
       - name: Verify anonymous traffic remains blocked
         env:
           PRIVATE_PREVIEW_URL: https://tradeflow-pr16-private.bartoszszarafinski.workers.dev
-        run: |
-          code=$(curl --silent --show-error --max-time 15 --max-redirs 0 -o /dev/null -w '%{http_code}' "$PRIVATE_PREVIEW_URL" || true)
-          case "$code" in
-            302|303|307|308|401|403) echo "PASS: private preview still requires Access (HTTP $code)" ;;
-            *) echo "FAIL: preview protection could not be verified (HTTP $code)"; exit 1 ;;
-          esac
+        run: node scripts/verify-private-access.cjs
