@@ -68,6 +68,45 @@ test('explicit alternatives are distinguished from contradictory claims without 
  assert.match(r.content,/Alternative financial scenarios/);
 });
 
+test('unlabelled same-clause cash alternatives and corrections never select the first balance',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ for(const statement of [
+  'Cash is $10,000 or $1,000, and weekly payroll is $3,000.',
+  'Cash is $10,000 but actually $1,000, and weekly payroll is $3,000.',
+  'Cash is $10,000 but rather $1,000, and weekly payroll is $3,000.',
+  'Cash is $10,000 or 1,000, and weekly payroll is $3,000.'
+ ]){
+  const r=analyzeOwnerPayrollQuestion(statement+' What threatens payroll in 14 days?');
+  assert.equal(r?.status,'needs_clarification',statement);
+  assert.equal(r.afterPayroll,null,statement);
+  assert.equal(r.cash,null,statement);
+  assert.match(r.content,/unlabelled same-clause alternative or correction/);
+  assert.match(r.content,/Please clarify/);
+  assert.equal(r.executionAuthority,false);
+ }
+});
+
+test('unlabelled second payroll amount cannot produce confident payroll or cash calculations',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ for(const phrasing of ['Weekly payroll is $3,000 or $8,000','Weekly payroll is $3,000 but actually $8,000']){
+  const r=analyzeOwnerPayrollQuestion('Cash $20,000. '+phrasing+'. What threatens payroll in 14 days?');
+  assert.equal(r.status,'needs_clarification');
+  assert.equal(r.weeklyPayroll,null);
+  assert.equal(r.twoWeekPayroll,null);
+  assert.equal(r.afterPayroll,null);
+ }
+});
+
+test('separate clearly labelled fields and dated revisions are not mistaken for same-clause choices',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const clear=analyzeOwnerPayrollQuestion('Cash $20,000 and weekly payroll $3,000. What threatens payroll in 14 days?');
+ assert.equal(clear.status,'conditional_calculation');
+ assert.equal(clear.afterPayroll,14000);
+ const revision=analyzeOwnerPayrollQuestion('Yesterday cash was $10,000; today cash is $1,000. Weekly payroll $3,000. What threatens payroll in 14 days?');
+ assert.equal(revision.status,'needs_clarification');
+ assert.equal(revision.reason,'historical_revision');
+});
+
 test('negative balances and material payments cannot silently become positive or be ignored',async()=>{
  const {analyzeOwnerPayrollQuestion}=await load();
  const negatives=['Cash -$1,000 and weekly payroll $3,000. What threatens payroll in 14 days?',
