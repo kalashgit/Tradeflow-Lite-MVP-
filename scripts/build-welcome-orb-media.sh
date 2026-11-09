@@ -7,6 +7,11 @@ source_asset="public/orb-concept-b/reference.gif"
 target="public/assets"
 mkdir -p "$target"
 test -s "$source_asset"
+# The tracked manifest pins the approved original asset. A missing or changed
+# source must never be replaced by an unrelated clip to satisfy a file test.
+expected_source_sha="$(node -p "require('./public/orb-concept-b/manifest.json').sourceSha256")"
+actual_source_sha="$(sha256sum "$source_asset" | cut -d' ' -f1)"
+test "$expected_source_sha" = "$actual_source_sha" || { echo "BLOCKED: original Concept B source hash changed" >&2; exit 1; }
 mp4="$target/tradeflow_orb_smooth_60_frames.mp4"
 gif="$target/tradeflow_orb_60_frames.gif"
 # CI builds 60 displayed frames using motion-compensated interpolation of the
@@ -23,4 +28,6 @@ ffmpeg -hide_banner -loglevel error -y -i "$mp4" \
 test -s "$mp4";test -s "$gif"
 actual_frames="$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 "$mp4")"
 test "$actual_frames" = "60" || { echo "Expected 60 video frames, got $actual_frames" >&2; exit 1; }
+gif_frames="$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 "$gif")"
+test "$gif_frames" = "60" || { echo "Expected 60 GIF frames, got $gif_frames" >&2; exit 1; }
 echo "PASS: 60 frame MP4 and GIF generated, bytes $(wc -c < "$mp4") / $(wc -c < "$gif")"
