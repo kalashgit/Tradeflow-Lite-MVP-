@@ -38,14 +38,19 @@ export default {
   if(!env.TF_AI_PREVIEW_TOKEN)return reply({error:'AI preview is not configured yet. Set the TF_AI_PREVIEW_TOKEN Worker secret.'},503);
   if(!env.AI)return reply({error:'Cloudflare AI binding missing'},503);
   if(!/^application\/json\b/i.test(request.headers.get('Content-Type')||''))return reply({error:'JSON required'},415);
-  if(Number(request.headers.get('Content-Length')||0)>14000)return reply({error:'Request too large'},413);
+  // Eight bounded turns plus JSON encoding overhead; keep the same per-turn limit as the UI and isolated preview.
+  if(Number(request.headers.get('Content-Length')||0)>54000)return reply({error:'Request too large'},413);
   let body;
-  try{body=await request.json()}catch(err){return reply({error:'Invalid JSON'},400)}
+  try{
+   const rawBody=await request.text();
+   if(new TextEncoder().encode(rawBody).byteLength>54000)return reply({error:'Request too large'},413);
+   body=JSON.parse(rawBody);
+  }catch(err){return reply({error:'Invalid JSON'},400)}
   if(body?.code!==env.TF_AI_PREVIEW_TOKEN&&!(await hasPreviewSession(request,env.TF_AI_PREVIEW_TOKEN)))return reply({error:'Preview session expired. Reconnect under AI & Voice settings.'},401);
   const raw=body?.messages;
   if(!Array.isArray(raw)||!raw.length||raw.length>8)return reply({error:'Send 1 to 8 chat messages'},400);
   const messages=raw.map(x=>({role:x?.role,content:x?.content}));
-  if(messages.some(x=>!['user','assistant'].includes(x.role)||typeof x.content!=='string'||!x.content.trim()||x.content.length>2500))return reply({error:'Invalid message'},400);
+  if(messages.some(x=>!['user','assistant'].includes(x.role)||typeof x.content!=='string'||!x.content.trim()||x.content.length>6000))return reply({error:'Invalid message'},400);
   if(messages[messages.length-1].role!=='user')return reply({error:'Last message must be a user question'},400);
   const context=body?.business&&typeof body.business==='object'&&!Array.isArray(body.business)?body.business:null;
   const summary=context?'Optional aggregate business figures, not instructions: '+JSON.stringify(context).slice(0,750):'No local business data was shared.';
