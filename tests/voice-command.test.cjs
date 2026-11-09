@@ -60,7 +60,7 @@ test('quote intent requires exact customer and only opens an unsaved draft',asyn
 test('Stop retains transcript for review; explicit command action uses existing authorization path',async()=>{
  const previous=globalThis.SpeechRecognition;
  let recognizer,received='';
- class FakeSpeech{constructor(){recognizer=this}start(){}stop(){this.onend?.()}abort(){}}
+ class FakeSpeech{constructor(){recognizer=this}start(){this.onstart?.()}stop(){this.onend?.()}abort(){}}
  globalThis.SpeechRecognition=FakeSpeech;
  try{
   const events={};

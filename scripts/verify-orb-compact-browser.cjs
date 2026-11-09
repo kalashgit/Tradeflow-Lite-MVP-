@@ -81,11 +81,36 @@ async function bounds(page,width){
    assert.match(await page.locator('#tfOrbBubble').innerText(),/Could not start microphone/);
    assert.equal(await page.locator('#tfVoiceText').isEnabled(),true);
    await page.locator('[data-voice="close"]').click();
+   // The browser may defer onstart during its permission prompt. Never show
+   // "Listening" or audio-reactive activity during that pending interval.
+   await page.evaluate(()=>{
+    window.SpeechRecognition=class{
+     start(){window.__g02PendingMic=this}
+     stop(){this.onend?.()}
+     abort(){this.onend?.()}
+    };
+   });
+   await orb.click();await page.locator('#tfOrbBubble').waitFor();
+   assert.equal(await page.locator('#tfOrbBubble').getAttribute('data-voice-state'),'requesting');
+   assert.match(await page.locator('#tfOrbStatus').innerText(),/Requesting microphone/);
+   assert.equal(await page.locator('[data-voice="mic"]').getAttribute('aria-pressed'),'false');
+   await page.evaluate(()=>{
+    window.__g02PendingMic.onresult?.({results:[[{transcript:'Synthetic partial speech'}]]});
+    window.__g02PendingMic.onerror?.({error:'not-allowed'});
+   });
+   assert.match(await page.locator('#tfOrbBubble').innerText(),/Microphone permission denied/);
+   assert.equal(await page.locator('#tfVoiceText').inputValue(),'','Denied permission must not leave a sendable partial transcript');
+   assert.equal(await page.locator('#tfOrbBubble').getAttribute('data-voice-state'),'error');
+   await context.setOffline(true);
+   assert.match(await page.locator('.tf-orb-capability').innerText(),/Speech may require network/);
+   assert.equal(await page.locator('#tfVoiceText').isEnabled(),true,'Offline must retain text entry');
+   await context.setOffline(false);
+   await page.locator('[data-voice="close"]').click();
    await page.evaluate(()=>{delete window.SpeechRecognition;delete window.webkitSpeechRecognition});
    await orb.click();await page.locator('#tfOrbBubble').waitFor();
    assert.match(await page.locator('#tfOrbBubble').innerText(),/Speech recognition is unavailable|Speech unavailable/);
    await page.locator('[data-voice="close"]').click();
-   evidence.push({width,bounds:b,captureStarts:1,closeAborts:true,reducedMotion:true,lockedSendRejected:true,permissionFailure:true,unsupportedFallback:true});
+   evidence.push({width,bounds:b,captureStarts:1,closeAborts:true,reducedMotion:true,lockedSendRejected:true,permissionFailure:true,pendingPermissionTruthful:true,deniedPartialDiscarded:true,offlineTextFallback:true,unsupportedFallback:true});
    await context.tracing.stop({path:path.join(output,'trace-'+width+'.zip')});
    await context.close();
   }

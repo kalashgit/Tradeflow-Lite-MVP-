@@ -3,12 +3,15 @@ on:
   pull_request:
     branches:
       - integration/tf-unified-preview-20261107
+      - integration/TF-64-unified-owner-journey
     paths:
       - 'public/app.js'
       - 'public/voice-command.js'
       - 'public/voice-command.css'
       - 'public/intelligence-orb-idle.css'
       - 'tests/orb-compact.test.cjs'
+      - 'tests/voice-command.test.cjs'
+      - 'tests/flow-wave-audio.test.cjs'
       - 'scripts/verify-orb-compact-browser.cjs'
       - '.github/workflows/g02-orb-compact-validation.yml'
   workflow_dispatch:
@@ -26,6 +29,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Generate approved original orb media for the runtime contract
+        run: |
+          echo '546b4d85b70c9a794e00374770154eeab171e10e6c5a588c2c26a20219f8d2ef  public/orb-concept-b/reference.gif' | sha256sum --check
+          bash scripts/build-welcome-orb-media.sh
       - name: Node regressions
         run: npm test
       - name: Install Chromium
