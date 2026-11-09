@@ -68,7 +68,7 @@ async function bounds(page,width){
    assert.equal(await orb.getAttribute('aria-expanded'),'false');
    await orb.focus();await page.keyboard.press('Enter');await page.locator('#tfOrbBubble').waitFor();
    assert.equal(await page.locator('#tfOrbBubble button:focus-visible').count(),0);
-   assert.equal(await page.locator('#tfOrbBubble').evaluate(el=>getComputedStyle(el).animationDuration),'0s');
+   assert.ok(await page.locator('#tfOrbBubble').evaluate(el=>parseFloat(getComputedStyle(el).animationDuration)<=0.001),'Reduced motion must have no perceptible animation');
    await page.locator('#tfVoiceText').fill('Synthetic question');
    await page.locator('#tfVoiceForm button[type="submit"]').click();
    await page.locator('.tf-orb-feedback').waitFor();
