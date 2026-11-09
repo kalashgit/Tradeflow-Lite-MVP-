@@ -16,7 +16,7 @@ test('Intelligence route uses the clean welcome/chat surface',()=>{
 
 test('Send transitions to conversation using existing message path',()=>{
  assert.match(source,/if\(e\.target\.id==='tfAiChatForm'\)[\s\S]*?tfAiConversationStarted=true;\s*await tfAISend/);
- assert.match(source,/async function tfAISend\(text(?:,\{speakReply=false\}=\{\})?\)/);
+ assert.match(source,/async function tfAISend\(text,\{speakReply=false,modality='text'\}=\{\}\)/);
  assert.match(source,/await tfAiSaveTurn\(\{role:'user'/);
  assert.match(source,/tfAiConversationStarted=true;[\s\S]*?tfAiUpdateChatUI\(\)/);
 });
