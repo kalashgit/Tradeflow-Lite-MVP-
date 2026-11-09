@@ -8,7 +8,14 @@ const clone=x=>structuredClone(x);
 const digest=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const must=(v,msg)=>{if(!v)throw Error(msg)};
 const money=n=>{must(Number.isSafeInteger(n)&&n>=0,'Invalid financial amount');return n};
-const day=s=>{const n=Date.parse(s+'T00:00:00Z');must(Number.isFinite(n),'Invalid date');return n};
+function day(s){
+ must(typeof s==='string'&&/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(s),'Invalid Gregorian date');
+ const [year,month,date]=s.split('-').map(Number);
+ const leap=year%4===0&&(year%100!==0||year%400===0);
+ const lengths=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+ must(year>=1&&date<=lengths[month-1],'Invalid Gregorian date');
+ const utc=new Date(0);utc.setUTCFullYear(year,month-1,date);utc.setUTCHours(0,0,0,0);return utc.getTime();
+}
 const diff=(a,b)=>Math.round((day(b)-day(a))/86400000);
 function validate(b){
  must(b?.name?.includes('SYNTHETIC'),'Synthetic business required');
