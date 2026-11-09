@@ -24,3 +24,14 @@ test('X01 bridges both modalities through existing scoped IndexedDB path, no ext
  assert.match(app,/await tfAiUpdateChatUI\(\)/);
  assert.doesNotMatch(fs.readFileSync('public/x01-financial-bridge.js','utf8'),/indexedDB|fetch\(|localStorage|\.put\(|\.post\(/);
 });
+
+test('conversation store accepts missing-financial-evidence assistant source but rejects forged verified status',()=>{
+ const store=require('../public/conversation-store.js');
+ const base={id:'x01-financial-missing',role:'assistant',content:'FINANCIAL EVIDENCE MISSING',status:'committed',modality:'text',refs:[]};
+ const saved=store.sanitizeTurn({...base,source:'financial_missing_data'});
+ assert.equal(saved.source,'financial_missing_data');
+ assert.equal(saved.role,'assistant');
+ assert.equal(saved.refs.length,0);
+ assert.throws(()=>store.sanitizeTurn({...base,source:'verified_tenant_record'}),/Only bounded/);
+ assert.throws(()=>store.sanitizeTurn({...base,role:'user',source:'financial_missing_data'}),/Only bounded/);
+});
