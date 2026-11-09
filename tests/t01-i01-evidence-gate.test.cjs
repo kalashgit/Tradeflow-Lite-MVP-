@@ -33,6 +33,9 @@ test('no application available means real app metrics explicitly null',async()=>
  assert.equal(r.scorecard.model,null);
  assert.equal(r.scorecard.authenticatedTenant,null);
  assert.deepEqual(r.observations,[]);
+ assert.equal(r.overallProductAcceptance,false);
+ assert.ok(r.productBlockers.includes('APPLICATION_MODULE_NOT_EXECUTED'));
+ assert.deepEqual(r.trace,[]);
 });
 
 test('I01 module source pin rejects arbitrary and modified files',()=>{
@@ -56,6 +59,10 @@ test('actual pinned I01 app evaluator rejects incomplete evidence and proves con
  assert.equal(r.appObserved,true);
  assert.equal(r.providerMode,'none_no_model_invoked');
  assert.equal(r.scorecard.guardedCasesPassed,10,JSON.stringify(r.failures));
+ assert.equal(r.overallProductAcceptance,false);
+ assert.ok(r.productBlockers.includes('NO_OWNER_THREAD_ROUTE'));
+ assert.equal(r.trace.length,10);
+ assert.ok(r.trace.every(x=>x.operation==='evaluateFinancialEvidence'&&x.executionAuthority===false));
  assert.equal(r.scorecard.guardedCasesTotal,10);
  assert.equal(r.scorecard.realisticIncompleteCash,null);
  assert.equal(r.scorecard.conditionalNumericDeviation,0);
