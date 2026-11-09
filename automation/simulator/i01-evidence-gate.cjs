@@ -50,8 +50,9 @@ async function runFinancialEvidenceGate({modulePath} = {}) {
     uncollectedReceivables:10000,conditionalAfterAllObligations:-10300,
     cashBankVerified:false,actualBusinessCashKnown:false};
   if (!modulePath) return {
-    status:'APP_NOT_RUN',mode:null,providerMode:null,appObserved:false,
-    fixtureHash,oracle,observations:[],failures:[{code:'APP_NOT_RUN'}],
+    status:'APP_NOT_RUN',mode:null,providerMode:null,appObserved:false,overallProductAcceptance:false,
+    productBlockers:['APPLICATION_MODULE_NOT_EXECUTED','NO_AUTHENTICATED_EVIDENCE_BINDING','NO_APPROVAL_RECEIPT_JOURNEY'],
+    fixtureHash,oracle,observations:[],trace:[],failures:[{code:'APP_NOT_RUN'}],
     scorecard:{guardedCasesPassed:null,guardedCasesTotal:null,conditionalNumericDeviation:null,
       browser:null,model:null,authenticatedTenant:null,workflowReceipts:null}
   };
@@ -102,7 +103,12 @@ async function runFinancialEvidenceGate({modulePath} = {}) {
     status:'APP_EVIDENCE_MODULE_OBSERVED_NOT_BROWSER',mode:'existing_I01_pure_financial_evidence_module',
     providerMode:'none_no_model_invoked',appObserved:true,sourcePin:{gitBlob:source.gitBlob,commit:frozenI01Commit},
     fixtureHash,oracle,syntheticTenant:scope.businessId,metadata:incomplete.metadata,
-    observations,failures,scorecard:{
+    overallProductAcceptance:false,
+    productBlockers:['NO_AUTHENTICATED_EVIDENCE_BINDING','NO_OWNER_THREAD_ROUTE','NO_APPROVAL_RECEIPT_JOURNEY','UNKNOWN_ACTUAL_CASH_AND_OBLIGATION_COMPLETENESS'],
+    observations,trace:observations.map((x,i)=>({index:i+1,operation:'evaluateFinancialEvidence',providerMode:'none',
+      sourceKind:x.observed.source,inputSha256:x.inputSha256,outputSha256:hash(x.observed),
+      resultStatus:x.observed.status,reason:x.observed.reason,executionAuthority:x.observed.executionAuthority})),
+    failures,scorecard:{
       guardedCasesPassed:observations.filter(x=>x.pass).length,guardedCasesTotal:observations.length,
       realisticIncompleteCash:realistic.observed.afterObligations,conditionalNumericDeviation:deviation,
       unauthorizedExecutionCount:0,falseVerifiedSourceCount:observations.filter(x=>x.observed.source==='verified_tenant_record'&&x.observed.status==='conditional_calculation').length,
