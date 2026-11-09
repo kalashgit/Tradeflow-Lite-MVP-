@@ -22,24 +22,50 @@ export function analyzePayrollRisk({cash, receivables, weeklyPayroll, periodDays
   'Priority: verify dated payroll obligations and bank availability; then reconcile collectible invoices and near-term project commitments. Propose an internal cash review only after record verification and explicit approval.',
   'No record was changed, invoice sent, payment made, or workflow executed.'
  ];
- return Object.freeze({source,periodDays,cash:knownCash,receivables:knownReceivables,weeklyPayroll:knownPayroll,twoWeekPayroll,afterPayroll,executionAuthority:false,content:lines.join('\n')});
+ return Object.freeze({status:afterPayroll === null ? 'missing_data' : 'conditional_calculation',source,periodDays,cash:knownCash,receivables:knownReceivables,weeklyPayroll:knownPayroll,twoWeekPayroll,afterPayroll,executionAuthority:false,content:lines.join('\n')});
 }
 
-function extractAmount(text, label) {
- const amount = '(?:\\$\\s*)?(\\d{1,3}(?:,\\d{3})*(?:\\.\\d{1,2})?|\\d+(?:\\.\\d{1,2})?)';
- const expression = new RegExp('(?:' + amount + '\\s+(?:in\\s+)?' + label + '|' + label + '\\s*(?:of|is|:|=)\\s*' + amount + ')', 'i');
- const match = expression.exec(text);
- if (!match) return null;
- const value = Number((match[1] || match[2]).replaceAll(',', ''));
- return Number.isSafeInteger(value) && value >= 0 ? value : null;
+function extractAmounts(text, label) {
+ const amount = '(?:\\$\\s*)?((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{1,2})?)';
+ const suffix = new RegExp(amount + '\\s+(?:in\\s+)?' + label + '\\b', 'gi');
+ const prefix = new RegExp('\\b' + label + '(?:\\s+balance)?\\s*(?:of|is|was|:|=)?\\s*' + amount, 'gi');
+ const occurrences=[];
+ for(const pattern of [suffix,prefix]){
+  for(const match of text.matchAll(pattern)){
+   // Do not silently round or reinterpret cents, partial amounts, or unsafe integers.
+   const raw=match[1] || match[2];
+   const value=Number(raw.replaceAll(',',''));
+   occurrences.push({start:match.index,amount:match[0].trim(),value:Number.isSafeInteger(value) && value>=0 ? value : null});
+  }
+ }
+ return occurrences.sort((a,b)=>a.start-b.start);
 }
 
 export function analyzeOwnerPayrollQuestion(text) {
  if (typeof text !== 'string' || text.length > 6000 || !/\b(?:payroll|paychecks?)\b/i.test(text) ||
      !/\b(?:next\s+(?:two|2)\s+weeks|14\s+days|cash\s+position|cash.flow|threaten\s+payroll)\b/i.test(text)) return null;
- const cash = extractAmount(text, 'cash');
- const receivables = extractAmount(text, '(?:accounts\\s+)?receivables?');
- const weeklyPayroll = extractAmount(text, 'weekly\\s+payroll');
- if (cash === null && receivables === null && weeklyPayroll === null) return null;
- return analyzePayrollRisk({cash,receivables,weeklyPayroll,source:'user_scenario'});
+ const fields={cash:extractAmounts(text,'cash'),receivables:extractAmounts(text,'(?:accounts\\s+)?receivables?'),weeklyPayroll:extractAmounts(text,'weekly\\s+payroll')};
+ const materialCosts=extractAmounts(text,'(?:materials?(?:\\s+costs?)?|supplier\\s+payments?|job\\s+costs?|expenses?|outflows?)');
+ if(Object.values(fields).every(rows=>rows.length===0) && !materialCosts.length) return null;
+ const ambiguous=Object.entries(fields).filter(([,rows])=>rows.length>1 || rows.some(row=>row.value===null));
+ // A time-qualified revision without its field label is also unsafe to associate automatically.
+ const unlabeledRevision=/\b(?:but\s+)?(?:now|currently)\s+(?:(?:it|that|balance)\s+)?(?:is|at|of)?\s*\$\s*\d[\d,]*(?:\.\d{1,2})?/i.test(text);
+ const negative=/(?:\b(?:cash|receivables?|weekly\s+payroll|materials?|expenses?)\b\s*(?:of|is|was|:|=)?\s*-\s*\$?\s*\d| -\s*\$?\s*\d[\d,]*\s+(?:cash|receivables?|weekly\s+payroll|materials?|expenses?))/i.test(text);
+ const repeated=ambiguous.length>0 || unlabeledRevision || materialCosts.length>1;
+ if(repeated || negative || materialCosts.length){
+  const alternatives=/\b(?:either|option\s+[ab]|scenario\s+[ab]|versus|vs\.?|alternative\s+[ab])\b|\$[\d,]+\s+or\s+\$[\d,]+/i.test(text);
+  const revision=/\b(?:yesterday|last\s+(?:week|month|year)|previously|formerly|historical|prior|earlier|now|currently|current|as\s+of)\b/i.test(text);
+  const reason=negative?'unsupported_negative':repeated?(alternatives?'alternatives':revision?'historical_revision':'contradiction'):'unverified_outflows';
+  const explanations={
+   contradiction:'Contradictory or repeated financial values were detected.',
+   historical_revision:'Historical and current figures were both supplied; this is a possible revision, not a verified contradiction.',
+   alternatives:'Alternative financial scenarios were supplied; they are not one confirmed balance.',
+   unsupported_negative:'Negative or unsupported financial input needs verification before calculation.',
+   unverified_outflows:'Material costs or other outgoing commitments were supplied without verified payment timing.'
+  };
+  const details=[...ambiguous.map(([field,rows])=>field+': '+rows.map(row=>row.amount).join(' / ')),...(unlabeledRevision?['unlabelled current-value revision']:[]),...(negative?['negative amount']:[]),...(materialCosts.length?['other cash outflows: '+materialCosts.map(row=>row.amount).join(' / ')]:[])].join('; ');
+  return Object.freeze({status:'needs_clarification',reason,source:'user_scenario',cash:null,receivables:null,weeklyPayroll:null,twoWeekPayroll:null,afterPayroll:null,executionAuthority:false,
+   content:'HYPOTHETICAL OWNER-SUPPLIED SCENARIO — not saved TradeFlow business records.\n'+explanations[reason]+' ('+details+'). Please clarify the single current value, its effective date, and when outgoing payments fall due. Previous, stale, and current figures cannot be safely selected automatically.\nUnknowns include payroll dates, taxes, benefits, material costs, supplier due dates and collectible receivables.\nNo payroll coverage or cash balance was calculated; no business action was taken.'});
+ }
+ return analyzePayrollRisk({cash:fields.cash[0]?.value??null,receivables:fields.receivables[0]?.value??null,weeklyPayroll:fields.weeklyPayroll[0]?.value??null,source:'user_scenario'});
 }
