@@ -1,8 +1,7 @@
 'use strict';
 const {test,before}=require('node:test'),assert=require('node:assert/strict');
 const {webcrypto}=require('node:crypto');
-let DatabaseSync;
-try{({DatabaseSync}=require('node:sqlite'))}catch{}
+const {DatabaseSync}=require('node:sqlite');
 let api,keyPair,jwk;
 const issuer='https://identity.example.test',audience='tradeflow-pilot',business='business_001';
 const envBase={TF_OIDC_ISSUER:issuer,TF_OIDC_AUDIENCE:audience,TF_OIDC_JWKS_URL:issuer+'/.well-known/jwks.json'};
@@ -41,12 +40,11 @@ const endpoint=(tenant=business)=>'/api/v1/businesses/'+tenant+'/intelligence/fi
 const request=(path,signed,method='GET',headers={})=>new Request('https://pilot.example.test'+path,{method,headers:{...(signed?{Authorization:'Bearer '+signed}:{}),...headers}});
 const call=(f,path,signed)=>api(request(path,signed),{...envBase,TF_DB:f.db,TF_EXTENDED_RECORDS_ENABLED:'false'},{fetchJwks:jwksResponse});
 before(async()=>{
- if(!DatabaseSync)return;
  ({tenantApi:api}=await import('../src/tenant-api.js'));
  keyPair=await webcrypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
  jwk={...await webcrypto.subtle.exportKey('jwk',keyPair.publicKey),kid:'primary',alg:'RS256',use:'sig'};
 });
-const run=(title,fn)=>test(title,{skip:!DatabaseSync?'node:sqlite unavailable; requires Node 22+':false},fn);
+const run=(title,fn)=>test(title,fn);
 run('signed owner receives only server-attested record refs and missing financial claims',async()=>{
  const f=fixture();f.add('invoices','invoice_1',{amount:10000,bankVerified:true,notes:'UNTRUSTED INVOICE NOTE'});
  f.add('payments','payment_1',{amount:10000,settlementVerified:true});
