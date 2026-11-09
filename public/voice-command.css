@@ -80,3 +80,19 @@
 .tf-voice-approval{font-size:10px!important;opacity:.75}
 @media(max-height:720px){.tf-voice-sheet{min-height:0!important}.tf-voice-intro{margin-top:15px!important}.tf-voice-wave{height:165px!important}.tf-voice-actions{margin-top:7px!important;min-height:0}}
 @media(prefers-reduced-motion:reduce){.tf-flow-sheet{animation:none!important;will-change:auto}}
+/* G02 compact nonmodal conversation. The legacy sheet styles remain isolated and unused. */
+.tf-orb-bubble{position:fixed;z-index:1849;right:calc(86px + env(safe-area-inset-right));bottom:calc(98px + env(safe-area-inset-bottom));width:min(300px,calc(100vw - 102px - env(safe-area-inset-left) - env(safe-area-inset-right)));box-sizing:border-box;padding:12px;border:1px solid color-mix(in srgb,var(--tf-accent,#10cfe1) 28%,#333);border-radius:18px;background:#101519f5;color:#eaf7fa;box-shadow:0 12px 38px #0009;animation:tf-orb-bubble-in .16s ease-out;overflow-wrap:anywhere}
+.tf-orb-bubble-head,.tf-orb-actions{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.tf-orb-bubble-head{font-size:12px;font-weight:650;margin-bottom:8px}
+.tf-orb-bubble-head button,.tf-orb-actions button{color:inherit;background:#202b30;border:1px solid #405259;border-radius:9px;min-height:38px;padding:6px 9px;cursor:pointer}
+.tf-orb-bubble-head button{min-width:38px;font-size:18px}
+.tf-orb-compose textarea{box-sizing:border-box;display:block;width:100%;min-height:64px;max-height:25dvh;resize:vertical;background:#080d10;border:1px solid #405259;border-radius:10px;padding:9px;color:inherit;font:inherit;font-size:14px}
+.tf-orb-actions{margin-top:8px;flex-wrap:wrap}
+.tf-orb-actions button:last-child{background:var(--tf-accent,#10cfe1);color:#031317;border-color:transparent;font-weight:700}
+.tf-orb-feedback{font-size:12px;line-height:1.4;margin:8px 0 0;white-space:pre-line}
+.tf-orb-capability{display:block;color:#a7b8bf;font-size:10px;line-height:1.4;margin-top:8px}
+.tf-orb-bubble button:focus-visible,.tf-orb-bubble textarea:focus-visible{outline:2px solid var(--tf-accent,#10cfe1);outline-offset:2px}
+@keyframes tf-orb-bubble-in{from{opacity:0;transform:translateX(9px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:430px){.tf-orb-bubble{right:calc(76px + env(safe-area-inset-right));bottom:calc(98px + env(safe-area-inset-bottom));width:min(276px,calc(100vw - 88px - env(safe-area-inset-left) - env(safe-area-inset-right)));padding:10px}.tf-orb-actions button{font-size:11px;padding:5px 7px}}
+@media(max-height:550px){.tf-orb-bubble{bottom:calc(72px + env(safe-area-inset-bottom));max-height:calc(100dvh - 95px);overflow:auto}}
+@media(prefers-reduced-motion:reduce){.tf-orb-bubble{animation:none}}

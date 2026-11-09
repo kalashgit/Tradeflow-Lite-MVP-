@@ -546,7 +546,8 @@ function tfAiOverlayView(){
  if(modal||tfCapture||tfImportDraft)return '';
  const onFull=tab==='ai',isOpen=tfAiPanelOpen&&!onFull,unlocked=!!tfAiKey()||tfAiOfflinePreview;
  const emblem='<span class="tf-brand-mark" aria-hidden="true"><span class="tf-brand-top"></span><span class="tf-brand-stem"></span><span class="tf-brand-accent"></span></span>';
- const orb='<button type="button" class="tf-ai-orb" title="Tap to talk to TradeFlow" data-action="tfAiToggle" aria-label="Talk to TradeFlow" aria-expanded="false" aria-controls="tfAiOverlayRoot"><span class="tf-ai-orb-icon" aria-hidden="true">AI</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
+ const voiceState=window.TradeFlowVoice?.state?.()||{};
+ const orb='<button type="button" class="tf-ai-orb'+(voiceState.open?' tf-orb-is-active':'')+(voiceState.listening?' tf-orb-is-listening':'')+'" title="Tap to talk to TradeFlow" data-action="tfAiToggle" aria-label="'+(voiceState.open?'Close voice conversation':'Talk to TradeFlow')+'" aria-expanded="'+!!voiceState.open+'" aria-controls="tfOrbBubble"><span class="tf-ai-orb-icon" aria-hidden="true">AI</span><span class="tf-ai-orb-signal" aria-hidden="true"></span></button>';
  if(!isOpen)return orb;
  const msgs=tfChatMessages.slice(-4).map(m=>'<div class="tf-ai-mini-message '+(m.role==='user'?'mine':'assistant')+'"><small>'+(m.role==='user'?'YOU':'TRADEFLOW AI')+'</small><p>'+esc(m.content)+'</p>'+tfAiAttribution(m)+'</div>').join('');
  const promptButtons=tfAiCurrentPrompts().map(([title,prompt])=>'<button type="button" data-action="tfAiPanelPrompt" data-prompt="'+esc(prompt)+'" '+(tfChatBusy?'disabled':'')+'>'+esc(title)+'</button>').join('');
@@ -716,7 +717,7 @@ function tfAiStopPointer(event){
 document.addEventListener('pointerup',tfAiStopPointer,true);
 document.addEventListener('pointercancel',tfAiStopPointer,true);
 document.addEventListener('click',event=>{
- if(Date.now()<tfAiSkipClickUntil&&event.target.closest?.('.tf-ai-orb')){
+ if(event.detail!==0&&Date.now()<tfAiSkipClickUntil&&event.target.closest?.('.tf-ai-orb')){
   event.preventDefault();event.stopImmediatePropagation();
  }
 },true);
@@ -2593,7 +2594,7 @@ function tfInitializePilot(){
   }
   return {status:'unsupported'};
  }
- if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,chatCommand:async instruction=>{tfResetWorkspace('ai');tfAiConversationStarted=true;await tfAISend(instruction,{speakReply:true,modality:'voice'})},calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
+ if(window.TradeFlowVoiceCommand){window.TradeFlowVoice=window.TradeFlowVoiceCommand.createController({document,snapshot:tfPilotSnapshot,commands:runtime,customer:window.TradeFlowCustomerEntry,mapCommand:runMapVoiceAction,workspaceCommand:runLaunchWorkspaceCommand,moreCommand:runLaunchMoreCommand,libraryCommand:runLibraryVoiceAction,navigate:tfNavigateWorkspace,mapError:notify,chatCommand:async instruction=>{tfResetWorkspace('ai');tfAiConversationStarted=true;await tfAISend(instruction,{speakReply:true,modality:'voice'})},sendConversation:async (instruction,{modality='text'}={})=>{if(!['text','voice'].includes(modality))return false;const beforeThread=tfActiveChatThreadId;const before=tfChatMessages.filter(m=>m.role==='user').length;await tfAISend(instruction,{modality,speakReply:modality==='voice'});return (!beforeThread||tfActiveChatThreadId===beforeThread)&&tfChatMessages.filter(m=>m.role==='user').length===before+1&&!tfChatError},calendarRecords:data=>window.TradeFlowCalendar?.records?.(data)||[],openCalendar:async date=>{window.TradeFlowCalendar?.focusDate?.(date);tfResetWorkspace('calendar');await render()},now:()=>new Date(),repaint:render});}
   let decisionController=null,decisionLoading=null;
   const investigateJob=async (id,request={})=>{
    if(request.threadId&&request.threadId!==tfActiveChatThreadId)throw Error('Conversation changed before investigation');

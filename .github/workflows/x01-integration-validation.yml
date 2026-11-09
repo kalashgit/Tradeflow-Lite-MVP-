@@ -1,0 +1,54 @@
+name: X01 Unified Owner Journey Validation
+on:
+  pull_request:
+    branches:
+      - codex/latest-mi-iphone-20261108
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Full Node regression (report missing orb asset honestly)
+        id: full_node
+        continue-on-error: true
+        run: npm test
+      - name: X01 focused text and voice contract
+        run: node --test tests/tf64-unified-voice-contract.test.cjs tests/orb-compact.test.cjs tests/voice-command.test.cjs tests/voice-wake.test.cjs tests/intelligence-message-contract.test.cjs tests/intelligence-payroll-risk.test.cjs tests/intelligence-scenario-routing.test.cjs
+      - name: Storage permissions and migrations
+        run: npm run test:storage
+      - name: Existing contractor workflows
+        run: npm run test:contractors
+      - name: T01 deterministic synthetic-only oracle
+        run: |
+          node --test tests/t01-simulator-evaluation.test.cjs tests/contractor-simulation-fixtures.test.cjs
+          node automation/simulator/evaluate.cjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: G02 compact orb mobile and desktop journeys
+        run: node scripts/verify-orb-compact-browser.cjs
+      - name: Screenshots and browser logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: x01-orb-compact-evidence
+          path: artifacts/orb-compact/
+          if-no-files-found: warn
+      - name: Enforce full Node gate
+        if: always()
+        env:
+          FULL_NODE_RESULT: ${{ steps.full_node.outcome }}
+        run: |
+          if [ "$FULL_NODE_RESULT" != success ]; then
+            echo 'Full Node regression failed. Investigate supplied orb MP4 asset and other failures; this integration is NOT green.'
+            exit 1
+          fi

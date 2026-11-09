@@ -57,7 +57,7 @@ test('quote intent requires exact customer and only opens an unsaved draft',asyn
  assert.equal(executed,1);
 });
 
-test('Stop finalizes speech even when recognizer sends onend without final onresult',async()=>{
+test('Stop retains transcript for review; explicit command action uses existing authorization path',async()=>{
  const previous=globalThis.SpeechRecognition;
  let recognizer,received='';
  class FakeSpeech{constructor(){recognizer=this}start(){}stop(){this.onend?.()}abort(){}}
@@ -72,6 +72,10 @@ test('Stop finalizes speech even when recognizer sends onend without final onres
   await click('mic');
   recognizer.onresult({results:[[{transcript:'Hey TradeFlow, add customer Maria Black, phone 512-555-0198'}]]});
   await click('mic');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(controller.view(),/Maria Black/);
+  assert.equal(received,'');
+  await click('command');
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(received,/Maria Black/);
  }finally{

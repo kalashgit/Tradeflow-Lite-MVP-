@@ -1,0 +1,41 @@
+name: G02 Orb Compact Validation
+on:
+  pull_request:
+    branches:
+      - integration/tf-unified-preview-20261107
+    paths:
+      - 'public/app.js'
+      - 'public/voice-command.js'
+      - 'public/voice-command.css'
+      - 'public/intelligence-orb-idle.css'
+      - 'tests/orb-compact.test.cjs'
+      - 'scripts/verify-orb-compact-browser.cjs'
+      - '.github/workflows/g02-orb-compact-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Node regressions
+        run: npm test
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: G02 viewport and negative-case journeys
+        run: node scripts/verify-orb-compact-browser.cjs
+      - name: Evidence screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g02-orb-compact-browser-evidence
+          path: artifacts/orb-compact/
+          if-no-files-found: ignore
