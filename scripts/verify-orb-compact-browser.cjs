@@ -20,7 +20,7 @@ async function seed(page){
   tx.objectStore('settings').put({id:'business',company:'Synthetic Orb QA',primaryTrade:'Electrical',categories:['Electrical'],onboardingComplete:true});
   await new Promise(resolve=>tx.oncomplete=resolve);db.close();
  });
- await page.reload();await page.locator('.tf-ai-orb').waitFor();
+ await page.reload();await page.locator('.tf-ai-orb').waitFor();await page.waitForFunction(()=>!!window.TradeFlowVoice?.state,{timeout:30000});
 }
 async function bounds(page,width){
  return page.evaluate(width=>{
@@ -50,7 +50,7 @@ async function bounds(page,width){
    });
    await seed(page);
    const orb=page.locator('.tf-ai-orb');await orb.click();
-   await page.locator('#tfOrbBubble').waitFor();
+   try{await page.locator('#tfOrbBubble').waitFor({timeout:5000})}catch(error){console.error('G02 orb activation diagnostic',width,await page.evaluate(()=>({state:window.TradeFlowVoice?.state?.(),orb:document.querySelector('.tf-ai-orb')?.outerHTML,legacy:!!document.querySelector('.tf-voice-sheet'),bubble:!!document.querySelector('#tfOrbBubble')})));throw error}
    assert.equal(await page.locator('.tf-voice-overlay,.tf-voice-sheet').count(),0);
    assert.equal(await orb.getAttribute('aria-expanded'),'true');
    assert.equal(await page.locator('#tfOrbBubble').getAttribute('role'),'region');
