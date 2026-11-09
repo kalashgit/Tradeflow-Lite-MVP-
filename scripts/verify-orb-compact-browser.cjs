@@ -62,6 +62,14 @@ async function bounds(page,width){
    assert.ok(b.bubble.right<=b.orb.left+1,'Bubble must be left of orb');
    assert.equal(b.overflow,false,'No horizontal overflow');
    assert.ok(!b.nav||width>850||b.bubble.bottom<=b.nav.top+2,'Bubble must not obstruct navigation');
+   const actions=await page.locator('#tfVoiceForm .tf-orb-actions button').evaluateAll(buttons=>buttons.map(button=>{
+    const rect=button.getBoundingClientRect(),style=getComputedStyle(button);
+    return {top:rect.top,left:rect.left,right:rect.right,bottom:rect.bottom,background:style.backgroundColor};
+   }));
+   assert.equal(actions.length,3);
+   assert.ok(actions.every(action=>Math.abs(action.top-actions[0].top)<1),'Stop, command and Send must share one row');
+   assert.ok(actions.every(action=>action.left>=b.bubble.left&&action.right<=b.bubble.right+1),'Actions must stay inside bubble');
+   assert.notEqual(actions[0].background,actions[2].background,'Only Send should have the primary accent');
    await page.screenshot({path:path.join(output,'compact-'+width+'.png'),animations:'disabled'});
    await orb.click();await page.locator('#tfOrbBubble').waitFor({state:'detached'});
    assert.equal(await page.evaluate(()=>window.__g02Starts),1,'Repeated tap must not start another capture');

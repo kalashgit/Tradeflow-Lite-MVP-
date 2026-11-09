@@ -27,6 +27,8 @@ test('unsupported recognition retains keyboard fallback and honest capability la
 test('bubble stays adjacent to orb with mobile safe areas, reduced motion and original membrane',()=>{
  const css=fs.readFileSync('public/voice-command.css','utf8');const orb=fs.readFileSync('public/intelligence-orb-idle.css','utf8');
  assert.match(css,/\.tf-orb-bubble\{position:fixed/);assert.match(css,/env\(safe-area-inset-right\)/);assert.match(css,/@media\(max-width:430px\)/);assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.match(css,/grid-template-columns:max-content minmax\(0,1fr\) max-content/);
+ assert.match(css,/#tfVoiceForm \.tf-orb-actions button:last-child/);
  assert.match(orb,/tf-orb-is-active/);assert.match(orb,/\.tf-orb-concept-b-canvas/);
 });
 test('orb pointer double-event suppression never blocks keyboard activation',()=>{
