@@ -1,4 +1,5 @@
 /* Pure, read-only scenario calculation. User statements are never saved business evidence. */
+import {strictFinancialDate} from './intelligence-financial-evidence.js';
 const money = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const fmt = value => '$' + value.toLocaleString('en-US', {maximumFractionDigits: 2});
 
@@ -44,6 +45,14 @@ function extractAmounts(text, label) {
 export function analyzeOwnerPayrollQuestion(text) {
  if (typeof text !== 'string' || text.length > 6000 || !/\b(?:payroll|paychecks?)\b/i.test(text) ||
      !/\b(?:next\s+(?:two|2)\s+weeks|14\s+days|cash\s+position|cash.flow|threaten\s+payroll)\b/i.test(text)) return null;
+ const dated=text.match(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g)||[];
+ if(dated.length){
+  const invalid=dated.some(date=>strictFinancialDate(date)===null);
+  return Object.freeze({status:'needs_clarification',reason:invalid?'invalid_or_ambiguous_date':'unverified_dated_obligation',
+   source:'user_scenario',cash:null,receivables:null,weeklyPayroll:null,twoWeekPayroll:null,afterPayroll:null,executionAuthority:false,
+   content:'HYPOTHETICAL OWNER-SUPPLIED SCENARIO — not verified company records. '+(invalid?'An impossible or ambiguous date was supplied. ':'Dated obligations require source and completeness verification. ')+
+    'Please confirm the exact ISO payment dates, reporting period, source status and whether all expenses are included. No cash or payroll forecast was calculated; no business action was taken.'});
+ }
  const fields={cash:extractAmounts(text,'cash'),receivables:extractAmounts(text,'(?:accounts\\s+)?receivables?'),weeklyPayroll:extractAmounts(text,'weekly\\s+payroll')};
  const materialCosts=extractAmounts(text,'(?:materials?(?:\\s+costs?)?|supplier\\s+payments?|job\\s+costs?|expenses?|outflows?)');
  if(Object.values(fields).every(rows=>rows.length===0) && !materialCosts.length) return null;
