@@ -57,5 +57,6 @@ test('adapter routes to existing scoped AI thread, not a second assistant or exe
  assert.match(app,/sendConversation:async \(instruction,\{modality='text'\}/);
  assert.match(app,/tfAISend\(instruction,\{modality,speakReply:modality==='voice'\}\)/);
  assert.match(app,/tfActiveChatThreadId===beforeThread/);
+ assert.match(app,/TradeFlowVoice\.startListening\(\)/);
  assert.doesNotMatch(app,/<<<<<<<|>>>>>>>/);
 });

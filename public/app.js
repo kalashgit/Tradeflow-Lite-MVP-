@@ -684,7 +684,7 @@ document.addEventListener('pointerdown',event=>{
  orb.classList.add('tf-ai-liquid-pressed');
  // Start recognition from the actual pointer gesture; waiting for a hold timer can lose browser user activation.
  // The following synthetic click is suppressed, so it cannot toggle recognition off again.
- if(window.TradeFlowVoice?.start){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.start();}
+ if(window.TradeFlowVoice?.startListening){tfAiSkipClickUntil=Date.now()+1000;tfAiPanelOpen=false;tfUiHaptic('selection');window.TradeFlowVoice.startListening();}
  return;
 },true);
 document.addEventListener('pointermove',event=>{
@@ -1562,7 +1562,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
   tfAiCancelHold();
   tfAiPanelOpen=false;
   tfUiHaptic('selection');
-  if(window.TradeFlowVoice?.start)window.TradeFlowVoice.start();
+  if(window.TradeFlowVoice?.startListening)window.TradeFlowVoice.startListening();
   else notify('Voice assistant is loading. Please refresh this preview.');
   return;
  }
