@@ -615,7 +615,7 @@ function tfAiStopPointer(event){
 document.addEventListener('pointerup',tfAiStopPointer,true);
 document.addEventListener('pointercancel',tfAiStopPointer,true);
 document.addEventListener('click',event=>{
- if(Date.now()<tfAiSkipClickUntil&&event.target.closest?.('.tf-ai-orb')){
+ if(event.detail!==0&&Date.now()<tfAiSkipClickUntil&&event.target.closest?.('.tf-ai-orb')){
   event.preventDefault();event.stopImmediatePropagation();
  }
 },true);

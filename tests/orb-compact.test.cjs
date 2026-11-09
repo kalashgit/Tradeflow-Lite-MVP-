@@ -29,3 +29,7 @@ test('bubble stays adjacent to orb with mobile safe areas, reduced motion and or
  assert.match(css,/\.tf-orb-bubble\{position:fixed/);assert.match(css,/env\(safe-area-inset-right\)/);assert.match(css,/@media\(max-width:430px\)/);assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(orb,/tf-orb-is-active/);assert.match(orb,/\.tf-orb-concept-b-canvas/);
 });
+test('orb pointer double-event suppression never blocks keyboard activation',()=>{
+ const app=fs.readFileSync('public/app.js','utf8');
+ assert.match(app,/event\.detail!==0&&Date\.now\(\)<tfAiSkipClickUntil/);
+});
