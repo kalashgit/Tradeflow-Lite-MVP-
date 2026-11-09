@@ -34,3 +34,30 @@ test('Gregorian leap-year and timezone-independent date-only arithmetic',()=>{
  }
  assert.throws(()=>s.apply({type:'delay',date:'2100-02-29'}),/Invalid Gregorian date/);
 });
+
+test('rejected delay after an accepted event preserves nonempty state and replay trace exactly',()=>{
+ const s=session('TF-SIM-12');
+ s.apply({type:'delay',date:'2026-11-18'});
+ const before=s.read(),trace=s.trace(),stateBytes=JSON.stringify(before),traceBytes=JSON.stringify(trace);
+ for(const date of ['2026-02-30','2026-04-31','2025-02-29','2026-11-18T23:59:59-12:00']){
+  assert.throws(()=>s.apply({type:'delay',date}),/Invalid Gregorian date/);
+  assert.deepEqual(s.read(),before);
+  assert.deepEqual(s.trace(),trace);
+  assert.equal(JSON.stringify(s.read()),stateBytes);
+  assert.equal(JSON.stringify(s.trace()),traceBytes);
+ }
+ assert.equal(s.trace().length,1);
+});
+
+test('oracle date arithmetic stays identical across machine timezone settings',()=>{
+ const {spawnSync}=require('node:child_process');
+ const modulePath=require.resolve('../automation/simulator/evaluate.cjs');
+ const script='const r=require('+JSON.stringify(modulePath)+').run(); process.stdout.write(JSON.stringify(r.results.map(x=>x.checks)))';
+ let expected=null;
+ for(const tz of ['UTC','Pacific/Kiritimati','America/Los_Angeles']){
+  const x=spawnSync(process.execPath,['-e',script],{encoding:'utf8',env:{...process.env,TZ:tz},timeout:15000});
+  assert.equal(x.status,0,'oracle failed under '+tz+': '+x.stderr);
+  if(expected===null)expected=x.stdout;
+  else assert.equal(x.stdout,expected,'timezone-dependent oracle outcome under '+tz);
+ }
+});
