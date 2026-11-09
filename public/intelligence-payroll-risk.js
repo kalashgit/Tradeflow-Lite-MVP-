@@ -50,8 +50,12 @@ export function analyzeOwnerPayrollQuestion(text) {
  const ambiguous=Object.entries(fields).filter(([,rows])=>rows.length>1 || rows.some(row=>row.value===null));
  // A time-qualified revision without its field label is also unsafe to associate automatically.
  const unlabeledRevision=/\b(?:but\s+)?(?:now|currently)\s+(?:(?:it|that|balance)\s+)?(?:is|at|of)?\s*\$\s*\d[\d,]*(?:\.\d{1,2})?/i.test(text);
+ // A second amount after 'or' / 'but actually' inherits the earlier field within the clause.
+ // Never let the first labelled amount mask an unlabelled correction or alternative.
+ const financialField='(?:cash|weekly\\s+payroll|(?:accounts\\s+)?receivables?|materials?(?:\\s+costs?)?|expenses?)';
+ const unlabelledChoice=new RegExp('\\b'+financialField+'\\b[^.!?;]{0,120}?\\b(?:or|but\\s+(?:actually|rather|instead)|actually|rather|instead)\\s+(?:(?:it|that)\\s+(?:is|was)\\s+)?(?:\\$\\s*)?\\d[\\d,]*(?:\\.\\d{1,2})?(?![\\d,])','i').test(text);
  const negative=/(?:\b(?:cash|receivables?|weekly\s+payroll|materials?|expenses?)\b\s*(?:of|is|was|:|=)?\s*-\s*\$?\s*\d| -\s*\$?\s*\d[\d,]*\s+(?:cash|receivables?|weekly\s+payroll|materials?|expenses?))/i.test(text);
- const repeated=ambiguous.length>0 || unlabeledRevision || materialCosts.length>1;
+ const repeated=ambiguous.length>0 || unlabeledRevision || unlabelledChoice || materialCosts.length>1;
  if(repeated || negative || materialCosts.length){
   const alternatives=/\b(?:either|option\s+[ab]|scenario\s+[ab]|versus|vs\.?|alternative\s+[ab])\b|\$[\d,]+\s+or\s+\$[\d,]+/i.test(text);
   const revision=/\b(?:yesterday|last\s+(?:week|month|year)|previously|formerly|historical|prior|earlier|now|currently|current|as\s+of)\b/i.test(text);
@@ -63,7 +67,7 @@ export function analyzeOwnerPayrollQuestion(text) {
    unsupported_negative:'Negative or unsupported financial input needs verification before calculation.',
    unverified_outflows:'Material costs or other outgoing commitments were supplied without verified payment timing.'
   };
-  const details=[...ambiguous.map(([field,rows])=>field+': '+rows.map(row=>row.amount).join(' / ')),...(unlabeledRevision?['unlabelled current-value revision']:[]),...(negative?['negative amount']:[]),...(materialCosts.length?['other cash outflows: '+materialCosts.map(row=>row.amount).join(' / ')]:[])].join('; ');
+  const details=[...ambiguous.map(([field,rows])=>field+': '+rows.map(row=>row.amount).join(' / ')),...(unlabeledRevision?['unlabelled current-value revision']:[]),...(unlabelledChoice?['unlabelled same-clause alternative or correction']:[]),...(negative?['negative amount']:[]),...(materialCosts.length?['other cash outflows: '+materialCosts.map(row=>row.amount).join(' / ')]:[])].join('; ');
   return Object.freeze({status:'needs_clarification',reason,source:'user_scenario',cash:null,receivables:null,weeklyPayroll:null,twoWeekPayroll:null,afterPayroll:null,executionAuthority:false,
    content:'HYPOTHETICAL OWNER-SUPPLIED SCENARIO — not saved TradeFlow business records.\n'+explanations[reason]+' ('+details+'). Please clarify the single current value, its effective date, and when outgoing payments fall due. Previous, stale, and current figures cannot be safely selected automatically.\nUnknowns include payroll dates, taxes, benefits, material costs, supplier due dates and collectible receivables.\nNo payroll coverage or cash balance was calculated; no business action was taken.'});
  }
