@@ -129,3 +129,25 @@ thread routing in the existing app. Q01 must independently retest the merged
 integration SHA with native Node, browser, tenant revocation and approval/receipt.
 Do not mistake a caller-supplied authorization object for authenticated
 server-enforced authority. No production data writes, merge or deploy.
+
+
+### Machine-readable journey status
+
+The I01 adapter now writes one trace entry per real I01 application-function
+invocation, with input/output hashes, source kind, status, reason, provider mode
+and execution authority. The report always sets overallProductAcceptance=false
+until the existing TradeFlow application proves authenticated evidence reading,
+same-thread routing and an approval-gated command receipt. Explicit blockers:
+NO_AUTHENTICATED_EVIDENCE_BINDING, NO_OWNER_THREAD_ROUTE,
+NO_APPROVAL_RECEIPT_JOURNEY, UNKNOWN_ACTUAL_CASH_AND_OBLIGATION_COMPLETENESS.
+
+A forged verified-tenant source **without server authorization** is refused as
+needs_clarification/unauthorized_or_unverifiable_source. A rejected claim
+still carries sourceKind=verified_tenant_record as the submitted label; do not
+mistake this for a successful provenance promotion. The metric counts accepted
+conditional computations under verified-tenant provenance, not denied inputs.
+
+Final isolated V8 source-harness observed: 10/10 evidence cases, 10 call traces,
+0 accepted verified-source promotions, 0 oracle deviation, 0 unexpected
+case failures; product acceptance remains **false**. Native Node and browser
+at the new T01 SHA remain unverified and require the Q01/X01 integration gate.
