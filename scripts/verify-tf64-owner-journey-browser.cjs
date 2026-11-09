@@ -85,7 +85,31 @@ async function readTurns(page){
    assert.ok(turns.some(x=>x.role==='assistant'&&/cash|clarif|conflict|ambig/i.test(x.content)));
    assert.ok(!turns.some(x=>x.source==='verified_account'||x.source==='synthetic_mock'));
    assert.ok(turns.every(x=>x.syncState===undefined),'conversation turns must not masquerade as synced tenant records');
-   console.log('X01 '+width+'px: same scoped IndexedDB thread, 4 turns, corrected financial ambiguity and reload PASS');
+   // A real-company job/payroll request without bound financial data must be
+   // answered in this SAME thread as missing evidence, not model job rankings.
+   await page.waitForFunction(()=>!!window.TradeFlowVoice?.state);
+   await page.locator('.tf-ai-orb').click();
+   await page.locator('#tfOrbBubble').waitFor();
+   await page.locator('#tfVoiceText').fill('Which jobs threaten payroll in the next two weeks and what should I do first?');
+   await page.locator('#tfVoiceForm button[type="submit"]').click();
+   await page.waitForFunction(async()=>{
+    const db=await new Promise(resolve=>{const q=indexedDB.open('tradeflow-lite-v1');q.onsuccess=()=>resolve(q.result)});
+    const tx=db.transaction('aiConversationTurns','readonly');
+    const rows=await new Promise(resolve=>{const q=tx.objectStore('aiConversationTurns').getAll();q.onsuccess=()=>resolve(q.result)});db.close();
+    return rows.length>=6;
+   });
+   await page.screenshot({path:path.join(out,'missing-financial-evidence-'+width+'.png'),animations:'disabled'});
+   await page.reload();
+   const revised=await readTurns(page);
+   assert.equal(revised.threads.filter(x=>!x.deletedAt).length,1);
+   assert.equal(revised.turns.length,6);
+   assert.ok(revised.turns.every(x=>x.threadId===revised.threads[0].id));
+   const last=revised.turns.filter(x=>x.role==='assistant').at(-1);
+   assert.equal(last.source,'financial_missing_data','unbound company request cannot claim verified financial records');
+   assert.match(last.content,/FINANCIAL EVIDENCE MISSING/);
+   assert.match(last.content,/No tenant financial data was read/);
+   assert.ok(!revised.turns.some(x=>x.source==='verified_tenant_record'||x.source==='synthetic_mock'));
+   console.log('X01 '+width+'px: same scoped IndexedDB thread, 6 turns, financial missing-data gate and reload PASS');
    await context.tracing.stop({path:path.join(out,'trace-'+width+'.zip')});
    await context.close();
   }

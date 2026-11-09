@@ -18,6 +18,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Generate original approved orb MP4 and GIF before Node acceptance
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          bash scripts/build-welcome-orb-media.sh
+          node --test tests/master-fluid-orb.test.cjs
       - name: Full Node regression (report missing orb asset honestly)
         id: full_node
         continue-on-error: true
@@ -26,14 +32,20 @@ jobs:
         run: node --test tests/tf64-unified-voice-contract.test.cjs tests/orb-compact.test.cjs tests/voice-command.test.cjs tests/voice-wake.test.cjs tests/intelligence-message-contract.test.cjs tests/intelligence-payroll-risk.test.cjs tests/intelligence-scenario-routing.test.cjs
       - name: Worker boundary, tenant authorization, and approved receipt regressions
         run: node --test tests/intelligence-message-contract.test.cjs tests/tenant-api.test.cjs tests/tenant-security.test.cjs tests/voice-turn-protocol.test.cjs tests/invoice-followup-execution.test.cjs
+      - name: Strict financial dates, read-only API authorization and X01 missing-evidence bridge
+        run: |
+          node --test tests/intelligence-financial-evidence.test.cjs tests/financial-evidence-api.test.cjs tests/x01-missing-financial-bridge.test.cjs
       - name: Storage permissions and migrations
         run: npm run test:storage
       - name: Existing contractor workflows
         run: npm run test:contractors
       - name: T01 deterministic synthetic-only oracle
         run: |
-          node --test tests/t01-simulator-evaluation.test.cjs tests/contractor-simulation-fixtures.test.cjs
+          node --test tests/t01-simulator-evaluation.test.cjs tests/contractor-simulation-fixtures.test.cjs tests/t01-owner-journey-evaluation.test.cjs
+          T01_APP_PAYROLL_MODULE="$PWD/public/intelligence-payroll-risk.js" node --test tests/t01-application-fixture.test.cjs
+          T01_APP_FINANCIAL_MODULE="$PWD/public/intelligence-financial-evidence.js" node --test tests/t01-i01-evidence-gate.test.cjs
           node automation/simulator/evaluate.cjs
+          T01_APP_FINANCIAL_MODULE="$PWD/public/intelligence-financial-evidence.js" node automation/simulator/i01-evidence-gate.cjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: G02 compact orb mobile and desktop journeys
@@ -48,6 +60,8 @@ jobs:
           path: |
             artifacts/orb-compact/
             artifacts/tf64-owner-journey/
+            artifacts/t01/
+            artifacts/t01-app/
           if-no-files-found: warn
       - name: Enforce full Node gate
         if: always()

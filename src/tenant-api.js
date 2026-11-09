@@ -1,4 +1,5 @@
 import {readIntelligenceContext} from './intelligence-context.js';
+import {readFinancialEvidence} from './financial-evidence.js';
 import {recordWritePermission} from '../public/record-permissions.js';
 import {schemaCapabilities} from './schema-capabilities.js';
 import {RECORD_TYPES,LEGACY_RECORD_TYPES,recordIdentity} from '../public/record-model.js';
@@ -43,6 +44,16 @@ export async function tenantApi(request,env,options={}){
    if(request.method!=='GET')return json({error:'Method not allowed'},405);
    if([...url.searchParams.keys()].some(key=>key!=='jobId')||url.searchParams.getAll('jobId').length>1)return json({error:'Unsupported context parameter'},400);
    return json(await readIntelligenceContext({db:env.TF_DB,principal,businessId:requireBusinessId(contextRoute[1]),...(url.searchParams.has('jobId')?{jobId:url.searchParams.get('jobId')}:{})}));
+  }
+  // Trusted financial packet: a genuine server principal + tenant snapshot, never
+  // caller/model assertions of verification, record refs or obligations coverage.
+  const financialRoute=/^\/api\/v1\/businesses\/([^/]+)\/intelligence\/financial-evidence$/.exec(url.pathname);
+  if(financialRoute){
+   if(request.method!=='GET')return json({error:'Method not allowed'},405);
+   if([...url.searchParams.keys()].some(key=>key!=='asOfDate')||url.searchParams.getAll('asOfDate').length>1)
+    return json({error:'Unsupported financial evidence parameter'},400);
+   const asOfDate=url.searchParams.get('asOfDate')??new Date().toISOString().slice(0,10);
+   return json(await readFinancialEvidence({db:env.TF_DB,principal,businessId:requireBusinessId(financialRoute[1]),asOfDate}));
   }
   const preview=/^\/api\/v1\/businesses\/([^/]+)\/backup\/dry-run$/.exec(url.pathname);
   if(preview){

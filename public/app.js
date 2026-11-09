@@ -509,6 +509,7 @@ function tfAiContext(data){
 }
 function tfAiAttribution(message){
  if(message.role!=='assistant'||!message.source)return '';
+ if(message.source==='financial_missing_data')return '<div class="tf-ai-evidence"><span>FINANCIAL DATA MISSING · NO VERIFIED CASH FORECAST</span></div>';
  if(message.source==='device_local_evidence')return '<div class="tf-ai-evidence"><span>LOCAL RECORD EVIDENCE · NOT VERIFIED CLOUD DATA</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
  if(message.source==='academy_metadata'||message.source==='offline_knowledge')return '<div class="tf-ai-evidence"><span>'+(message.source==='academy_metadata'?'OFFLINE ACADEMY CATALOG · NOT FULL BOOK TEXT':'OFFLINE OSHA REFERENCE · ORIGINAL PARAPHRASE')+'</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.slice(0,8).map(esc).join(' · ')+'</small>':'')+'</div>';
  const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':message.source==='unverified_model'?'UNVERIFIED MODEL RESPONSE':'MODEL UNAVAILABLE';
@@ -887,6 +888,19 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
    await tfAiSaveTurn({role:'assistant',content:payrollAnalysis.content,modality:'text',status:'committed',source:'user_scenario',refs:[]});
    if(speakReply&&!window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech?.speak?.(payrollAnalysis.content.slice(0,1200),tfAiKey());
   }catch(error){tfChatError='Could not persist payroll scenario or its analysis. No business action was taken.'}
+  await tfAiUpdateChatUI();
+  return;
+ }
+ // X01: no job-specific payroll ranking from an unbound read-only packet.
+ const {missingVerifiedPayrollJobEvidence}=await import('./x01-financial-bridge.js');
+ const missingFinancialEvidence=missingVerifiedPayrollJobEvidence(content);
+ if(missingFinancialEvidence){
+  tfChatError='';
+  try{
+   await tfAiSaveTurn({role:'user',content,modality,status:'committed',source:'user'});
+   await tfAiSaveTurn({role:'assistant',content:missingFinancialEvidence.content,modality:'text',status:'committed',source:'financial_missing_data',refs:[]});
+   if(speakReply&&!window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech?.speak?.(missingFinancialEvidence.content.slice(0,1200),tfAiKey());
+  }catch(error){tfChatError='Could not persist the missing-evidence answer. No business action was taken.'}
   await tfAiUpdateChatUI();
   return;
  }
