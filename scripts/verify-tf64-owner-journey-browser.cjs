@@ -98,6 +98,15 @@ async function readTurns(page){
     const rows=await new Promise(resolve=>{const q=tx.objectStore('aiConversationTurns').getAll();q.onsuccess=()=>resolve(q.result)});db.close();
     return rows.length>=6;
    });
+   // A row becoming visible to IndexedDB is not the same as the UI's
+   // completed send promise. Do not reload while the voice controller is busy.
+   await page.waitForFunction(()=>{
+    const state=window.TradeFlowVoice?.state?.();
+    return state&&!state.busy&&state.message==='Sent to Master Intelligence.';
+   },null,{timeout:15000});
+   const committed=await readTurns(page);
+   assert.equal(committed.turns.length,6,'Six committed turns required before reload');
+   assert.equal(committed.turns.filter(x=>x.role==='assistant').at(-1)?.source,'financial_missing_data');
    await page.screenshot({path:path.join(out,'missing-financial-evidence-'+width+'.png'),animations:'disabled'});
    await page.reload();
    const revised=await readTurns(page);
