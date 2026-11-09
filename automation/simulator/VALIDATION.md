@@ -81,3 +81,51 @@ Q01: independently re-run both invalid date replay guards and the entire
 owner question to authorized proposal/receipt/persistence journey on the
 new integration SHA. Previous Q01 signoff at 8944a1c does not cover this increment.
 No merge, deploy or actual customer data is authorized.
+
+
+## I01 evidence-contract integration slice (PR #71)
+
+T01 consumes the actual, unmodified I01 evaluateFinancialEvidence function from
+draft PR #71 commit c4c6a63041c36b3e5133a22d4e544e9ee1f93de3, pinned to Git blob
+3bc4bcdaafed0c0246f8cc76e52d3472ac529601. A mismatched or unspecified
+application module cannot claim an execution pass.
+
+New files:
+- automation/simulator/i01-evidence-gate.cjs
+- tests/t01-i01-evidence-gate.test.cjs
+
+Native reproduction when the PR #71 application source is present locally:
+
+    T01_APP_FINANCIAL_MODULE=/absolute/i01/public/intelligence-financial-evidence.js node --test tests/t01-i01-evidence-gate.test.cjs
+    T01_APP_FINANCIAL_MODULE=/absolute/i01/public/intelligence-financial-evidence.js node automation/simulator/i01-evidence-gate.cjs
+
+The output writes ignored artifacts/t01-app/i01-financial-evidence.json with
+actual application results, cases, numeric deviation, source pin and unknowns.
+With no module supplied, APP_NOT_RUN, null application metrics and exit code 2
+prevent a false application pass.
+
+The adapter does NOT claim that synthetic contractor records are complete.
+It retains the existing 12-employee fixture and explicit missing fields.
+The realistic fixture sets obligationsComplete=false: application returns
+missing_data / unverified_obligation_completeness / afterObligations=null.
+Only a specially marked closed-world synthetic test variation sets
+obligationsComplete=true; it then computes $9,000 - $14,500 payroll - $4,800
+supplier = -$10,300, excludes the $10,000 uncollected receivables and keeps
+sourceKind=synthetic_fixture, executionAuthority=false.
+
+Source-execution evidence using the exact fetched I01 implementation and T01
+bridge in an isolated V8 harness: **10/10 guarded cases**, 0 numerical
+deviation, 0 accepted verified-source promotions. Cases include missing
+obligation completeness, deliberate closed-world assumption, forged verified
+flag, forged authenticated source without authority, cross-tenant records and
+actor scope, stale evidence, duplicate obligations, impossible payroll dates,
+and missing payroll. Full native Node and browser execution at the current
+T01 SHA are NOT VERIFIED; these source-harness checks do not establish D1,
+IndexedDB, actor authorization, real source revisions or an end-to-end receipt.
+
+I01 owns financial evidence validation; T01 owns only synthetic test input and
+evaluation. X01/D01 must perform authorized read-side record projection and
+thread routing in the existing app. Q01 must independently retest the merged
+integration SHA with native Node, browser, tenant revocation and approval/receipt.
+Do not mistake a caller-supplied authorization object for authenticated
+server-enforced authority. No production data writes, merge or deploy.
