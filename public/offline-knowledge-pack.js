@@ -128,8 +128,14 @@
      'Check current jurisdiction, edition, source context and site conditions before use.']
    }));
   }
+  function citation(id) {
+   if (typeof id !== 'string' || !ID.test(id)) throw Error('Invalid passage citation');
+   const item = indexed.find(entry => entry.passage.id === id);
+   if (!item) return null;
+   return Object.freeze({passage:Object.freeze({...item.passage}), source:Object.freeze({...item.source})});
+  }
   return Object.freeze({manifest:Object.freeze({schema:pack.schema, id:pack.id, version:pack.version,
-   audience:pack.audience, builtOn:pack.builtOn, sourceCount:pack.sources.size, passageCount:pack.passages.length}), search});
+   audience:pack.audience, builtOn:pack.builtOn, sourceCount:pack.sources.size, passageCount:pack.passages.length}), search,citation});
  }
  return Object.freeze({SCHEMA, MAX_PASSAGES, verifyPack, digest, openPack});
 });
