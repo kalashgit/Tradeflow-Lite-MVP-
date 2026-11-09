@@ -2,7 +2,7 @@ name: G02 Orb Compact Validation
 on:
   pull_request:
     branches:
-      - integration/tf-unified-preview-20261107
+      - integration/TF-64-unified-owner-journey
     paths:
       - 'public/app.js'
       - 'public/voice-command.js'
@@ -10,7 +10,11 @@ on:
       - 'public/intelligence-orb-idle.css'
       - 'tests/orb-compact.test.cjs'
       - 'scripts/verify-orb-compact-browser.cjs'
+      - 'scripts/build-welcome-orb-media.sh'
       - '.github/workflows/g02-orb-compact-validation.yml'
+  push:
+    branches:
+      - feature/g02-orb-media-contract-67
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +30,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Verify approved original and package 60-frame media
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          bash scripts/build-welcome-orb-media.sh
+          node --test tests/master-fluid-orb.test.cjs
       - name: Node regressions
         run: npm test
       - name: Install Chromium
@@ -39,3 +49,12 @@ jobs:
           name: g02-orb-compact-browser-evidence
           path: artifacts/orb-compact/
           if-no-files-found: ignore
+      - name: Generated approved media evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g02-approved-orb-media
+          path: |
+            public/assets/tradeflow_orb_smooth_60_frames.mp4
+            public/assets/tradeflow_orb_60_frames.gif
+          if-no-files-found: warn
