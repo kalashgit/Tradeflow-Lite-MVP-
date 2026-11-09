@@ -55,8 +55,8 @@ test('actual pinned I01 app evaluator rejects incomplete evidence and proves con
  assert.equal(r.status,'APP_EVIDENCE_MODULE_OBSERVED_NOT_BROWSER');
  assert.equal(r.appObserved,true);
  assert.equal(r.providerMode,'none_no_model_invoked');
- assert.equal(r.scorecard.guardedCasesPassed,9,JSON.stringify(r.failures));
- assert.equal(r.scorecard.guardedCasesTotal,9);
+ assert.equal(r.scorecard.guardedCasesPassed,10,JSON.stringify(r.failures));
+ assert.equal(r.scorecard.guardedCasesTotal,10);
  assert.equal(r.scorecard.realisticIncompleteCash,null);
  assert.equal(r.scorecard.conditionalNumericDeviation,0);
  assert.equal(r.oracle.conditionalAfterAllObligations,-10300);
