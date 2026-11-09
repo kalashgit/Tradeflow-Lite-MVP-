@@ -56,7 +56,7 @@ test('microphone lifecycle uses the same assistant and stops on Stop, recognitio
  const voice=require('../public/voice-command.js'),previous=globalThis.TradeFlowFlowWaveAudio,engine=globalThis.SpeechRecognition;
  let started=0,stopped=0,active;
  globalThis.TradeFlowFlowWaveAudio={createMeter:()=>({start:()=>started++,stop:()=>stopped++})};
- globalThis.SpeechRecognition=class{constructor(){active=this}start(){}stop(){this.onend()}abort(){}};
+ globalThis.SpeechRecognition=class{constructor(){active=this}start(){this.onstart?.()}stop(){this.onend()}abort(){}};
  try{
   const events={},c=voice.createController({document:{addEventListener:(k,f)=>events[k]=f},repaint:async()=>{},snapshot:async()=>({}),now:()=>new Date()});
   const click=()=>events.click({target:{closest:selector=>selector==='[data-voice-workspace]'?null:{dataset:{voice:'mic'}}},preventDefault(){}});
