@@ -1,10 +1,11 @@
 /* Read-only knowledge citation boundary for the existing Master Intelligence.
    A catalog entry is never evidence for a passage or a business claim. */
 (function(root,factory){
- const api=factory();
+ const offline=typeof module==='object'&&module.exports?require('./offline-knowledge-pack.js'):root?.TradeFlowOfflineKnowledge;
+ const api=factory(offline);
  if(typeof module==='object'&&module.exports)module.exports=api;
  if(root)root.TradeFlowKnowledgeEvidence=api;
-})(typeof globalThis==='object'?globalThis:null,function(){
+})(typeof globalThis==='object'?globalThis:null,function(offline){
  'use strict';
  const ACADEMY=/^academy:(tf-academy-\d{3})@1$/;
  const PASSAGE=/^knowledge:([A-Za-z0-9][A-Za-z0-9._:-]{0,119})@1$/;
@@ -24,7 +25,10 @@
   }
   match=PASSAGE.exec(ref);
   if(!match||!pack||typeof pack.citation!=='function')throw Error('Unsupported knowledge citation');
-  // Only verified openPack() results carry an indexed manifest. Never accept an arbitrary raw document.
+  // A manifest and caller-provided citation() method are forgeable. Require the
+  // identity registered after openPack() completed its integrity checks.
+  if(!offline||typeof offline.isVerifiedPack!=='function'||!offline.isVerifiedPack(pack))
+   throw Error('Knowledge index is not integrity-verified');
   if(pack.manifest?.schema!=='tradeflow.offline-knowledge.v1'||!['redistributable_reference','synthetic_demo','private_device'].includes(pack.manifest.audience))
    throw Error('Knowledge index is not approved for shared retrieval');
   const citation=pack.citation(match[1],{scope});
