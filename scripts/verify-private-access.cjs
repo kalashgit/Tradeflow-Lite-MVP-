@@ -10,8 +10,7 @@ function isAccessChallenge(response, expectedHost) {
     return target.protocol === 'https:' &&
       target.hostname.endsWith('.cloudflareaccess.com') &&
       target.hostname !== '.cloudflareaccess.com' &&
-      target.pathname.startsWith('/cdn-cgi/access/login/') &&
-      target.pathname.includes(expectedHost);
+      target.pathname === `/cdn-cgi/access/login/${expectedHost}`;
   }
   return true;
 }
