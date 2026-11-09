@@ -71,7 +71,7 @@ async function bounds(page,width){
    assert.ok(await page.locator('#tfOrbBubble').evaluate(el=>parseFloat(getComputedStyle(el).animationDuration)<=0.001),'Reduced motion must have no perceptible animation');
    await page.locator('#tfVoiceText').fill('Synthetic question');
    await page.locator('#tfVoiceForm button[type="submit"]').click();
-   await page.locator('.tf-orb-feedback').waitFor();
+   await page.locator('.tf-orb-feedback').filter({hasText:/not sent/i}).waitFor({timeout:5000});
    assert.match(await page.locator('.tf-orb-feedback').innerText(),/not sent/i,'Locked AI must not claim success');
    await page.locator('[data-voice="close"]').click();
    await page.waitForFunction(()=>document.activeElement?.classList.contains('tf-ai-orb'),null,{timeout:5000});

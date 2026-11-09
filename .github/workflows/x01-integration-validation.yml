@@ -36,12 +36,16 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: G02 compact orb mobile and desktop journeys
         run: node scripts/verify-orb-compact-browser.cjs
+      - name: X01 synthetic payroll text and final voice reload journey
+        run: node scripts/verify-tf64-owner-journey-browser.cjs
       - name: Screenshots and browser logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: x01-orb-compact-evidence
-          path: artifacts/orb-compact/
+          path: |
+            artifacts/orb-compact/
+            artifacts/tf64-owner-journey/
           if-no-files-found: warn
       - name: Enforce full Node gate
         if: always()
