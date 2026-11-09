@@ -61,6 +61,9 @@ async function runFinancialEvidenceGate({modulePath} = {}) {
   const scope = complete.scope;
   const stale = copy(complete.evidence);stale.observedDate='2026-10-01';
   const forged = copy(complete.evidence);forged.verified=true;
+  const forgedTenant = copy(complete.evidence);forgedTenant.sourceKind='verified_tenant_record';
+  forgedTenant.identity={issuer:'fake-auth.example',subject:'fake-owner',businessId:scope.businessId};
+  forgedTenant.recordRefs=['invoices:synthetic-201'];
   const crossTenant = copy(complete.evidence);crossTenant.businessId='sim_OTHER';
   const duplicate = copy(complete.evidence);duplicate.obligations[2].id='pay-1';
   const impossible = copy(complete.evidence);impossible.obligations[0].dueDate='2026-02-30';
@@ -70,6 +73,7 @@ async function runFinancialEvidenceGate({modulePath} = {}) {
     {id:'realistic_incomplete', evidence:incomplete.evidence, expectedStatus:'missing_data',expectedReason:'unverified_obligation_completeness',expectedCash:null},
     {id:'closed_world_synthetic_only',evidence:complete.evidence,expectedStatus:'conditional_calculation',expectedReason:null,expectedCash:-10300},
     {id:'forged_verified_flag',evidence:forged,expectedStatus:'needs_clarification',expectedReason:'unverified_source_claim',expectedCash:null},
+    {id:'forged_authenticated_record',evidence:forgedTenant,expectedStatus:'needs_clarification',expectedReason:'unauthorized_or_unverifiable_source',expectedCash:null},
     {id:'cross_tenant',evidence:crossTenant,expectedStatus:'needs_clarification',expectedReason:'scope_mismatch',expectedCash:null},
     {id:'foreign_actor_scope',evidence:complete.evidence,scope:badScope,expectedStatus:'needs_clarification',expectedReason:'scope_mismatch',expectedCash:null},
     {id:'stale_evidence',evidence:stale,expectedStatus:'missing_data',expectedReason:'stale_or_future_evidence',expectedCash:null},
@@ -83,7 +87,7 @@ async function runFinancialEvidenceGate({modulePath} = {}) {
     const after = hash(item.evidence);
     const pass = result.status===item.expectedStatus &&
       result.reason===item.expectedReason && result.afterObligations===item.expectedCash &&
-      result.executionAuthority===false && result.source==='synthetic_fixture' && before===after;
+      result.executionAuthority===false && result.source===item.evidence.sourceKind && before===after;
     return {id:item.id,pass,expected:{status:item.expectedStatus,reason:item.expectedReason,afterObligations:item.expectedCash},
       observed:copy(result),inputSha256:before,outputInputSha256:after,immutable:before===after};
   });
@@ -101,7 +105,7 @@ async function runFinancialEvidenceGate({modulePath} = {}) {
     observations,failures,scorecard:{
       guardedCasesPassed:observations.filter(x=>x.pass).length,guardedCasesTotal:observations.length,
       realisticIncompleteCash:realistic.observed.afterObligations,conditionalNumericDeviation:deviation,
-      unauthorizedExecutionCount:0,falseVerifiedSourceCount:observations.filter(x=>x.observed.source==='verified_tenant_record').length,
+      unauthorizedExecutionCount:0,falseVerifiedSourceCount:observations.filter(x=>x.observed.source==='verified_tenant_record'&&x.observed.status==='conditional_calculation').length,
       browser:null,model:null,authenticatedTenant:null,workflowReceipts:null
     }
   };
