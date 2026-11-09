@@ -12,11 +12,14 @@ test('owner-entered multi-project scenario goes to AI, not local-record briefing
  assert.equal(mod.isBusinessBriefingRequest('Give me my local business briefing'),true);
  assert.equal(mod.isBusinessBriefingRequest('business overview'),true);
  assert.equal(mod.isBusinessBriefingRequest('What is our business situation and how do we fix it?'),false);
- assert.ok(source.includes("const content=String(text||'').trim().slice(0,6000)"));
+ assert.ok(source.includes("const content=String(text||'').trim();"));
+ assert.match(source,/if\(content\.length>6000\)/);
 });
 test('frontend and Worker permit bounded 6000-character scenario input',()=>{
  const worker=fs.readFileSync(path.join(__dirname,'../src/iphone-preview.js'),'utf8');
  const store=fs.readFileSync(path.join(__dirname,'../public/conversation-store.js'),'utf8');
  assert.match(worker,/x\.content\.length>6000/);
  assert.match(store,/value\.content\.length > 6000/);
+ assert.match(source,/<textarea id="tfAiPrompt"[^>]*maxlength="6000"/);
+ assert.doesNotMatch(source,/<textarea id="tfAiPrompt"[^>]*maxlength="1200"/);
 });
