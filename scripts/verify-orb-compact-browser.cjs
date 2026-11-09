@@ -74,7 +74,7 @@ async function bounds(page,width){
    await page.locator('.tf-orb-feedback').waitFor();
    assert.match(await page.locator('.tf-orb-feedback').innerText(),/not sent/i,'Locked AI must not claim success');
    await page.locator('[data-voice="close"]').click();
-   assert.equal(await page.evaluate(()=>document.activeElement?.classList.contains('tf-ai-orb')),true,'Focus restored after close');
+   await page.waitForFunction(()=>document.activeElement?.classList.contains('tf-ai-orb'),null,{timeout:5000});
    await page.evaluate(()=>{window.SpeechRecognition=class{start(){throw Error('not-allowed')}abort(){}}});
    await orb.click();await page.locator('#tfOrbBubble').waitFor();
    assert.match(await page.locator('#tfOrbBubble').innerText(),/Could not start microphone/);
