@@ -1,15 +1,20 @@
 /* TradeFlow Intelligence: read-only electrical reference answers from a checksum-verified
    offline pack. These are reference summaries, never site instructions or business commands. */
 (function(root,factory){
- const api=factory();
+ const offline=typeof module==='object'&&module.exports?require('./offline-knowledge-pack.js'):root?.TradeFlowOfflineKnowledge;
+ const api=factory(offline);
  if(typeof module==='object'&&module.exports)module.exports=api;
  if(root)root.TradeFlowElectricalReferenceChat=api;
-})(typeof globalThis==='object'?globalThis:null,function(){
+})(typeof globalThis==='object'?globalThis:null,function(offline){
  'use strict';
  const INTENT=/\b(?:osha|29\s*cfr|lockout|tagout|deenergiz\w*|energiz\w*|gfci|ground[ -]?fault|electrical safety|electrical hazard\w*|electric shock|absence of voltage|live panel|jobsite (?:power|electrical)|construction (?:power|receptacle|electric\w*))\b/i;
  const POLICY='OFFLINE ELECTRICAL REFERENCE · OSHA SUMMARY\nThis is a limited, source-linked safety reference, not a wiring plan, a diagnosis, proof of code compliance or permission to work energized. A qualified person must check current rules, local requirements, equipment and site conditions. No command or business record was changed.';
  function isElectricalReferenceQuestion(query){return typeof query==='string'&&INTENT.test(query)}
  function create(index){
+  // This function is part of the existing saved chat path. A caller-supplied
+  // search() function or manifest is not enough to establish source integrity.
+  if(!offline||typeof offline.isVerifiedPack!=='function'||!offline.isVerifiedPack(index))
+   throw Error('Integrity-verified electrical reference index required');
   if(!index||index.manifest?.audience!=='redistributable_reference'||index.manifest.id!=='osha-electrical-safety-us-v1'||typeof index.search!=='function')throw Error('Approved electrical reference pack required');
   function answer(query){
    if(!isElectricalReferenceQuestion(query))return {handled:false};
