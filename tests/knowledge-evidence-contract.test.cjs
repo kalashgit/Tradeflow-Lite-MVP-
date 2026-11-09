@@ -33,3 +33,18 @@ test('synthetic reference cannot be promoted into a tenant business claim',async
  assert.throws(()=>resolve(ref,{pack:verified,scope:{businessId:'tenant-a'}}),/Synthetic knowledge/);
  assert.equal(resolve(ref,{pack:verified,scope:{businessId:'tenant-a',allowSynthetic:true}}).claimSupported,false);
 });
+test('private citation enforces business and actor scope without promoting unreviewed text',async()=>{
+ const crypto=require('node:crypto'),scope={businessId:'tenant-a',actorId:'owner-a'};
+ const text='Company estimating draft awaiting review';
+ const raw={schema:'tradeflow.offline-knowledge.v1',id:'local-draft',version:'1',audience:'private_device',builtOn:'2026-11-09',
+  sources:[{id:'draft',title:'Owner draft',publisher:'Owner',documentVersion:'1',reviewedOn:'2026-11-09',jurisdictions:['UNKNOWN'],rights:'user_supplied_private_use',rightsEvidence:'Explicit local test fixture',contentStatus:'available_excerpt',kind:'contractor_sop'}],
+  passages:[{id:'draft-1',sourceId:'draft',heading:'Estimating',text,sha256:crypto.createHash('sha256').update(text).digest('hex')}]};
+ const pack=await openPack(raw,{scope}),ref='knowledge:draft-1@1';
+ assert.throws(()=>pack.citation('draft-1'),/scope/);
+ assert.throws(()=>pack.citation('draft-1',{scope:{businessId:'tenant-b',actorId:'owner-a'}}),/scope mismatch/);
+ assert.throws(()=>resolve(ref,{pack,scope:{businessId:'tenant-a',actorId:'employee-b'}}),/scope mismatch/);
+ const item=resolve(ref,{pack,scope});
+ assert.equal(item.classification,'private_unreviewed_passage');
+ assert.equal(item.claimSupported,false);
+ assert.deepEqual(packet([ref],{pack,scope}).unsupportedClaims,[ref]);
+});

@@ -128,7 +128,8 @@
      'Check current jurisdiction, edition, source context and site conditions before use.']
    }));
   }
-  function citation(id) {
+  function citation(id, {scope:requestScope} = {}) {
+   if (privateScope && normalizeScope(requestScope) !== privateScope) throw Error('Local knowledge scope mismatch');
    if (typeof id !== 'string' || !ID.test(id)) throw Error('Invalid passage citation');
    const item = indexed.find(entry => entry.passage.id === id);
    if (!item) return null;

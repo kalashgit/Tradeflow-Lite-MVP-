@@ -25,17 +25,17 @@
   match=PASSAGE.exec(ref);
   if(!match||!pack||typeof pack.citation!=='function')throw Error('Unsupported knowledge citation');
   // Only verified openPack() results carry an indexed manifest. Never accept an arbitrary raw document.
-  if(pack.manifest?.schema!=='tradeflow.offline-knowledge.v1'||!['redistributable_reference','synthetic_demo'].includes(pack.manifest.audience))
+  if(pack.manifest?.schema!=='tradeflow.offline-knowledge.v1'||!['redistributable_reference','synthetic_demo','private_device'].includes(pack.manifest.audience))
    throw Error('Knowledge index is not approved for shared retrieval');
-  const citation=pack.citation(match[1]);
+  const citation=pack.citation(match[1],{scope});
   if(!citation)throw Error('Knowledge passage not found');
   const {passage,source}=citation;
   if(!source||source.contentStatus!=='available_excerpt'||!own(passage,'sha256'))throw Error('Knowledge source unavailable');
   if(scope?.businessId&&pack.manifest.audience==='synthetic_demo'&&scope.allowSynthetic!==true)
    throw Error('Synthetic knowledge cannot be used as company evidence');
-  return Object.freeze({ref,classification:pack.manifest.audience==='synthetic_demo'?'synthetic_example':'retrieved_source_passage',
+  return Object.freeze({ref,classification:pack.manifest.audience==='synthetic_demo'?'synthetic_example':pack.manifest.audience==='private_device'?'private_unreviewed_passage':'retrieved_source_passage',
    sourceId:source.id,title:source.title,passageId:passage.id,sha256:passage.sha256,
-   claimSupported:pack.manifest.audience!=='synthetic_demo',passage:passage.text,
+   claimSupported:pack.manifest.audience==='redistributable_reference',passage:passage.text,
    reviewedOn:source.reviewedOn,jurisdictions:source.jurisdictions.slice()});
  }
  function packet(refs,dependencies){
