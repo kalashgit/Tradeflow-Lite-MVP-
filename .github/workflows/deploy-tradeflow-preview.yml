@@ -27,10 +27,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: tradeflow-preview
     steps:
-      - name: Checkout development branch
+      - name: Guard authorized preview branches
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/feature/v05-map|refs/heads/feature/lead-discovery-v1) ;;
+            *) echo "Deployment blocked: this is not an authorized preview branch"; exit 1 ;;
+          esac
+
+      - name: Checkout exact preview commit
         uses: actions/checkout@v4
         with:
-          ref: feature/v05-map
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -60,7 +67,27 @@ jobs:
           NODE
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify complete regression suite
+        run: npm test
+
+      - name: Verify durable research alarms, SQLite persistence and isolation
+        run: npm run test:discovery:durable
+
+      - name: Install Chromium for isolated discovery verification
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify discovery UI, review, persistence and offline access with synthetic provider fixtures
+        run: npm run test:discovery:browser
+
+      - name: Keep discovery browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-browser-verification
+          path: test-results/lead-discovery
+          if-no-files-found: ignore
 
       - name: Deploy to Cloudflare preview
         run: npx wrangler deploy --config wrangler.jsonc --name tradeflow-v05-preview
@@ -75,12 +102,17 @@ jobs:
           const root='https://tradeflow-v05-preview.bartoszszarafinski.workers.dev';
           const digest=x=>createHash('sha256').update(x).digest('hex');
           (async()=>{
-            for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','sw.js']){
-              const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now(),{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
-              assert.equal(response.status,200,file+' must be reachable');
-              assert.equal(digest(Buffer.from(await response.arrayBuffer())),digest(fs.readFileSync('public/'+file)),file+' must match this checkout');
+            for(const file of ['index.html','app.js','core-integration.js','calendar.js','revenue.js','suppliers.js','command-registry.js','operational-intelligence.js','record-interpreter.js','customer-capture.js','customer-capture.css','voice-command.js','voice-command.css','lead-demand-policy.js','lead-discovery-core.js','lead-discovery-runtime.js','lead-discovery-ui.js','lead-discovery.css','sw.js']){
+              const expected=digest(fs.readFileSync('public/'+file));let matched=false;
+              for(let attempt=0;attempt<12;attempt++){
+                const response=await fetch(root+(file==='index.html'?'/':'/'+file)+'?pilot='+Date.now()+'-'+attempt,{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(20000)});
+                if(response.status===200&&digest(Buffer.from(await response.arrayBuffer()))===expected){matched=true;break}
+                console.log('Waiting for exact deployed asset:',file,'attempt',attempt+1);
+                await new Promise(resolve=>setTimeout(resolve,2000));
+              }
+              assert.ok(matched,file+' must be reachable and match this checkout');
             }
-            console.log('PASS: all twelve live pilot foundation assets match the preview checkout');
+            console.log('PASS: all checked live application and discovery assets match the preview checkout');
           })().catch(error=>{console.error(error);process.exitCode=1});
           NODE
 

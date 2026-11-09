@@ -1,5 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
+// Keep fixed October 19 fixtures independent of the machine's current hour.
+const RealDate=Date;global.Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-18T00:00:00Z']))}static now(){return RealDate.parse('2026-10-18T00:00:00Z')}};
 const engine=require('../public/schedule-engine.js');
 const monday='2026-10-19';
 function base(){return {tasks:[],jobs:[],calendarEntries:[],calendarProposals:[],calendarPreferences:[]}}
@@ -79,3 +81,5 @@ function base(){return {tasks:[],jobs:[],calendarEntries:[],calendarProposals:[]
 }
 
 console.log('PASS: TradeFlow local scheduling engine, buffer, splitting, deadlines, dependencies, settings and dismissals');
+
+global.Date=RealDate;
