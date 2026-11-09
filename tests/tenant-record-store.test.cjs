@@ -98,3 +98,25 @@ test('crew writes reject ordinary members below the API and keep commit-time rol
  await assert.rejects(save(db,{...auth,role:'member'},'crew','crew_001',{revision:0,record:{name:'Self-appointed owner',role:'owner'}}),{status:403});assert.equal(used,'');
  await save(db,auth,'crew','crew_001',{revision:0,record:{name:'Electrician',role:'Foreman'}});assert.match(used,/role IN \('owner','admin'\)/);
 });
+
+test('sourceKind references reject a corrupt quote payload before any job write',async()=>{
+ const quote={payload:JSON.stringify({id:'quote_other',businessId:auth.businessId,customerId:'customer_1'}),revision:3};
+ let writes=0;
+ const db={prepare(sql){return {bind(...params){return {first:async()=>{
+  if(sql.startsWith('SELECT payload')){
+   assert.deepEqual(params,[auth.businessId,'quotes','quote_1']);
+   return quote;
+  }
+  writes++;
+  return {revision:1,updated_at:'now'};
+ }}}}}};
+ const body={revision:0,record:{sourceKind:'quote',sourceId:'quote_1',customerId:'customer_1'}};
+ await assert.rejects(save(db,auth,'jobs','job_01',body),{status:503});
+ assert.equal(writes,0,'corrupt quote identity cannot become authoritative job evidence');
+ quote.payload=JSON.stringify({id:'quote_1',businessId:'other_business',customerId:'customer_1'});
+ await assert.rejects(save(db,auth,'jobs','job_01',body),{status:503});
+ assert.equal(writes,0,'cross-business quote payload cannot be used');
+ quote.payload=JSON.stringify({id:'quote_1',businessId:auth.businessId,customerId:'customer_1'});
+ await save(db,auth,'jobs','job_01',body);
+ assert.equal(writes,1,'valid quote source remains usable');
+});
