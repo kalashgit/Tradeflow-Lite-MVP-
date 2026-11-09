@@ -31,6 +31,94 @@ test('unknown payroll must not be assumed or used to produce a fake cash forecas
  assert.match(result.content,/cannot calculate payroll coverage/);
 });
 
+test('conflicting cash balances never select the first value or calculate payroll coverage',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const r=analyzeOwnerPayrollQuestion('We have cash of $10,000, cash of $1,000, weekly payroll of $3,000. What threatens payroll in 14 days?');
+ assert.equal(r.status,'needs_clarification');
+ assert.equal(r.reason,'contradiction');
+ assert.equal(r.cash,null);
+ assert.equal(r.twoWeekPayroll,null);
+ assert.equal(r.afterPayroll,null);
+ assert.match(r.content,/Contradictory or repeated/);
+ assert.match(r.content,/cash of \$10,000 \/ cash of \$1,000/);
+ assert.match(r.content,/Please clarify/);
+ assert.doesNotMatch(r.content,/= \$4,000|shortfall of \$5,000/);
+ assert.equal(r.executionAuthority,false);
+});
+
+test('stale/current labels do not silently authorize picking one balance',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const r=analyzeOwnerPayrollQuestion('Yesterday cash was $10,000, but current cash is $1,000. Weekly payroll $3,000. What threatens payroll in the next two weeks?');
+ assert.equal(r.status,'needs_clarification');
+ assert.equal(r.reason,'historical_revision');
+ assert.equal(r.afterPayroll,null);
+ assert.match(r.content,/stale, and current figures cannot be safely selected/);
+ const unlabelled=analyzeOwnerPayrollQuestion('Cash was $10,000, but now $1,000. Weekly payroll $3,000. What threatens payroll in 14 days?');
+ assert.equal(unlabelled.status,'needs_clarification');
+ assert.equal(unlabelled.reason,'historical_revision');
+ assert.equal(unlabelled.afterPayroll,null);
+});
+
+test('explicit alternatives are distinguished from contradictory claims without choosing one',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const r=analyzeOwnerPayrollQuestion('Option A: cash $10,000. Option B: cash $1,000. Weekly payroll $3,000. What threatens payroll in 14 days?');
+ assert.equal(r.status,'needs_clarification');
+ assert.equal(r.reason,'alternatives');
+ assert.equal(r.afterPayroll,null);
+ assert.match(r.content,/Alternative financial scenarios/);
+});
+
+test('negative balances and material payments cannot silently become positive or be ignored',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const negatives=['Cash -$1,000 and weekly payroll $3,000. What threatens payroll in 14 days?',
+  'We have -$1,000 cash and $3,000 weekly payroll. What threatens payroll in 14 days?'];
+ for(const question of negatives){
+  const r=analyzeOwnerPayrollQuestion(question);
+  assert.equal(r.status,'needs_clarification');
+  assert.equal(r.reason,'unsupported_negative');
+  assert.equal(r.afterPayroll,null);
+ }
+ const material=analyzeOwnerPayrollQuestion('Cash $87,000, weekly payroll $38,000, materials cost $25,000. Which jobs threaten payroll in 14 days?');
+ assert.equal(material.status,'needs_clarification');
+ assert.equal(material.reason,'unverified_outflows');
+ assert.equal(material.afterPayroll,null);
+ assert.match(material.content,/supplier due dates/);
+ const conflictingMaterial=analyzeOwnerPayrollQuestion('Cash $87,000 and weekly payroll $38,000, materials cost $25,000, materials cost $40,000. Which jobs threaten payroll in 14 days?');
+ assert.equal(conflictingMaterial.reason,'contradiction');
+ assert.equal(conflictingMaterial.afterPayroll,null);
+});
+
+test('repeated matching figures and conflicting weekly payroll are withheld, not deduplicated',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ for(const question of [
+  'Cash $8,000, cash $8,000, weekly payroll $3,000. What threatens payroll in 14 days?',
+  'Cash $8,000 and weekly payroll $3,000, weekly payroll $4,000. What threatens payroll in 14 days?'
+ ]){
+  const r=analyzeOwnerPayrollQuestion(question);
+  assert.equal(r.status,'needs_clarification');
+  assert.equal(r.afterPayroll,null);
+ }
+});
+
+test('natural cash and payroll wording is accepted when each value is unambiguous',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const r=analyzeOwnerPayrollQuestion('Cash $1,000 and weekly payroll $1,000. What threatens payroll in the next 14 days?');
+ assert.equal(r.status,'conditional_calculation');
+ assert.equal(r.cash,1000);
+ assert.equal(r.weeklyPayroll,1000);
+ assert.equal(r.afterPayroll,-1000);
+ assert.match(r.content,/shortfall/);
+ assert.match(r.content,/exact payroll dates and amounts/);
+ assert.match(r.content,/supplier and subcontractor payments/);
+});
+
+test('unsupported cents never become a misleading rounded integer',async()=>{
+ const {analyzeOwnerPayrollQuestion}=await load();
+ const r=analyzeOwnerPayrollQuestion('Cash of $1,000.50, weekly payroll $1,000. What threatens payroll in 14 days?');
+ assert.equal(r.status,'needs_clarification');
+ assert.equal(r.afterPayroll,null);
+});
+
 test('isolated synthetic math labels source, rejects authenticated evidence claims and invalid figures',async()=>{
  const {analyzePayrollRisk}=await load();
  assert.match(analyzePayrollRisk({source:'synthetic_fixture',cash:100,weeklyPayroll:80}).content,/SYNTHETIC SIMULATION/);
