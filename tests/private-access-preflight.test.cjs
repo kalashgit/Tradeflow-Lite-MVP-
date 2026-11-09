@@ -23,6 +23,7 @@ test('rejects application redirects, generic denials, and spoofed destinations',
     response(302, { ...access, location: `http://team.cloudflareaccess.com/cdn-cgi/access/login/${host}` }),
     response(302, { ...access, location: `https://team.cloudflareaccess.com.evil.test/cdn-cgi/access/login/${host}` }),
     response(302, { ...access, location: 'https://team.cloudflareaccess.com/cdn-cgi/access/login/other.worker.dev' }),
+    response(302, { ...access, location: `https://team.cloudflareaccess.com/cdn-cgi/access/login/${host}.evil.test` }),
     response(403),
     response(500, access),
   ];
