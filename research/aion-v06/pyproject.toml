@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aion-genesis"
+version = "0.6.0"
+description = "A reproducible testbed for evolving causal-learning strategies"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+aion-genesis = "aion_genesis.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["aion_genesis*"]

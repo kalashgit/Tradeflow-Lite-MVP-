@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "candidates": [
+    {
+      "id": "qwen-primary",
+      "kind": "compatible",
+      "base_url_env": "AION_QWEN_URL",
+      "model_env": "AION_QWEN_MODEL",
+      "api_key_env": "AION_QWEN_API_KEY",
+      "max_completion_tokens": 350,
+      "timeout_seconds": 30
+    },
+    {
+      "id": "alternative-model",
+      "kind": "compatible",
+      "base_url_env": "AION_ALT_URL",
+      "model_env": "AION_ALT_MODEL",
+      "api_key_env": "AION_ALT_API_KEY",
+      "max_completion_tokens": 350,
+      "timeout_seconds": 30
+    }
+  ]
+}

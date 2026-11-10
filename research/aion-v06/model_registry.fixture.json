@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "candidates": [
+    {"id": "static-rule-fixture", "kind": "fixture_static"},
+    {"id": "cost-first-fixture", "kind": "fixture_cost_first"}
+  ]
+}
