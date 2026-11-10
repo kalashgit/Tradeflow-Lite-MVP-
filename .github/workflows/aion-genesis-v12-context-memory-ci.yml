@@ -1,0 +1,60 @@
+name: AION Genesis v1.2 — Contextual Memory Research
+
+on:
+  push:
+    branches:
+      - research/aion-genesis-v12-context-memory
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-genesis-v12-context-memory-ci.yml'
+  pull_request:
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-genesis-v12-context-memory-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contextual-memory:
+    name: Full Python regression and old non-holdout validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    env:
+      AION_LAB_OUTPUT: /tmp/aion-genesis-v12-check
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full Python suite including contextual memory
+        run: python -m unittest discover -s tests -q
+      - name: Previous version's development and validation ONLY
+        run: >-
+          python -m aion_genesis.lab run
+          --config aion_genesis/lab/configs/genesis_v1_1_safety.json
+          --partitions dev validation
+          --out "$AION_LAB_OUTPUT"
+      - name: Verify ledger and reproducibility
+        run: python -m aion_genesis.lab validate --out "$AION_LAB_OUTPUT" --reproduce
+      - name: Do not mistake the candidate for a promoted lab policy
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["AION_LAB_OUTPUT"])
+          record = json.loads(root.joinpath("index.jsonl").read_text().splitlines()[-1])
+          report = json.loads((root / "runs" / record["run_id"] / "result.json").read_text())
+          assert set(report["partitions"]) == {"dev", "validation"}
+          assert report["verdict"] == "INCONCLUSIVE"
+          assert report["labels"]["model_inference_calls"] == 0
+          assert report["labels"]["external_actions"] == 0
+          print("Research-only candidate, held-out promotion not evaluated.")
+          PY

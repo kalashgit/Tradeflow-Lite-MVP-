@@ -14,11 +14,17 @@ POLICY_VERSIONS = {
     "v09_strategist": "runtime-1.0/bounded-search(strategic-planner-0.9.0)/memory-off",
     "aion_v1_memory": "runtime-1.0/bounded-search(strategic-planner-0.9.0)"
                       "/outcome-memory(additive_residual_v1)",
+    "aion_v12_contextual": "runtime-1.2/bounded-search(strategic-planner-0.9.0)"
+                           "/outcome-memory(contextual_residual_v12)",
+    "aion_v12_hybrid": "runtime-1.2.1/bounded-search(strategic-planner-0.9.0)"
+                       "/outcome-memory(hierarchical_contextual_residual_v12)",
 }
 _CAPABILITIES = {
     "fixed_rule": ("deterministic_fast_path",),
     "v09_strategist": ("bounded_search",),
     "aion_v1_memory": ("bounded_search", "outcome_memory"),
+    "aion_v12_contextual": ("bounded_search", "contextual_outcome_memory"),
+    "aion_v12_hybrid": ("bounded_search", "hybrid_outcome_memory"),
 }
 
 

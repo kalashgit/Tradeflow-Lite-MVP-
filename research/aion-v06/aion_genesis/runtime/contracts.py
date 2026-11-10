@@ -27,6 +27,7 @@ ABSTAINED = "abstained_no_action_proposed"
 RESEARCH_MODE = "synthetic_research"
 CAPABILITIES = frozenset({
     "deterministic_fast_path", "bounded_search", "model_advice", "outcome_memory",
+    "contextual_outcome_memory", "hybrid_outcome_memory",
 })
 _LIMIT = 10**9
 

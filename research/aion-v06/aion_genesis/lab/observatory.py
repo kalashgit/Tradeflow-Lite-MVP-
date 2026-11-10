@@ -11,11 +11,16 @@ from .ledger import events
 
 # Categorical series colours (fixed order, validated for the dark surface) and
 # reserved status colours, which always travel with an icon and a word.
-SERIES = {"aion_v1_memory": "#3987e5", "v09_strategist": "#d95926",
+SERIES = {"aion_v1_memory": "#3987e5", "aion_v12_contextual": "#41c5bb",
+          "aion_v12_hybrid": "#80b6ed",
+          "v09_strategist": "#d95926",
           "fixed_rule": "#199e70", "no_action": "#c98500"}
 STATUS = {"PASS": ("#0ca30c", "✓"), "FAIL": ("#d03b3b", "✕"),
           "INCONCLUSIVE": ("#fab219", "?"), "BLOCKED": ("#ec835a", "■")}
-NAMES = {"aion_v1_memory": "AION v1 · memory on", "v09_strategist": "v0.9 strategist",
+NAMES = {"aion_v1_memory": "AION v1 · memory on",
+         "aion_v12_contextual": "AION v1.2 · contextual memory",
+         "aion_v12_hybrid": "AION v1.2 · hierarchical memory",
+         "v09_strategist": "v0.9 strategist",
          "fixed_rule": "Fixed rule", "no_action": "No action"}
 SURFACE, INK, MUTED, GRID = "#0a111d", "#e7f1fe", "#9aaec2", "#263a4d"
 
@@ -126,7 +131,7 @@ def _harm_chart(scorecard: dict, candidate: str, baseline: str) -> str:
             f'{SERIES[baseline]}"></i>{e(NAMES[baseline])}</span></div>')
 
 
-def _forest(comparisons: dict, families: list[str]) -> str:
+def _forest(comparisons: dict, families: list[str], candidate="aion_v1_memory") -> str:
     rows = []
     for family in families:
         for variant in ("nominal", "shifted"):
@@ -156,9 +161,9 @@ def _forest(comparisons: dict, families: list[str]) -> str:
             f'<text x="0" y="{y - 2}" font-size="11.5" fill="{INK}">{e(_pretty(family))}</text>'
             f'<text x="0" y="{y + 11}" font-size="10.5" fill="{MUTED}">{variant}</text>'
             f'<g><title>{e(tip)}</title><line x1="{x(interval[0]):.1f}" y1="{y}" '
-            f'x2="{x(interval[1]):.1f}" y2="{y}" stroke="{SERIES["aion_v1_memory"]}" '
+            f'x2="{x(interval[1]):.1f}" y2="{y}" stroke="{SERIES[candidate]}" '
             f'stroke-width="2"/><circle cx="{x(value):.1f}" cy="{y}" r="5" '
-            f'fill="{SERIES["aion_v1_memory"]}" stroke="{SURFACE}" stroke-width="2"/></g>'
+            f'fill="{SERIES[candidate]}" stroke="{SURFACE}" stroke-width="2"/></g>'
             f'<text x="{left + plot + 10}" y="{y + 4}" font-size="10.5" fill="{INK}">'
             f'{value:+.2f} {_interval(interval)}</text>')
     return (f'<svg viewBox="0 0 700 {height}" role="img" aria-label="Paired mean episode '
@@ -166,7 +171,7 @@ def _forest(comparisons: dict, families: list[str]) -> str:
             f'{"".join(parts)}</svg>')
 
 
-def _curve(points: list[dict], title: str) -> str:
+def _curve(points: list[dict], title: str, candidate="aion_v1_memory") -> str:
     if not points:
         return ""
     values = [p["mean_utility_delta"] for p in points]
@@ -182,7 +187,7 @@ def _curve(points: list[dict], title: str) -> str:
         return top + (height - top - bottom) * (1 - (value - low) / (high - low))
 
     line = " ".join(f"{px(i):.1f},{py(v):.1f}" for i, v in enumerate(values))
-    colour = SERIES["aion_v1_memory"]
+    colour = SERIES[candidate]
     marks = "".join(
         f'<circle cx="{px(i):.1f}" cy="{py(v):.1f}" r="4" fill="{colour}" stroke="{SURFACE}" '
         f'stroke-width="2"><title>Decision {p["step"] + 1}: Δ {v:+.2f} utility, '
@@ -342,7 +347,7 @@ def render_observatory(result: dict, records: list[dict], history: list[dict] = 
     worse = [f for f, d in gains if d.get("ci95") and d["ci95"][1] < 0]
     reduction = harm.get("relative_reduction")
     curves = "".join(
-        _curve(learning["by_step"][family]["shifted"], _pretty(family) + " · shifted")
+        _curve(learning["by_step"][family]["shifted"], _pretty(family) + " · shifted", candidate)
         for family in config["families"])
     latency = "".join(
         f'<tr><td><i class="key" style="background:{SERIES.get(policy, MUTED)}"></i>'
@@ -370,7 +375,7 @@ def render_observatory(result: dict, records: list[dict], history: list[dict] = 
 <h1>Did the candidate earn promotion?</h1>
 <p>Run <code>{e(run["run_id"])}</code> · source <code>{e(run["source_commit"][:12])}</code>
 {"(uncommitted changes)" if result["source"]["dirty"] else ""} · started {e(result["started_at_utc"])}
-· partitions: {e(partitions)}. Four policies face identical seeded worlds and shocks;
+· partitions: {e(partitions)}. {len(config["policies"])} policies face identical seeded worlds and shocks;
 an independent referee holds every hidden outcome.</p>
 <div class="notice"><strong>SYNTHETIC SIMULATION ONLY.</strong> {result["labels"]["model_inference_calls"]}
 language-model calls. No real business data, no external action, no live learning and no
@@ -409,7 +414,7 @@ no action, so read that row together with mean utility below.</p>
 <section class="panel"><h2>Paired utility difference: candidate minus baseline</h2>
 <p>Mean difference in total episode utility on identical worlds, with 95% intervals.
 Right of the dashed line favours the candidate. Units are invented and differ by world.</p>
-<div class="scroll wide">{_forest(versus, config["families"])}</div></section>
+<div class="scroll wide">{_forest(versus, config["families"], candidate)}</div></section>
 
 <section class="panel"><h2>Learning gain by decision number</h2>
 <p>Memory on minus memory off, mean utility per decision, shifted worlds. Both start with an
