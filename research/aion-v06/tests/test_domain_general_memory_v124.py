@@ -93,7 +93,7 @@ class RuntimeAndLabTests(unittest.TestCase):
                                          f"{seed}/{variant}/{old['step']}:{field}")
 
     def test_domain_general_state_tenant_isolation_and_review_only(self):
-        world = make_world("resource_allocation", 390006, "nominal")
+        world = make_world("resource_allocation", 330002, "nominal")
         store = RuntimeStore(":memory:")
         self.addCleanup(store.close)
         runtime = AionRuntime(store, [EquipmentMaintenanceAdapter()])
