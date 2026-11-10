@@ -29,6 +29,51 @@ attention budgeting, safe conflict/supersession handling, and a deliberately
 simulation-only execution journal. The initial detector is a transparent
 rule-based baseline, **not** an adaptive model or production service.
 
+Version 0.8 adds a **domain-neutral Situation Intelligence Engine** and a
+replaceable **TradeFlow electrical contractor specialization** for approximately
+5–20-person contractors. The reusable core stores tenant-scoped evidence,
+tracks revisions across time, maintains owner priorities, validates every
+hypothesis against its cited observations, ranks a bounded briefing, and
+records human review without performing actions. A separate domain pack defines
+which business patterns matter. A test-only factory-maintenance adapter runs
+through the same core to verify architectural portability, not learning transfer.
+
+## Situation Intelligence v0.8 — one core, many domains
+
+```text
+Event / observation ledger  ->  Current situation and owner objectives
+                  ->  Replaceable domain pattern / hypothesis pack
+                  ->  Evidence validator and alternative-hypothesis checks
+                  ->  Prioritized owner briefing and reviewed proposal ledger
+```
+
+The **generic** `aion_genesis/situation_engine.py` has no electrical-industry
+dependency. It handles chronological observations, scope/subject relationships,
+cross-department evidence checks, tenant separation, review state and ranking.
+The **TradeFlow** pack `aion_genesis/domains/electrical_contractor.py` supplies
+heuristics involving procurement, crews, permits, inspections, invoices and
+payroll. In V1 those heuristics are intentionally conservative and fictional:
+they are not regulatory advice, business predictions, or causal proof.
+
+```bash
+python -m aion_genesis.situation_cli seed --db situation-demo.sqlite3
+python -m aion_genesis.situation_cli brief --db situation-demo.sqlite3 \
+  --budget 3 --output situation-demo.json
+```
+
+The seeded demonstration links six observations across five departments into
+three owner review candidates; each candidate includes the exact supporting
+event IDs, affected departments, an alternative explanation, and what remains
+uncertain. New measurements replace stale values in the *current* view without
+erasing the historical event ledger. New evidence supersedes obsolete proposals
+and even invalidates previously approved but unexecuted review cards.
+
+This is an engineering scaffold, **not a deployed TradeFlow integration**.
+Real customer data is not allowed by the event schema. Voice, authorized
+connectors, a hosted background worker, an actual approval UI, learned causal
+models, model-written hypotheses, action tools, and measured business outcomes
+all remain subsequent independently testable research gates.
+
 ## AION Operator Lab: owner + business intelligence
 
 The long-term product loop is:
