@@ -19,6 +19,7 @@ from .contracts import (
 )
 from .domain import DomainAdapter, freshness_limit
 from .learning import EffectModel, effect_keys
+from .contextual_memory import ContextualEffectModel, public_context
 from .store import DUPLICATE, RuntimeStore
 
 FAST_PATH_MS = 10          # a request this urgent skips bounded search
@@ -35,6 +36,11 @@ class ModelBinding:
     is_mock: bool
 
 
+def _contextual_store_key(domain_id: str, scope_id: str) -> str:
+    """Keep experimental contextual corrections isolated by domain and scope."""
+    return f"{domain_id}::contextual_v12::{scope_id}"
+
+
 class _Abstain(Exception):
     def __init__(self, reason: str, known_unknowns=(), constraints=(), version=None):
         super().__init__(reason)
@@ -47,11 +53,13 @@ class _Abstain(Exception):
 class _BoundedDomain:
     """Applies hard constraints and provisional memory around a domain pack."""
 
-    def __init__(self, base, model: EffectModel | None, forbidden):
+    def __init__(self, base, model: EffectModel | ContextualEffectModel | None,
+                 forbidden, context=(), as_of=0):
         self.name = base.name
         self.axes = base.axes
         self.baseline_decisions = base.baseline_decisions
         self._base, self._model, self._forbidden = base, model, forbidden
+        self._context, self._as_of = context, as_of
         self.raw: dict[str, Choice] = {}
         self.adjusted: dict[str, Choice] = {}
         self.assessments = self.excluded_forbidden = self.excluded_prerequisite = 0
@@ -71,7 +79,10 @@ class _BoundedDomain:
         if self._model is not None:
             keys = effect_keys(decisions)
             choice = replace(choice, expected_effects={
-                name: round(value + self._model.correction(keys, name), 6)
+                name: round(value + (self._model.correction(
+                    keys, name, self._context, self._as_of)
+                    if isinstance(self._model, ContextualEffectModel)
+                    else self._model.correction(keys, name)), 6)
                 for name, value in choice.expected_effects.items()})
         self.adjusted[choice.identifier] = choice
         return choice
@@ -252,12 +263,25 @@ class AionRuntime:
         evidence = {item.event_id: item for item in usable}
         memory = {"mode": "off", "effect_model_version": None, "state": None}
         model = None
-        if "outcome_memory" in capabilities:
+        context = ()
+        if {"outcome_memory", "contextual_outcome_memory"} <= capabilities:
+            raise _Abstain("conflicting_memory_modes", unknowns, version=version)
+        if "contextual_outcome_memory" in capabilities:
+            context = public_context(usable)
+            key = _contextual_store_key(domain_id, request.scope_id)
+            active = self.store.active_effect_model(tenant, key)
+            memory = {"mode": "contextual",
+                      "effect_model_version": active and active["version"],
+                      "state": active and active["state"],
+                      "context": [list(pair) for pair in context]}
+            model = ContextualEffectModel.from_json(active["body"]) if active else None
+        elif "outcome_memory" in capabilities:
             active = self.store.active_effect_model(tenant, domain_id)
             memory = {"mode": "on", "effect_model_version": active and active["version"],
                       "state": active and active["state"]}
             model = EffectModel.from_json(active["body"]) if active else None
-        bounded = _BoundedDomain(base, model, profile.forbidden_choices)
+        bounded = _BoundedDomain(base, model, profile.forbidden_choices,
+                                 context=context, as_of=request.as_of)
         goals = Goals(weights=dict(profile.goal_weights), max_spend=profile.max_spend,
                       uncertainty_aversion=profile.uncertainty_aversion)
         urgent = request.time_budget_ms <= FAST_PATH_MS or (
@@ -421,15 +445,26 @@ class AionRuntime:
             observed = outcome.observed_effects
             residuals = {name: observed[name] - card["raw_expected_effects"][name]
                          for name in sorted(observed) if name in card["raw_expected_effects"]}
-            active = self.store.active_effect_model(tenant, domain_id)
-            model = EffectModel.from_json(active["body"] if active else None)
+            contextual = proposal.memory is not None and proposal.memory.get("mode") == "contextual"
+            model_key = (_contextual_store_key(domain_id, proposal.scope_id)
+                         if contextual else domain_id)
+            active = self.store.active_effect_model(tenant, model_key)
             keys = effect_keys(tuple(tuple(d) for d in card["decisions"]))
+            if contextual:
+                model = ContextualEffectModel.from_json(active["body"] if active else None)
+                updated = model.updated(keys, residuals, proposal.memory["context"],
+                                        outcome.observation_time)
+            else:
+                model = EffectModel.from_json(active["body"] if active else None)
+                updated = model.updated(keys, residuals)
             result["effect_model_version"] = self.store.append_effect_model(
-                tenant, domain_id, model.updated(keys, residuals).to_json(), {
+                tenant, model_key, updated.to_json(), {
                     "outcome_id": outcome.outcome_id, "proposal_id": outcome.proposal_id,
                     "receipt_ref": outcome.receipt_ref, "evidence_ref": outcome.evidence_ref,
                     "source": outcome.source, "chosen_action_ref": outcome.chosen_action_ref,
-                    "source_revisions": list(proposal.evidence_refs)})
+                    "source_revisions": list(proposal.evidence_refs),
+                    "memory_kind": "contextual_residual_v12" if contextual else "additive_residual_v1",
+                    "scope_id": proposal.scope_id})
             result["status"] = "learned_provisional"
             result["prediction_error"] = {
                 name: round(observed[name] - card["expected_effects"][name], 6)
