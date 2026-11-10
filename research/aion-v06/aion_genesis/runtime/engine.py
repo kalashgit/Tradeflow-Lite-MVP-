@@ -463,8 +463,8 @@ class AionRuntime:
                     "receipt_ref": outcome.receipt_ref, "evidence_ref": outcome.evidence_ref,
                     "source": outcome.source, "chosen_action_ref": outcome.chosen_action_ref,
                     "source_revisions": list(proposal.evidence_refs),
-                    "memory_kind": "contextual_residual_v12" if contextual else "additive_residual_v1",
-                    "scope_id": proposal.scope_id})
+                    **({"memory_kind": "contextual_residual_v12",
+                        "scope_id": proposal.scope_id} if contextual else {})})
             result["status"] = "learned_provisional"
             result["prediction_error"] = {
                 name: round(observed[name] - card["expected_effects"][name], 6)
