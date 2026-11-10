@@ -76,6 +76,23 @@ class UnknownMechanismTests(unittest.TestCase):
         self.assertGreater(len(inventor.inputs[1]["feedback"]),0)
         self.assertNotIn("hidden_rule",str(inventor.inputs))
 
+    def test_default_escalation_budget_is_one_model_call_to_control_cost(self):
+        class UnhelpfulInventor:
+            def __init__(self):
+                self.calls=0
+            def propose(self, **kwargs):
+                self.calls+=1
+                return {"op":"and","args":[v("A"),v("B")]}
+        world=HiddenWorld("diagnostic",("A","B","C"),
+                          {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}},
+                          "unseen")
+        observations=[world.intervene(s) for s in states(world.variables)]
+        agent=HybridProposer(inventor=UnhelpfulInventor())
+        self.assertIsNone(agent.propose(variables=world.variables,recent=observations,
+                                        feedback=[],previous=None))
+        self.assertEqual(agent.calls,1)
+        self.assertEqual(agent.rejection_counts["contradicts_evidence"],1)
+
     def test_repair_budget_cannot_expand_without_a_new_approval(self):
         with self.assertRaises(ValueError):
             HybridProposer(max_invention_attempts=999)

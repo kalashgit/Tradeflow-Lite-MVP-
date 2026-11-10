@@ -51,7 +51,7 @@ class HybridProposer:
     independent DSL validator and fit existing observations before provisional
     in-memory reuse. Memory is wiped with each new HybridProposer instance.
     """
-    def __init__(self, inventor=None, max_invention_attempts=2):
+    def __init__(self, inventor=None, max_invention_attempts=1):
         if type(max_invention_attempts) is not int or not 1 <= max_invention_attempts <= 3:
             raise ValueError("repair budget must be 1-3 model calls")
         self.max_invention_attempts=max_invention_attempts

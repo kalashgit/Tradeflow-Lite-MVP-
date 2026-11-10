@@ -14,7 +14,7 @@ from .qwen import LocalQwenProposer
 from .scientist import Scientist
 
 
-def evaluate(seed=938, count=6, model="qwen3:0.6b", output_mode="schema"):
+def evaluate(seed=938, count=6, model="qwen3:0.6b", output_mode="schema", max_repair_calls=1):
     if count < 1 or count > 24:
         raise ValueError("invalid novel-world budget")
     provenance=test_unknown_grammar(seed=seed, count=max(6,count))
@@ -22,7 +22,7 @@ def evaluate(seed=938, count=6, model="qwen3:0.6b", output_mode="schema"):
     for world in novel_worlds(seed=seed,count=max(6,count))[:count]:
         model_agent=LocalQwenProposer(model=model,output_mode=output_mode,
                                      endpoint=os.environ.get("AION_MODEL_URL","http://127.0.0.1:11434"))
-        hybrid=HybridProposer(inventor=model_agent)
+        hybrid=HybridProposer(inventor=model_agent,max_invention_attempts=max_repair_calls)
         # 7/8 observations for 3-switch worlds; 12/16 for four-switch worlds.
         budget=7 if len(world.variables)==3 else 12
         trial=Scientist(hybrid,working_limit=16).investigate(world,max_experiments=budget)
@@ -62,6 +62,7 @@ def evaluate(seed=938, count=6, model="qwen3:0.6b", output_mode="schema"):
         "kind":"AION-Genesis-V1-symbolic-first-novel-composition",
         "model":model,
         "outputMode":output_mode,
+        "maxModelCallsPerEscalation":max_repair_calls,
         "realQwenInference":calls>0,
         "persistentMemoryEnabled":False,
         "researchAdmission":"BLOCKED",
@@ -87,8 +88,9 @@ def main(argv=None):
     parser.add_argument("--seed",type=int,default=938)
     parser.add_argument("--model",default=os.environ.get("AION_MODEL_ID","qwen3:0.6b"))
     parser.add_argument("--output-mode",choices=("json","schema"),default="schema")
+    parser.add_argument("--max-repair-calls",type=int,choices=(1,2,3),default=1)
     opts=parser.parse_args(argv)
-    report=evaluate(seed=opts.seed,count=opts.worlds,model=opts.model,output_mode=opts.output_mode)
+    report=evaluate(seed=opts.seed,count=opts.worlds,model=opts.model,output_mode=opts.output_mode,max_repair_calls=opts.max_repair_calls)
     print(json.dumps(report,indent=2,sort_keys=True))
 
 

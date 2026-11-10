@@ -64,3 +64,8 @@ A separate, CPU-only GitHub Actions research job starts Qwen3-0.6B through Ollam
 ## Diagnostic and bounded revision gate
 
 The hybrid now labels incomplete generations, malformed JSON, invalid ASTs and proposals contradicted by actual observations separately. On escalation, Qwen may receive at most two inference requests by default (configuration hard limited to one through three) to repair its own rejected candidate. Feedback includes only the candidate and counterexample measurements from the current world, never the hidden law. The next real-model evaluation must compare accepted new ASTs, their unseen predictive accuracy and added call/token costs; unit tests alone do not establish improvement. To avoid unnecessary GitHub CPU minutes, the novel-model workflow is now manual-only in the Actions tab, while synthetic safety tests run automatically.
+
+
+## Cost-based repair decision — real evidence
+
+On 2026-11-10 the six-world real Qwen3-0.6B repetition used 34 model calls rather than the earlier 17, yet generated **zero** accepted novel ASTs and yielded unchanged mean unseen accuracy of 50%. The 34 rejection events were all valid but contradicted observations; JSON grammar was not the limiting factor. Consequently the **default invention attempt budget is now one**, while explicitly configured two/three-call repair remains available solely for controlled experiments. The novel live-Qwen workflow was returned to manual-only dispatch to prevent unapproved repeated CPU runner usage. Research-quality gate and long-term knowledge admission remain blocked.
