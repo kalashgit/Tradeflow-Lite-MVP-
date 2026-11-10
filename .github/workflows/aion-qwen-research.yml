@@ -50,14 +50,24 @@ jobs:
           ollama list
       - name: Live Qwen readiness and actual inference
         run: npm run probe
-      - name: Live hypothesis generation and revision benchmark
-        run: node bin/aion.cjs benchmark --provider qwen > aion-qwen-benchmark.json
+      - name: Raw Qwen hypothesis baseline (record gate failures)
+        run: |
+          set +e
+          AION_REPAIR_MODE=none node bin/aion.cjs benchmark --provider qwen > aion-qwen-raw.json
+          status=$?
+          set -e
+          echo "Unassisted Qwen benchmark exit status: $status (2 = metric gate not reached)."
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
+      - name: Verified Qwen hypothesis repair with observed counterexamples
+        run: AION_REPAIR_MODE=feedback node bin/aion.cjs benchmark --provider qwen > aion-qwen-repair.json
       - name: Upload synthetic research benchmark evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aion-qwen-benchmark
-          path: research/aion/aion-qwen-benchmark.json
+          path: |
+            research/aion/aion-qwen-raw.json
+            research/aion/aion-qwen-repair.json
           if-no-files-found: ignore
           retention-days: 7
       - name: Write concise gate status
@@ -67,6 +77,8 @@ jobs:
           echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Model: Qwen3-0.6B via temporary CPU Ollama runner." >> "$GITHUB_STEP_SUMMARY"
           echo "No causal memory is created or persisted by this workflow." >> "$GITHUB_STEP_SUMMARY"
-          if [ -s aion-qwen-benchmark.json ]; then
-            node -e 'const f=require("./aion-qwen-benchmark.json");const s=f.summary;console.log("Real model inference: "+s.realModelInference+"; truth-table accuracy: "+s.meanTruthTableAccuracy+"; hypothesis consistency: "+s.hypothesisConsistencyRate+"; revisions: "+s.revisionCount+"; observations: "+s.observations);' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for file in aion-qwen-raw.json aion-qwen-repair.json; do
+            if [ -s "$file" ]; then
+              node -e 'const f=require("./"+process.argv[1]);const s=f.summary;console.log(process.argv[1]+": live="+s.realModelInference+", accuracy="+s.meanTruthTableAccuracy+", consistency="+s.hypothesisConsistencyRate+", revisions="+s.revisionCount+", model calls="+s.modelCalls+", repair attempts="+s.repairAttempts);' "$file" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
