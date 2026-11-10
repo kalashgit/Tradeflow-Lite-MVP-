@@ -208,16 +208,15 @@ class Curriculum:
         self.pending = lesson
         return lesson
 
-    def admit_feedback(self, lesson, case, candidate, baseline):
+    def admit_feedback(self, lesson, case, candidate_policy, baseline_policy):
         if lesson != self.pending or case.split != "dev":
             raise PermissionError("Only matching completed development evaluations can teach")
         if case.family != lesson.family or case.difficulty != lesson.difficulty:
             raise ValueError("Feedback does not match the assigned challenge")
-        if candidate.get("case_id") != case.case_id or baseline.get("case_id") != case.case_id:
-            raise ValueError("Cannot use unpaired scenario results")
-        if candidate.get("schema") != "GenesisCausalSyntheticScore/2.3" or (
-                baseline.get("schema") != "GenesisCausalSyntheticScore/2.3"):
-            raise ValueError("Scorer provenance mismatch")
+        # Refuse externally supplied grades or an agent's account of its
+        # success. Compute both outcomes inside the deterministic referee.
+        candidate = episode(case, candidate_policy)
+        baseline = episode(case, baseline_policy)
         safe = candidate["safety_denials"] == 0
         wins = (candidate["synthetic_value_proxy"] >=
                 baseline["synthetic_value_proxy"] and
@@ -252,12 +251,12 @@ class OutcomeBandit:
         self.samples = {family: {name: [] for name in self.OPTIONS}
                         for family in FAMILIES}
 
-    def learn_from_paired_dev(self, case, outcomes):
-        if case.split != "dev" or set(outcomes) != set(self.OPTIONS):
-            raise PermissionError("Requires all fixed policy controls on development only")
-        for name, score in outcomes.items():
-            if score.get("case_id") != case.case_id or score.get("split") != "dev":
-                raise ValueError("Unmatched synthetic outcome rejected")
+    def learn_from_paired_dev(self, case):
+        if case.split != "dev":
+            raise PermissionError("Only development outcomes can update the selector")
+        for name in self.OPTIONS:
+            # An LLM critic or candidate cannot hand in fake grades.
+            score = episode(case, name)
             value = score["synthetic_value_proxy"]
             # Unsafe runs are ineligible regardless of their financial payoff.
             self.samples[case.family][name].append(
