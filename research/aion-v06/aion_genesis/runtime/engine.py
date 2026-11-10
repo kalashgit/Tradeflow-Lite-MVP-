@@ -290,7 +290,18 @@ class AionRuntime:
             "relevant_outcome_memory", "domain_relevant_memory"}
         if len(memory_modes) > 1:
             raise _Abstain("conflicting_memory_modes", unknowns, version=version)
-        if "relevant_outcome_memory" in capabilities:
+        if "domain_relevant_memory" in capabilities:
+            context = public_context(usable)
+            key = _domain_general_store_key(domain_id)
+            active = self.store.active_effect_model(tenant, key)
+            memory = {"mode": "domain_relevant",
+                      "effect_model_version": active and active["version"],
+                      "state": active and active["state"],
+                      "context": [list(pair) for pair in context]}
+            model = DomainGeneralRelevantEffectModel.from_json(
+                active["body"] if active else None,
+                schema=getattr(adapter, "memory_relevance_schema", None))
+        elif "relevant_outcome_memory" in capabilities:
             context = public_context(usable)
             key = _relevant_store_key(domain_id, request.scope_id)
             active = self.store.active_effect_model(tenant, key)
@@ -325,7 +336,8 @@ class AionRuntime:
                       "state": active and active["state"]}
             model = EffectModel.from_json(active["body"]) if active else None
         bounded = _BoundedDomain(base, model, profile.forbidden_choices,
-                                 context=context, as_of=request.as_of)
+                                 context=context, as_of=request.as_of,
+                                 scope_id=request.scope_id)
         goals = Goals(weights=dict(profile.goal_weights), max_spend=profile.max_spend,
                       uncertainty_aversion=profile.uncertainty_aversion)
         urgent = request.time_budget_ms <= FAST_PATH_MS or (
@@ -368,13 +380,16 @@ class AionRuntime:
             }
 
         chosen = bounded.adjusted[ranked[0]]
-        if isinstance(model, RelevantEffectModel):
-            # Receipts come from this tenant/scope's past verified outcomes.
-            # Explain exactly whether relevance was recognized *before* ranking;
-            # no hidden-world correctness or counterfactual is asserted.
+        if isinstance(model, (RelevantEffectModel, DomainGeneralRelevantEffectModel)):
+            # Evidence is restricted to this tenant, domain and relevant scope.
+            # Receipt-backed correction is not a ground-truth action label.
             selected_keys = effect_keys(chosen.decisions)
             memory["decision_evidence"] = {
-                objective: model.evidence(selected_keys, objective, context, request.as_of)
+                objective: (
+                    model.evidence(selected_keys, objective, context, request.as_of,
+                                   request.scope_id)
+                    if isinstance(model, DomainGeneralRelevantEffectModel)
+                    else model.evidence(selected_keys, objective, context, request.as_of))
                 for objective in sorted(chosen.expected_effects)
             }
         selected = {**card(ranked[0]), "explanation": chosen.explanation,
