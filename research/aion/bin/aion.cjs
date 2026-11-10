@@ -2,7 +2,7 @@
 'use strict';
 const {qwenProvider,oracleProvider}=require('../src/provider.cjs');
 const {runBenchmark}=require('../src/benchmark.cjs');
-const {runResearchGates}=require('../src/research-gates.cjs');
+const {runResearchGates,consistentRules}=require('../src/research-gates.cjs');
 const {runTransferBenchmark}=require('../src/transfer-benchmark.cjs');
 async function main(){
  const [command,...args]=process.argv.slice(2);
@@ -18,7 +18,11 @@ async function main(){
  }
  if(command==='transfer'){
   const kind=args.includes('oracle')?'oracle':'qwen';
-  const provider=kind==='oracle'?oracleProvider():qwenProvider();
+  const provider=kind==='oracle'?{kind:'oracle-simulator',async infer({observations,allowedSwitches}){
+   const remaining=consistentRules(observations,allowedSwitches);
+   if(!remaining.length)throw Error('Contradictory evidence in transfer oracle');
+   return {rule:remaining[0],modelCalls:0};
+  }}:qwenProvider();
   if(kind==='qwen')await provider.probe();
   const outcome=await runTransferBenchmark(provider);
   console.log(JSON.stringify(outcome,null,2));
