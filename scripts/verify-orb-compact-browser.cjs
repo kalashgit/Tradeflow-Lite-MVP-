@@ -106,9 +106,12 @@ async function bounds(page,width){
     window.__g02PendingMic.onresult?.({results:[[{transcript:'Synthetic partial speech'}]]});
     window.__g02PendingMic.onerror?.({error:'not-allowed'});
    });
-   assert.match(await page.locator('#tfOrbBubble').innerText(),/Microphone permission denied/);
+   // DOM repaint is asynchronous after the synthetic onerror event. Assert the
+   // eventual visible error state rather than racing the pending-request UI.
+   await page.locator('#tfOrbBubble').filter({hasText:/Microphone permission denied/}).waitFor({timeout:5000});
+   await page.waitForFunction(()=>document.querySelector('#tfOrbBubble')?.getAttribute('data-voice-state')==='error',null,{timeout:5000});
    assert.equal(await page.locator('#tfVoiceText').inputValue(),'','Denied permission must not leave a sendable partial transcript');
-   assert.equal(await page.locator('#tfOrbBubble').getAttribute('data-voice-state'),'error');
+   assert.equal(await page.locator('[data-voice="mic"]').getAttribute('aria-pressed'),'false');
    await context.setOffline(true);
    assert.match(await page.locator('.tf-orb-capability').innerText(),/Speech may require network/);
    assert.equal(await page.locator('#tfVoiceText').isEnabled(),true,'Offline must retain text entry');
