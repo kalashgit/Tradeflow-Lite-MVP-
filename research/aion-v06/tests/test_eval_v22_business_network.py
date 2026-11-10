@@ -101,6 +101,21 @@ class NetworkFactoryContracts(unittest.TestCase):
         self.assertEqual(field["source_revision"], 2)
         self.assertEqual(field["status"], "needs_reinspection")
 
+    def test_missing_delivery_is_distinct_from_no_routing_path(self):
+        case = generate("dev", 4, jobs=2, disruption="invoice_dispute")
+        job = case.job_ids[0]
+        public = case.public_view("owner", case.horizon - 1, case.tenant)
+        invoice = next(r for r in public["known"] if
+                       r["job_id"] == job and r["stream"] == "invoice")
+        truth = next(r for r in case.source_truth(case.horizon - 1) if
+                     r["job_id"] == job and r["stream"] == "invoice")
+        # Owner was told the invoice was issued; customer later disputed
+        # through finance and office, but that update was not routed to owner.
+        self.assertEqual(invoice["status"], "issued")
+        self.assertEqual(truth["status"], "disputed")
+        audit = case.diagnostic(case.horizon - 1)["owner"]
+        self.assertGreater(audit["latest_revision_not_routed"], 0)
+
     def test_lost_ack_is_not_confused_with_unverified_completion(self):
         case = generate("dev", 10, jobs=2, disruption="lost_acknowledgment")
         job = case.job_ids[0]
@@ -141,6 +156,7 @@ class NetworkFactoryReplayTests(unittest.TestCase):
         self.assertEqual(result["promotion"], "not_authorized")
         self.assertGreaterEqual(result["audited_stale_streams"], 0)
         self.assertGreaterEqual(result["audited_missing_streams"], 0)
+        self.assertGreaterEqual(result["audited_latest_revisions_not_routed"], 0)
 
     def test_fresh_run_replays_independently_and_detects_modified_ledger(self):
         with tempfile.TemporaryDirectory() as folder:
