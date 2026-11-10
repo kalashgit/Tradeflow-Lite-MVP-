@@ -1,0 +1,97 @@
+name: AION Genesis — Offline Strategy Research Gates
+
+on:
+  push:
+    branches:
+      - research/aion-v06-qwen-bridge
+    paths:
+      - 'research/aion-v06/**'
+      - 'CLAUDE.md'
+      - 'docs/AION_CLAUDE_EXECUTION_PLAYBOOK.md'
+      - 'docs/CLAUDE_TASK_PACKET.md'
+      - '.github/workflows/aion-v09-offline-ci.yml'
+  pull_request:
+    paths:
+      - 'research/aion-v06/**'
+      - 'CLAUDE.md'
+      - 'docs/AION_CLAUDE_EXECUTION_PLAYBOOK.md'
+      - 'docs/CLAUDE_TASK_PACKET.md'
+      - '.github/workflows/aion-v09-offline-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-v09-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-research:
+    name: Synthetic strategy verification (no model or secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit and research contract tests
+        run: python -m unittest discover -s tests -q
+      - name: Grounded situation to strategic option plan
+        run: >-
+          python -m aion_genesis.strategic_cli plan
+          --output "${{ runner.temp }}/aion-v09-plan.json"
+      - name: Independent nominal 200-world benchmark
+        run: >-
+          python -m aion_genesis.strategic_cli benchmark --worlds 200 --seed 8000
+          --output "${{ runner.temp }}/aion-v09-nominal.json"
+      - name: Shifted-world failure disclosure
+        run: >-
+          python -m aion_genesis.strategic_cli benchmark --worlds 200 --seed 8000
+          --regime unexpected_failure
+          --output "${{ runner.temp }}/aion-v09-shifted.json"
+      - name: Enforce research-only evidence boundary
+        env:
+          AION_REPORT_DIR: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          base = Path(os.environ['AION_REPORT_DIR'])
+          plan = json.loads((base / 'aion-v09-plan.json').read_text())
+          assert plan['case_source'] == 'v0.8_current_situation_observations'
+          assert plan['automatic_decisions_executed'] == 0
+          assert plan['selected']['approval_state'] == 'pending_human_review'
+          assert not plan['learned_policy_verified']
+          assert not plan['all_real_world_options_known']
+          for regime, name in [('nominal', 'nominal'),
+                               ('unexpected_failure', 'shifted')]:
+              result = json.loads((base / f'aion-v09-{name}.json').read_text())
+              assert result['hidden_regime'] == regime
+              assert result['worlds'] == 200
+              assert result['model_inference_calls'] == 0
+              assert not result['autonomous_learning_proven']
+              assert not result['real_world_improvement_proven']
+              print(name, 'harm_fraction=', result['fraction_planner_worse_than_baseline'])
+          PY
+      - name: Store synthetic-only reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-v09-offline-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/aion-v09-plan.json
+            ${{ runner.temp }}/aion-v09-nominal.json
+            ${{ runner.temp }}/aion-v09-shifted.json
+          retention-days: 14
+      - name: Explicit evidence disclaimer
+        run: |
+          echo "AION v0.9 synthetic-only research; no real model inference or business actions." >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
