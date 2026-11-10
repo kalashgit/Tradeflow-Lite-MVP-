@@ -218,7 +218,14 @@ class Curriculum:
         candidate = episode(case, candidate_policy)
         baseline = episode(case, baseline_policy)
         safe = candidate["safety_denials"] == 0
-        wins = (candidate["synthetic_value_proxy"] >=
+        inactive = episode(case, "no_action")
+        # Never call a tie between two incapable policies 'success'. A
+        # harder lesson requires a verified payment, positive improvement
+        # over doing nothing, and no regression vs. the fixed reference.
+        meaningful = (candidate["paid_jobs"] > 0 and
+                      candidate["synthetic_value_proxy"] >
+                      inactive["synthetic_value_proxy"])
+        wins = (meaningful and candidate["synthetic_value_proxy"] >=
                 baseline["synthetic_value_proxy"] and
                 candidate["paid_jobs"] >= baseline["paid_jobs"] and safe)
         if wins:
