@@ -583,3 +583,54 @@ jobs:
           name: genesis-business-network-v22-${{ github.run_id }}
           path: ${{ runner.temp }}/genesis-network-v22-dev/
           retention-days: 14
+
+  causal-adaptive-curriculum-v23:
+    name: Fast causal economics and adaptive curriculum replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Causal economics and adaptive learning safety contracts
+        run: python -m unittest discover -s tests -p test_eval_v23_causal_curriculum.py -q
+      - name: Generate causal development lessons and freeze selected policy
+        run: >-
+          python -m aion_genesis.eval_v2.adaptive_runner run
+          --train 24 --validation 18
+          --out "${{ runner.temp }}/genesis-causal-curriculum-v23"
+      - name: Independently replay adaptive lessons and heldout exclusion
+        run: |
+          python -m aion_genesis.eval_v2.adaptive_runner verify \
+            --out "${{ runner.temp }}/genesis-causal-curriculum-v23"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "genesis-causal-curriculum-v23"
+          report = json.loads((root / "result.json").read_text())
+          assert report["development_cases"] == 24
+          assert report["public_validation_cases"] == 18
+          assert report["validation_used_for_learning"] is False
+          assert report["secured_holdout_evaluated"] is False
+          assert report["llm_critic_used_to_score_or_promote"] is False
+          assert report["candidate_code_modified"] is False
+          assert report["production_actions"] == 0
+          assert report["promotion"] == "blocked_pending_external_review"
+          assert len(report["paired_synthetic_interventions"]) > 0
+          print("V2.3 causal curriculum:", report["summary"])
+          print("No model inference, production actions, or holdout access.")
+          PY
+      - name: Archive synthetic adaptive curriculum learning evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-causal-curriculum-v23-${{ github.run_id }}
+          path: ${{ runner.temp }}/genesis-causal-curriculum-v23/
+          retention-days: 14
