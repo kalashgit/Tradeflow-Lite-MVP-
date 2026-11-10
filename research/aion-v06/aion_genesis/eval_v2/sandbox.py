@@ -61,6 +61,8 @@ class MockContractorWorld:
         self.work_completed = 0
         self.completed_at = None
         self.verified_at = None
+        self._paid_once = False
+        self._prepared_tick = None
         self.pending_delivery = None
         self._ops = {}
         self.audit = []
@@ -70,6 +72,9 @@ class MockContractorWorld:
         self.duplicate_write_preventions = 0
 
     def _events(self):
+        if self._prepared_tick == self.tick:
+            return
+        self._prepared_tick = self.tick
         c = self._case
         if c.change_tick == self.tick and c.extra_work:
             self.work_required += c.extra_work
@@ -83,11 +88,14 @@ class MockContractorWorld:
             self.stock = True
             self.pending_delivery = None
 
+    def prepare_tick(self):
+        self._events()
+
     def public_view(self):
         c = self._case
         return {
             "schema": "GenesisMockContractorPublicView/1.0",
-            "fictional": True, "case_ref": c.scenario_id,
+            "fictional": True, "case_ref": "SYN-JOB-" + _digest(c.scenario_id)[:12],
             "tick": self.tick, "week": self.tick // 3 + 1,
             "cash": self.cash, "material_cost": c.material_cost,
             "labor_cost": c.labor_cost,
@@ -158,7 +166,9 @@ class MockContractorWorld:
             self.work_completed += 1
             self._ops[key] = {"tool": tool, "at": self.tick}
             if self.work_completed == self.work_required:
-                self.cash += c.job_payment
+                if not self._paid_once:
+                    self.cash += c.job_payment
+                    self._paid_once = True
                 self.completed_at = self.tick
             return _reply(ok=True, status="committed", key=key,
                           work_completed=self.work_completed)
@@ -232,6 +242,7 @@ class MockContractorWorld:
             "work_feasible_at_start": (
                 c.supplier_stock and c.crew_authorized
                 and c.material_cost <= c.approval_order_limit
-                and c.initial_cash >= c.material_cost + c.labor_cost),
+                and c.initial_cash >= c.material_cost +
+                c.labor_cost * (c.work_required + c.extra_work)),
             "trace_digest": _digest(self.audit),
         }
