@@ -2,7 +2,7 @@
 const {INPUTS,prediction,nextExperiment,consistentCandidates,ruleKey,experimentWorlds}=require('./world.cjs');
 function accuracy(rule,trueRule){return INPUTS.filter(state=>prediction(rule,state)===prediction(trueRule,state)).length/INPUTS.length;}
 async function runPhase({provider,hiddenRule,previousRule=null,maxExperiments=5}){
- let observations=[],hypothesis=previousRule,trace=[],revisions=0,invalidHypotheses=0;
+ let observations=[],hypothesis=previousRule,trace=[],revisions=0,invalidHypotheses=0,modelCalls=0,repairAttempts=0;
  for(let step=0;step<maxExperiments;step++){
   const state=nextExperiment(observations);
   if(!state)break;
@@ -11,12 +11,14 @@ async function runPhase({provider,hiddenRule,previousRule=null,maxExperiments=5}
   const previousKey=hypothesis?ruleKey(hypothesis):null;
   const proposed=await provider.infer({observations:structuredClone(observations),previousRule:hypothesis});
   hypothesis=proposed.rule;
+  modelCalls+=proposed.modelCalls??1;
+  repairAttempts+=proposed.repairAttempts??0;
   if(previousKey&&previousKey!==ruleKey(hypothesis))revisions++;
   const consistent=consistentCandidates(observations).some(c=>ruleKey(c)===ruleKey(hypothesis));
   if(!consistent)invalidHypotheses++;
-  trace.push({step:step+1,observation,hypothesis:ruleKey(hypothesis),consistent,accuracy:accuracy(hypothesis,hiddenRule),remainingModels:consistentCandidates(observations).length});
+  trace.push({step:step+1,observation,hypothesis:ruleKey(hypothesis),consistent,accuracy:accuracy(hypothesis,hiddenRule),remainingModels:consistentCandidates(observations).length,modelCalls:proposed.modelCalls??1,repairAttempts:proposed.repairAttempts??0});
  }
- return {experiments:observations.length,accuracy:hypothesis?accuracy(hypothesis,hiddenRule):0,revisions,invalidHypotheses,finalHypothesis:hypothesis?ruleKey(hypothesis):null,trace};
+ return {experiments:observations.length,accuracy:hypothesis?accuracy(hypothesis,hiddenRule):0,revisions,invalidHypotheses,modelCalls,repairAttempts,finalHypothesis:hypothesis?ruleKey(hypothesis):null,trace};
 }
 async function runBenchmark(provider,{maxExperiments=5}={}){
  if(!provider||typeof provider.infer!=='function')throw Error('Provider must implement infer');
@@ -32,7 +34,7 @@ async function runBenchmark(provider,{maxExperiments=5}={}){
  const avg=phases.reduce((sum,p)=>sum+p.accuracy,0)/phases.length;
  const valid=phases.reduce((sum,p)=>sum+p.trace.length-p.invalidHypotheses,0);
  const total=phases.reduce((sum,p)=>sum+p.trace.length,0);
- const summary={provider:provider.kind||'unknown',scenarioCount:scenarios.length,phases:phases.length,observations:total,meanTruthTableAccuracy:+avg.toFixed(4),hypothesisConsistencyRate:total?+(valid/total).toFixed(4):0,revisionCount:phases.reduce((sum,p)=>sum+p.revisions,0),realModelInference:provider.kind==='live-qwen',memoryEnabled:false};
+ const summary={provider:provider.kind||'unknown',scenarioCount:scenarios.length,phases:phases.length,observations:total,meanTruthTableAccuracy:+avg.toFixed(4),hypothesisConsistencyRate:total?+(valid/total).toFixed(4):0,revisionCount:phases.reduce((sum,p)=>sum+p.revisions,0),modelCalls:phases.reduce((sum,p)=>sum+p.modelCalls,0),repairAttempts:phases.reduce((sum,p)=>sum+p.repairAttempts,0),realModelInference:provider.kind==='live-qwen',memoryEnabled:false};
  return {summary,scenarios};
 }
 module.exports={accuracy,runPhase,runBenchmark};
