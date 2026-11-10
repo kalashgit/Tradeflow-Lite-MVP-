@@ -280,6 +280,87 @@ jobs:
             ${{ runner.temp }}/v123-relevant-dev.json
             ${{ runner.temp }}/v123-relevant-validation.json
           retention-days: 14
+      - name: Evaluate v1.2.4 domain-general memory on fresh dev and validation seeds
+        run: >-
+          python -m aion_genesis.lab run
+          --config aion_genesis/lab/configs/genesis_v124_domain_general_eval.json
+          --partitions dev validation
+          --out "${{ runner.temp }}/aion-genesis-v124"
+      - name: Independently reproduce v1.2.4 matched comparisons
+        run: >-
+          python -m aion_genesis.lab validate
+          --out "${{ runner.temp }}/aion-genesis-v124"
+          --reproduce
+      - name: Diagnose v1.2.4 resource allocation memory activity on dev
+        run: >-
+          python -m aion_genesis.lab.domain_general_diagnostics
+          --partition dev --out "${{ runner.temp }}/v124-domain-dev.json"
+      - name: Diagnose v1.2.4 resource allocation memory activity on validation
+        run: >-
+          python -m aion_genesis.lab.domain_general_diagnostics
+          --partition validation --out "${{ runner.temp }}/v124-domain-validation.json"
+      - name: Verify v1.2.4 scientific boundaries and print full family outcomes
+        env:
+          ROOT: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["ROOT"])
+          folder = root / "aion-genesis-v124"
+          record = json.loads((folder / "index.jsonl").read_text().splitlines()[-1])
+          run = folder / "runs" / record["run_id"]
+          result = json.loads((run / "result.json").read_text())
+          check = json.loads((run / "validation.json").read_text())
+          assert check["valid"] and check["reproduced"]
+          assert set(result["partitions"]) == {"dev", "validation"}
+          assert result["verdict"] == "INCONCLUSIVE"
+          assert result["config"]["candidate"] == "aion_v124_domain_relevant"
+          assert result["config"]["baseline"] == "aion_v1_memory"
+          assert result["labels"]["model_inference_calls"] == 0
+          assert result["labels"]["external_actions"] == 0
+          for part, start, episodes in (("dev", 390000, 8),
+                                        ("validation", 400000, 16)):
+              diag = json.loads((root / f"v124-domain-{part}.json").read_text())
+              assert diag["schema"] == "GenesisDomainGeneralRecallDiagnostics/1.0"
+              assert diag["seed_range"] == [start, start + episodes]
+              assert not diag["protected_holdout_evaluated"]
+              assert not diag["hidden_truth_exposed_to_policy"]
+              assert not diag["policy_actions_modified_by_instrumentation"]
+              print(part, "v124 memory activity", diag["activity"])
+              sc = result["partitions"][part]["scorecard"]
+              for variant in ("nominal", "shifted"):
+                  print(part, variant, "pooled shifted harm candidate vs v1",
+                        sc["comparisons"]["candidate_vs_baseline"][
+                            "pooled"][variant]["harmful_choice_rate_delta"])
+                  for family in result["config"]["families"]:
+                      policy = sc["decision_quality"][family][variant]
+                      print(part, variant, family, {
+                          name: {"harm": policy[name]["harmful_choice"],
+                                 "utility": policy[name]["mean_episode_utility"],
+                                 "regret": policy[name][
+                                     "mean_episode_regret_to_hindsight_oracle"],
+                                 "worst_decile": policy[name][
+                                     "worst_decile_mean_delta_vs_no_action"]}
+                          for name in ("v09_strategist", "aion_v1_memory",
+                                       "aion_v123_relevant",
+                                       "aion_v124_domain_relevant")})
+          dev = json.loads((root / "v124-domain-dev.json").read_text())
+          assert any(x["supported_option_occurrences"] > 0
+                     for x in dev["activity"].values()), "No real supported retrieval in dev"
+          print("Holdout NOT evaluated. No automatic promotion.")
+          PY
+      - name: Archive v1.2.4 scorecards and passive memory traces
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-v124-domain-general-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/aion-genesis-v124/runs/
+            ${{ runner.temp }}/v124-domain-dev.json
+            ${{ runner.temp }}/v124-domain-validation.json
+          retention-days: 14
       - name: Grounded situation to strategic option plan
         run: >-
           python -m aion_genesis.strategic_cli plan

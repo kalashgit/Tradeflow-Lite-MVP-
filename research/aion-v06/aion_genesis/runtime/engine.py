@@ -22,6 +22,7 @@ from .learning import EffectModel, effect_keys
 from .contextual_memory import ContextualEffectModel, public_context
 from .hybrid_memory import HybridEffectModel
 from .relevant_memory import RelevantEffectModel
+from .domain_general_memory import DomainGeneralRelevantEffectModel
 from .store import DUPLICATE, RuntimeStore
 
 FAST_PATH_MS = 10          # a request this urgent skips bounded search
@@ -53,6 +54,11 @@ def _relevant_store_key(domain_id: str, scope_id: str) -> str:
     return f"{domain_id}::relevant_v123::{scope_id}"
 
 
+def _domain_general_store_key(domain_id: str) -> str:
+    """One tenant/domain model, with independently gated scope histories."""
+    return f"{domain_id}::relevant_v124::domain"
+
+
 class _Abstain(Exception):
     def __init__(self, reason: str, known_unknowns=(), constraints=(), version=None):
         super().__init__(reason)
@@ -65,13 +71,13 @@ class _Abstain(Exception):
 class _BoundedDomain:
     """Applies hard constraints and provisional memory around a domain pack."""
 
-    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | RelevantEffectModel | None,
-                 forbidden, context=(), as_of=0):
+    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | RelevantEffectModel | DomainGeneralRelevantEffectModel | None,
+                 forbidden, context=(), as_of=0, scope_id=None):
         self.name = base.name
         self.axes = base.axes
         self.baseline_decisions = base.baseline_decisions
         self._base, self._model, self._forbidden = base, model, forbidden
-        self._context, self._as_of = context, as_of
+        self._context, self._as_of, self._scope_id = context, as_of, scope_id
         self.raw: dict[str, Choice] = {}
         self.adjusted: dict[str, Choice] = {}
         self.assessments = self.excluded_forbidden = self.excluded_prerequisite = 0
@@ -91,8 +97,11 @@ class _BoundedDomain:
         if self._model is not None:
             keys = effect_keys(decisions)
             choice = replace(choice, expected_effects={
-                name: round(value + (self._model.correction(
-                    keys, name, self._context, self._as_of)
+                name: round(value + (
+                    self._model.correction(keys, name, self._context, self._as_of,
+                                           self._scope_id)
+                    if isinstance(self._model, DomainGeneralRelevantEffectModel)
+                    else self._model.correction(keys, name, self._context, self._as_of)
                     if isinstance(self._model, (ContextualEffectModel, HybridEffectModel, RelevantEffectModel))
                     else self._model.correction(keys, name)), 6)
                 for name, value in choice.expected_effects.items()})
@@ -278,10 +287,21 @@ class AionRuntime:
         context = ()
         memory_modes = capabilities & {
             "outcome_memory", "contextual_outcome_memory", "hybrid_outcome_memory",
-            "relevant_outcome_memory"}
+            "relevant_outcome_memory", "domain_relevant_memory"}
         if len(memory_modes) > 1:
             raise _Abstain("conflicting_memory_modes", unknowns, version=version)
-        if "relevant_outcome_memory" in capabilities:
+        if "domain_relevant_memory" in capabilities:
+            context = public_context(usable)
+            key = _domain_general_store_key(domain_id)
+            active = self.store.active_effect_model(tenant, key)
+            memory = {"mode": "domain_relevant",
+                      "effect_model_version": active and active["version"],
+                      "state": active and active["state"],
+                      "context": [list(pair) for pair in context]}
+            model = DomainGeneralRelevantEffectModel.from_json(
+                active["body"] if active else None,
+                schema=getattr(adapter, "memory_relevance_schema", None))
+        elif "relevant_outcome_memory" in capabilities:
             context = public_context(usable)
             key = _relevant_store_key(domain_id, request.scope_id)
             active = self.store.active_effect_model(tenant, key)
@@ -316,7 +336,8 @@ class AionRuntime:
                       "state": active and active["state"]}
             model = EffectModel.from_json(active["body"]) if active else None
         bounded = _BoundedDomain(base, model, profile.forbidden_choices,
-                                 context=context, as_of=request.as_of)
+                                 context=context, as_of=request.as_of,
+                                 scope_id=request.scope_id)
         goals = Goals(weights=dict(profile.goal_weights), max_spend=profile.max_spend,
                       uncertainty_aversion=profile.uncertainty_aversion)
         urgent = request.time_budget_ms <= FAST_PATH_MS or (
@@ -359,13 +380,16 @@ class AionRuntime:
             }
 
         chosen = bounded.adjusted[ranked[0]]
-        if isinstance(model, RelevantEffectModel):
-            # Receipts come from this tenant/scope's past verified outcomes.
-            # Explain exactly whether relevance was recognized *before* ranking;
-            # no hidden-world correctness or counterfactual is asserted.
+        if isinstance(model, (RelevantEffectModel, DomainGeneralRelevantEffectModel)):
+            # Evidence is restricted to this tenant, domain and relevant scope.
+            # Receipt-backed correction is not a ground-truth action label.
             selected_keys = effect_keys(chosen.decisions)
             memory["decision_evidence"] = {
-                objective: model.evidence(selected_keys, objective, context, request.as_of)
+                objective: (
+                    model.evidence(selected_keys, objective, context, request.as_of,
+                                   request.scope_id)
+                    if isinstance(model, DomainGeneralRelevantEffectModel)
+                    else model.evidence(selected_keys, objective, context, request.as_of))
                 for objective in sorted(chosen.expected_effects)
             }
         selected = {**card(ranked[0]), "explanation": chosen.explanation,
@@ -491,7 +515,9 @@ class AionRuntime:
                          for name in sorted(observed) if name in card["raw_expected_effects"]}
             memory_mode = (proposal.memory or {}).get("mode")
             model_key = (
-                _relevant_store_key(domain_id, proposal.scope_id)
+                _domain_general_store_key(domain_id)
+                if memory_mode == "domain_relevant"
+                else _relevant_store_key(domain_id, proposal.scope_id)
                 if memory_mode == "relevant"
                 else _hybrid_store_key(domain_id, proposal.scope_id)
                 if memory_mode == "hybrid"
@@ -500,7 +526,14 @@ class AionRuntime:
             )
             active = self.store.active_effect_model(tenant, model_key)
             keys = effect_keys(tuple(tuple(d) for d in card["decisions"]))
-            if memory_mode == "relevant":
+            if memory_mode == "domain_relevant":
+                model = DomainGeneralRelevantEffectModel.from_json(
+                    active["body"] if active else None,
+                    schema=getattr(adapter, "memory_relevance_schema", None))
+                updated = model.updated(
+                    keys, residuals, proposal.memory["context"],
+                    outcome.observation_time, outcome.receipt_ref, proposal.scope_id)
+            elif memory_mode == "relevant":
                 model = RelevantEffectModel.from_json(
                     active["body"] if active else None,
                     schema=getattr(adapter, "memory_relevance_schema", None))
@@ -519,10 +552,12 @@ class AionRuntime:
                 model = EffectModel.from_json(active["body"] if active else None)
                 updated = model.updated(keys, residuals)
             experimental = ({"memory_kind": (
-                "relevant_context_residual_v123" if memory_mode == "relevant"
+                "domain_general_relevant_residual_v124" if memory_mode == "domain_relevant"
+                else "relevant_context_residual_v123" if memory_mode == "relevant"
                 else "hierarchical_contextual_residual_v12" if memory_mode == "hybrid"
                 else "contextual_residual_v12"), "scope_id": proposal.scope_id}
-                if memory_mode in ("hybrid", "contextual", "relevant") else {})
+                if memory_mode in ("hybrid", "contextual", "relevant",
+                                   "domain_relevant") else {})
             result["effect_model_version"] = self.store.append_effect_model(
                 tenant, model_key, updated.to_json(), {
                     "outcome_id": outcome.outcome_id, "proposal_id": outcome.proposal_id,

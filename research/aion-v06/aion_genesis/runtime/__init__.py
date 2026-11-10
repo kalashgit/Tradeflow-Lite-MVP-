@@ -16,6 +16,7 @@ from .learning import EffectModel
 from .contextual_memory import ContextualEffectModel
 from .hybrid_memory import HybridEffectModel
 from .relevant_memory import RelevantEffectModel
+from .domain_general_memory import DomainGeneralRelevantEffectModel
 from .store import RuntimeStore
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "RESEARCH_MODE", "SCHEMA_VERSION", "AionRuntime", "CaseBuild",
     "DecisionProposalV1", "DecisionRequestV1", "DomainAdapter", "EffectModel",
     "ContextualEffectModel", "HybridEffectModel", "RelevantEffectModel",
+    "DomainGeneralRelevantEffectModel",
     "ExperimentRunV1", "GoalProfileV1", "ModelBinding", "ObservationV1",
     "OutcomeRecordV1", "RuntimeStore", "canonical", "digest", "replay",
 ]
