@@ -43,43 +43,6 @@ jobs:
           python-version: '3.12'
       - name: Unit and research contract tests
         run: python -m unittest discover -s tests -q
-      - name: Run fictional workflow lab v2 on development cases only
-        run: >-
-          python -m aion_genesis.eval_v2 run
-          --suite dev --out "${{ runner.temp }}/genesis-eval-v2-dev"
-      - name: Reproduce v2 workflows and inspect human packet boundary
-        run: |
-          python -m aion_genesis.eval_v2 verify --out "${{ runner.temp }}/genesis-eval-v2-dev"
-          python -m aion_genesis.eval_v2 packet \
-            --run-dir "${{ runner.temp }}/genesis-eval-v2-dev" \
-            --out "${{ runner.temp }}/genesis-eval-v2-dev/reviewer-packet.json" \
-            --limit 12 --reviewer-id "reviewer_template_only"
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          import os
-
-          root = Path(os.environ["RUNNER_TEMP"]) / "genesis-eval-v2-dev"
-          report = json.loads((root / "result.json").read_text())
-          packet = json.loads((root / "reviewer-packet.json").read_text())
-          assert report["protected_holdout_evaluated"] is False
-          assert report["promotion"] == "blocked_without_independent_review"
-          assert report["external_business_actions"] == 0
-          assert report["real_world_quality_proven"] is False
-          assert packet["human_labels_supplied"] is False
-          assert packet["source_suite"] == "dev"
-          print("V2 synthetic mock-workflow evidence verified. No real humans rated.")
-          PY
-      - name: Verify synthetic fault-combination recovery matrix
-        run: >-
-          python -m aion_genesis.eval_v2.mutation
-          --out "${{ runner.temp }}/genesis-eval-v2-dev/fault-matrix.json"
-      - name: Preserve workflow lab v2 public-dev evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: genesis-eval-v2-dev-${{ github.run_id }}
-          path: ${{ runner.temp }}/genesis-eval-v2-dev/
-          retention-days: 14
       - name: Run prospective v1.2 contextual memory comparison (dev + validation only)
         run: >-
           python -m aion_genesis.lab run
@@ -479,3 +442,57 @@ jobs:
         run: |
           echo "AION v0.9 synthetic-only research; no real model inference or business actions." >> "$GITHUB_STEP_SUMMARY"
           echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+  mock-workflow-v2:
+    name: Fast mock tool-workflow evaluation (no live connectors)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Workflow v2 regression suite only
+        run: python -m unittest discover -s tests -p test_eval_v2_mock_workflow.py -q
+      - name: Run fictional workflow lab v2 on development cases only
+        run: >-
+          python -m aion_genesis.eval_v2 run
+          --suite dev --out "${{ runner.temp }}/genesis-eval-v2-dev"
+      - name: Reproduce v2 workflows and inspect human packet boundary
+        run: |
+          python -m aion_genesis.eval_v2 verify --out "${{ runner.temp }}/genesis-eval-v2-dev"
+          python -m aion_genesis.eval_v2 packet \
+            --run-dir "${{ runner.temp }}/genesis-eval-v2-dev" \
+            --out "${{ runner.temp }}/genesis-eval-v2-dev/reviewer-packet.json" \
+            --limit 12 --reviewer-id "reviewer_template_only"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import os
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "genesis-eval-v2-dev"
+          report = json.loads((root / "result.json").read_text())
+          packet = json.loads((root / "reviewer-packet.json").read_text())
+          assert report["protected_holdout_evaluated"] is False
+          assert report["promotion"] == "blocked_without_independent_review"
+          assert report["external_business_actions"] == 0
+          assert report["real_world_quality_proven"] is False
+          assert packet["human_labels_supplied"] is False
+          assert packet["source_suite"] == "dev"
+          print("V2 synthetic mock-workflow evidence verified. No real humans rated.")
+          PY
+      - name: Verify synthetic fault-combination recovery matrix
+        run: >-
+          python -m aion_genesis.eval_v2.mutation
+          --out "${{ runner.temp }}/genesis-eval-v2-dev/fault-matrix.json"
+      - name: Preserve workflow lab v2 public-dev evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-eval-v2-dev-${{ github.run_id }}
+          path: ${{ runner.temp }}/genesis-eval-v2-dev/
+          retention-days: 14
