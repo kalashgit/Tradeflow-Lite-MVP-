@@ -81,3 +81,10 @@ A matched-pair benchmark uses 24 unseen-composition worlds under 3 different see
 ## Promotion of the adaptive method to the active hybrid
 
 The tested progressive synthesis method is now the default in `HybridProposer`: start with known fixed mechanisms, expand into generic bounded AST combinations only after evidence falsifies the known grammar, and call Qwen only when **no** candidate in the expanded grammar can explain observations. The previous `symbolic_strategy='fixed'` mode remains for historical controls and explicit Qwen-invention studies. It can still handle mechanisms outside the expanded DSL; proposed Qwen ASTs must pass all observed evidence. The main AION scientific benchmark now reports how many composition expansions occurred separately from actual LLM inference. No enduring knowledge is written, and Qwen model weights remain untouched.
+
+
+## Regression gate: preserve the actual discovery improvement
+
+GitHub CI now runs two separately seeded, matched 72-world evaluations (development and validation). The deterministic research-performance gate blocks regressions if unseen predictive accuracy drops below 68%, full-truth-table accuracy below 94%, the advantage over the unchanged legacy method below 30 percentage points, any paired world's unseen accuracy becomes worse, or mean CPU time exceeds 3x the fixed-search baseline. It also requires at least 18 worlds to have reached stable exact predictions within five interventions, equivalent per-world experiment budgets, and zero LLM calls. This gate protects **synthetic DSL search improvements only**. It explicitly does NOT authorize persistent causal knowledge, claim a trained model learned, or establish general open-world science.
+
+Boundary-probe research ablations are optional and off by default. Unconditional all-on or two-corner interventions performed worse on the development dataset than the balanced information-gain policy; a conditional rare-event probe produced no improvement. Consequently **balanced active planning remains the deployed research default** until separately validated changes beat it.
