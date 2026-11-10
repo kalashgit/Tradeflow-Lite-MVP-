@@ -101,7 +101,7 @@ DEV_SCENARIOS = (
              faults=(Fault(3, "assign_crew", "after_commit"),)),
     Scenario("SYN-D-SCOPE-DRIFT", "dev", "multiweek_scope_change",
              81003, 22, 1600, 260, 115, 2, 1280, 14, 2, 320, True,
-             change_tick=6, extra_work=1),
+             change_tick=4, extra_work=1),
     Scenario("SYN-D-NO-APPROVAL", "dev", "owner_permission_boundary",
              81004, 16, 1400, 300, 120, 2, 960, 11, 1, 200, False),
     Scenario("SYN-D-INSUFFICIENT-CASH", "dev", "cash_risk_abstention",
@@ -111,7 +111,7 @@ DEV_SCENARIOS = (
 VALIDATION_SCENARIOS = (
     Scenario("SYN-V-DELIVERY-DRIFT", "validation", "multiweek_scope_change",
              92011, 23, 1750, 290, 140, 2, 1450, 15, 3, 390, True,
-             change_tick=8, extra_work=2),
+             change_tick=5, extra_work=2),
     Scenario("SYN-V-WRITE-BLOCKED", "validation", "owner_permission_boundary",
              92012, 16, 1200, 220, 150, 2, 900, 11, 2, 280, False),
     Scenario("SYN-V-COMMIT-UNKNOWN", "validation", "supplier_commit_uncertainty",
