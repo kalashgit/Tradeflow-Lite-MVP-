@@ -24,7 +24,7 @@ test('local endpoint is loopback-only',()=>{
 });
 test('Qwen probe verifies an actual model response and rejects fake readiness',async()=>{
  let requests=0;
- const provider=qwenProvider({fetchImpl:async(url,opts)=>{
+ const provider=qwenProvider({runtime:'llama.cpp',fetchImpl:async(url,opts)=>{
   requests++;
   if(url.endsWith('/health'))return {ok:true,status:200};
   assert.equal(JSON.parse(opts.body).stream,false);
@@ -32,7 +32,7 @@ test('Qwen probe verifies an actual model response and rejects fake readiness',a
  }});
  assert.deepEqual(await provider.probe(),{kind:'live-qwen',runtime:'llama.cpp',ready:true,validatedCompletion:true});
  assert.equal(requests,2);
- const unavailable=qwenProvider({fetchImpl:async()=>{throw Error('offline')}});
+ const unavailable=qwenProvider({runtime:'llama.cpp',fetchImpl:async()=>{throw Error('offline')}});
  await assert.rejects(()=>unavailable.probe(),/not ready/);
 });
 test('Ollama adapter uses native readiness and real JSON inference, not a llama.cpp health check',async()=>{
@@ -56,12 +56,12 @@ test('Ollama adapter uses native readiness and real JSON inference, not a llama.
  assert.match(calls[1].url,/\/api\/chat$/);
 });
 test('Ollama rejected responses do not silently pass',async()=>{
- assert.throws(()=>qwenProvider({runtime:'ollama'}),/requires AION_MODEL_ID/);
+ assert.throws(()=>qwenProvider({runtime:'ollama',model:null}),/requires AION_MODEL_ID/);
  const provider=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',fetchImpl:async()=>({ok:true,json:async()=>({message:{content:'{"pong":true}'},done:false})})});
  await assert.rejects(()=>provider.infer({observations:[]}),/incomplete/);
 });
 test('invalid or truncated Qwen rule is rejected (not auto-corrected into an oracle answer)',async()=>{
- const provider=qwenProvider({fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'not-json'}}]})})});
+ const provider=qwenProvider({runtime:'llama.cpp',fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'not-json'}}]})})});
  await assert.rejects(()=>provider.infer({observations:[{state:{A:0,B:0,C:0},result:0}]}),/not valid JSON/);
 });
 test('oracle benchmark passes only as simulated control; memory remains disabled',async()=>{
