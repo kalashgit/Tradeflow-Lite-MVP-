@@ -31,6 +31,15 @@ DEV = (
             Job("JOB-B", 0, 13, 190, 95, 2, 600, 2, 2, 2, 250),
         ), faults=(ToolFault(0, "order_materials", "JOB-A", "after_commit"),)),
     PortfolioCase(
+        "SYN-PORT-D-CASH-TRAP", "dev", 94105, 16, 550, 1, 1, (
+            # Urgent low-margin job can tie up working capital. Delayed
+            # payout prevents instant rescue; the smaller positive-margin
+            # contract can unlock later progress if prioritized instead.
+            Job("JOB-A", 0, 4, 300, 120, 2, 450, 1, 3, 5, 320),
+            Job("JOB-B", 0, 9, 160, 70, 2, 700, 1, 0, 3, 180),
+            Job("JOB-C", 0, 10, 150, 80, 2, 600, 1, 1, 2, 200),
+        )),
+    PortfolioCase(
         "SYN-PORT-D-APPROVAL", "dev", 94104, 17, 860, 1, 1, (
             Job("JOB-A", 0, 7, 400, 100, 2, 900, 1, 2, 5, 200),
             Job("JOB-B", 0, 12, 180, 90, 2, 530, 1, 2, 3, 240),
