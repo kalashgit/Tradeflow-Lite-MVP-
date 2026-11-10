@@ -462,26 +462,37 @@ class AionRuntime:
             observed = outcome.observed_effects
             residuals = {name: observed[name] - card["raw_expected_effects"][name]
                          for name in sorted(observed) if name in card["raw_expected_effects"]}
-            contextual = proposal.memory is not None and proposal.memory.get("mode") == "contextual"
-            model_key = (_contextual_store_key(domain_id, proposal.scope_id)
-                         if contextual else domain_id)
+            memory_mode = (proposal.memory or {}).get("mode")
+            model_key = (
+                _hybrid_store_key(domain_id, proposal.scope_id)
+                if memory_mode == "hybrid"
+                else _contextual_store_key(domain_id, proposal.scope_id)
+                if memory_mode == "contextual" else domain_id
+            )
             active = self.store.active_effect_model(tenant, model_key)
             keys = effect_keys(tuple(tuple(d) for d in card["decisions"]))
-            if contextual:
+            if memory_mode == "hybrid":
+                model = HybridEffectModel.from_json(active["body"] if active else None)
+                updated = model.updated(keys, residuals, proposal.memory["context"],
+                                        outcome.observation_time)
+            elif memory_mode == "contextual":
                 model = ContextualEffectModel.from_json(active["body"] if active else None)
                 updated = model.updated(keys, residuals, proposal.memory["context"],
                                         outcome.observation_time)
             else:
                 model = EffectModel.from_json(active["body"] if active else None)
                 updated = model.updated(keys, residuals)
+            experimental = ({"memory_kind": (
+                "hierarchical_contextual_residual_v12" if memory_mode == "hybrid"
+                else "contextual_residual_v12"), "scope_id": proposal.scope_id}
+                if memory_mode in ("hybrid", "contextual") else {})
             result["effect_model_version"] = self.store.append_effect_model(
                 tenant, model_key, updated.to_json(), {
                     "outcome_id": outcome.outcome_id, "proposal_id": outcome.proposal_id,
                     "receipt_ref": outcome.receipt_ref, "evidence_ref": outcome.evidence_ref,
                     "source": outcome.source, "chosen_action_ref": outcome.chosen_action_ref,
                     "source_revisions": list(proposal.evidence_refs),
-                    **({"memory_kind": "contextual_residual_v12",
-                        "scope_id": proposal.scope_id} if contextual else {})})
+                    **experimental})
             result["status"] = "learned_provisional"
             result["prediction_error"] = {
                 name: round(observed[name] - card["expected_effects"][name], 6)
