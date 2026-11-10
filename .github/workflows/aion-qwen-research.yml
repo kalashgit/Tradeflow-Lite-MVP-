@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      AION_MODEL_RUNTIME: ollama
       AION_MODEL_URL: http://127.0.0.1:11434
       AION_MODEL_ID: qwen3:0.6b
       OLLAMA_HOST: 127.0.0.1:11434
@@ -50,7 +51,15 @@ jobs:
       - name: Live Qwen readiness and actual inference
         run: npm run probe
       - name: Live hypothesis generation and revision benchmark
-        run: npm run benchmark:qwen
+        run: node bin/aion.cjs benchmark --provider qwen > aion-qwen-benchmark.json
+      - name: Upload synthetic research benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-qwen-benchmark
+          path: research/aion/aion-qwen-benchmark.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Write concise gate status
         if: always()
         run: |
@@ -58,3 +67,6 @@ jobs:
           echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Model: Qwen3-0.6B via temporary CPU Ollama runner." >> "$GITHUB_STEP_SUMMARY"
           echo "No causal memory is created or persisted by this workflow." >> "$GITHUB_STEP_SUMMARY"
+          if [ -s aion-qwen-benchmark.json ]; then
+            node -e 'const f=require("./aion-qwen-benchmark.json");const s=f.summary;console.log("Real model inference: "+s.realModelInference+"; truth-table accuracy: "+s.meanTruthTableAccuracy+"; hypothesis consistency: "+s.hypothesisConsistencyRate+"; revisions: "+s.revisionCount+"; observations: "+s.observations);' >> "$GITHUB_STEP_SUMMARY"
+          fi
