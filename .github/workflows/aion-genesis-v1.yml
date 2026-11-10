@@ -33,6 +33,16 @@ jobs:
         run: python -m aion_genesis.ablation --mode reference --worlds 8 --budget 5
       - name: Bounded symbolic program-synthesis benchmark
         run: python -c 'import json; from aion_genesis.synthesis import evaluate_synthesis; print(json.dumps(evaluate_synthesis(seed=71,count=120,budget=8),indent=2))'
+      - name: Compare fixed and progressive mechanism discovery on 72 matched unknown worlds
+        run: python -m aion_genesis.adaptive_benchmark --output aion-adaptive-benchmark.json
+      - name: Save paired learning-speed and prediction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-progressive-induction-${{ github.run_id }}
+          path: research/aion-genesis/aion-adaptive-benchmark.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Verify unknown-grammar detector and model escalation boundary
         run: python -m aion_genesis.open_world
       - name: Verify no experimental knowledge store was created

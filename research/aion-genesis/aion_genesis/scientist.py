@@ -39,12 +39,14 @@ class Scientist:
         before_completion = getattr(self.proposer, 'completion_tokens', 0)
         retrieved_count = 0
         for i in range(max_experiments):
-            planning_candidates = candidate_pool[-6:]
-            if hasattr(self.proposer, "candidates"):
-                # When a symbolic version space is available, choose interventions
-                # that split ALL currently viable models. No hidden-world access.
-                planning_candidates = self.proposer.candidates(world.variables, all_evidence)
-            state = choose_intervention(world.variables, all_evidence, planning_candidates)
+            if hasattr(self.proposer, "choose_intervention"):
+                # Efficient bit-vector information-gain planning; observations only.
+                state = self.proposer.choose_intervention(world.variables, all_evidence)
+            else:
+                planning_candidates = candidate_pool[-6:]
+                if hasattr(self.proposer, "candidates"):
+                    planning_candidates = self.proposer.candidates(world.variables, all_evidence)
+                state = choose_intervention(world.variables, all_evidence, planning_candidates)
             if state is None:
                 break
             measured = world.intervene(state)
@@ -56,7 +58,9 @@ class Scientist:
             # The reviewer only supplies observed counterexamples.
             proposal = self.proposer.propose(
                 variables=world.variables,
-                recent=working.snapshot(),
+                recent=([dict(entry) for entry in all_evidence]
+                        if getattr(self.proposer, "use_full_history", False)
+                        else working.snapshot()),
                 feedback=self.reviewer.counterexamples(limit=3, world_id=world.world_id),
                 previous=current,
                 analogies=analogies,
