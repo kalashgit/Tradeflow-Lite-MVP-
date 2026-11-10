@@ -60,6 +60,20 @@ jobs:
           retention-days: 14
       - name: Verify unknown-grammar detector and model escalation boundary
         run: python -m aion_genesis.open_world
+      - name: Run synthetic TradeFlow owner interviews and proactive operating benchmark
+        run: python -m aion_genesis.business_trial --seeds 11 12 13 14 15 16 17 18 --output aion-business-dev.json
+      - name: Reproduce business experiment with independent simulation seeds
+        run: python -m aion_genesis.business_trial --seeds 101 102 103 104 105 106 107 108 --output aion-business-validation.json
+      - name: Archive fictional-business evidence and transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-business-twin-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-business-dev.json
+            research/aion-genesis/aion-business-validation.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Verify no experimental knowledge store was created
         run: |
           if find . -type f \( -name '*.sqlite' -o -name '*.db' \) | grep -q .; then
