@@ -20,6 +20,7 @@ from .contracts import (
 from .domain import DomainAdapter, freshness_limit
 from .learning import EffectModel, effect_keys
 from .contextual_memory import ContextualEffectModel, public_context
+from .hybrid_memory import HybridEffectModel
 from .store import DUPLICATE, RuntimeStore
 
 FAST_PATH_MS = 10          # a request this urgent skips bounded search
@@ -41,6 +42,11 @@ def _contextual_store_key(domain_id: str, scope_id: str) -> str:
     return f"{domain_id}::contextual_v12::{scope_id}"
 
 
+def _hybrid_store_key(domain_id: str, scope_id: str) -> str:
+    """Independent provisional state for the second prospective candidate."""
+    return f"{domain_id}::hybrid_v12::{scope_id}"
+
+
 class _Abstain(Exception):
     def __init__(self, reason: str, known_unknowns=(), constraints=(), version=None):
         super().__init__(reason)
@@ -53,7 +59,7 @@ class _Abstain(Exception):
 class _BoundedDomain:
     """Applies hard constraints and provisional memory around a domain pack."""
 
-    def __init__(self, base, model: EffectModel | ContextualEffectModel | None,
+    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | None,
                  forbidden, context=(), as_of=0):
         self.name = base.name
         self.axes = base.axes
@@ -81,7 +87,7 @@ class _BoundedDomain:
             choice = replace(choice, expected_effects={
                 name: round(value + (self._model.correction(
                     keys, name, self._context, self._as_of)
-                    if isinstance(self._model, ContextualEffectModel)
+                    if isinstance(self._model, (ContextualEffectModel, HybridEffectModel))
                     else self._model.correction(keys, name)), 6)
                 for name, value in choice.expected_effects.items()})
         self.adjusted[choice.identifier] = choice
