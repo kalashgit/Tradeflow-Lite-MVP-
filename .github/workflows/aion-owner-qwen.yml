@@ -17,11 +17,11 @@ concurrency:
 
 jobs:
   owner-research:
-    name: Qwen3 0.6B read-only owner conversation smoke
+    name: Qwen3 1.7B read-only owner conversation comparison
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 22
     env:
-      AION_MODEL_ID: qwen3:0.6b
+      AION_MODEL_ID: qwen3:1.7b
       AION_MODEL_URL: http://127.0.0.1:11434
       OLLAMA_HOST: 127.0.0.1:11434
     defaults:
