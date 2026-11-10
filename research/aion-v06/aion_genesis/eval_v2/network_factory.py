@@ -312,7 +312,7 @@ def generate(split: str, index: int, *, base_seed: int | None = None,
                     "blocker", "observed", "dispatch_and_field")
             publish(job, base + 8, "foreman", ("project_manager",),
                     "blocker", "escalated", "dispatch_and_field")
-        if variant == "contradictory_field_report":
+        if variant in ("contradictory_field_report", "stale_revision"):
             publish(job, base + 8, "technician", ("foreman", "project_manager"),
                     "field", "needs_reinspection", "dispatch_and_field")
         if variant == "supplier_shortage":
