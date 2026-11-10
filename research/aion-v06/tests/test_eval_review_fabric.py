@@ -21,8 +21,8 @@ class EvaluationReviewTests(unittest.TestCase):
     def setUpClass(cls):
         cfg = deepcopy(load_config(CONFIG))
         # A tiny, disjoint complete run: no holdout and no changes to grader.
-        cfg["partitions"]["dev"]["episodes"] = 1
-        cfg["partitions"]["validation"]["episodes"] = 1
+        cfg["partitions"]["dev"]["episodes"] = 2
+        cfg["partitions"]["validation"]["episodes"] = 2
         cls.result, cls.ledger = run_experiment(cfg, ("dev", "validation"))
         cls.validation = {"valid": True, "reproduced": True}
 
@@ -55,7 +55,7 @@ class EvaluationReviewTests(unittest.TestCase):
                         else:
                             self.assertEqual(observed["numerator"], expected["numerator"])
                             self.assertEqual(observed["denominator"], expected["denominator"])
-                    self.assertEqual(summary["paired_episodes"], 1)
+                    self.assertEqual(summary["paired_episodes"], 2)
                     self.assertEqual(summary["action_divergence_vs_baseline"][
                         "denominator"], summary["paired_decisions"])
         doc = render_markdown(report)
