@@ -1,0 +1,41 @@
+name: AION Genesis V1 — Python Scientific Lab
+
+on:
+  pull_request:
+    paths:
+      - 'research/aion-genesis/**'
+      - '.github/workflows/aion-genesis-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Python science and memory gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: research/aion-genesis
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test mechanism safety, synthetic worlds and memory gates
+        run: python -m unittest discover -s tests -v
+      - name: Run reproducible 120-world offline experiment
+        run: python -m aion_genesis.demo
+      - name: Verify no experimental knowledge store was created
+        run: |
+          if find . -type f \( -name '*.sqlite' -o -name '*.db' \) | grep -q .; then
+            echo "Unexpected persistent knowledge database" >&2
+            exit 1
+          fi
+      - name: Report evidence boundary
+        run: |
+          echo "AION Genesis V1 research-only. No live Qwen calls or long-term knowledge promotion." >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
