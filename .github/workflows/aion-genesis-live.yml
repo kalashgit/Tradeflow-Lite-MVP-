@@ -1,4 +1,4 @@
-name: AION Genesis — Live Qwen Memory Transfer
+name: AION v0.6 — Qwen Synthetic Memory Ablation
 
 on:
   workflow_dispatch:
@@ -7,81 +7,76 @@ permissions:
   contents: read
 
 concurrency:
-  group: genesis-live-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: aion-v06-qwen-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  live-ablation:
-    name: Paired 0.6B Qwen on 8 held-out worlds
+  controlled-qwen:
+    name: Research-only Qwen 0.6B memory pilot and holdout
     runs-on: ubuntu-latest
     timeout-minutes: 23
     defaults:
       run:
-        working-directory: research/aion-genesis
+        working-directory: research/aion-v06
     env:
-      AION_MODEL_ID: qwen3:0.6b
-      AION_MODEL_URL: http://127.0.0.1:11434
+      AION_MODEL: qwen3:0.6b
       OLLAMA_HOST: 127.0.0.1:11434
     steps:
       - name: Checkout isolated research branch
         uses: actions/checkout@v4
-      - name: Install Python
+      - name: Install Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify all scientific and memory boundary tests
+      - name: Verify offline research tests
         run: python -m unittest discover -s tests -v
-      - name: Deterministic paired baseline (not model inference)
-        run: python -m aion_genesis.ablation --mode reference --worlds 8 --budget 5 > aion-reference-ablation.json
-      - name: Install isolated Ollama CPU inference runtime
+      - name: Install CPU model server
         run: |
-          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-genesis-ollama.sh
-          sh /tmp/aion-genesis-ollama.sh
-      - name: Start private model and pull Qwen3-0.6B
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-v06-ollama-install.sh
+          sh /tmp/aion-v06-ollama-install.sh
+      - name: Pull only the experimental Qwen model
         run: |
-          ollama serve > /tmp/aion-genesis-ollama.log 2>&1 &
+          ollama serve > /tmp/aion-v06-ollama.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:11434/api/version > /dev/null; then break; fi
             sleep 2
           done
-          curl -fsS http://127.0.0.1:11434/api/version
-          ollama pull "$AION_MODEL_ID"
-          ollama list
-      - name: Run two-arm real Qwen memory transfer benchmark
-        run: python -m aion_genesis.ablation --mode qwen --model "$AION_MODEL_ID" --worlds 8 --budget 5 > aion-qwen-ablation.json
-      - name: Preserve reproducible synthetic traces
+          curl --fail --silent --show-error http://127.0.0.1:11434/api/version
+          ollama pull "$AION_MODEL"
+      - name: Measure paired memory on/off in pilot and holdout
+        run: |
+          python -m aion_genesis.live_ablation \
+            --model "$AION_MODEL" \
+            --jobs 8 --shift-at 3 \
+            --max-total-calls 40 --max-wall-seconds 1100 \
+            --output aion-v06-qwen-evidence.json
+      - name: Preserve scientific evidence even on a failed run
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: genesis-qwen-ablation-${{ github.run_id }}
-          path: |
-            research/aion-genesis/aion-reference-ablation.json
-            research/aion-genesis/aion-qwen-ablation.json
+          name: aion-v06-qwen-${{ github.run_id }}
+          path: research/aion-v06/aion-v06-qwen-evidence.json
           if-no-files-found: ignore
           retention-days: 14
-      - name: Write objective metrics and safety gate
+      - name: Summarize held-out transfer and admission gate
         if: always()
         run: |
           python - <<'PY'
           import json, os
-          lines=["### AION Genesis V1 — Real Qwen vs memory", "Research only: no tenant data, no deployments, no persistent knowledge writes."]
-          for path in ("aion-reference-ablation.json","aion-qwen-ablation.json"):
-              try:
-                  with open(path) as f:
-                      data=json.load(f)
-              except (OSError,ValueError) as exc:
-                  lines.append(path+" missing or invalid: "+str(exc))
-                  continue
-              control, memory = data["control"], data["provisionalMemory"]
-              lines.append(path+": REAL_MODEL="+str(data["realQwenInference"])
-                  +" working-only="+str(control["mean_accuracy"])
-                  +" with-memory="+str(memory["mean_accuracy"])
-                  +" delta="+str(data["comparison"]["accuracyDelta"])
-                  +" negative-transfer="+str(data["comparison"]["negativeTransferWorlds"])
-                  +" calls="+str(control["model_calls"])+"/"+str(memory["model_calls"])
-                  +" tokens-in="+str(control["prompt_tokens"])+"/"+str(memory["prompt_tokens"])
-                  +" consistency="+str(control["evidence_consistency"])+"/"+str(memory["evidence_consistency"]))
-              lines.append("Persistent memory: "+data["researchGate"]["admission"])
-          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
-              f.write("\n\n".join(lines)+"\n")
+          path = 'aion-v06-qwen-evidence.json'
+          if os.path.isfile(path):
+              with open(path, encoding='utf-8') as file:
+                  evidence = json.load(file)
+              summary = (
+                  '### AION v0.6 — Qwen real inference\n\n'
+                  f'Experiment: {evidence["status"]}\n\n'
+                  f'Calls attempted: {evidence["inference_attempted_calls"]}\n\n'
+                  f'Holdout memory delta (synthetic cents): {evidence.get("holdout_memory_delta_cents", "N/A")}\n\n'
+                  f'Research admission: {evidence["research_admission"]}\n\n'
+                  'No real business data, actions, weight updates, or knowledge promotion.\n'
+              )
+          else:
+              summary = '### AION v0.6\n\nNo valid evidence artifact produced; research admission BLOCKED.\n'
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as file:
+              file.write(summary)
           PY

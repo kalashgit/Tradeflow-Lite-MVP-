@@ -26,7 +26,16 @@ live experiment until its GitHub Actions evidence artifact exists.
 ## Run real Qwen without a persistent Codespace
 
 The manual-only `.github/workflows/aion-v06-qwen-live.yml` workflow is intended
-for the *separate research branch* in TradeFlow. It starts a local Ollama
+for the *separate research branch* in TradeFlow. On that branch, the same
+definition is also published at the **already registered**
+`.github/workflows/aion-genesis-live.yml` path. From the GitHub Actions page,
+select **AION Genesis — Live Qwen Memory Transfer** and the
+`research/aion-v06-qwen-bridge` branch. Do not select the older V1 research
+branch if you intend to execute this v0.6 experiment. GitHub requires a
+manually dispatched workflow to be registered on the default branch; a new
+workflow path that exists only on a feature branch will not appear by itself.
+
+The selected workflow starts a local Ollama
 server on a temporary Ubuntu runner, downloads `qwen3:0.6b`, runs the tests,
 and performs 33 attempted inferences at most for the planned experiment
 (1 preflight plus 8 jobs x 2 memory conditions x 2 cohorts). A 40-attempt
