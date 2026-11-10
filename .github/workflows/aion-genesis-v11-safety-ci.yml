@@ -1,0 +1,80 @@
+name: AION Genesis v1.1 — Prospective Research Safety
+
+on:
+  push:
+    branches:
+      - research/aion-genesis-v1-safety
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-genesis-v11-safety-ci.yml'
+  pull_request:
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-genesis-v11-safety-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-genesis-v11-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-safety:
+    name: Unit tests and non-holdout research replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    env:
+      AION_LAB_OUTPUT: ${{ runner.temp }}/aion-genesis-v11
+    steps:
+      - name: Checkout exact SHA
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full existing and prospective test suites
+        run: python -m unittest discover -s tests -q
+      - name: Run matched development and validation scenarios ONLY
+        run: >-
+          python -m aion_genesis.lab run
+          --config aion_genesis/lab/configs/genesis_v1_1_safety.json
+          --partitions dev validation
+          --out "$AION_LAB_OUTPUT"
+      - name: Recompute ledger and reproduce logical outcomes
+        run: python -m aion_genesis.lab validate --out "$AION_LAB_OUTPUT" --reproduce
+      - name: Verify synthetic and untouched-holdout boundaries
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['AION_LAB_OUTPUT'])
+          record = json.loads(root.joinpath('index.jsonl').read_text().splitlines()[-1])
+          run = root / 'runs' / record['run_id']
+          result = json.loads((run / 'result.json').read_text())
+          verification = json.loads((run / 'validation.json').read_text())
+          assert verification['valid'] and verification['reproduced'] is True
+          assert set(result['partitions']) == {'dev', 'validation'}
+          assert result['verdict'] == 'INCONCLUSIVE'
+          assert result['labels']['model_inference_calls'] == 0
+          assert result['labels']['real_world_improvement_proven'] is False
+          assert result['labels']['external_actions'] == 0
+          print('Validation-only research gate verified at', os.environ['GITHUB_SHA'])
+          print('Holdout deliberately not evaluated in CI.')
+          PY
+      - name: Store synthetic development and validation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-genesis-v11-validation-${{ github.run_id }}
+          path: ${{ runner.temp }}/aion-genesis-v11/runs/
+          retention-days: 14
+      - name: Research disclosure
+        run: |
+          echo 'AION v1.1: only dev/validation synthetic results tested.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Protected promotion holdout not evaluated; no model inference or real-world claims.' >> "$GITHUB_STEP_SUMMARY"

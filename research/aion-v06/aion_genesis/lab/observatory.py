@@ -221,10 +221,21 @@ def _summary(observed) -> str:
                 f'{_num((observed["relative_reduction"] or 0) * 100, 1)}%; rate Δ 95% CI '
                 f'{_interval(observed["rate_delta_ci95"], 1, 100)} pts')
     if isinstance(observed, dict):
+        def value(number):
+            if number is None:
+                return "not measured"
+            if isinstance(number, bool):
+                return str(number)
+            if isinstance(number, (int, float)):
+                return _num(number, 2)
+            return str(number)
+
         return "; ".join(
-            f"{_pretty(k)}: " + ", ".join(f"{a} {_num(b, 2)}" for a, b in v.items()
-                                           if not isinstance(b, list))
-            + (f' {_interval(v["ci95"])}' if isinstance(v.get("ci95"), list) else "")
+            f"{_pretty(k)}: " + (
+                ", ".join(f"{a} {value(b)}" for a, b in v.items()
+                          if not isinstance(b, list))
+                + (f' {_interval(v["ci95"])}' if isinstance(v.get("ci95"), list) else "")
+                if isinstance(v, dict) else value(v))
             for k, v in observed.items()) or "—"
     return str(observed)
 
@@ -354,8 +365,8 @@ def render_observatory(result: dict, records: list[dict], history: list[dict] = 
     partitions = " ".join(result["partitions"])
     return f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AION Genesis v1.0 · Lab Observatory</title><style>{_CSS}</style></head><body><main>
-<div class="eyebrow">AION GENESIS / EXPERIMENTAL CONTROL PLANE / V1.0</div>
+<title>AION Genesis · Lab Observatory</title><style>{_CSS}</style></head><body><main>
+<div class="eyebrow">AION GENESIS / EXPERIMENTAL CONTROL PLANE / {e(result["lab_version"])}</div>
 <h1>Did the candidate earn promotion?</h1>
 <p>Run <code>{e(run["run_id"])}</code> · source <code>{e(run["source_commit"][:12])}</code>
 {"(uncommitted changes)" if result["source"]["dirty"] else ""} · started {e(result["started_at_utc"])}

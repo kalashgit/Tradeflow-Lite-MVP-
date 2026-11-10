@@ -11,8 +11,8 @@ from ..domains.equipment_maintenance import EquipmentMaintenanceAdapter
 from ..domains.process_tuning import ProcessTuningAdapter
 from ..runtime.contracts import ObservationV1, canonical
 
-LAB_VERSION = "genesis-lab-1.0.0"
-GRADER_VERSION = "genesis-referee-1.0.0"
+LAB_VERSION = "genesis-lab-1.1.0"
+GRADER_VERSION = "genesis-referee-1.1.0"
 VERDICTS = ("PASS", "FAIL", "INCONCLUSIVE", "BLOCKED")
 VARIANTS = ("nominal", "shifted")
 PARTITIONS = ("dev", "validation", "holdout")
@@ -104,8 +104,14 @@ def validate_config(config: dict) -> dict:
     if budgets["max_model_calls"] != 0:
         raise ValueError("This lab version runs no model; the call budget must be 0")
     gate = config["promotion_gate"]
-    if set(gate) != {"partition", "min_relative_harm_reduction_shifted",
-                     "max_relative_nominal_utility_drop", "bootstrap_resamples"}:
+    original_keys = {"partition", "min_relative_harm_reduction_shifted",
+                     "max_relative_nominal_utility_drop", "bootstrap_resamples"}
+    safety_keys = {"max_family_shifted_harm_rate",
+                   "max_family_shifted_harm_increase",
+                   "max_family_shifted_worst_decile_regression"}
+    # Preserve old configs for reproducibility; a new protocol must explicitly
+    # opt into all three additional safeguards, never just the convenient ones.
+    if set(gate) not in (original_keys, original_keys | safety_keys):
         raise ValueError("Invalid promotion gate")
     if gate["partition"] != "holdout":
         raise ValueError("Promotion is decided on the protected holdout only")
@@ -113,6 +119,16 @@ def validate_config(config: dict) -> dict:
         if isinstance(gate[key], bool) or not isinstance(gate[key], (int, float)) or not (
                 0 < gate[key] < 1):
             raise ValueError("Gate thresholds must be fractions between 0 and 1")
+    if safety_keys <= set(gate):
+        for key in ("max_family_shifted_harm_rate", "max_family_shifted_harm_increase"):
+            value = gate[key]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not (
+                    0 <= value <= 1):
+                raise ValueError(f"Invalid {key}")
+        value = gate["max_family_shifted_worst_decile_regression"]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not (
+                0 <= value <= 1_000_000):
+            raise ValueError("Invalid max_family_shifted_worst_decile_regression")
     _integer(gate["bootstrap_resamples"], 100, 5000, "bootstrap resamples")
     return config
 
