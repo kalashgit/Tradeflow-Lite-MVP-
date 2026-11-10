@@ -531,3 +531,55 @@ jobs:
           name: genesis-eval-v2-dev-${{ github.run_id }}
           path: ${{ runner.temp }}/genesis-eval-v2-dev/
           retention-days: 14
+
+  business-network-factory-v22:
+    name: Fast multi-stakeholder scenario generation and replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Scenario factory privacy, provenance and revision tests
+        run: python -m unittest discover -s tests -p test_eval_v22_business_network.py -q
+      - name: Generate 120 fictional multi-stakeholder scenarios
+        run: >-
+          python -m aion_genesis.eval_v2.network_runner run
+          --split dev --count 120 --out "${{ runner.temp }}/genesis-network-v22-dev"
+      - name: Independently regenerate and validate complete event ledger
+        run: |
+          python -m aion_genesis.eval_v2.network_runner verify \
+            --out "${{ runner.temp }}/genesis-network-v22-dev"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import os
+          from aion_genesis.eval_v2.network_factory import ROLES, WORKFLOWS, DISRUPTIONS
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "genesis-network-v22-dev"
+          report = json.loads((root / "result.json").read_text())
+          assert report["split"] == "dev"
+          assert report["different_scenarios"] == 120
+          assert set(report["stakeholder_receipt_coverage"]) == set(ROLES)
+          assert set(report["workflow_coverage"]) == set(WORKFLOWS)
+          assert set(report["disruption_coverage"]) == set(DISRUPTIONS)
+          assert report["protected_holdout_evaluated"] is False
+          assert report["real_business_records_used"] is False
+          assert report["policy_decision_improvement_proven"] is False
+          assert report["promotion"] == "not_authorized"
+          print("Business-network factory: roles", len(ROLES),
+                "workflows", len(WORKFLOWS), "disruptions", len(DISRUPTIONS),
+                "messages", report["routed_deliveries"])
+          PY
+      - name: Archive synthetic scenario-network evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-business-network-v22-${{ github.run_id }}
+          path: ${{ runner.temp }}/genesis-network-v22-dev/
+          retention-days: 14
