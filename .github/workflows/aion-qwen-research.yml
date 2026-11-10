@@ -1,0 +1,60 @@
+name: AION — Real Qwen Research Benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'research/aion/**'
+      - '.github/workflows/aion-qwen-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  aion-qwen:
+    name: Isolated CPU Qwen3-0.6B evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AION_MODEL_URL: http://127.0.0.1:11434
+      AION_MODEL_ID: qwen3:0.6b
+      OLLAMA_HOST: 127.0.0.1:11434
+    defaults:
+      run:
+        working-directory: research/aion
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify research package tests
+        run: npm test
+      - name: Verify deterministic control (not model inference)
+        run: npm run benchmark:oracle
+      - name: Install isolated Ollama runner
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-ollama-install.sh
+          sh /tmp/aion-ollama-install.sh
+      - name: Start private model server and download Qwen3-0.6B
+        run: |
+          ollama serve > /tmp/aion-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/version
+          ollama pull qwen3:0.6b
+          ollama list
+      - name: Live Qwen readiness and actual inference
+        run: npm run probe
+      - name: Live hypothesis generation and revision benchmark
+        run: npm run benchmark:qwen
+      - name: Write concise gate status
+        if: always()
+        run: |
+          echo "AION research-only pipeline (no production deploy, no customer data, no model training)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Model: Qwen3-0.6B via temporary CPU Ollama runner." >> "$GITHUB_STEP_SUMMARY"
+          echo "No causal memory is created or persisted by this workflow." >> "$GITHUB_STEP_SUMMARY"
