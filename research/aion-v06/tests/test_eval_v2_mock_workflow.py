@@ -9,6 +9,7 @@ from aion_genesis.eval_v2.calibration import (
     RUBRIC, blank_labels, calibrate, make_review_packet,
 )
 from aion_genesis.eval_v2.holdout import create_request, run_protected_holdout
+from aion_genesis.eval_v2.mutation import matrix_cases, run_matrix
 from aion_genesis.eval_v2.policies import SafeRule, make_policy
 from aion_genesis.eval_v2.runner import run_suite, verify_run, write_run
 from aion_genesis.eval_v2.sandbox import MockContractorWorld
@@ -127,6 +128,25 @@ class MockToolSafetyTests(unittest.TestCase):
         self.assertTrue(result["scorecard"]["no_action"][
             "missed_opportunity_proxy_total"] > 0)
         self.assertGreater(len(ledger.records), 150)
+
+
+class FaultMatrixTests(unittest.TestCase):
+    def test_diverse_faults_replay_and_safe_rule_survives_without_payout_duplication(self):
+        cases = matrix_cases()
+        self.assertGreaterEqual(len(cases), 10)
+        self.assertEqual(len({case.fingerprint() for case in cases}), len(cases))
+        self.assertTrue(all(case.suite == "dev" for case in cases))
+        one = run_matrix()
+        two = run_matrix()
+        self.assertEqual(one, two)
+        self.assertEqual(one["result"], "PASS")
+        self.assertFalse(one["invariant_violations"])
+        self.assertFalse(one["protected_holdout_evaluated"])
+        self.assertEqual(len(one["scenarios"]), len(cases))
+        self.assertTrue(any(row["safe"]["unknown_commit_errors"] > 0
+                            for row in one["scenarios"]))
+        self.assertTrue(any(row["eager_denials"] > 0
+                            for row in one["scenarios"]))
 
 
 class ReplayAndCalibrationTests(unittest.TestCase):
