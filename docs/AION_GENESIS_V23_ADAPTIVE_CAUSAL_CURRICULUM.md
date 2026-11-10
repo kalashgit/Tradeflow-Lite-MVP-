@@ -169,11 +169,16 @@ until a "pass" appears.
 
 ## Next major development work
 
-1. **Unify the factory layers:** connect the v2.2 ten-stakeholder
-   event network with this v2.3 causal state transition engine.
-   Today they are independently testable slices. Source events
-   should derive from committed world transitions; *no scripted
-   'paid' event without underlying invoice and cash settlement*.
+1. **Unify the factory layers completely:** v2.3 now provides
+   `World.export_causal_network()`, an explicit bridge from *actual*
+   economic receipts into the v2.2 ten-stakeholder `Event` and
+   `Envelope` contracts. A purchase, field shift, approved change,
+   invoice verification or payment event appears only after its
+   mock-world transition. The full v2.2 generative information
+   network and the new economic challenge generator are **not yet
+   one unified domain/actor behavior generator**. Expand common
+   schemas and test cross-role planner actions without replacing the
+   economic truth with scripted success messages.
 2. **Real Genesis policy interface:** run an actual frozen model
    as a sandboxed policy with strict read/write role capabilities,
    bounded token budgets, deterministic tool schemas and safe
