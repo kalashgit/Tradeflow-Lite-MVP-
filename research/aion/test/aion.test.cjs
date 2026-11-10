@@ -122,6 +122,29 @@ test('repair does not fabricate an oracle answer when model ignores feedback',as
  assert.equal(response.modelCalls,3);
  assert.equal(response.unresolvedContradictions,1);
 });
+test('optional Ollama JSON Schema constrains output shape without giving the hidden rule',async()=>{
+ let seen;
+ const p=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',formatMode:'schema',fetchImpl:async(_url,options)=>{
+  seen=JSON.parse(options.body);
+  return {ok:true,json:async()=>({done:true,done_reason:'stop',message:{content:'{"op":"xor","inputs":["B","D"]}'}})};
+ }});
+ const out=await p.infer({observations:[{state:{A:0,B:1,C:0,D:0},result:1}],allowedSwitches:['A','B','C','D']});
+ assert.deepEqual(out.rule,{op:'xor',inputs:['B','D']});
+ assert.equal(seen.think,false);
+ assert.equal(seen.format.type,'object');
+ assert.deepEqual(seen.format.properties.op.enum,['and','or','xor']);
+ assert.deepEqual(seen.format.properties.inputs.items.enum,['A','B','C','D']);
+ assert.equal(seen.format.properties.inputs.minItems,2);
+ assert.equal(seen.format.properties.inputs.maxItems,2);
+ assert.equal(seen.format.additionalProperties,false);
+ assert.doesNotMatch(JSON.stringify(seen),/hiddenRule/);
+});
+test('schema mode never bypasses local rule validation',async()=>{
+ const p=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',formatMode:'schema',fetchImpl:async()=>({ok:true,json:async()=>({done:true,done_reason:'stop',message:{content:'{"op":"xor","inputs":["A","A"]}'}})})});
+ const out=await p.infer({observations:[{state:{A:0,B:0,C:0},result:0}]});
+ assert.equal(out.rule,null);
+ assert.equal(out.invalidOutputKind,'invalid_rule');
+});
 test('malformed model outputs are scored as failures throughout the benchmark',async()=>{
  const provider={kind:'synthetic-broken-provider',async infer(){return {rule:null,invalidOutputKind:'invalid_rule',modelCalls:1,repairAttempts:0};}};
  const result=await runBenchmark(provider,{maxExperiments:2});

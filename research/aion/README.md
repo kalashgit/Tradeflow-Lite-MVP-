@@ -50,3 +50,9 @@ Run `npm run benchmark:transfer-oracle` for the deterministic 4-switch control, 
 
 ## Epistemic boundary (known-model failure)
 `npm run research:gates` now also evaluates four out-of-grammar mechanisms: majority over three switches, parity over three, NAND and NOR. AION's deterministic verifier must mark full observations `unexplained_or_inconsistent`, instead of inventing a supported rule, and it must explicitly retain the distinction between ambiguous and uniquely identified known-rule evidence. Importantly, unexplained evidence can also be caused by noise or nonstationarity; these tests do not prove the AI invented a new rule. All evidence states return `admitToPersistentMemory: false` until an independent model-quality and reproducibility gate is met. Detection monitoring is based on observable contradictions with the established rule rather than hidden knowledge of when the rule changes.
+
+## Controlled output-schema ablation
+
+Use `AION_FORMAT_MODE=json` for unconstrained JSON mode or `AION_FORMAT_MODE=schema` for Ollama's typed JSON schema output with two distinct switch variables. The latter **constrains syntax, not causal correctness**: the verifier independently checks candidate validity and observed contradictions. GitHub Actions compares raw JSON vs schema-only proposals, then schema with observed-counterexample feedback, and finally the four-switch held-out transfer test. Each JSON report includes invalid structured output count, consistency, accuracy, model calls and repair attempts. The research gate remains blocked if reliability thresholds are missed.
+
+To avoid exhausting GitHub runner minutes, automatic PR checks run **Qwen3-0.6B only**. You can choose Qwen3-1.7B from the workflow's manual dispatch menu for a separate evaluation; this does not require Codespaces or a terminal. Cloud model weights are transient on the runner; no model files or production customer data enter Git.

@@ -15,8 +15,9 @@ function oracleProvider(){return {kind:'oracle-simulator',async infer({observati
  if(!surviving.length)throw Error('Oracle: inconsistent observations');
  return {rule:normalizeRule(surviving[0]),rationale:'Deterministic candidate elimination (not AI inference)'};
 }};}
-function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=process.env.AION_MODEL_ID||undefined,runtime=process.env.AION_MODEL_RUNTIME||'llama.cpp',fetchImpl=globalThis.fetch,timeoutMs=90000,repair=process.env.AION_REPAIR_MODE==='feedback'}={}){
+function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=process.env.AION_MODEL_ID||undefined,runtime=process.env.AION_MODEL_RUNTIME||'llama.cpp',fetchImpl=globalThis.fetch,timeoutMs=90000,repair=process.env.AION_REPAIR_MODE==='feedback',formatMode=process.env.AION_FORMAT_MODE||'json'}={}){
  if(!RUNTIMES.has(runtime))throw Error('Unsupported model runtime: '+runtime);
+ if(!['json','schema'].includes(formatMode))throw Error('Invalid format mode');
  if(runtime==='ollama'&&(!model||typeof model!=='string'))throw Error('Ollama requires AION_MODEL_ID');
  const endpoint=localEndpoint(baseUrl,runtime==='ollama'?'/api/chat':'/v1/chat/completions');
  const healthEndpoint=localEndpoint(baseUrl,runtime==='ollama'?'/api/version':'/health');
@@ -27,9 +28,10 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
    return {ready:response.ok,status:response.status,runtime};
   }catch{return {ready:false,status:null,runtime};}
  }
- async function request(messages,maxTokens=256){
+ function ruleSchema(variables){return {type:'object',properties:{op:{type:'string',enum:['and','or','xor']},inputs:{type:'array',items:{type:'string',enum:[...variables]},minItems:2,maxItems:2,uniqueItems:true},rationale:{type:'string'}},required:['op','inputs'],additionalProperties:false};}
+ async function request(messages,maxTokens=256,responseSchema=null){
   const payload=runtime==='ollama'
-   ? {model,messages,stream:false,think:false,format:'json',options:{temperature:0,num_predict:maxTokens}}
+   ? {model,messages,stream:false,think:false,format:formatMode==='schema'&&responseSchema?responseSchema:'json',options:{temperature:0,num_predict:maxTokens}}
    : {messages,temperature:0,max_tokens:maxTokens,stream:false,chat_template_kwargs:{enable_thinking:false},...(model?{model}:{})};
   const res=await fetchImpl(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(timeoutMs)});
   if(!res.ok)throw Error('Qwen '+runtime+' inference HTTP '+res.status);
@@ -64,7 +66,7 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   for(let attempt=1;attempt<=maxAttempts;attempt++){
    const requestPrompt=rejected?{...prompt,verificationFeedback:rejected,instruction:'The previous proposal failed validation. Repair the specific errors using ONLY the observed experiments. Use an allowed operator and two distinct valid switches, and ensure your output matches the JSON rule format.'}:prompt;
    let answer,parsed,rule,invalidOutputKind;
-   try{answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],384);}
+   try{answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],384,ruleSchema(variables));}
    catch(error){if(error instanceof ModelOutputError)invalidOutputKind='incomplete_response';else throw error;}
    if(!invalidOutputKind){try{parsed=JSON.parse(answer)}catch{invalidOutputKind='invalid_json';}}
    if(!invalidOutputKind){
