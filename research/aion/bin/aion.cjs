@@ -3,6 +3,7 @@
 const {qwenProvider,oracleProvider}=require('../src/provider.cjs');
 const {runBenchmark}=require('../src/benchmark.cjs');
 const {runResearchGates}=require('../src/research-gates.cjs');
+const {runTransferBenchmark}=require('../src/transfer-benchmark.cjs');
 async function main(){
  const [command,...args]=process.argv.slice(2);
  if(command==='research-gates'){
@@ -14,6 +15,15 @@ async function main(){
  if(command==='probe'){
   const outcome=await qwenProvider().probe();
   console.log(JSON.stringify({status:'PASS',...outcome},null,2));return;
+ }
+ if(command==='transfer'){
+  const kind=args.includes('oracle')?'oracle':'qwen';
+  const provider=kind==='oracle'?oracleProvider():qwenProvider();
+  if(kind==='qwen')await provider.probe();
+  const outcome=await runTransferBenchmark(provider);
+  console.log(JSON.stringify(outcome,null,2));
+  if(outcome.summary.meanTruthTableAccuracy<0.85||outcome.summary.hypothesisConsistencyRate<0.9)process.exitCode=2;
+  return;
  }
  if(command==='benchmark'){
   const flag=args.indexOf('--provider');
@@ -27,6 +37,6 @@ async function main(){
   if(outcome.summary.meanTruthTableAccuracy<0.85||outcome.summary.hypothesisConsistencyRate<0.9)process.exitCode=2;
   return;
  }
- throw Error('Usage: node bin/aion.cjs research-gates | probe | benchmark --provider qwen|oracle');
+ throw Error('Usage: node bin/aion.cjs research-gates | probe | benchmark --provider qwen|oracle | transfer --provider qwen|oracle');
 }
 main().catch(error=>{console.error('AION ERROR:',error.message);process.exitCode=1});

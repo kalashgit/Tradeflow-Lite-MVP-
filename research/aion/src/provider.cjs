@@ -1,5 +1,6 @@
 'use strict';
 const {normalizeRule,consistentCandidates,prediction}=require('./world.cjs');
+const {candidatesFor,evaluateRule}=require('./research-gates.cjs');
 const DEFAULT_BASE='http://127.0.0.1:8088';
 const HOSTS=new Set(['localhost','127.0.0.1','[::1]']);
 const RUNTIMES=new Set(['llama.cpp','ollama']);
@@ -53,8 +54,10 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   if(parsed.pong!==true)throw Error('Qwen probe produced an invalid answer');
   return {kind:'live-qwen',runtime,ready:true,validatedCompletion:true};
  }
- async function infer({observations,previousRule}){
-  const system='You are discovering an unknown Boolean mechanism with exactly 3 binary switches A,B,C. The output is 0 or 1. Its true rule uses EXACTLY TWO DISTINCT switches and one operator: and, or, xor. Choose a rule consistent with EVERY observation, including ones with C=1. Evaluate all observations before choosing. If evidence cannot distinguish rules, propose a plausible rule and state uncertainty. Previous hypothesis may be wrong. Output a JSON object with keys: op (one of "and", "or", "xor"), inputs (an array of EXACTLY TWO DISTINCT elements chosen from "A", "B", "C"), and rationale (a brief explanation). Do not default to any switch pair; use the experiment observations. No markdown.';
+ async function infer({observations,previousRule,allowedSwitches=['A','B','C']}){
+  const variables=[...allowedSwitches];
+  const grammar=candidatesFor(variables);
+  const system='You are discovering an unknown Boolean mechanism with '+variables.length+' binary switches: '+variables.join(', ')+'. The output is 0 or 1. The rule uses EXACTLY TWO DISTINCT switches and one operator from AND, OR, XOR. Evaluate EVERY observation carefully. An earlier hypothesis may be wrong. Return a single JSON object with keys op (and/or/xor), inputs (array of exactly two different switches from the allowed names), rationale (brief explanation). Do not assume the first pair is correct. No markdown.';
   const prompt={observations,previousHypothesis:previousRule||null};
   const maxAttempts=repair?3:1;
   let rejected=null;
@@ -64,15 +67,25 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
    try{answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],384);}
    catch(error){if(error instanceof ModelOutputError)invalidOutputKind='incomplete_response';else throw error;}
    if(!invalidOutputKind){try{parsed=JSON.parse(answer)}catch{invalidOutputKind='invalid_json';}}
-   if(!invalidOutputKind){try{rule=normalizeRule(parsed)}catch{invalidOutputKind='invalid_rule';}}
+   if(!invalidOutputKind){
+    try{
+     if(variables.length===3&&variables.join(',')==='A,B,C')rule=normalizeRule(parsed);
+     else {
+      const ids=Array.isArray(parsed?.inputs)?[...parsed.inputs].sort().join(','):'';
+      const match=grammar.find(candidate=>candidate.op===parsed?.op&&candidate.inputs.join(',')===ids);
+      if(!match)throw Error('Unsupported rule');
+      rule={op:match.op,inputs:[...match.inputs]};
+     }
+    }catch{invalidOutputKind='invalid_rule';}
+   }
    if(invalidOutputKind){
     // Bad hypotheses are measured as errors, NEVER replaced by a secretly computed oracle rule.
     if(attempt===maxAttempts)return {rule:null,rationale:'',modelCalls:attempt,repairAttempts:attempt-1,invalidOutputKind,unresolvedContradictions:null};
-    rejected={validationError:invalidOutputKind,requiredRule:{op:'and | or | xor',inputs:'two different switches chosen from A,B,C'}};
+    rejected={validationError:invalidOutputKind,requiredRule:{op:'and | or | xor',inputs:'two different switches chosen from '+variables.join(', ')}};
     continue;
    }
-   const contradictions=observations.filter(o=>prediction(rule,o.state)!==o.result)
-    .map(o=>({state:o.state,observed:o.result,predictedByRejectedRule:prediction(rule,o.state)}));
+   const contradictions=observations.filter(o=>evaluateRule(rule,o.state,variables)!==o.result)
+    .map(o=>({state:o.state,observed:o.result,predictedByRejectedRule:evaluateRule(rule,o.state,variables)}));
    if(!repair||contradictions.length===0||attempt===maxAttempts){
     return {rule,rationale:typeof parsed.rationale==='string'?parsed.rationale.slice(0,400):'',modelCalls:attempt,repairAttempts:attempt-1,unresolvedContradictions:contradictions.length};
    }

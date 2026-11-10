@@ -8,7 +8,9 @@
     "probe": "node bin/aion.cjs probe",
     "benchmark:oracle": "node bin/aion.cjs benchmark --provider oracle",
     "benchmark:qwen": "node bin/aion.cjs benchmark --provider qwen",
-    "research:gates": "node bin/aion.cjs research-gates"
+    "research:gates": "node bin/aion.cjs research-gates",
+    "benchmark:transfer": "node bin/aion.cjs transfer --provider qwen",
+    "benchmark:transfer-oracle": "node bin/aion.cjs transfer --provider oracle"
   },
   "engines": {
     "node": ">=20"
