@@ -19,7 +19,7 @@ from .scientist import Scientist
 def _run(seed, world_index, mode, budget):
     # Construct a NEW world for each arm so observations cannot leak across runs.
     world=novel_worlds(seed=seed,count=24)[world_index]
-    proposer=AdaptiveSynthesis() if mode=="progressive" else HybridProposer(inventor=None)
+    proposer=AdaptiveSynthesis() if mode=="progressive" else HybridProposer(inventor=None,symbolic_strategy="fixed")
     started=time.perf_counter()
     trial=Scientist(proposer,working_limit=16).investigate(world,max_experiments=budget)
     elapsed=(time.perf_counter()-started)*1000
