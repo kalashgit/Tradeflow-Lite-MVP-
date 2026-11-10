@@ -1,0 +1,70 @@
+name: TF-MI-LEARN-01 Proactive Intelligence Validation
+# Isolated exact-head evidence for the proactive Master Intelligence modules (issue #79).
+# Node-only; no browser, Worker deployment, D1 migration or preview release. S01 owns CI policy:
+# this workflow adds evidence and must not replace or weaken the X01 integration gate.
+on:
+  push:
+    branches:
+      - 'claude/**'
+      - 'feature/TF-MI-LEARN-**'
+  pull_request:
+    branches:
+      - integration/TF-64-unified-owner-journey
+      - codex/latest-mi-iphone-20261108
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proactive-intelligence:
+    runs-on: ubuntu-latest
+    env:
+      # Existing exact-head rule (automation/preview-release.cjs): on pull_request GITHUB_SHA is the merge commit,
+      # so name the checked-out head explicitly, as .github/workflows/cloud-record-discovery-ci.yml does.
+      TRADEFLOW_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Exact head
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          mkdir -p artifacts && git rev-parse HEAD | tee artifacts/exact-head-sha.txt
+      - name: Syntax
+        run: |
+          for f in public/intelligence-evidence.js public/intelligence-proactive-cases.js public/intelligence-proactive-operations.js public/intelligence-proactive-priority.js public/intelligence-proactive-events.js public/intelligence-learning-governance.js public/intelligence-proactive-adapter.js automation/simulator/proactive-evaluation.cjs automation/simulator/proactive-phase-b-evaluation.cjs; do node --check "$f"; done
+      - name: Proactive Intelligence contract, security and T01 tests
+        run: |
+          set -o pipefail
+          node --test tests/intelligence-proactive-cases.test.cjs tests/intelligence-proactive-operations.test.cjs tests/intelligence-proactive-priority.test.cjs tests/intelligence-proactive-events.test.cjs tests/intelligence-learning-governance.test.cjs tests/intelligence-proactive-adapter.test.cjs tests/intelligence-proactive-security.test.cjs tests/t01-proactive-evaluation.test.cjs tests/t01-proactive-phase-b.test.cjs 2>&1 | tee artifacts/proactive-focused.log
+      - name: Shared evidence projection consumers
+        run: node --test tests/intelligence-context.test.cjs tests/cloud-intelligence.test.cjs tests/master-intelligence.test.cjs tests/advisory-authorization.test.cjs tests/advisory-authenticated-sql.test.cjs tests/financial-evidence-api.test.cjs tests/role-exchange.test.cjs tests/conversation-store.test.cjs
+      - name: Synthetic T01 evaluations (memory-only)
+        run: |
+          node automation/simulator/proactive-evaluation.cjs
+          node automation/simulator/proactive-phase-b-evaluation.cjs
+      - name: Approved orb media prerequisite for the full Node gate
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          bash scripts/build-welcome-orb-media.sh
+      - name: Full Node regression
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/full-node.log
+      - name: Storage permissions and migrations
+        run: npm run test:storage
+      - name: Existing contractor workflows
+        run: npm run test:contractors
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-mi-learn-validation
+          path: |
+            artifacts/
+          if-no-files-found: warn
