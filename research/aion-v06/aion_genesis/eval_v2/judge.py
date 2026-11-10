@@ -34,7 +34,7 @@ def evaluate(scenario, final):
         "unknown_commit_errors": final["unknown_commit_errors"],
         "idempotent_duplicate_preventions": final["idempotency_collisions_prevented"],
         "tool_errors": final["tool_errors"],
-        "tool_calls": len(final["operations"]),
+        "committed_write_operations": len(final["operations"]),
         "quality_tier": "fictional_simulation_only",
         "counterfactual_oracle": "NOT_MEASURED",
     }
