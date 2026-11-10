@@ -7,7 +7,7 @@ import unittest
 from aion_genesis.lab.hidden import make_world
 from aion_genesis.lab.memory_effects import (
     BUDGETS, COHORTS, POLICIES, SCHEMA, TracedRuntimePolicy,
-    build_report, proposal_effect_snapshot,
+    build_report, contextual_retrieval_support, proposal_effect_snapshot,
 )
 from aion_genesis.lab.policies import RuntimePolicy
 from aion_genesis.lab.referee import hindsight_oracle, run_episode
@@ -43,6 +43,28 @@ class MemorySnapshotTests(unittest.TestCase):
         self.assertEqual(trace["public_context"]["spare_kits"], 0)
         self.assertEqual(trace["public_context"]["technician_hours"], 4)
 
+    def test_retrieval_rejection_stages_are_reported_without_hidden_data(self):
+        cards = [{"decisions": [["first", "unit_a"], ["second", "none"],
+                                ["depth", "inspect"]]}]
+        action = ["depth=inspect", "first=unit_a", "second=none"]
+        context = [["CREW:spare_kits", 0.0], ["unit_a:wear_index", 85.0]]
+        records = [{"keys": action, "context": context, "learned_at": 100},
+                   {"keys": action, "context": context, "learned_at": 101}]
+        matched = contextual_retrieval_support(cards, records, context, 102)
+        self.assertEqual(matched["options_examined"], 1)
+        self.assertEqual(matched["options_with_action_history"], 1)
+        self.assertEqual(matched["options_with_fresh_action_history"], 1)
+        self.assertEqual(matched["options_with_context_match"], 1)
+        self.assertEqual(matched["options_with_two_context_matches"], 1)
+        self.assertEqual(matched["matching_receipts"], 2)
+        stale = contextual_retrieval_support(cards, records, context, 140)
+        self.assertEqual(stale["options_with_action_history"], 1)
+        self.assertEqual(stale["options_with_fresh_action_history"], 0)
+        mismatch = contextual_retrieval_support(cards, records, [
+            ["CREW:spare_kits", 2.0], ["unit_a:wear_index", 35.0]], 102)
+        self.assertEqual(mismatch["options_with_fresh_action_history"], 1)
+        self.assertEqual(mismatch["options_with_context_match"], 0)
+
     def test_missing_proposals_are_explicitly_non_instrumented(self):
         empty = proposal_effect_snapshot(None, None, ())
         self.assertFalse(empty["has_proposal"])
@@ -66,6 +88,7 @@ class MemoryDiagnosisTests(unittest.TestCase):
                         "memory_version", "failure_classes"):
                 self.assertEqual(before[key], after[key], key)
             self.assertTrue(snapshot["has_proposal"])
+            self.assertIn("retrieval", snapshot)
             self.assertEqual(snapshot["case_id"], after["case_id"])
 
     def test_diagnostics_only_accept_predeclared_non_holdout_cohorts(self):
