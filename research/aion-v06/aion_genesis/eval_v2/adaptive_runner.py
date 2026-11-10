@@ -74,8 +74,8 @@ def run_training(train_count=24, validation_count=18):
         strongest = max(OPTIONS, key=lambda x: outcomes[x][
             "synthetic_value_proxy"])
         lesson_score = curriculum.admit_feedback(
-            assigned, case, candidate, fixed_reference)
-        learner.learn_from_paired_dev(case, outcomes)
+            assigned, case, before_choice, "deadline_first")
+        learner.learn_from_paired_dev(case)
         lesson_score.update({
             "selection_before_learning": before_choice,
             "selection_after_learning": learner.choose(case.family),
