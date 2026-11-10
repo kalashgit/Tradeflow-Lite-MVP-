@@ -61,7 +61,7 @@ class AdaptiveSynthesisTests(unittest.TestCase):
     def test_legacy_grammar_stays_distinct_from_new_composition_engine(self):
         world=novel_worlds(seed=938,count=6)[0]
         observations=[world.intervene(s) for s in states(world.variables)]
-        baseline=HybridProposer(inventor=None)
+        baseline=HybridProposer(inventor=None,symbolic_strategy="fixed")
         self.assertIsNone(baseline.propose(variables=world.variables,
                             recent=observations,feedback=[],previous=None))
         expanded=AdaptiveSynthesis()
