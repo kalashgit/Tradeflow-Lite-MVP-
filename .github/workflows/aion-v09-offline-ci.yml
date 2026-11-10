@@ -50,9 +50,9 @@ jobs:
       - name: Reproduce v2 workflows and inspect human packet boundary
         run: |
           python -m aion_genesis.eval_v2 verify --out "${{ runner.temp }}/genesis-eval-v2-dev"
-          python -m aion_genesis.eval_v2 packet \\
-            --run-dir "${{ runner.temp }}/genesis-eval-v2-dev" \\
-            --out "${{ runner.temp }}/genesis-eval-v2-dev/reviewer-packet.json" \\
+          python -m aion_genesis.eval_v2 packet \
+            --run-dir "${{ runner.temp }}/genesis-eval-v2-dev" \
+            --out "${{ runner.temp }}/genesis-eval-v2-dev/reviewer-packet.json" \
             --limit 12 --reviewer-id "reviewer_template_only"
           python - <<'PY'
           import json
