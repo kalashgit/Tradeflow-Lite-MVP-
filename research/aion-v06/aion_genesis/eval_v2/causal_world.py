@@ -12,6 +12,11 @@ import json
 import random
 import re
 
+from .network_factory import (
+    Event as NetworkEvent, Envelope as NetworkEnvelope,
+    Scenario as NetworkScenario, ROLES as NETWORK_ROLES,
+)
+
 SCHEMA = "GenesisCausalWorld/2.3"
 FAMILIES = ("supplier_shock", "field_blocker", "scope_approval",
             "invoice_dispute", "working_capital", "compound")
@@ -19,8 +24,7 @@ SPLITS = {"dev": 830000, "validation": 930000}
 WRITES = {"order_material", "assign_crew", "escalate_blocker",
           "request_change_approval", "request_invoice", "resolve_invoice_dispute"}
 TOOLS = WRITES | {"verify_operation", "wait"}
-ROLES = {"owner", "office", "project_manager", "foreman", "supplier",
-         "customer", "finance"}
+ROLES = set(NETWORK_ROLES)
 _KEY = re.compile(r"^[A-Za-z0-9_.:-]{1,72}$")
 
 
@@ -453,6 +457,60 @@ class World:
                              "origin": "mock_action"})
         self.tick += 1
         return event
+
+    def export_causal_network(self):
+        """Judge/export-only v2.2 typed network view of *actual* causal receipts.
+
+        Unlike the earlier scripted network factory, these source records are
+        emitted only after the economic world performs its accepted, denied or
+        verified transitions. No agent-facing call should use this method to
+        bypass role-scoped observation or reveal future events.
+        """
+        tenant = "SYN-TENANT-" + str(self._c.seed)
+        workflow = {
+            "purchase": "materials_and_supplier",
+            "materials": "materials_and_supplier",
+            "blocker": "dispatch_and_field",
+            "work": "dispatch_and_field",
+            "change": "field_to_change_order",
+            "invoice": "milestone_to_invoice",
+            "payment": "invoice_to_collection",
+            "authority": "quote_to_job",
+        }
+        events = tuple(
+            NetworkEvent(
+                event_id=e["source_ref"],
+                tenant=tenant, job_id=e["job_id"],
+                stream=e["stream"], revision=e["revision"],
+                actor=e["actor"], occurred_at=e["tick"],
+                status=e["status"], workflow=workflow[e["stream"]],
+                amount=e["amount"], source_ref=e["source_ref"],
+            )
+            for e in self._events if e["origin"] != "mock_action"
+        )
+        envelopes = tuple(
+            NetworkEnvelope(event_id=item["event_id"],
+                            recipient=item["receiver"],
+                            delivered_at=item["delivered"],
+                            channel="event_bus")
+            for item in self._messages
+        )
+        disruptions = {
+            "supplier_shock": "supplier_shortage",
+            "field_blocker": "offline_field_blocker",
+            "scope_approval": "scope_change",
+            "invoice_dispute": "invoice_dispute",
+            "working_capital": "nominal",
+            "compound": "priority_conflict",
+        }
+        return NetworkScenario(
+            scenario_id="SYN-NET-CAUSAL-" + str(self._c.seed),
+            tenant=tenant, split=self._c.split, seed=self._c.seed,
+            disruption=disruptions[self._c.family],
+            events=events, envelopes=envelopes,
+            job_ids=tuple(j.name for j in self._c.jobs),
+            horizon=self._c.horizon,
+        )
 
     def final_truth(self):
         """Independent evaluator ONLY, never fed back to a candidate policy."""
