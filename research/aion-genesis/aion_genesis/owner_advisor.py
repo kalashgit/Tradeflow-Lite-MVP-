@@ -18,6 +18,7 @@ class OwnerAdvisor:
         self.mode=mode
         self._feedback=defaultdict(list)
         self._past=set()
+        self._used_by_day={}
         self._read_only=True
         self.proposals=0
         self.suppressed=0
@@ -28,6 +29,11 @@ class OwnerAdvisor:
         if public_snapshot.get("externalExecutionPermitted") is not False:
             raise ValueError("production execution boundary violated")
         message=public_snapshot["ownerMessage"]
+        day_key=(public_snapshot["worldId"],public_snapshot["day"])
+        day_limit=min(max_per_day,1) if message["text"] is None and self.mode!="reactive" else max_per_day
+        remaining=max(0,day_limit-self._used_by_day.get(day_key,0))
+        if remaining==0:
+            return []
         focused=set(message["intentDomains"])
         candidates=[]
         for signal in public_snapshot["signals"]:
@@ -47,10 +53,9 @@ class OwnerAdvisor:
                     value+=max(-8,min(8,(sum(feedback)/len(feedback)-10)/2))
             candidates.append((value,signal["id"],signal))
         candidates.sort(key=lambda item:(-item[0],item[1]))
-        chosen=[safe_owner_reply(signal) for _,_,signal in candidates[:max_per_day]]
+        chosen=[safe_owner_reply(signal) for _,_,signal in candidates[:remaining]]
         # This cap is applied to unsolicited notifications in the research scenario.
-        if message["text"] is None and self.mode!="reactive":
-            chosen=chosen[:1]
+        self._used_by_day[day_key]=self._used_by_day.get(day_key,0)+len(chosen)
         self.suppressed+=max(0,len(candidates)-len(chosen))
         self.proposals+=len(chosen)
         for proposal in chosen:
