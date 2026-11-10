@@ -19,7 +19,7 @@ from .scientist import Scientist
 def _run(seed, world_index, mode, budget, probe_strategy="balanced"):
     # Construct a NEW world for each arm so observations cannot leak across runs.
     world=novel_worlds(seed=seed,count=24)[world_index]
-    proposer=AdaptiveSynthesis(probe_strategy=probe_strategy) if mode=="progressive" else HybridProposer(inventor=None,symbolic_strategy="fixed")
+    proposer=(HybridProposer(inventor=None,symbolic_strategy="adaptive") if probe_strategy=="balanced" else AdaptiveSynthesis(probe_strategy=probe_strategy)) if mode=="progressive" else HybridProposer(inventor=None,symbolic_strategy="fixed")
     started=time.perf_counter()
     trial=Scientist(proposer,working_limit=16).investigate(world,max_experiments=budget)
     elapsed=(time.perf_counter()-started)*1000
@@ -45,9 +45,9 @@ def _run(seed, world_index, mode, budget, probe_strategy="balanced"):
         "accuracyAfter5":per_step[4] if len(per_step)>=5 else None,
         "experiments":trial.experiments,
         "modelCalls":getattr(proposer,"calls",0) if mode=="fixed" else 0,
-        "symbolicProposalCalls":getattr(proposer,"calls",0) if mode=="progressive" else 0,
+        "symbolicProposalCalls":getattr(getattr(proposer,"symbolic",proposer),"calls",0) if mode=="progressive" else 0,
         "qwenCalls":0,
-        "expansionEvents":getattr(proposer,"expansion_events",0),
+        "expansionEvents":getattr(getattr(proposer,"symbolic",proposer),"expansion_events",0),
         "buildAndSolveMs":round(elapsed,3),
         "finalHypothesis":prediction,
     }
