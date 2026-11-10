@@ -2,8 +2,15 @@
 'use strict';
 const {qwenProvider,oracleProvider}=require('../src/provider.cjs');
 const {runBenchmark}=require('../src/benchmark.cjs');
+const {runResearchGates}=require('../src/research-gates.cjs');
 async function main(){
  const [command,...args]=process.argv.slice(2);
+ if(command==='research-gates'){
+  const outcome=runResearchGates();
+  console.log(JSON.stringify(outcome,null,2));
+  if(!outcome.passed)process.exitCode=3;
+  return;
+ }
  if(command==='probe'){
   const outcome=await qwenProvider().probe();
   console.log(JSON.stringify({status:'PASS',...outcome},null,2));return;
@@ -20,6 +27,6 @@ async function main(){
   if(outcome.summary.meanTruthTableAccuracy<0.85||outcome.summary.hypothesisConsistencyRate<0.9)process.exitCode=2;
   return;
  }
- throw Error('Usage: node bin/aion.cjs probe | benchmark --provider qwen|oracle');
+ throw Error('Usage: node bin/aion.cjs research-gates | probe | benchmark --provider qwen|oracle');
 }
 main().catch(error=>{console.error('AION ERROR:',error.message);process.exitCode=1});

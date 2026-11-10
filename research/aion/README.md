@@ -37,3 +37,9 @@ The benchmark records predictions, revisions, and whether the hypothesis fits ob
 - The evaluator holds hidden rules and must not be passed into the model context.
 - Qwen text outputs are untrusted. They are parsed into a strictly validated DSL, never executed.
 - Production TradeFlow files are unchanged; the research branch remains unmerged.
+
+## Research gates added (controller only)
+
+Run `npm run research:gates` to produce a deterministic, auditable JSON report covering all 9 three-switch and 18 four-switch pairwise Boolean mechanisms. Compares information-gain intervention selection against fixed-order and seeded random experiments. Separately tests detection and re-identification across all 72 ordered changes between the 3-switch rules. This gate **does not call Qwen** and expressly marks `realModelInference: false`. It establishes that the **experimental controller** works on a larger held-out switch set, not that Qwen has generalized or the system has learned a novel operator. The agent is not given the hidden true rule during proposal, but the evaluator naturally knows it for outcome generation and scoring. No persistent memory is created.
+
+**Follow-up model gate:** run Qwen on withheld four-switch worlds (with all switch names presented as available inputs), compare raw/feedback results against the deterministic oracle under equal experiment budgets and record real CPU inference cost. Do not promote causal rules into durable memory from these deterministic-only gates.
