@@ -1,0 +1,56 @@
+{
+  "config_version": "genesis-v1.2.4-domain-general-prospective",
+  "families": [
+    "electrical_procurement",
+    "hidden_causal_rules",
+    "resource_allocation",
+    "operational_dependencies"
+  ],
+  "variants": [
+    "nominal",
+    "shifted"
+  ],
+  "policies": [
+    "no_action",
+    "fixed_rule",
+    "v09_strategist",
+    "aion_v1_memory",
+    "aion_v12_contextual",
+    "aion_v12_hybrid",
+    "aion_v123_relevant",
+    "aion_v124_domain_relevant"
+  ],
+  "candidate": "aion_v124_domain_relevant",
+  "baseline": "aion_v1_memory",
+  "memory_off_control": "v09_strategist",
+  "partitions": {
+    "dev": {
+      "start_seed": 390000,
+      "episodes": 8
+    },
+    "validation": {
+      "start_seed": 400000,
+      "episodes": 16
+    },
+    "holdout": {
+      "start_seed": 410000,
+      "episodes": 64
+    }
+  },
+  "budgets": {
+    "max_decisions": 400000,
+    "max_model_calls": 0,
+    "max_wall_seconds": 1500,
+    "time_budget_ms": 5000,
+    "compute_budget": 64
+  },
+  "promotion_gate": {
+    "partition": "holdout",
+    "min_relative_harm_reduction_shifted": 0.25,
+    "max_relative_nominal_utility_drop": 0.05,
+    "bootstrap_resamples": 1000,
+    "max_family_shifted_harm_rate": 0.7,
+    "max_family_shifted_harm_increase": 0,
+    "max_family_shifted_worst_decile_regression": 0
+  }
+}
