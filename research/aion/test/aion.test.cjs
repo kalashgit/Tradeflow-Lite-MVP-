@@ -58,7 +58,34 @@ test('Ollama adapter uses native readiness and real JSON inference, not a llama.
 test('Ollama rejected responses do not silently pass',async()=>{
  assert.throws(()=>qwenProvider({runtime:'ollama',model:null}),/requires AION_MODEL_ID/);
  const provider=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',fetchImpl:async()=>({ok:true,json:async()=>({message:{content:'{"pong":true}'},done:false})})});
- await assert.rejects(()=>provider.infer({observations:[]}),/incomplete/);
+ const result=await provider.infer({observations:[]});
+ assert.equal(result.rule,null);
+ assert.equal(result.invalidOutputKind,'incomplete_response');
+ assert.equal(result.modelCalls,1);
+});
+test('live probe rejects a truncated completion even though benchmark records model failure',async()=>{
+ const provider=qwenProvider({runtime:'ollama',model:'qwen3:1.7b',fetchImpl:async(url)=>{
+  if(url.endsWith('/api/version'))return {ok:true,status:200};
+  return {ok:true,json:async()=>({message:{content:'{"pong":true}'},done:true,done_reason:'length'})};
+ }});
+ await assert.rejects(()=>provider.probe(),/incomplete/);
+ const out=await provider.infer({observations:[{state:{A:0,B:0,C:0},result:0}]});
+ assert.equal(out.rule,null);
+ assert.equal(out.invalidOutputKind,'incomplete_response');
+});
+test('bounded correction may recover from truncated output without using the hidden oracle',async()=>{
+ let calls=0;
+ const provider=qwenProvider({runtime:'ollama',model:'qwen3:1.7b',repair:true,fetchImpl:async()=>{
+  calls++;
+  return {ok:true,json:async()=>calls===1
+   ? {message:{content:'',},done:true,done_reason:'length'}
+   : {message:{content:'{"op":"and","inputs":["A","C"]}'},done:true,done_reason:'stop'}};
+ }});
+ const out=await provider.infer({observations:[{state:{A:1,B:0,C:1},result:1}]});
+ assert.equal(ruleKey(out.rule),'and(A,C)');
+ assert.equal(out.modelCalls,2);
+ assert.equal(out.repairAttempts,1);
+ assert.equal(out.unresolvedContradictions,0);
 });
 test('invalid Qwen output is recorded as no hypothesis (not auto-corrected by the oracle)',async()=>{
  const provider=qwenProvider({runtime:'llama.cpp',fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'not-json'}}]})})});
