@@ -53,7 +53,7 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   return {kind:'live-qwen',runtime,ready:true,validatedCompletion:true};
  }
  async function infer({observations,previousRule}){
-  const system='You are discovering an unknown Boolean mechanism with exactly 3 binary switches A,B,C. The output is 0 or 1. Its true rule uses EXACTLY TWO DISTINCT switches and one operator: and, or, xor. Choose a rule consistent with EVERY observation, including ones with C=1. Evaluate all observations before choosing. If evidence cannot distinguish rules, propose a plausible rule and state uncertainty. Previous hypothesis may be wrong. Output EXACT JSON: {"op":"and|or|xor","inputs":["A","B"],"rationale":"brief evidence-based explanation"}. Do not add markdown.';
+  const system='You are discovering an unknown Boolean mechanism with exactly 3 binary switches A,B,C. The output is 0 or 1. Its true rule uses EXACTLY TWO DISTINCT switches and one operator: and, or, xor. Choose a rule consistent with EVERY observation, including ones with C=1. Evaluate all observations before choosing. If evidence cannot distinguish rules, propose a plausible rule and state uncertainty. Previous hypothesis may be wrong. Output a JSON object with keys: op (one of "and", "or", "xor"), inputs (an array of EXACTLY TWO DISTINCT elements chosen from "A", "B", "C"), and rationale (a brief explanation). Do not default to any switch pair; use the experiment observations. No markdown.';
   const prompt={observations,previousHypothesis:previousRule||null};
   const maxAttempts=repair?3:1;
   let rejected=null;
