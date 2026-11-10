@@ -31,6 +31,15 @@
 
 .tf-ai-orb[data-orb-backend="webgl-flow"],.tf-ai-orb[data-orb-backend="canvas-crossfade"]{background:transparent!important}
 
+/* G02: feedback enhances the original membrane; its renderer is never replaced. */
+.tf-ai-orb.tf-orb-is-active[data-orb-material^="concept-b"]{
+ filter:brightness(1.34) saturate(1.13)!important;
+ box-shadow:0 0 20px rgba(0,190,230,.30)!important;
+ transition:filter .18s ease,box-shadow .18s ease!important;
+}
+.tf-ai-orb.tf-orb-is-listening[data-orb-material^="concept-b"]{box-shadow:0 0 25px rgba(0,210,240,.46)!important}
+@media(prefers-reduced-motion:reduce){.tf-ai-orb.tf-orb-is-active[data-orb-material^="concept-b"]{transition:none!important}}
+
 /* Same reference-derived membrane on the existing Intelligence voice surface. */
 .tf-voice-wave[data-orb-material="concept-b-v5"]{background:transparent!important;filter:none!important}
 .tf-voice-wave[data-orb-material="concept-b-v5"]>.tf-orb-concept-b-canvas{

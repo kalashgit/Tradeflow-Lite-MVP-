@@ -56,14 +56,15 @@ test('microphone lifecycle uses the same assistant and stops on Stop, recognitio
  const voice=require('../public/voice-command.js'),previous=globalThis.TradeFlowFlowWaveAudio,engine=globalThis.SpeechRecognition;
  let started=0,stopped=0,active;
  globalThis.TradeFlowFlowWaveAudio={createMeter:()=>({start:()=>started++,stop:()=>stopped++})};
- globalThis.SpeechRecognition=class{constructor(){active=this}start(){}stop(){this.onend()}abort(){}};
+ globalThis.SpeechRecognition=class{constructor(){active=this}start(){this.onstart?.()}stop(){this.onend()}abort(){}};
  try{
   const events={},c=voice.createController({document:{addEventListener:(k,f)=>events[k]=f},repaint:async()=>{},snapshot:async()=>({}),now:()=>new Date()});
   const click=()=>events.click({target:{closest:selector=>selector==='[data-voice-workspace]'?null:{dataset:{voice:'mic'}}},preventDefault(){}});
   c.startListening();assert.equal(started,1);click();assert.ok(stopped>=1);
+  c.startListening();assert.equal(c.state().open,false); // second orb tap closes, never duplicates capture
   c.startListening();active.onend();assert.equal(started,2);
-  c.startListening();active.onerror({error:'not-allowed'});assert.match(c.view(),/Microphone permission denied/);
-  c.startListening();const before=stopped;c.close();assert.equal(stopped,before+1);assert.equal(c.view(),'');
+  c.close();c.startListening();active.onerror({error:'not-allowed'});assert.match(c.view(),/Microphone permission denied/);
+  c.close();c.startListening();const before=stopped;c.close();assert.equal(stopped,before+1);assert.equal(c.view(),'');
  }finally{globalThis.TradeFlowFlowWaveAudio=previous;if(engine===undefined)delete globalThis.SpeechRecognition;else globalThis.SpeechRecognition=engine}
 });
 test('meter loads before voice and is cached for offline use without changing DB schema',()=>{
