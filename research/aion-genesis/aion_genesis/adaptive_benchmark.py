@@ -16,10 +16,10 @@ from .open_world import HybridProposer, novel_worlds
 from .scientist import Scientist
 
 
-def _run(seed, world_index, mode, budget):
+def _run(seed, world_index, mode, budget, probe_strategy="balanced"):
     # Construct a NEW world for each arm so observations cannot leak across runs.
     world=novel_worlds(seed=seed,count=24)[world_index]
-    proposer=AdaptiveSynthesis() if mode=="progressive" else HybridProposer(inventor=None,symbolic_strategy="fixed")
+    proposer=AdaptiveSynthesis(probe_strategy=probe_strategy) if mode=="progressive" else HybridProposer(inventor=None,symbolic_strategy="fixed")
     started=time.perf_counter()
     trial=Scientist(proposer,working_limit=16).investigate(world,max_experiments=budget)
     elapsed=(time.perf_counter()-started)*1000
@@ -53,7 +53,7 @@ def _run(seed, world_index, mode, budget):
     }
 
 
-def compare(seeds=(938,939,940),worlds_per_seed=24,budget_three=7,budget_four=12):
+def compare(seeds=(938,939,940),worlds_per_seed=24,budget_three=7,budget_four=12,probe_strategy="balanced"):
     if not 1 <= worlds_per_seed <=24:
         raise ValueError("world count must be 1..24")
     by_arm={"fixed":[],"progressive":[]}
@@ -62,7 +62,7 @@ def compare(seeds=(938,939,940),worlds_per_seed=24,budget_three=7,budget_four=12
             nvars=4 if index%6 in (4,5) else 3
             budget=budget_four if nvars==4 else budget_three
             for mode in ("fixed","progressive"):
-                by_arm[mode].append(_run(seed,index,mode,budget))
+                by_arm[mode].append(_run(seed,index,mode,budget,probe_strategy=probe_strategy))
     def summarize(rows):
         return {
             "worlds":len(rows),
@@ -88,6 +88,7 @@ def compare(seeds=(938,939,940),worlds_per_seed=24,budget_three=7,budget_four=12
         "realQwenInference":False,
         "persistentKnowledgeEnabled":False,
         "experimentPolicy":"known grammar until falsified -> bounded composed AST; active version-space disagreement",
+        "probeStrategy":probe_strategy,
         "seeds":list(seeds),
         "budget3Switch":budget_three,
         "budget4Switch":budget_four,
@@ -117,8 +118,9 @@ def main():
     parser.add_argument("--worlds-per-seed",type=int,default=24)
     parser.add_argument("--seeds",type=int,nargs="+",default=[938,939,940])
     parser.add_argument("--output",type=str,default="")
+    parser.add_argument("--probe-strategy",choices=("balanced","all_on","corners"),default="balanced")
     args=parser.parse_args()
-    result=compare(seeds=tuple(args.seeds),worlds_per_seed=args.worlds_per_seed)
+    result=compare(seeds=tuple(args.seeds),worlds_per_seed=args.worlds_per_seed,probe_strategy=args.probe_strategy)
     if args.output:
         with open(args.output,"w",encoding="utf-8") as f:
             json.dump(result,f,indent=2)

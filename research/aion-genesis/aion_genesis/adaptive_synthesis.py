@@ -124,7 +124,10 @@ class AdaptiveSynthesis:
     """
     use_full_history=True
 
-    def __init__(self,top_k=96):
+    def __init__(self,top_k=96,probe_strategy="balanced"):
+        if probe_strategy not in ("balanced","all_on","corners"):
+            raise ValueError("unknown experiment strategy")
+        self.probe_strategy=probe_strategy
         if type(top_k) is not int or not 8<=top_k<=512:
             raise ValueError("invalid planning budget")
         self.fast=SynthesisBaseline()
@@ -173,6 +176,15 @@ class AdaptiveSynthesis:
                  if tuple(state[k] for k in names) not in already]
         if not options:
             return None
+        # Counterfactual boundary probes distinguish mechanisms active only at
+        # extreme configurations, which balanced version-space tests can miss.
+        # They are explicit real observations, never oracle information.
+        if self.probe_strategy in ("all_on","corners") and not observations:
+            return {key:1 for key in names}
+        if self.probe_strategy=="corners" and len(observations)==1:
+            zero={key:0 for key in names}
+            if tuple(zero[key] for key in names) not in already:
+                return zero
         if not possible:
             return deepcopy(options[0][1])
         # On expanded grammars, plan from minimum-complexity survivors.
