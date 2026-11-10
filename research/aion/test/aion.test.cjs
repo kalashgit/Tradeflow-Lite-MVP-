@@ -96,13 +96,13 @@ test('repair does not fabricate an oracle answer when model ignores feedback',as
  assert.equal(response.unresolvedContradictions,1);
 });
 test('malformed model outputs are scored as failures throughout the benchmark',async()=>{
- const provider={kind:'live-qwen',async infer(){return {rule:null,invalidOutputKind:'invalid_rule',modelCalls:1,repairAttempts:0};}};
+ const provider={kind:'synthetic-broken-provider',async infer(){return {rule:null,invalidOutputKind:'invalid_rule',modelCalls:1,repairAttempts:0};}};
  const result=await runBenchmark(provider,{maxExperiments:2});
  assert.equal(result.summary.observations,12);
  assert.equal(result.summary.invalidOutputCount,12);
  assert.equal(result.summary.meanTruthTableAccuracy,0);
  assert.equal(result.summary.hypothesisConsistencyRate,0);
- assert.equal(result.summary.realModelInference,true);
+ assert.equal(result.summary.realModelInference,false);
  assert.equal(result.summary.memoryEnabled,false);
 });
 test('oracle benchmark passes only as simulated control; memory remains disabled',async()=>{
