@@ -20,6 +20,8 @@ POLICY_VERSIONS = {
                        "/outcome-memory(hierarchical_contextual_residual_v12)",
     "aion_v123_relevant": "runtime-1.2.3/bounded-search(strategic-planner-0.9.0)"
                           "/outcome-memory(relevant_context_residual_v123)",
+    "aion_v124_domain_relevant": "runtime-1.2.4/bounded-search(strategic-planner-0.9.0)"
+                                 "/outcome-memory(domain_general_relevant_residual_v124)",
 }
 _CAPABILITIES = {
     "fixed_rule": ("deterministic_fast_path",),
@@ -28,6 +30,7 @@ _CAPABILITIES = {
     "aion_v12_contextual": ("bounded_search", "contextual_outcome_memory"),
     "aion_v12_hybrid": ("bounded_search", "hybrid_outcome_memory"),
     "aion_v123_relevant": ("bounded_search", "relevant_outcome_memory"),
+    "aion_v124_domain_relevant": ("bounded_search", "domain_relevant_memory"),
 }
 
 
