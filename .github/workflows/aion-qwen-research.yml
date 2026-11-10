@@ -12,13 +12,21 @@ permissions:
 
 jobs:
   aion-qwen:
-    name: Isolated CPU Qwen3-0.6B evaluation
+    name: Isolated CPU ${{ matrix.model }} evaluation
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - model: qwen3:0.6b
+            artifact: aion-qwen-0p6b
+          - model: qwen3:1.7b
+            artifact: aion-qwen-1p7b
     env:
       AION_MODEL_RUNTIME: ollama
       AION_MODEL_URL: http://127.0.0.1:11434
-      AION_MODEL_ID: qwen3:0.6b
+      AION_MODEL_ID: ${{ matrix.model }}
       OLLAMA_HOST: 127.0.0.1:11434
     defaults:
       run:
@@ -38,7 +46,7 @@ jobs:
         run: |
           curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-ollama-install.sh
           sh /tmp/aion-ollama-install.sh
-      - name: Start private model server and download Qwen3-0.6B
+      - name: Start private model server and download ${{ matrix.model }}
         run: |
           ollama serve > /tmp/aion-ollama.log 2>&1 &
           for i in $(seq 1 60); do
@@ -46,7 +54,7 @@ jobs:
             sleep 2
           done
           curl -fsS http://127.0.0.1:11434/api/version
-          ollama pull qwen3:0.6b
+          ollama pull "$AION_MODEL_ID"
           ollama list
       - name: Live Qwen readiness and actual inference
         run: npm run probe
@@ -64,7 +72,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: aion-qwen-benchmark
+          name: ${{ matrix.artifact }}
           path: |
             research/aion/aion-qwen-raw.json
             research/aion/aion-qwen-repair.json
@@ -75,7 +83,7 @@ jobs:
         run: |
           echo "AION research-only pipeline (no production deploy, no customer data, no model training)." >> "$GITHUB_STEP_SUMMARY"
           echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Model: Qwen3-0.6B via temporary CPU Ollama runner." >> "$GITHUB_STEP_SUMMARY"
+          echo "Model: $AION_MODEL_ID via temporary CPU Ollama runner." >> "$GITHUB_STEP_SUMMARY"
           echo "No causal memory is created or persisted by this workflow." >> "$GITHUB_STEP_SUMMARY"
           for file in aion-qwen-raw.json aion-qwen-repair.json; do
             if [ -s "$file" ]; then
