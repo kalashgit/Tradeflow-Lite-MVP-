@@ -291,6 +291,35 @@ jobs:
           python -m aion_genesis.lab validate
           --out "${{ runner.temp }}/aion-genesis-v124"
           --reproduce
+      - name: Build independent laboratory multi-metric review from replayed ledger
+        env:
+          LAB_OUT: ${{ runner.temp }}/aion-genesis-v124
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from aion_genesis.lab.review_fabric import (
+              build_review, render_markdown,
+          )
+          from aion_genesis.lab.ledger import read_ledger
+
+          output = Path(os.environ["LAB_OUT"])
+          entry = json.loads((output / "index.jsonl").read_text().splitlines()[-1])
+          run_dir = output / "runs" / entry["run_id"]
+          result = json.loads((run_dir / "result.json").read_text())
+          validation = json.loads((run_dir / "validation.json").read_text())
+          review = build_review(result, read_ledger(run_dir / "ledger.jsonl"), validation)
+          (run_dir / "lab-review.json").write_text(
+              json.dumps(review, sort_keys=True, indent=2) + "\\n")
+          (run_dir / "lab-review.md").write_text(render_markdown(review))
+          assert review["protected_holdout_not_examined"]
+          assert review["replay_verified"]
+          assert review["promotion"] == "never_auto_promote"
+          print(render_markdown(review))
+          print("Lab foundation: failed experimental candidates remain valid records; "
+                "this review does not change judging or grant promotion.")
+          PY
       - name: Diagnose v1.2.4 resource allocation memory activity on dev
         run: >-
           python -m aion_genesis.lab.domain_general_diagnostics

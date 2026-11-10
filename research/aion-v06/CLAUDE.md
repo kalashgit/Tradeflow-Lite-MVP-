@@ -9,6 +9,30 @@ For the current v1.0 implementation milestone, also read the repository-root
 `docs/AION_V1_CLAUDE_EXECUTION_MANDATE.md`: build the reusable runtime and
 independent experimental control plane before option-discovery upgrades.
 
+## Current Genesis architecture sprint — use Claude for major bets only
+
+Before touching architecture, read repository-root
+`docs/AION_GENESIS_EVALUATION_LAB_AND_MOONSHOTS.md` and the latest validated
+`lab-review.md`. The new `aion_genesis.lab.review_fabric` is the shared
+diagnostic reviewer, not an alternate grader.
+
+**Current priority:** Bet 1 (causal world model and long-horizon planner),
+followed by outcome-grounded learning/transfer and verified permissioned
+workflow completion. Work on **one opt-in candidate** on an isolated branch
+and one draft PR at a time. Do not spend high-cost model usage rewriting
+evaluation harnesses, adding cosmetic features, duplicating report tooling,
+or repeatedly modifying the same candidate after seeing validation results.
+
+The expensive agent's responsibility is the **major architectural invention**
+and integration to a stable policy adapter. The independent GitHub laboratory
+owns routine regression, seeded comparisons, replay and research reporting.
+Do not change `lab/referee.py`, `lab/scorecard.py`,
+`lab/promotion.py`, `lab/hidden/`, or scoring thresholds to make an
+architectural candidate look better. Treat green tests and active memories
+as engineering facts, **not** business-quality gains. Historical negative
+experiments and the protected holdout remain frozen. No real-world
+business actions or merges/deployments are authorized.
+
 ## What is presently proven
 
 The Python standard-library harness, synthetic causal worlds, memory ablations,
