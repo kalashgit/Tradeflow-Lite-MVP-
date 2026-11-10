@@ -122,8 +122,14 @@ class RelevantEffectModel:
         }
         if type(as_of) is not int or as_of < 0:
             raise ValueError("Invalid decision timestamp")
+        if any(row["learned_at"] > as_of for row in self.records):
+            raise ValueError("Backdated decision cannot use later outcome memory")
+        if self.schema is None:
+            return report
+        active_targets = {key.split("=", 1)[0]: key.split("=", 1)[1] for key in action}
         if len(current) < 2 or not any(
-                key.split("=", 1)[1] != "none" for key in action):
+                active_targets.get(axis, "none") != "none"
+                for axis in self.schema["target_axes"]):
             report["reason"] = "missing_action_context"
             return report
         candidates = []
@@ -174,6 +180,8 @@ class RelevantEffectModel:
         facts = _context(context)
         if type(learned_at) is not int or not 0 <= learned_at <= 10**12:
             raise ValueError("Invalid observation timestamp")
+        if self.records and learned_at < self.records[-1]["learned_at"]:
+            raise ValueError("Outcome chronology cannot go backwards")
         if not isinstance(receipt_ref, str) or len(receipt_ref) > 220:
             raise ValueError("Invalid receipt ref")
         if not isinstance(residuals, dict) or not residuals:
