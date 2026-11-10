@@ -223,19 +223,30 @@ class Scenario:
             snap = self.public_view(role, tick, self.tenant)
             known = {(r["job_id"], r["stream"]): r["source_revision"]
                      for r in snap["known"]}
-            # A stakeholder is eligible only for streams explicitly routed to
-            # them. A message not yet delivered is still an unresolved gap.
+            # Distinguish genuinely delayed/lost routed revisions from a
+            # newer fact the workflow never routed to this stakeholder.
+            # Only the first is a delivery-staleness failure. The second is a
+            # missing routing path and must not be mislabeled as an ignored
+            # authorized message.
             indexed = {e.event_id: e for e in self.events}
-            eligible = {(indexed[m.event_id].job_id, indexed[m.event_id].stream)
-                        for m in self.envelopes if m.recipient == role and
-                        indexed[m.event_id].occurred_at <= tick}
-            missing = sum(key not in known for key in eligible)
-            stale = sum(key in known and known[key] < ground[key].revision
-                        for key in eligible if key in ground)
-            results[role] = {"revoked": False, "eligible_streams": len(eligible),
-                             "known_streams": len(known), "missing": missing,
-                             "stale": stale,
-                             "received_messages": snap["received_messages"]}
+            routed_max = {}
+            for delivery in self.envelopes:
+                event = indexed[delivery.event_id]
+                if delivery.recipient == role and event.occurred_at <= tick:
+                    key = (event.job_id, event.stream)
+                    routed_max[key] = max(routed_max.get(key, 0), event.revision)
+            missing = sum(key not in known for key in routed_max)
+            stale = sum(key in known and known[key] < requested_revision
+                        for key, requested_revision in routed_max.items())
+            never_routed_latest = sum(
+                key in ground and ground[key].revision > requested_revision
+                for key, requested_revision in routed_max.items())
+            results[role] = {
+                "revoked": False, "eligible_streams": len(routed_max),
+                "known_streams": len(known),
+                "missing": missing, "stale": stale,
+                "latest_revision_not_routed": never_routed_latest,
+                "received_messages": snap["received_messages"]}
         return results
 
 
