@@ -1,0 +1,91 @@
+name: AION Genesis — Live Qwen Memory Transfer
+
+on:
+  pull_request:
+    paths:
+      - 'research/aion-genesis/**'
+      - '.github/workflows/aion-genesis-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-live-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live-ablation:
+    name: Paired 0.6B Qwen on 8 held-out worlds
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    defaults:
+      run:
+        working-directory: research/aion-genesis
+    env:
+      AION_MODEL_ID: qwen3:0.6b
+      AION_MODEL_URL: http://127.0.0.1:11434
+      OLLAMA_HOST: 127.0.0.1:11434
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify all scientific and memory boundary tests
+        run: python -m unittest discover -s tests -v
+      - name: Deterministic paired baseline (not model inference)
+        run: python -m aion_genesis.ablation --mode reference --worlds 8 --budget 5 > aion-reference-ablation.json
+      - name: Install isolated Ollama CPU inference runtime
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-genesis-ollama.sh
+          sh /tmp/aion-genesis-ollama.sh
+      - name: Start private model and pull Qwen3-0.6B
+        run: |
+          ollama serve > /tmp/aion-genesis-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/version
+          ollama pull "$AION_MODEL_ID"
+          ollama list
+      - name: Run two-arm real Qwen memory transfer benchmark
+        run: python -m aion_genesis.ablation --mode qwen --model "$AION_MODEL_ID" --worlds 8 --budget 5 > aion-qwen-ablation.json
+      - name: Preserve reproducible synthetic traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-qwen-ablation-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-reference-ablation.json
+            research/aion-genesis/aion-qwen-ablation.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Write objective metrics and safety gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          lines=["### AION Genesis V1 — Real Qwen vs memory", "Research only: no tenant data, no deployments, no persistent knowledge writes."]
+          for path in ("aion-reference-ablation.json","aion-qwen-ablation.json"):
+              try:
+                  with open(path) as f:
+                      data=json.load(f)
+              except (OSError,ValueError) as exc:
+                  lines.append(path+" missing or invalid: "+str(exc))
+                  continue
+              control, memory = data["control"], data["provisionalMemory"]
+              lines.append(path+": REAL_MODEL="+str(data["realQwenInference"])
+                  +" working-only="+str(control["mean_accuracy"])
+                  +" with-memory="+str(memory["mean_accuracy"])
+                  +" delta="+str(data["comparison"]["accuracyDelta"])
+                  +" negative-transfer="+str(data["comparison"]["negativeTransferWorlds"])
+                  +" calls="+str(control["model_calls"])+"/"+str(memory["model_calls"])
+                  +" tokens-in="+str(control["prompt_tokens"])+"/"+str(memory["prompt_tokens"])
+                  +" consistency="+str(control["evidence_consistency"])+"/"+str(memory["evidence_consistency"]))
+              lines.append("Persistent memory: "+data["researchGate"]["admission"])
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("\n\n".join(lines)+"\n")
+          PY
