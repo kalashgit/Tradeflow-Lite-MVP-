@@ -33,3 +33,10 @@ The demo evaluates 120 seeded worlds using two deterministic baselines with diff
 Run real Qwen AST proposals against held-out compound rules using the existing phone-first GitHub runner pattern. Compare genuine Qwen outputs to fixed program-search baselines. Measure new-mechanism accuracy, contradiction rate, independent-world transfer, token and model-call costs. Do not enable knowledge admission until separately reproduced >85% accuracy and >90% evidence consistency, plus independent review.
 
 No GPU or paid API is required for the current Python tests. No background jobs, external connections, customer data or model downloads are triggered by this package.
+
+
+## Paired provisional-memory ablation
+
+A bounded in-RAM casebook is trained only on development-world observations, using a deterministic reference proposer with a separate validation set of interventions. It needs independent support from at least two worlds, and retrieval rechecks the current world's evidence. It never stores or transfers a hidden rule or other worlds' raw observations. Candidate analogies remain provisional and are not promoted to long-term knowledge.
+
+The benchmark compares the same researcher with and without retrieved proposals on identical held-out worlds and fixed intervention budgets. It reports mean final accuracy, observed evidence consistency, positive and negative transfer, Qwen calls, token usage when available, and the number of retrieved proposals. No neural-weight updates and no SQLite knowledge promotion occur.

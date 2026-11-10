@@ -159,5 +159,53 @@ class ResearchTests(unittest.TestCase):
         self.assertFalse(requests[0]["think"])
         self.assertNotIn("hidden_rule",str(requests[0]))
 
+
+class TransferLearningTests(unittest.TestCase):
+    def test_casebook_requires_independent_worlds_and_blocks_holdout(self):
+        from aion_genesis.transfer import ProvisionalCasebook
+        memory=ProvisionalCasebook(minimum_worlds=2)
+        rule={"op":"and","args":[v("A"),v("B")]}
+        evidence=[{"state":s,"result":int(s["A"] and s["B"])}
+                  for s in [{"A":0,"B":0,"C":0},{"A":1,"B":0,"C":0},{"A":1,"B":1,"C":0}]]
+        self.assertFalse(memory.admit_training_case("holdout-1","heldout",("A","B","C"),rule,evidence))
+        self.assertTrue(memory.admit_training_case("development-1","development",("A","B","C"),rule,evidence))
+        self.assertEqual(memory.retrieve(("A","B","C"),evidence),[])
+        self.assertTrue(memory.admit_training_case("development-2","development",("A","B","C"),rule,evidence))
+        self.assertEqual(len(memory.retrieve(("A","B","C"),evidence)),1)
+        contradiction=[{"state":{"A":1,"B":1,"C":0},"result":0}]
+        self.assertEqual(memory.retrieve(("A","B","C"),contradiction),[])
+        self.assertEqual(memory.summary()["status"],"provisional-only")
+
+    def test_transfer_ablation_keeps_identical_worlds_and_budgets(self):
+        from aion_genesis.transfer import prepare_casebook, run_ablation
+        bank, provenance=prepare_casebook(seed=71)
+        self.assertEqual(provenance["trainingWorlds"],60)
+        self.assertGreaterEqual(provenance["independentlySupportedGroups"],1)
+        result=run_ablation(lambda:ReferenceProposer(composed=False),count=4,budget=4)
+        self.assertFalse(result["realQwenInference"])
+        self.assertFalse(result["persistentCausalKnowledge"])
+        self.assertEqual(result["control"]["model_calls"],16)
+        self.assertEqual(result["provisionalMemory"]["model_calls"],16)
+        self.assertGreater(result["provisionalMemory"]["retrieved_hypotheses"],0)
+        self.assertEqual(
+            [v["world"] for v in result["control"]["world_results"]],
+            [v["world"] for v in result["provisionalMemory"]["world_results"]])
+
+    def test_qwen_analogies_are_provisional_and_token_usage_is_recorded(self):
+        requests=[]
+        def mock(body):
+            requests.append(body)
+            return {"done":True,"done_reason":"stop","prompt_eval_count":120,"eval_count":28,
+                    "message":{"content":'{"op":"and","args":[{"op":"var","name":"A"},{"op":"var","name":"B"}]}'}}
+        qwen=LocalQwenProposer(transport=mock)
+        analogy={"op":"and","args":[v("A"),v("B")]}
+        proposed=qwen.propose(variables=("A","B","C"),recent=[{"state":{"A":0,"B":0,"C":0},"result":0}],
+                              feedback=[],previous=None,analogies=[analogy])
+        self.assertIsNotNone(proposed)
+        self.assertEqual(qwen.prompt_tokens,120)
+        self.assertEqual(qwen.completion_tokens,28)
+        self.assertIn("provisionalAnalogies",requests[0]["messages"][1]["content"])
+        self.assertNotIn("hidden_rule",str(requests[0]))
+
 if __name__ == "__main__":
     unittest.main()

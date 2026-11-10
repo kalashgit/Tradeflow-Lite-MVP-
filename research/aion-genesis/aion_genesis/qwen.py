@@ -15,6 +15,8 @@ class LocalQwenProposer:
         self.endpoint = endpoint.rstrip("/")
         self.transport = transport if transport is not None else self._call
         self.calls = 0
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
 
     def _call(self, request_body):
         req = Request(self.endpoint + "/api/chat", data=json.dumps(request_body).encode(),
@@ -22,16 +24,18 @@ class LocalQwenProposer:
         with urlopen(req, timeout=90) as response:
             return json.load(response)
 
-    def propose(self, *, variables, recent, feedback, previous):
+    def propose(self, *, variables, recent, feedback, previous, analogies=()):
         system = (
             "Infer a testable binary mechanism consistent with observations. "
             "Output only a JSON expression tree using op=var with name; op=not with arg; "
             "op=and/or/xor with args list (2-4 expressions); or op=threshold with args and integer k. "
             "Use only variable names provided. Do not output Python, functions, prose, or markdown. "
-            "Do not pretend the rule is proven by one example."
+            "Do not pretend the rule is proven by one example. "
+            "Tentative analogies come from separate development worlds and are UNVERIFIED. "
+            "Reject analogies that contradict the current observations."
         )
         query = {"variables": list(variables), "observations": recent, "prior": previous,
-                 "observedCounterexamples": feedback[-3:]}
+                 "observedCounterexamples": feedback[-3:], "provisionalAnalogies": list(analogies)[:3]}
         payload = {
             "model": self.model, "stream": False, "think": False, "format": "json",
             "options": {"temperature": 0, "num_predict": 512},
@@ -40,6 +44,14 @@ class LocalQwenProposer:
         }
         self.calls += 1
         result = self.transport(payload)
+        if not isinstance(result, dict):
+            return None
+        tokens_in = result.get('prompt_eval_count', 0)
+        tokens_out = result.get('eval_count', 0)
+        if type(tokens_in) is int and tokens_in > 0:
+            self.prompt_tokens += tokens_in
+        if type(tokens_out) is int and tokens_out > 0:
+            self.completion_tokens += tokens_out
         if result.get("done") is not True or result.get("done_reason", "stop") != "stop":
             return None
         output = result.get("message", {}).get("content")

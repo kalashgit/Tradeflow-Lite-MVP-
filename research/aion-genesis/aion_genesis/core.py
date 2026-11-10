@@ -144,8 +144,15 @@ class ReferenceProposer:
         self.composed = composed
         self.calls = 0
 
-    def propose(self, *, variables, recent, feedback, previous):
+    def propose(self, *, variables, recent, feedback, previous, analogies=()):
         self.calls += 1
+        # Memories are tentative proposals, never verified truth.
+        for analogy in analogies:
+            try:
+                if not violations(analogy, recent, variables):
+                    return deepcopy(validate(analogy, variables))
+            except (MechanismError, ValueError, KeyError, TypeError):
+                continue
         options = []
         for i, a in enumerate(variables):
             for b in variables[i + 1:]:
