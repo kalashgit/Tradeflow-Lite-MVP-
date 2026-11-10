@@ -12,12 +12,14 @@ from .ledger import events
 # Categorical series colours (fixed order, validated for the dark surface) and
 # reserved status colours, which always travel with an icon and a word.
 SERIES = {"aion_v1_memory": "#3987e5", "aion_v12_contextual": "#41c5bb",
+          "aion_v12_hybrid": "#80b6ed",
           "v09_strategist": "#d95926",
           "fixed_rule": "#199e70", "no_action": "#c98500"}
 STATUS = {"PASS": ("#0ca30c", "✓"), "FAIL": ("#d03b3b", "✕"),
           "INCONCLUSIVE": ("#fab219", "?"), "BLOCKED": ("#ec835a", "■")}
 NAMES = {"aion_v1_memory": "AION v1 · memory on",
          "aion_v12_contextual": "AION v1.2 · contextual memory",
+         "aion_v12_hybrid": "AION v1.2 · hierarchical memory",
          "v09_strategist": "v0.9 strategist",
          "fixed_rule": "Fixed rule", "no_action": "No action"}
 SURFACE, INK, MUTED, GRID = "#0a111d", "#e7f1fe", "#9aaec2", "#263a4d"
