@@ -154,6 +154,39 @@ class EconomicCausalityTests(unittest.TestCase):
         self.assertEqual(w.cash, before)
         self.assertEqual(w.denials, 1)
 
+    def test_real_causal_receipts_export_to_ten_role_network_not_scripted_events(self):
+        case = fixed_case(lag=0, pay_delay=1)
+        w = World(case)
+        w.step(action("order_material", "JOB-A", "purchase-1"))
+        # A supplier receives only the purchase request, not a fake payment.
+        early = w.export_causal_network()
+        supplier = early.public_view("supplier", 0, early.tenant)
+        self.assertTrue(any(e["stream"] == "purchase" for e in supplier["known"]))
+        self.assertFalse(any(e["stream"] == "payment" for e in early.source_truth(0)))
+        for _ in range(2):
+            w.step(action("wait"))
+        w.step(action("assign_crew", "JOB-A", "crew-1"))
+        w.step(action("assign_crew", "JOB-A", "crew-2"))
+        w.step(action("request_invoice", "JOB-A", "invoice-1"))
+        self.assertFalse(w.jobs["JOB-A"]["paid"])
+        for _ in range(6):
+            w.step(action("wait"))
+        self.assertTrue(w.jobs["JOB-A"]["paid"])
+        stream = w.export_causal_network()
+        completed = stream.source_truth(w.tick - 1)
+        self.assertTrue(any(e["stream"] == "payment" and
+                            e["status"] == "reconciled" for e in completed))
+        self.assertTrue(any(e["stream"] == "invoice" and
+                            e["status"] == "verified" for e in completed))
+        self.assertTrue(any(e["stream"] == "assignment" for e in completed))
+        owner = stream.public_view("owner", w.tick - 1, stream.tenant)
+        self.assertTrue(any(e["stream"] == "payment" for e in owner["known"]))
+        technician = stream.public_view("technician", w.tick - 1, stream.tenant)
+        self.assertTrue(any(e["stream"] == "work" for e in technician["known"]))
+        self.assertFalse(any(e["stream"] == "payment" for e in technician["known"]))
+        with self.assertRaises(PermissionError):
+            stream.public_view("supplier", w.tick - 1, "SYN-TENANT-NOT-OURS")
+
     def test_mock_references_are_distinct_from_real_business_data(self):
         case = generate("dev", 4)
         report = episode(case, "deadline_first")
