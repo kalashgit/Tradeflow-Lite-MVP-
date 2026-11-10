@@ -1,0 +1,168 @@
+{
+  "all_real_world_options_known": false,
+  "alternatives": [
+    {
+      "approval_state": "pending_human_review",
+      "decisions": [
+        [
+          "supply",
+          "qualified_substitute"
+        ],
+        [
+          "crew",
+          "reassign_to_ready_work"
+        ],
+        [
+          "customer",
+          "quiet"
+        ]
+      ],
+      "effects_are_estimates_not_observed_results": true,
+      "estimated_spend": 460.0,
+      "evidence_ids": [
+        "SRC-1",
+        "PROJECT-1",
+        "PROJECT-2",
+        "SUB-1",
+        "CREW-1",
+        "READY-1"
+      ],
+      "expected_effects": {
+        "crew_productivity": 3.0,
+        "customer_trust": 0.0,
+        "margin": -2.5,
+        "schedule": 4.8
+      },
+      "explanation": "Review qualified_substitute, reassign_to_ready_work, and quiet across dependent projects PROJECT-17, PROJECT-42.",
+      "identifier": "qualified_substitute|reassign_to_ready_work|quiet",
+      "priority_score_heuristic": 17.5,
+      "requires_human_approval": true,
+      "uncertainty": {
+        "crew_productivity": 0.4,
+        "customer_trust": 0.0,
+        "margin": 0.8999999999999999,
+        "schedule": 1.3
+      },
+      "uncertainty_note": "Effect sizes and costs are simulated estimates; verify alternatives before action."
+    },
+    {
+      "approval_state": "pending_human_review",
+      "decisions": [
+        [
+          "supply",
+          "expedite"
+        ],
+        [
+          "crew",
+          "reassign_to_ready_work"
+        ],
+        [
+          "customer",
+          "prepare_notice"
+        ]
+      ],
+      "effects_are_estimates_not_observed_results": true,
+      "estimated_spend": 235.0,
+      "evidence_ids": [
+        "SRC-1",
+        "PROJECT-1",
+        "PROJECT-2",
+        "EXP-1",
+        "CREW-1",
+        "READY-1",
+        "CUS-1"
+      ],
+      "expected_effects": {
+        "crew_productivity": 3.0,
+        "customer_trust": 3.0,
+        "margin": -0.25,
+        "schedule": 2.4
+      },
+      "explanation": "Review expedite, reassign_to_ready_work, and prepare_notice across dependent projects PROJECT-17, PROJECT-42.",
+      "identifier": "expedite|reassign_to_ready_work|prepare_notice",
+      "priority_score_heuristic": 15.9,
+      "requires_human_approval": true,
+      "uncertainty": {
+        "crew_productivity": 0.4,
+        "customer_trust": 0.2,
+        "margin": 0.8999999999999999,
+        "schedule": 1.0
+      },
+      "uncertainty_note": "Effect sizes and costs are simulated estimates; verify alternatives before action."
+    }
+  ],
+  "automatic_decisions_executed": 0,
+  "baseline_expected_value": -0.95,
+  "baseline_id": "wait|hold|quiet",
+  "case_source": "v0.8_current_situation_observations",
+  "decision_space_is_bounded": true,
+  "declared_combinations": 12,
+  "domain": "synthetic_electrical_contractor_procurement_strategy",
+  "enumeration_coverage_within_declared_space": 1.0,
+  "evidence_records_in_scope": 8,
+  "excluded_by_prerequisites_or_budget": 0,
+  "external_actions": 0,
+  "feasible_options": 12,
+  "learned_policy_verified": false,
+  "owner_goals": {
+    "max_spend": 500,
+    "uncertainty_aversion": 0.5,
+    "weights": {
+      "crew_productivity": 2,
+      "customer_trust": 1,
+      "margin": 3,
+      "schedule": 5
+    }
+  },
+  "pareto_survivors": 12,
+  "planning_ms": 0.285,
+  "research_only": true,
+  "scope_id": "MATERIAL-BATCH-7",
+  "selected": {
+    "approval_state": "pending_human_review",
+    "decisions": [
+      [
+        "supply",
+        "qualified_substitute"
+      ],
+      [
+        "crew",
+        "reassign_to_ready_work"
+      ],
+      [
+        "customer",
+        "prepare_notice"
+      ]
+    ],
+    "effects_are_estimates_not_observed_results": true,
+    "estimated_spend": 475.0,
+    "evidence_ids": [
+      "SRC-1",
+      "PROJECT-1",
+      "PROJECT-2",
+      "SUB-1",
+      "CREW-1",
+      "READY-1",
+      "CUS-1"
+    ],
+    "expected_effects": {
+      "crew_productivity": 3.0,
+      "customer_trust": 3.0,
+      "margin": -2.65,
+      "schedule": 4.8
+    },
+    "explanation": "Review qualified_substitute, reassign_to_ready_work, and prepare_notice across dependent projects PROJECT-17, PROJECT-42.",
+    "identifier": "qualified_substitute|reassign_to_ready_work|prepare_notice",
+    "priority_score_heuristic": 19.95,
+    "requires_human_approval": true,
+    "uncertainty": {
+      "crew_productivity": 0.4,
+      "customer_trust": 0.2,
+      "margin": 0.8999999999999999,
+      "schedule": 1.3
+    },
+    "uncertainty_note": "Effect sizes and costs are simulated estimates; verify alternatives before action."
+  },
+  "tenant_id": "OWNER-1",
+  "version": "0.9.0"
+}

@@ -74,6 +74,63 @@ connectors, a hosted background worker, an actual approval UI, learned causal
 models, model-written hypotheses, action tools, and measured business outcomes
 all remain subsequent independently testable research gates.
 
+## Strategic Decision Intelligence v0.9 — bounded option search
+
+The reusable `strategic_planner.py` adds **multi-objective decision search**
+without coupling the intelligence core to electrical contracting. Its domain
+protocol declares orthogonal decision axes, candidate assessments, evidence
+requirements, budgets, expected effects and uncertainty. The planner:
+
+1. Enumerates every combination **within the domain's declared finite space**
+   (maximum 1,000 combinations), rather than claiming to know every real option.
+2. Rejects choices with unavailable prerequisites, insufficient evidence,
+   unbounded spend, or missing mandatory human approval.
+3. Separates non-dominated cost/benefit tradeoffs and weights expected value by
+   the **business owner's explicitly recorded priorities**, penalizing uncertainty.
+4. Returns a small review shortlist with alternatives, evidence and caveats;
+   **no real actions are taken**.
+
+`domains/electrical_strategy.py` is an optional synthetic TradeFlow domain pack.
+Its initial choices combine supplier response (wait, expedite, qualified
+substitute), crew response (hold or reassign to ready work), and customer
+response (quiet or prepare a notice): **3 × 2 × 2 = 12** possible strategies.
+The `case_from_situation` bridge reads the **current** v0.8 observation ledger,
+including dependent projects, supplier availability, crew constraints, and
+customer context. It rejects missing facts or mixed-tenant evidence. A later
+observation can invalidate a previously available strategy. The
+`plan_for_electrical_situation` adapter also refuses to infer the owner's
+priorities when they have not been provided.
+
+```bash
+python -m aion_genesis.strategic_cli plan \
+  --output reports/strategic_plan_v09.json
+python -m aion_genesis.strategic_cli benchmark --worlds 200 --seed 8000 \
+  --output reports/strategic_benchmark_v09.json
+python -m aion_genesis.strategic_cli benchmark --worlds 200 --seed 8000 \
+  --regime unexpected_failure \
+  --output reports/strategic_benchmark_shifted_v09.json
+```
+
+In the seeded 200-world controlled experiment, the planner is compared to a
+no-action reference and a hindsight oracle under hidden consequences that the
+planner **cannot inspect**. All scores are **fictional weighted utility units**,
+all monetary inputs are invented, and sub-millisecond latencies only reflect
+this tiny in-process Python search, **not** model inference or a network call.
+
+| Synthetic held-out outcome | Nominal regime | Unexpected-failure regime |
+| --- | ---: | ---: |
+| Mean planner actual value vs. zero-valued baseline | 18.1507 | 6.2246 |
+| Mean regret to hindsight oracle | 0.4193 | 2.4707 |
+| Worlds where planner is worse than no action | 0.5% | 14.5% |
+
+The **14.5% failure under shifted conditions is a significant warning**:
+the strategist's invented cost/outcome assumptions can become wrong. This is
+evidence for the need to discover overlooked alternatives, calibrate estimates
+using outcomes, test unfamiliar conditions, and abstain when uncertainty is
+large. It is **not** proof that a language model has learned to strategize,
+that the system understands the real business, or that the proposed choices
+should be used on actual customers.
+
 ## AION Operator Lab: owner + business intelligence
 
 The long-term product loop is:

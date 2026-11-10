@@ -136,6 +136,12 @@ class SituationStore:
             "SELECT dimension, weight FROM situation_goals WHERE tenant_id = ?", (tenant_id,),
         ).fetchall())
 
+    def owner_goals(self, tenant_id: str) -> dict[str, int]:
+        """Read only the named tenant's recorded objective weights."""
+        if not _IDENTIFIER.fullmatch(tenant_id):
+            raise ValueError("Invalid tenant")
+        return self._goals(tenant_id)
+
     def current(self, tenant_id: str) -> list[Observation]:
         if not _IDENTIFIER.fullmatch(tenant_id):
             raise ValueError("Invalid tenant")
