@@ -28,8 +28,8 @@ LIMITATIONS = [
     "Zero language-model calls were made; nothing here is live model learning.",
     "The referee runs in the same Python process as the candidate. Module "
     "separation is not a security boundary against hostile code.",
-    "Outcome memory fits one additive correction per declared decision component; "
-    "it cannot represent context-dependent or subject-level hidden rules.",
+    "The legacy memory policy fits additive correction per decision component; "
+    "the opt-in contextual candidate is experimental, sparse and unvalidated.",
     "'Harmful' means realized worse than no action on matched shocks, so prudent "
     "preventive spend that turned out unnecessary is counted as harm.",
     "The holdout-reuse guard only sees the local run history in the output folder.",
