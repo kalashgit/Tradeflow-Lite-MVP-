@@ -136,11 +136,13 @@ def memory_retrieval_snapshot(proposal, store, tenant_id, domain_id):
     if proposal is None or proposal.memory is None:
         return {"mode": "none", "stored_records": 0}
     mode = proposal.memory.get("mode")
-    key = (f"{domain_id}::contextual_v12::{proposal.scope_id}"
+    key = (f"{domain_id}::relevant_v123::{proposal.scope_id}"
+           if mode == "relevant" else
+           f"{domain_id}::contextual_v12::{proposal.scope_id}"
            if mode == "contextual" else
            f"{domain_id}::hybrid_v12::{proposal.scope_id}"
            if mode == "hybrid" else domain_id)
-    if mode not in ("on", "contextual", "hybrid"):
+    if mode not in ("on", "contextual", "hybrid", "relevant"):
         return {"mode": "off", "stored_records": 0}
     model = store.active_effect_model(tenant_id, key)
     if model is None:
@@ -151,6 +153,26 @@ def memory_retrieval_snapshot(proposal, store, tenant_id, domain_id):
         # its count must not be mistaken for the number of events.
         return {"mode": "on", "stored_records": None,
                 "stored_general_terms": len(body["entries"])}
+    if mode == "relevant":
+        from ..runtime.relevant_memory import RelevantEffectModel
+        from ..domains.equipment_maintenance import EquipmentMaintenanceAdapter
+        declared = (EquipmentMaintenanceAdapter.memory_relevance_schema
+                    if domain_id == EquipmentMaintenanceAdapter.domain_id else None)
+        model = RelevantEffectModel.from_json(body, declared)
+        receipts = 0
+        supported_options = 0
+        for card in proposal.candidate_options:
+            keys = tuple(f"{axis}={value}" for axis, value in card["decisions"])
+            supported = [model.evidence(keys, objective, proposal.memory["context"],
+                                        proposal.as_of)
+                         for objective in card["raw_expected_effects"]]
+            if any(row["reason"] == "verified_relevant_recall" for row in supported):
+                supported_options += 1
+                receipts += max(row["matched_receipts"] for row in supported)
+        return {"mode": "relevant", "stored_records": len(body["records"]),
+                "options_examined": len(proposal.candidate_options),
+                "supported_relevant_options": supported_options,
+                "supported_receipt_matches": receipts}
     records = body["records"] if mode == "contextual" else body["contextual"]["records"]
     result = contextual_retrieval_support(
         proposal.candidate_options, records,
