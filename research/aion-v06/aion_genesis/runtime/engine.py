@@ -21,6 +21,7 @@ from .domain import DomainAdapter, freshness_limit
 from .learning import EffectModel, effect_keys
 from .contextual_memory import ContextualEffectModel, public_context
 from .hybrid_memory import HybridEffectModel
+from .relevant_memory import RelevantEffectModel
 from .store import DUPLICATE, RuntimeStore
 
 FAST_PATH_MS = 10          # a request this urgent skips bounded search
@@ -47,6 +48,11 @@ def _hybrid_store_key(domain_id: str, scope_id: str) -> str:
     return f"{domain_id}::hybrid_v12::{scope_id}"
 
 
+def _relevant_store_key(domain_id: str, scope_id: str) -> str:
+    """Keep relevance-memory history separate from older research models."""
+    return f"{domain_id}::relevant_v123::{scope_id}"
+
+
 class _Abstain(Exception):
     def __init__(self, reason: str, known_unknowns=(), constraints=(), version=None):
         super().__init__(reason)
@@ -59,7 +65,7 @@ class _Abstain(Exception):
 class _BoundedDomain:
     """Applies hard constraints and provisional memory around a domain pack."""
 
-    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | None,
+    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | RelevantEffectModel | None,
                  forbidden, context=(), as_of=0):
         self.name = base.name
         self.axes = base.axes
@@ -87,7 +93,7 @@ class _BoundedDomain:
             choice = replace(choice, expected_effects={
                 name: round(value + (self._model.correction(
                     keys, name, self._context, self._as_of)
-                    if isinstance(self._model, (ContextualEffectModel, HybridEffectModel))
+                    if isinstance(self._model, (ContextualEffectModel, HybridEffectModel, RelevantEffectModel))
                     else self._model.correction(keys, name)), 6)
                 for name, value in choice.expected_effects.items()})
         self.adjusted[choice.identifier] = choice
@@ -271,10 +277,22 @@ class AionRuntime:
         model = None
         context = ()
         memory_modes = capabilities & {
-            "outcome_memory", "contextual_outcome_memory", "hybrid_outcome_memory"}
+            "outcome_memory", "contextual_outcome_memory", "hybrid_outcome_memory",
+            "relevant_outcome_memory"}
         if len(memory_modes) > 1:
             raise _Abstain("conflicting_memory_modes", unknowns, version=version)
-        if "hybrid_outcome_memory" in capabilities:
+        if "relevant_outcome_memory" in capabilities:
+            context = public_context(usable)
+            key = _relevant_store_key(domain_id, request.scope_id)
+            active = self.store.active_effect_model(tenant, key)
+            memory = {"mode": "relevant",
+                      "effect_model_version": active and active["version"],
+                      "state": active and active["state"],
+                      "context": [list(pair) for pair in context]}
+            model = RelevantEffectModel.from_json(
+                active["body"] if active else None,
+                schema=getattr(adapter, "memory_relevance_schema", None))
+        elif "hybrid_outcome_memory" in capabilities:
             context = public_context(usable)
             key = _hybrid_store_key(domain_id, request.scope_id)
             active = self.store.active_effect_model(tenant, key)
@@ -341,6 +359,15 @@ class AionRuntime:
             }
 
         chosen = bounded.adjusted[ranked[0]]
+        if isinstance(model, RelevantEffectModel):
+            # Receipts come from this tenant/scope's past verified outcomes.
+            # Explain exactly whether relevance was recognized *before* ranking;
+            # no hidden-world correctness or counterfactual is asserted.
+            selected_keys = effect_keys(chosen.decisions)
+            memory["decision_evidence"] = {
+                objective: model.evidence(selected_keys, objective, context, request.as_of)
+                for objective in sorted(chosen.expected_effects)
+            }
         selected = {**card(ranked[0]), "explanation": chosen.explanation,
                     "uncertainty_note": chosen.uncertainty_note,
                     "approval_state": PENDING_HUMAN_REVIEW,
