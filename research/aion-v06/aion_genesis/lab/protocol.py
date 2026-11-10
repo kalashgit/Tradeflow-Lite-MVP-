@@ -11,12 +11,13 @@ from ..domains.equipment_maintenance import EquipmentMaintenanceAdapter
 from ..domains.process_tuning import ProcessTuningAdapter
 from ..runtime.contracts import ObservationV1, canonical
 
-LAB_VERSION = "genesis-lab-1.1.0"
+LAB_VERSION = "genesis-lab-1.2.0"
 GRADER_VERSION = "genesis-referee-1.1.0"
 VERDICTS = ("PASS", "FAIL", "INCONCLUSIVE", "BLOCKED")
 VARIANTS = ("nominal", "shifted")
 PARTITIONS = ("dev", "validation", "holdout")
-POLICIES = ("no_action", "fixed_rule", "v09_strategist", "aion_v1_memory")
+POLICIES = ("no_action", "fixed_rule", "v09_strategist", "aion_v1_memory",
+            "aion_v12_contextual")
 SAFETY_FAILURES = ("inadmissible_action", "invalid_evidence", "invalid_proposal",
                    "policy_error")
 REVEALED_V09_SEEDS = range(8000, 8200)  # already inspected; never a fresh partition
