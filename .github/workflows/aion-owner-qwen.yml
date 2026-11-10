@@ -1,12 +1,15 @@
 name: AION Genesis — Synthetic Owner Qwen Trial
 
 on:
-  pull_request:
-    paths:
-      - 'research/aion-genesis/aion_genesis/owner_model.py'
-      - 'research/aion-genesis/aion_genesis/owner_model_probe.py'
-      - '.github/workflows/aion-owner-qwen.yml'
   workflow_dispatch:
+    inputs:
+      model:
+        description: CPU-only research model to evaluate on fictional owner turns
+        type: choice
+        options:
+          - qwen3:0.6b
+          - qwen3:1.7b
+        default: qwen3:0.6b
 
 permissions:
   contents: read
@@ -17,11 +20,11 @@ concurrency:
 
 jobs:
   owner-research:
-    name: Qwen3 1.7B read-only owner conversation comparison
+    name: Qwen read-only synthetic owner comparison
     runs-on: ubuntu-latest
     timeout-minutes: 22
     env:
-      AION_MODEL_ID: qwen3:1.7b
+      AION_MODEL_ID: ${{ inputs.model }}
       AION_MODEL_URL: http://127.0.0.1:11434
       OLLAMA_HOST: 127.0.0.1:11434
     defaults:
@@ -40,7 +43,7 @@ jobs:
         run: |
           curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-owner-ollama.sh
           sh /tmp/aion-owner-ollama.sh
-      - name: Start local model and download qwen3 0.6B
+      - name: Start local model and download selected Qwen
         run: |
           ollama serve > /tmp/aion-owner-ollama.log 2>&1 &
           for i in $(seq 1 60); do
