@@ -279,6 +279,8 @@ class PortfolioWorld:
                  (not action["key"] or _KEY.fullmatch(action["key"])) and
                  (action["tool"] not in WRITE_TOOLS | {"inspect_operation"} or
                   bool(action["key"])) and
+                 (action["tool"] not in WRITE_TOOLS | {"verify_job"} or
+                  bool(action["job_id"])) and
                  (action["tool"] in WRITE_TOOLS | {"verify_job"} or
                   action["job_id"] == "") and
                  (action["tool"] != "wait" or action["key"] == ""))
