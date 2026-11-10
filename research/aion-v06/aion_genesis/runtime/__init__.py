@@ -15,13 +15,14 @@ from .engine import AionRuntime, ModelBinding, replay
 from .learning import EffectModel
 from .contextual_memory import ContextualEffectModel
 from .hybrid_memory import HybridEffectModel
+from .relevant_memory import RelevantEffectModel
 from .store import RuntimeStore
 
 __all__ = [
     "ABSTAINED", "CAPABILITIES", "ENGINE_VERSION", "PENDING_HUMAN_REVIEW",
     "RESEARCH_MODE", "SCHEMA_VERSION", "AionRuntime", "CaseBuild",
     "DecisionProposalV1", "DecisionRequestV1", "DomainAdapter", "EffectModel",
-    "ContextualEffectModel", "HybridEffectModel",
+    "ContextualEffectModel", "HybridEffectModel", "RelevantEffectModel",
     "ExperimentRunV1", "GoalProfileV1", "ModelBinding", "ObservationV1",
     "OutcomeRecordV1", "RuntimeStore", "canonical", "digest", "replay",
 ]
