@@ -71,6 +71,14 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(results[0]["worlds"],2)
         self.assertEqual(results[0]["status"],"needs_independent_review")
 
+    def test_counterexamples_are_world_scoped(self):
+        review=ReviewJournal()
+        rule={"op":"and","args":[v("A"),v("B")]}
+        bad={"state":{"A":1,"B":0,"C":0},"result":1}
+        review.add("first",("A","B","C"),rule,bad,1)
+        self.assertEqual(review.counterexamples(world_id="first"),[bad])
+        self.assertEqual(review.counterexamples(world_id="second"),[])
+
     def test_long_term_memory_cannot_write_under_default_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/"knowledge.sqlite"
@@ -116,6 +124,24 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(len(result.trace),6)
         self.assertEqual(result.model_calls,6)
         self.assertEqual(result.split,"heldout")
+
+    def test_evidence_rejects_a_regressive_hypothesis_revision(self):
+        from aion_genesis.core import HiddenWorld
+        class ScriptedProposer:
+            def __init__(self):
+                self.calls=0
+            def propose(self, **kwargs):
+                self.calls+=1
+                op="or" if self.calls==3 else "and"
+                return {"op":op,"args":[v("A"),v("B")]}
+        world=HiddenWorld("regression",("A","B","C"),
+                          {"op":"and","args":[v("A"),v("B")]},"development")
+        result=Scientist(ScriptedProposer()).investigate(world,max_experiments=5)
+        third=result.trace[2]
+        self.assertEqual(third["candidate"]["op"],"or")
+        self.assertFalse(third["accepted"])
+        self.assertEqual(third["current"]["op"],"and")
+        self.assertEqual(result.final_accuracy,1.0)
 
     def test_qwen_adapter_stays_local_and_sends_only_evidence(self):
         with self.assertRaises(ValueError):
