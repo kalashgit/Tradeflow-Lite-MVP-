@@ -270,9 +270,20 @@ class AionRuntime:
         memory = {"mode": "off", "effect_model_version": None, "state": None}
         model = None
         context = ()
-        if {"outcome_memory", "contextual_outcome_memory"} <= capabilities:
+        memory_modes = capabilities & {
+            "outcome_memory", "contextual_outcome_memory", "hybrid_outcome_memory"}
+        if len(memory_modes) > 1:
             raise _Abstain("conflicting_memory_modes", unknowns, version=version)
-        if "contextual_outcome_memory" in capabilities:
+        if "hybrid_outcome_memory" in capabilities:
+            context = public_context(usable)
+            key = _hybrid_store_key(domain_id, request.scope_id)
+            active = self.store.active_effect_model(tenant, key)
+            memory = {"mode": "hybrid",
+                      "effect_model_version": active and active["version"],
+                      "state": active and active["state"],
+                      "context": [list(pair) for pair in context]}
+            model = HybridEffectModel.from_json(active["body"]) if active else None
+        elif "contextual_outcome_memory" in capabilities:
             context = public_context(usable)
             key = _contextual_store_key(domain_id, request.scope_id)
             active = self.store.active_effect_model(tenant, key)
