@@ -17,6 +17,10 @@ permissions:
 jobs:
   proactive-intelligence:
     runs-on: ubuntu-latest
+    env:
+      # Existing exact-head rule (automation/preview-release.cjs): on pull_request GITHUB_SHA is the merge commit,
+      # so name the checked-out head explicitly, as .github/workflows/cloud-record-discovery-ci.yml does.
+      TRADEFLOW_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
