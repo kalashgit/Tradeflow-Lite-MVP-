@@ -64,6 +64,34 @@ test('invalid or truncated Qwen rule is rejected (not auto-corrected into an ora
  const provider=qwenProvider({runtime:'llama.cpp',fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'not-json'}}]})})});
  await assert.rejects(()=>provider.infer({observations:[{state:{A:0,B:0,C:0},result:0}]}),/not valid JSON/);
 });
+test('counterexample-feedback repair corrects an observed contradiction without access to the true rule',async()=>{
+ let calls=0,feedback;
+ const provider=qwenProvider({runtime:'llama.cpp',repair:true,fetchImpl:async(_url,options)=>{
+  calls++;
+  const request=JSON.parse(options.body);
+  const input=JSON.parse(request.messages.find(m=>m.role==='user').content);
+  if(calls===2)feedback=input.verificationFeedback;
+  const answer=calls===1
+   ? '{"op":"and","inputs":["A","B"],"rationale":"initial guess"}'
+   : '{"op":"xor","inputs":["A","C"],"rationale":"corrected after counterexample"}';
+  return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:answer}}]})};
+ }});
+ const observations=[{state:{A:0,B:0,C:1},result:1}];
+ const response=await provider.infer({observations,previousRule:{op:'and',inputs:['A','B']}});
+ assert.equal(ruleKey(response.rule),'xor(A,C)');
+ assert.equal(response.modelCalls,2);
+ assert.equal(response.repairAttempts,1);
+ assert.equal(response.unresolvedContradictions,0);
+ assert.equal(calls,2);
+ assert.deepEqual(feedback.contradictions[0],{state:{A:0,B:0,C:1},observed:1,predictedByRejectedRule:0});
+});
+test('repair does not fabricate an oracle answer when model ignores feedback',async()=>{
+ const provider=qwenProvider({runtime:'llama.cpp',repair:true,fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'{"op":"and","inputs":["A","B"]}'}}]})})});
+ const response=await provider.infer({observations:[{state:{A:0,B:0,C:1},result:1}]});
+ assert.equal(ruleKey(response.rule),'and(A,B)');
+ assert.equal(response.modelCalls,3);
+ assert.equal(response.unresolvedContradictions,1);
+});
 test('oracle benchmark passes only as simulated control; memory remains disabled',async()=>{
  const result=await runBenchmark(oracleProvider());
  assert.equal(result.summary.realModelInference,false);
@@ -72,5 +100,7 @@ test('oracle benchmark passes only as simulated control; memory remains disabled
  assert.equal(result.summary.phases,6);
  assert.equal(result.summary.meanTruthTableAccuracy,1);
  assert.equal(result.summary.hypothesisConsistencyRate,1);
+ assert.equal(result.summary.modelCalls,30);
+ assert.equal(result.summary.repairAttempts,0);
  assert.ok(result.summary.revisionCount>=1);
 });
