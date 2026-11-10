@@ -1,10 +1,6 @@
 name: AION Genesis — Live Qwen Memory Transfer
 
 on:
-  pull_request:
-    paths:
-      - 'research/aion-genesis/**'
-      - '.github/workflows/aion-genesis-live.yml'
   workflow_dispatch:
 
 permissions:

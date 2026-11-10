@@ -31,6 +31,8 @@ jobs:
         run: python -m aion_genesis.demo
       - name: Run matched-world provisional memory ablation (deterministic control)
         run: python -m aion_genesis.ablation --mode reference --worlds 8 --budget 5
+      - name: Bounded symbolic program-synthesis benchmark
+        run: python -c 'import json; from aion_genesis.synthesis import evaluate_synthesis; print(json.dumps(evaluate_synthesis(seed=71,count=120,budget=8),indent=2))'
       - name: Verify no experimental knowledge store was created
         run: |
           if find . -type f \( -name '*.sqlite' -o -name '*.db' \) | grep -q .; then

@@ -40,3 +40,10 @@ No GPU or paid API is required for the current Python tests. No background jobs,
 A bounded in-RAM casebook is trained only on development-world observations, using a deterministic reference proposer with a separate validation set of interventions. It needs independent support from at least two worlds, and retrieval rechecks the current world's evidence. It never stores or transfers a hidden rule or other worlds' raw observations. Candidate analogies remain provisional and are not promoted to long-term knowledge.
 
 The benchmark compares the same researcher with and without retrieved proposals on identical held-out worlds and fixed intervention budgets. It reports mean final accuracy, observed evidence consistency, positive and negative transfer, Qwen calls, token usage when available, and the number of retrieved proposals. No neural-weight updates and no SQLite knowledge promotion occur.
+
+
+## Stronger symbolic program-search baseline
+
+The bounded synthesis baseline enumerates supported Boolean compositions (including inhibition, majority, parity and nested logic), deduplicates candidate mechanisms by complete truth-table semantics, and chooses interventions from the surviving hypothesis version space. It uses only observations to select an explanation. Because its grammar intentionally contains the simulator's withheld rule families, it is a **known-grammar control, not proof of open-ended discovery**. We compare it with Qwen to avoid paying inference costs for deterministic tasks. Unknown mechanisms outside the grammar must be reported as unsupported rather than silently guessed.
+
+To avoid unnecessary CPU runner spending, the live Qwen experiment is available through manual GitHub Actions dispatch after the first paired baseline, while Python scientific controls continue running automatically on each research PR update.

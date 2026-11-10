@@ -39,7 +39,12 @@ class Scientist:
         before_completion = getattr(self.proposer, 'completion_tokens', 0)
         retrieved_count = 0
         for i in range(max_experiments):
-            state = choose_intervention(world.variables, all_evidence, candidate_pool[-6:])
+            planning_candidates = candidate_pool[-6:]
+            if hasattr(self.proposer, "candidates"):
+                # When a symbolic version space is available, choose interventions
+                # that split ALL currently viable models. No hidden-world access.
+                planning_candidates = self.proposer.candidates(world.variables, all_evidence)
+            state = choose_intervention(world.variables, all_evidence, planning_candidates)
             if state is None:
                 break
             measured = world.intervene(state)
