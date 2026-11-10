@@ -3,6 +3,7 @@ const {normalizeRule,consistentCandidates,prediction}=require('./world.cjs');
 const DEFAULT_BASE='http://127.0.0.1:8088';
 const HOSTS=new Set(['localhost','127.0.0.1','[::1]']);
 const RUNTIMES=new Set(['llama.cpp','ollama']);
+class ModelOutputError extends Error{constructor(reason){super('Qwen incomplete model output: '+reason);this.name='ModelOutputError';this.reason=reason;}}
 function localEndpoint(base=DEFAULT_BASE,route='/v1/chat/completions'){
  const url=new URL(base);
  if(url.protocol!=='http:'||!HOSTS.has(url.hostname)||url.username||url.password||url.search||url.hash||url.pathname!=='/')throw Error('AION requires an HTTP loopback-only model base URL');
@@ -34,14 +35,14 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   const output=await res.json();
   let answer;
   if(runtime==='ollama'){
-   if(output?.done!==true||(output.done_reason&&output.done_reason!=='stop'))throw Error('Qwen returned an incomplete/empty response');
+   if(output?.done!==true||(output.done_reason&&output.done_reason!=='stop'))throw new ModelOutputError('ollama_finish_'+String(output?.done_reason||'not_done').slice(0,32));
    answer=output?.message?.content;
   }else{
    const choice=output?.choices?.[0];
-   if(choice?.finish_reason!=='stop')throw Error('Qwen returned an incomplete/empty response');
+   if(choice?.finish_reason!=='stop')throw new ModelOutputError('llama_finish_'+String(choice?.finish_reason||'missing').slice(0,32));
    answer=choice?.message?.content;
   }
-  if(typeof answer!=='string'||!answer.trim()||answer.length>20000)throw Error('Qwen returned an incomplete/empty response');
+  if(typeof answer!=='string'||!answer.trim()||answer.length>20000)throw new ModelOutputError('empty_or_oversized_content');
   return answer.trim();
  }
  async function probe(){
@@ -59,9 +60,10 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   let rejected=null;
   for(let attempt=1;attempt<=maxAttempts;attempt++){
    const requestPrompt=rejected?{...prompt,verificationFeedback:rejected,instruction:'The previous proposal failed validation. Repair the specific errors using ONLY the observed experiments. Use an allowed operator and two distinct valid switches, and ensure your output matches the JSON rule format.'}:prompt;
-   const answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],256);
-   let parsed,rule,invalidOutputKind;
-   try{parsed=JSON.parse(answer)}catch{invalidOutputKind='invalid_json';}
+   let answer,parsed,rule,invalidOutputKind;
+   try{answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],384);}
+   catch(error){if(error instanceof ModelOutputError)invalidOutputKind='incomplete_response';else throw error;}
+   if(!invalidOutputKind){try{parsed=JSON.parse(answer)}catch{invalidOutputKind='invalid_json';}}
    if(!invalidOutputKind){try{rule=normalizeRule(parsed)}catch{invalidOutputKind='invalid_rule';}}
    if(invalidOutputKind){
     // Bad hypotheses are measured as errors, NEVER replaced by a secretly computed oracle rule.
