@@ -17,7 +17,7 @@ FAMILIES = ("supplier_shock", "field_blocker", "scope_approval",
             "invoice_dispute", "working_capital", "compound")
 SPLITS = {"dev": 830000, "validation": 930000}
 WRITES = {"order_material", "assign_crew", "escalate_blocker",
-          "request_change_approval", "request_invoice"}
+          "request_change_approval", "request_invoice", "resolve_invoice_dispute"}
 TOOLS = WRITES | {"verify_operation", "wait"}
 ROLES = {"owner", "office", "project_manager", "foreman", "supplier",
          "customer", "finance"}
@@ -192,7 +192,7 @@ class World:
                  "actor": role, "revision": rev, "tick": self.tick,
                  "amount": amount, "origin": origin}
         self._events.append(event)
-        for receiver in set((*recipients, role)):
+        for receiver in sorted(set((*recipients, role))):
             if receiver not in ROLES:
                 raise ValueError("Unrecognized recipient")
             self._messages.append({
@@ -396,6 +396,12 @@ class World:
             s["approval_due"] = self.tick + 2
             self._publish("project_manager", ("owner",), name, "change",
                           "approval_requested", lag=0)
+        elif tool == "resolve_invoice_dispute":
+            if not s["disputed"] or s["dispute_due"] is not None:
+                return {"status": "no_active_dispute", "ok": False}
+            s["dispute_due"] = self.tick + 2
+            self._publish("project_manager", ("finance", "customer"), name,
+                          "invoice", "dispute_review_requested", lag=0)
         elif tool == "request_invoice":
             if (s["material"] != "ready" or s["blocked"] or s["scope_pending"] or
                     s["work_done"] < s["required"] or s["invoice"] != "none"):
