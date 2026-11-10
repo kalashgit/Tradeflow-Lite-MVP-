@@ -39,7 +39,7 @@ class NetworkFactoryContracts(unittest.TestCase):
             generate_batch("dev", 1025)
 
     def test_stakeholder_and_workflow_coverage_are_derived_from_actual_messages(self):
-        scenario = generate("dev", 9)
+        scenario = generate("dev", 3, disruption="scope_change")
         self.assertEqual({event.actor for event in scenario.events}, set(ROLES))
         self.assertEqual({event.workflow for event in scenario.events}, set(WORKFLOWS))
         self.assertEqual({m.recipient for m in scenario.envelopes}, set(ROLES))
