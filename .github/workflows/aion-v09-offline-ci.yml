@@ -144,6 +144,61 @@ jobs:
           name: aion-v121-hybrid-${{ github.run_id }}
           path: ${{ runner.temp }}/aion-genesis-v121/runs/
           retention-days: 14
+      - name: Diagnose memory influence on predeclared resource-allocation dev cohort
+        run: >-
+          python -m aion_genesis.lab.memory_effects
+          --partition dev
+          --output "${{ runner.temp }}/genesis-v122-memory-effects-dev.json"
+      - name: Diagnose memory influence on disjoint resource-allocation validation cohort
+        run: >-
+          python -m aion_genesis.lab.memory_effects
+          --partition validation
+          --output "${{ runner.temp }}/genesis-v122-memory-effects-validation.json"
+      - name: Check diagnostic contracts and publish honest failure figures
+        env:
+          EFFECT_DIR: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["EFFECT_DIR"])
+          for part, seeds, episodes in (("dev", [270000, 270008], 8),
+                                        ("validation", [280000, 280016], 16)):
+              data = json.loads((root / f"genesis-v122-memory-effects-{part}.json").read_text())
+              assert data["schema"] == "GenesisMemoryEffectDiagnostics/1.0"
+              assert data["partition"] == part and data["seed_range"] == seeds
+              assert not data["protected_holdout_evaluated"]
+              assert not data["hidden_truth_exposed_to_policy"]
+              assert not data["policy_actions_modified_by_instrumentation"]
+              assert not data["real_world_improvement_proven"]
+              assert len(data["cases"]) == episodes * 2 * 6 * 4
+              for variant in ("nominal", "shifted"):
+                  print(f"--- {part} {variant} resource allocation ---")
+                  for policy in data["policies"]:
+                      s = data["comparisons"][f"{variant}/{policy}"]
+                      print(policy, "harm", s["harmful_choice"],
+                            "memory_present", s["memory_version_present"],
+                            "changed_estimates", s["memory_changed_any_estimate"],
+                            "score_leader_flips", s["memory_changed_score_leader"],
+                            "retrieval_stages", s["retrieval_stage_counts"],
+                            "changed_actions_vs_off", s["different_actions_than_memory_off"],
+                            "better/worse/equal", (s["divergence_realized_better"],
+                            s["divergence_realized_worse"],
+                            s["divergence_realized_equal"]))
+                  print("v1 public-context groups:",
+                        data["comparisons"][f"{variant}/aion_v1_memory"]["public_condition_harm"])
+          print("Diagnostic-only: unchanged referee, protected holdout not evaluated.")
+          PY
+      - name: Archive research-only memory influence evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-v122-memory-effects-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/genesis-v122-memory-effects-dev.json
+            ${{ runner.temp }}/genesis-v122-memory-effects-validation.json
+          retention-days: 14
       - name: Grounded situation to strategic option plan
         run: >-
           python -m aion_genesis.strategic_cli plan
