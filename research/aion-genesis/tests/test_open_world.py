@@ -50,6 +50,36 @@ class UnknownMechanismTests(unittest.TestCase):
         self.assertEqual(again,proposal)
         self.assertEqual(agent.calls,1) # short-term reuse, no repeated LLM expense
 
+    def test_counterexample_repair_is_bounded_and_never_receives_hidden_truth(self):
+        class RevisionInventor:
+            def __init__(self):
+                self.calls=0
+                self.inputs=[]
+            def propose(self, **kwargs):
+                self.calls+=1
+                self.inputs.append(kwargs)
+                if self.calls==1:
+                    return {"op":"and","args":[v("A"),v("B")]}
+                return {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}}
+        world=HiddenWorld("nand-repair",("A","B","C"),
+                          {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}},
+                          "unseen")
+        observed=[world.intervene(s) for s in states(world.variables)]
+        inventor=RevisionInventor()
+        agent=HybridProposer(inventor=inventor,max_invention_attempts=2)
+        result=agent.propose(variables=world.variables,recent=observed,feedback=[],previous=None)
+        self.assertEqual(result["op"],"not")
+        self.assertEqual(agent.calls,2)
+        self.assertEqual(agent.admitted_inventions,1)
+        self.assertEqual(agent.rejection_counts["contradicts_evidence"],1)
+        self.assertEqual(inventor.inputs[1]["previous"]["op"],"and")
+        self.assertGreater(len(inventor.inputs[1]["feedback"]),0)
+        self.assertNotIn("hidden_rule",str(inventor.inputs))
+
+    def test_repair_budget_cannot_expand_without_a_new_approval(self):
+        with self.assertRaises(ValueError):
+            HybridProposer(max_invention_attempts=999)
+
     def test_inconsistent_novel_model_is_rejected_not_saved_as_truth(self):
         class BadInventor:
             def __init__(self):
@@ -61,7 +91,7 @@ class UnknownMechanismTests(unittest.TestCase):
                           {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}},
                           "unseen")
         evidence=[world.intervene(s) for s in states(world.variables)]
-        agent=HybridProposer(inventor=BadInventor())
+        agent=HybridProposer(inventor=BadInventor(),max_invention_attempts=1)
         self.assertIsNone(agent.propose(variables=world.variables,recent=evidence,
                                         feedback=[],previous=None))
         self.assertEqual(agent.rejected_inventions,1)

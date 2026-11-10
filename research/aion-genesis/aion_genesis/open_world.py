@@ -51,7 +51,10 @@ class HybridProposer:
     independent DSL validator and fit existing observations before provisional
     in-memory reuse. Memory is wiped with each new HybridProposer instance.
     """
-    def __init__(self, inventor=None):
+    def __init__(self, inventor=None, max_invention_attempts=2):
+        if type(max_invention_attempts) is not int or not 1 <= max_invention_attempts <= 3:
+            raise ValueError("repair budget must be 1-3 model calls")
+        self.max_invention_attempts=max_invention_attempts
         self.symbolic=SynthesisBaseline()
         self.inventor=inventor
         self._provisional={}
@@ -61,6 +64,7 @@ class HybridProposer:
         self.escalations=0
         self.known_decisions=0
         self.rejected_inventions=0
+        self.rejection_counts={}
         self.admitted_inventions=0
 
     def candidates(self, variables, observations):
@@ -81,19 +85,37 @@ class HybridProposer:
         self.escalations+=1
         if self.inventor is None:
             return None
-        before=getattr(self.inventor,"calls",0)
-        response=self.inventor.propose(variables=variables,recent=recent,
-                                      feedback=feedback,previous=previous,analogies=analogies)
-        self.calls+=getattr(self.inventor,"calls",0)-before
-        self.prompt_tokens=getattr(self.inventor,"prompt_tokens",0)
-        self.completion_tokens=getattr(self.inventor,"completion_tokens",0)
-        try:
-            candidate=validate(response,variables)
-            if violations(candidate,recent,variables):
+        retry_feedback=list(feedback)
+        retry_previous=previous
+        candidate=None
+        for _attempt in range(self.max_invention_attempts):
+            before=getattr(self.inventor,"calls",0)
+            response=self.inventor.propose(variables=variables,recent=recent,
+                                          feedback=retry_feedback[-3:],
+                                          previous=retry_previous,analogies=analogies)
+            self.calls+=getattr(self.inventor,"calls",0)-before
+            self.prompt_tokens=getattr(self.inventor,"prompt_tokens",0)
+            self.completion_tokens=getattr(self.inventor,"completion_tokens",0)
+            try:
+                candidate=validate(response,variables)
+            except (MechanismError,ValueError,TypeError,KeyError,RecursionError):
+                failure=getattr(self.inventor,"last_failure_kind",None) or "invalid_ast"
                 self.rejected_inventions+=1
-                return None
-        except (MechanismError,ValueError,TypeError,KeyError,RecursionError):
-            self.rejected_inventions+=1
+                self.rejection_counts[failure]=self.rejection_counts.get(failure,0)+1
+                candidate=None
+                retry_previous=None
+                retry_feedback=list(recent[-3:])
+                continue
+            contradictory=violations(candidate,recent,variables)
+            if contradictory:
+                self.rejected_inventions+=1
+                self.rejection_counts["contradicts_evidence"]=self.rejection_counts.get("contradicts_evidence",0)+1
+                retry_previous=deepcopy(candidate)
+                retry_feedback=list(contradictory[-3:])
+                candidate=None
+                continue
+            break
+        if candidate is None:
             return None
         store=self._provisional.setdefault(tuple(variables),[])
         if candidate not in store and len(store)<12:

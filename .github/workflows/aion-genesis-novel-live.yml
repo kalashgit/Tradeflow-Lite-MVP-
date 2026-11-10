@@ -1,12 +1,6 @@
 name: AION Genesis — Live Qwen Novel Mechanism Gate
 
 on:
-  pull_request:
-    paths:
-      - 'research/aion-genesis/aion_genesis/novel_experiment.py'
-      - 'research/aion-genesis/aion_genesis/qwen.py'
-      - 'research/aion-genesis/aion_genesis/open_world.py'
-      - '.github/workflows/aion-genesis-novel-live.yml'
   workflow_dispatch:
 
 permissions:

@@ -39,6 +39,7 @@ class LocalQwenProposer:
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
+        self.last_failure_kind = None
 
     def _call(self, request_body):
         req = Request(self.endpoint + "/api/chat", data=json.dumps(request_body).encode(),
@@ -47,12 +48,14 @@ class LocalQwenProposer:
             return json.load(response)
 
     def propose(self, *, variables, recent, feedback, previous, analogies=()):
+        self.last_failure_kind = None
         system = (
             "Infer a testable binary mechanism consistent with observations. "
             "Output only a JSON expression tree using op=var with name; op=not with arg; "
             "op=and/or/xor with args list (2-4 expressions); or op=threshold with args and integer k. "
             "Use only variable names provided. Do not output Python, functions, prose, or markdown. "
             "Do not pretend the rule is proven by one example. "
+            "If the prior hypothesis was rejected by observations, revise it and do not repeat it. "
             "Tentative analogies come from separate development worlds and are UNVERIFIED. "
             "Reject analogies that contradict the current observations."
         )
@@ -67,6 +70,7 @@ class LocalQwenProposer:
         self.calls += 1
         result = self.transport(payload)
         if not isinstance(result, dict):
+            self.last_failure_kind = "malformed_transport"
             return None
         tokens_in = result.get('prompt_eval_count', 0)
         tokens_out = result.get('eval_count', 0)
@@ -75,11 +79,19 @@ class LocalQwenProposer:
         if type(tokens_out) is int and tokens_out > 0:
             self.completion_tokens += tokens_out
         if result.get("done") is not True or result.get("done_reason", "stop") != "stop":
+            self.last_failure_kind = "incomplete_generation"
             return None
         output = result.get("message", {}).get("content")
         if not isinstance(output, str) or not 0 < len(output) <= 24000:
+            self.last_failure_kind = "missing_content"
             return None
         try:
-            return validate(json.loads(output), variables)
+            parsed = json.loads(output)
+        except (json.JSONDecodeError, TypeError):
+            self.last_failure_kind = "invalid_json"
+            return None
+        try:
+            return validate(parsed, variables)
         except (MechanismError, ValueError, TypeError, RecursionError):
+            self.last_failure_kind = "invalid_ast"
             return None

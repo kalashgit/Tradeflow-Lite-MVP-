@@ -51,6 +51,7 @@ def evaluate(seed=938, count=6, model="qwen3:0.6b", output_mode="schema"):
             "qwenEscalationDecisions":hybrid.escalations,
             "knownGrammarDecisions":hybrid.known_decisions,
             "rejectedInventedASTs":hybrid.rejected_inventions,
+            "rejectionReasons":dict(hybrid.rejection_counts),
             "acceptedNovelASTs":hybrid.admitted_inventions,
             "inputTokens":hybrid.prompt_tokens,
             "outputTokens":hybrid.completion_tokens,
@@ -71,6 +72,8 @@ def evaluate(seed=938, count=6, model="qwen3:0.6b", output_mode="schema"):
         "acceptedNovelASTs":sum(r["acceptedNovelASTs"] for r in results),
         "meanUnseenAccuracy":round(sum(r["unseenPredictiveAccuracy"] for r in results)/len(results),4),
         "meanFullAccuracy":round(sum(r["fullTruthTableAccuracy"] for r in results)/len(results),4),
+        "rejectionReasons":{reason:sum(r["rejectionReasons"].get(reason,0) for r in results)
+                            for reason in sorted(set().union(*(r["rejectionReasons"] for r in results)))},
         "totalInputTokens":sum(r["inputTokens"] for r in results),
         "totalOutputTokens":sum(r["outputTokens"] for r in results),
         "results":results,
