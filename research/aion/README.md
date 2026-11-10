@@ -2,7 +2,7 @@
 
 **Status:** independent research prototype; no production service, business data, autonomous actions or persistent learning store.
 
-AION reuses TradeFlow's *design pattern* for a loopback llama.cpp OpenAI-compatible inference endpoint, but **does not import TradeFlow code**. It can be copied out of this repository and run independently using Node.js 20+ with zero npm dependencies.
+AION reuses TradeFlow's *design pattern* for a private local model inference endpoint (llama.cpp/OpenAI-compatible or Ollama native), but **does not import TradeFlow code**. It can be copied out of this repository and run independently using Node.js 20+ with zero npm dependencies.
 
 ## Run
 
@@ -14,7 +14,9 @@ npm run probe                   # real local Qwen readiness + JSON response; fai
 npm run benchmark:qwen          # real model proposals; NO mock fallback
 ```
 
-The Qwen server must already be running privately in the **same** environment on `http://127.0.0.1:8088`. Optionally set `AION_MODEL_URL` to another **loopback HTTP** llama.cpp base URL and `AION_MODEL_ID` to a model ID. No downloads, model starts, network discovery, Cloudflare writes, app requests or calls to real customers are performed. A port returning a health check is insufficient: the `probe` command requires a genuine `/v1/chat/completions` model response in valid JSON. **This repository cannot determine the live Codespace's current model weights or uptime without running the probe inside that Codespace.**
+For **llama.cpp**, the default server is `http://127.0.0.1:8088`, using `/health` and `/v1/chat/completions`. For **Ollama**, set `AION_MODEL_RUNTIME=ollama`, `AION_MODEL_URL=http://127.0.0.1:11434` and `AION_MODEL_ID=qwen3:0.6b`: the adapter uses `/api/version` and `/api/chat`, requesting `think:false` and structured JSON. Both providers are restricted to loopback HTTP. A port returning a health check is insufficient: `probe` requires a genuine completed model response in valid JSON.
+
+**Phone-first GitHub Actions benchmark:** the isolated `.github/workflows/aion-qwen-research.yml` workflow starts an ephemeral CPU-only Ollama runner, downloads the independent public Qwen3-0.6B model and runs the suite automatically on a research PR. Its results are in the GitHub Actions run, including a short summary and synthetic benchmark artifact. This is a **real Qwen experiment**, but it does **not verify the user's original llama.cpp Codespace model or its weights**; those require separate runtime access. The workflow does not share production credentials or app records.
 
 If Qwen is not loaded, in the Codespace first run the existing TradeFlow `node scripts/diagnose-local-qwen.cjs`, verify installed GGUF weights, RAM and llama.cpp logs, then independently run `npm run probe` inside `research/aion`. **Do not automatically download models or publish port 8088.** A historical Qwen3-0.6B Q8_0 is documented, not validated as currently active.
 
