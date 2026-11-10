@@ -490,6 +490,41 @@ jobs:
         run: >-
           python -m aion_genesis.eval_v2.mutation
           --out "${{ runner.temp }}/genesis-eval-v2-dev/fault-matrix.json"
+      - name: Run portfolio resource-allocation contract tests
+        run: python -m unittest discover -s tests -p test_eval_v21_portfolio.py -q
+      - name: Run new fictional portfolio laboratory on dev only
+        run: >-
+          python -m aion_genesis.eval_v2.portfolio_runner run
+          --suite dev --out "${{ runner.temp }}/genesis-portfolio-v21-dev"
+      - name: Independently verify portfolio trace and report
+        run: |
+          python -m aion_genesis.eval_v2.portfolio_runner verify \\
+            --out "${{ runner.temp }}/genesis-portfolio-v21-dev"
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import os
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "genesis-portfolio-v21-dev"
+          data = json.loads((path / "result.json").read_text())
+          assert data["suite"] == "dev"
+          assert not data["protected_holdout_evaluated"]
+          assert data["promotion"] == "not_authorized"
+          assert data["autonomous_business_actions"] == 0
+          assert data["policy_names"] == [
+              "no_action", "deadline_first", "cash_aware"]
+          assert data["scorecards"]["no_action"]["verified_jobs"] == 0
+          assert data["scorecards"]["no_action"]["missed_opportunity_proxy_total"] > 0
+          for name, metrics in data["scorecards"].items():
+              print(name, metrics)
+          print("No real tools, no holdout, no performance promotion.")
+          PY
+      - name: Archive fictional portfolio evidence separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-portfolio-v21-dev-${{ github.run_id }}
+          path: ${{ runner.temp }}/genesis-portfolio-v21-dev/
+          retention-days: 14
       - name: Preserve workflow lab v2 public-dev evidence
         uses: actions/upload-artifact@v4
         with:
