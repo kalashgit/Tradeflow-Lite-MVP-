@@ -77,7 +77,7 @@ jobs:
       - name: Export AION-selected synthetic business proposals for real TradeFlow tools
         run: python -m aion_genesis.tool_contract --output aion-tools-evidence.json
       - name: Exercise existing TradeFlow command registry with safe owner approvals
-        run: node --test --test-reporter=json bridge/aion-capability-bridge.test.cjs > aion-tool-contract-tests.json
+        run: node --test --test-reporter=tap bridge/aion-capability-bridge.test.cjs > aion-tool-contract-tests.tap || { cat aion-tool-contract-tests.tap; exit 1; }
       - name: Archive model-to-application capability evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -85,7 +85,7 @@ jobs:
           name: aion-tradeflow-capabilities-${{ github.run_id }}
           path: |
             research/aion-genesis/aion-tools-evidence.json
-            research/aion-genesis/aion-tool-contract-tests.json
+            research/aion-genesis/aion-tool-contract-tests.tap
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify no experimental knowledge store was created
