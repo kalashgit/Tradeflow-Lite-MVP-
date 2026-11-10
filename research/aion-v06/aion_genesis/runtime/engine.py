@@ -491,14 +491,23 @@ class AionRuntime:
                          for name in sorted(observed) if name in card["raw_expected_effects"]}
             memory_mode = (proposal.memory or {}).get("mode")
             model_key = (
-                _hybrid_store_key(domain_id, proposal.scope_id)
+                _relevant_store_key(domain_id, proposal.scope_id)
+                if memory_mode == "relevant"
+                else _hybrid_store_key(domain_id, proposal.scope_id)
                 if memory_mode == "hybrid"
                 else _contextual_store_key(domain_id, proposal.scope_id)
                 if memory_mode == "contextual" else domain_id
             )
             active = self.store.active_effect_model(tenant, model_key)
             keys = effect_keys(tuple(tuple(d) for d in card["decisions"]))
-            if memory_mode == "hybrid":
+            if memory_mode == "relevant":
+                model = RelevantEffectModel.from_json(
+                    active["body"] if active else None,
+                    schema=getattr(adapter, "memory_relevance_schema", None))
+                updated = model.updated(
+                    keys, residuals, proposal.memory["context"],
+                    outcome.observation_time, outcome.receipt_ref)
+            elif memory_mode == "hybrid":
                 model = HybridEffectModel.from_json(active["body"] if active else None)
                 updated = model.updated(keys, residuals, proposal.memory["context"],
                                         outcome.observation_time)
@@ -510,9 +519,10 @@ class AionRuntime:
                 model = EffectModel.from_json(active["body"] if active else None)
                 updated = model.updated(keys, residuals)
             experimental = ({"memory_kind": (
-                "hierarchical_contextual_residual_v12" if memory_mode == "hybrid"
+                "relevant_context_residual_v123" if memory_mode == "relevant"
+                else "hierarchical_contextual_residual_v12" if memory_mode == "hybrid"
                 else "contextual_residual_v12"), "scope_id": proposal.scope_id}
-                if memory_mode in ("hybrid", "contextual") else {})
+                if memory_mode in ("hybrid", "contextual", "relevant") else {})
             result["effect_model_version"] = self.store.append_effect_model(
                 tenant, model_key, updated.to_json(), {
                     "outcome_id": outcome.outcome_id, "proposal_id": outcome.proposal_id,
