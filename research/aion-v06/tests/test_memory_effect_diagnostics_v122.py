@@ -27,7 +27,8 @@ class MemorySnapshotTests(unittest.TestCase):
             memory={"mode": "on", "effect_model_version": 2}, abstained=False,
             candidate_options=[option("alpha", 10, 10),
                                option("beta", 5, 20)],
-            selected_option={"identifier": "beta"}, known_unknowns=())
+            selected_option={"identifier": "beta"}, known_unknowns=(),
+            abstention_reason=None)
         trace = proposal_effect_snapshot(proposal, profile, [
             {"subject_id": "unit_a", "metric": "wear_index", "value": 83},
             {"subject_id": "CREW", "metric": "spare_kits", "value": 0},
