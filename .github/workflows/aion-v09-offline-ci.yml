@@ -70,6 +70,10 @@ jobs:
           assert packet["source_suite"] == "dev"
           print("V2 synthetic mock-workflow evidence verified. No real humans rated.")
           PY
+      - name: Verify synthetic fault-combination recovery matrix
+        run: >-
+          python -m aion_genesis.eval_v2.mutation
+          --out "${{ runner.temp }}/genesis-eval-v2-dev/fault-matrix.json"
       - name: Preserve workflow lab v2 public-dev evidence
         uses: actions/upload-artifact@v4
         with:
