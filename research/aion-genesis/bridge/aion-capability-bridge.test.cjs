@@ -123,7 +123,8 @@ test('AION prepares existing TradeFlow overdue invoice command but cannot execut
 test('denied owner gesture leaves no task, invoice change or outside communication',async()=>{
  const h=makeHost({approved:false});
  const draft=await h.bridge.propose('overdue_receivable');
- const result=await h.bridge.ownerApprove(draft.commandRequestId);
+ // A model-supplied {approved:true} argument is never honored.
+ const result=await h.bridge.ownerApprove(draft.commandRequestId,{approved:true});
  assert.equal(result.status,'owner_declined');
  assert.equal(h.called.filter(x=>x.kind==='operation').length,0);
  assert.equal((await readDB(h.db)).tasks.length,0);
@@ -166,6 +167,8 @@ test('AION rejects stale or revoked signals when owner returns to an old approva
  const d=await h.bridge.propose('overdue_receivable');
  h.mutateEvidence(snapshot=>{snapshot.signals=snapshot.signals.filter(s=>s.id!=='overdue_receivable')});
  assert.equal((await h.bridge.ownerApprove(d.commandRequestId)).status,'stale');
+ assert.equal(h.bridge.pending().length,0);
+ assert.equal((await h.runtime.get(d.commandRequestId)).status,'rejected');
  assert.equal((await readDB(h.db)).tasks.length,0);
 });
 test('capability schema is identical to existing TradeFlow registry with explicit approvals',()=>{

@@ -102,9 +102,18 @@ function createAionCapabilityBridge({runtime,getTrustedSnapshot,verifyOwnerGestu
    if(!item)return {status:'denied',reason:'NOT_PENDING'};
    const snap=await current();
    let signal;
-   try{signal=signalFor(snap,item.signalId)}catch{return {status:'stale',reason:'SIGNAL_REVOKED'};}
-   if(item.world!==snap.worldId||item.day!==snap.day||item.evidence!==evidenceFingerprint(signal))
+   try{signal=signalFor(snap,item.signalId)}catch{
+     pending.delete(id);
+     await runtime.reject(id);
+     audit.push({kind:'stale_rejected',id,signalId:item.signalId,reason:'SIGNAL_REVOKED'});
+     return {status:'stale',reason:'SIGNAL_REVOKED'};
+   }
+   if(item.world!==snap.worldId||item.day!==snap.day||item.evidence!==evidenceFingerprint(signal)){
+     pending.delete(id);
+     await runtime.reject(id);
+     audit.push({kind:'stale_rejected',id,signalId:item.signalId,reason:'EVIDENCE_CHANGED'});
      return {status:'stale',reason:'EVIDENCE_CHANGED'};
+   }
    // The model cannot supply or forge a gesture; the host callback is separate.
    if(typeof verifyOwnerGesture!=='function')return {status:'denied',reason:'OWNER_UI_REQUIRED'};
    const receipt=await verifyOwnerGesture({requestId:id,commandId:item.commandId,
