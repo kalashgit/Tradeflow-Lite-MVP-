@@ -61,6 +61,7 @@ class HybridProposer:
         self.escalations=0
         self.known_decisions=0
         self.rejected_inventions=0
+        self.admitted_inventions=0
 
     def candidates(self, variables, observations):
         known=self.symbolic.candidates(variables,observations)
@@ -97,6 +98,7 @@ class HybridProposer:
         store=self._provisional.setdefault(tuple(variables),[])
         if candidate not in store and len(store)<12:
             store.append(deepcopy(candidate))
+            self.admitted_inventions+=1
         return deepcopy(candidate)
 
 

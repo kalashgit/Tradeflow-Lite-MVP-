@@ -4,8 +4,30 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from .core import validate, MechanismError
 
+
+def expression_schema(variables, depth=2):
+    """Finite, non-recursive JSON Schema for compound ASTs (no hidden mechanism)."""
+    leaf={"type":"object","properties":{
+            "op":{"const":"var"},"name":{"type":"string","enum":list(variables)}},
+          "required":["op","name"],"additionalProperties":False}
+    if depth <= 0:
+        return leaf
+    sub=expression_schema(variables,depth-1)
+    neg={"type":"object","properties":{"op":{"const":"not"},"arg":sub},
+         "required":["op","arg"],"additionalProperties":False}
+    arity={"type":"array","items":sub,"minItems":2,"maxItems":4}
+    logical={"type":"object","properties":{"op":{"type":"string","enum":["and","or","xor"]},"args":arity},
+             "required":["op","args"],"additionalProperties":False}
+    threshold={"type":"object","properties":{"op":{"const":"threshold"},"args":arity,
+                  "k":{"type":"integer","minimum":1,"maximum":4}},
+               "required":["op","args","k"],"additionalProperties":False}
+    return {"anyOf":[leaf,neg,logical,threshold]}
+
 class LocalQwenProposer:
-    def __init__(self, model="qwen3:0.6b", endpoint="http://127.0.0.1:11434", transport=None):
+    def __init__(self, model="qwen3:0.6b", endpoint="http://127.0.0.1:11434", transport=None, output_mode="json"):
+        if output_mode not in ("json","schema"):
+            raise ValueError("invalid output mode")
+        self.output_mode = output_mode
         parsed = urlsplit(endpoint)
         if parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1") or parsed.username or parsed.password or parsed.path not in ("", "/") or parsed.query or parsed.fragment:
             raise ValueError("AION model endpoint must be loopback HTTP")
@@ -37,7 +59,7 @@ class LocalQwenProposer:
         query = {"variables": list(variables), "observations": recent, "prior": previous,
                  "observedCounterexamples": feedback[-3:], "provisionalAnalogies": list(analogies)[:3]}
         payload = {
-            "model": self.model, "stream": False, "think": False, "format": "json",
+            "model": self.model, "stream": False, "think": False, "format": expression_schema(variables) if self.output_mode == "schema" else "json",
             "options": {"temperature": 0, "num_predict": 512},
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": json.dumps(query)}]

@@ -161,6 +161,22 @@ class ResearchTests(unittest.TestCase):
 
 
 class TransferLearningTests(unittest.TestCase):
+
+    def test_schema_mode_contains_finite_executable_ast_grammar(self):
+        from aion_genesis.qwen import expression_schema
+        self.assertEqual(expression_schema(("A","B","C"),0)["properties"]["op"]["const"],"var")
+        payloads=[]
+        def canned(request):
+            payloads.append(request)
+            return {"done":True,"done_reason":"stop",
+                    "message":{"content":'{"op":"not","arg":{"op":"and","args":[{"op":"var","name":"A"},{"op":"var","name":"B"}]}}'}}
+        model=LocalQwenProposer(transport=canned,output_mode="schema")
+        result=model.propose(variables=("A","B","C"),
+            recent=[{"state":{"A":0,"B":0,"C":0},"result":1}],feedback=[],previous=None)
+        self.assertEqual(result["op"],"not")
+        self.assertIn("anyOf",payloads[0]["format"])
+        self.assertNotIn("hidden_rule",str(payloads[0]))
+
     def test_casebook_requires_independent_worlds_and_blocks_holdout(self):
         from aion_genesis.transfer import ProvisionalCasebook
         memory=ProvisionalCasebook(minimum_worlds=2)
