@@ -58,10 +58,17 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   const maxAttempts=repair?3:1;
   let rejected=null;
   for(let attempt=1;attempt<=maxAttempts;attempt++){
-   const requestPrompt=rejected?{...prompt,verificationFeedback:rejected,instruction:'The previous answer contradicted REAL observations. Revise the hypothesis to avoid EVERY listed contradiction. Do not repeat the rejected hypothesis.'}:prompt;
+   const requestPrompt=rejected?{...prompt,verificationFeedback:rejected,instruction:'The previous proposal failed validation. Repair the specific errors using ONLY the observed experiments. Use an allowed operator and two distinct valid switches, and ensure your output matches the JSON rule format.'}:prompt;
    const answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],256);
-   let parsed;try{parsed=JSON.parse(answer)}catch{throw Error('Qwen hypothesis was not valid JSON')}
-   const rule=normalizeRule(parsed);
+   let parsed,rule,invalidOutputKind;
+   try{parsed=JSON.parse(answer)}catch{invalidOutputKind='invalid_json';}
+   if(!invalidOutputKind){try{rule=normalizeRule(parsed)}catch{invalidOutputKind='invalid_rule';}}
+   if(invalidOutputKind){
+    // Bad hypotheses are measured as errors, NEVER replaced by a secretly computed oracle rule.
+    if(attempt===maxAttempts)return {rule:null,rationale:'',modelCalls:attempt,repairAttempts:attempt-1,invalidOutputKind,unresolvedContradictions:null};
+    rejected={validationError:invalidOutputKind,requiredRule:{op:'and | or | xor',inputs:'two different switches chosen from A,B,C'}};
+    continue;
+   }
    const contradictions=observations.filter(o=>prediction(rule,o.state)!==o.result)
     .map(o=>({state:o.state,observed:o.result,predictedByRejectedRule:prediction(rule,o.state)}));
    if(!repair||contradictions.length===0||attempt===maxAttempts){
