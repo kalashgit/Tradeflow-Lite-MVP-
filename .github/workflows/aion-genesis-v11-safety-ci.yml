@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: research/aion-v06
     env:
-      AION_LAB_OUTPUT: ${{ runner.temp }}/aion-genesis-v11
+      AION_LAB_OUTPUT: /tmp/aion-genesis-v11
     steps:
       - name: Checkout exact SHA
         uses: actions/checkout@v4
