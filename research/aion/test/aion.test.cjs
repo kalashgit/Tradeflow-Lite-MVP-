@@ -60,9 +60,12 @@ test('Ollama rejected responses do not silently pass',async()=>{
  const provider=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',fetchImpl:async()=>({ok:true,json:async()=>({message:{content:'{"pong":true}'},done:false})})});
  await assert.rejects(()=>provider.infer({observations:[]}),/incomplete/);
 });
-test('invalid or truncated Qwen rule is rejected (not auto-corrected into an oracle answer)',async()=>{
+test('invalid Qwen output is recorded as no hypothesis (not auto-corrected by the oracle)',async()=>{
  const provider=qwenProvider({runtime:'llama.cpp',fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'not-json'}}]})})});
- await assert.rejects(()=>provider.infer({observations:[{state:{A:0,B:0,C:0},result:0}]}),/not valid JSON/);
+ const response=await provider.infer({observations:[{state:{A:0,B:0,C:0},result:0}]});
+ assert.equal(response.rule,null);
+ assert.equal(response.invalidOutputKind,'invalid_json');
+ assert.equal(response.modelCalls,1);
 });
 test('counterexample-feedback repair corrects an observed contradiction without access to the true rule',async()=>{
  let calls=0,feedback;
@@ -91,6 +94,16 @@ test('repair does not fabricate an oracle answer when model ignores feedback',as
  assert.equal(ruleKey(response.rule),'and(A,B)');
  assert.equal(response.modelCalls,3);
  assert.equal(response.unresolvedContradictions,1);
+});
+test('malformed model outputs are scored as failures throughout the benchmark',async()=>{
+ const provider={kind:'live-qwen',async infer(){return {rule:null,invalidOutputKind:'invalid_rule',modelCalls:1,repairAttempts:0};}};
+ const result=await runBenchmark(provider,{maxExperiments:2});
+ assert.equal(result.summary.observations,12);
+ assert.equal(result.summary.invalidOutputCount,12);
+ assert.equal(result.summary.meanTruthTableAccuracy,0);
+ assert.equal(result.summary.hypothesisConsistencyRate,0);
+ assert.equal(result.summary.realModelInference,true);
+ assert.equal(result.summary.memoryEnabled,false);
 });
 test('oracle benchmark passes only as simulated control; memory remains disabled',async()=>{
  const result=await runBenchmark(oracleProvider());
