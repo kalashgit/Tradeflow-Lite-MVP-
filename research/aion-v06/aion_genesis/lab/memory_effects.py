@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from statistics import mean
 
+from ..runtime.contextual_memory import MAX_AGE, MIN_SIMILARITY, _similarity
 from ..strategic_planner import Choice, Goals, _dominates, _value
 from .hidden import make_world
 from .policies import RuntimePolicy
@@ -100,6 +101,63 @@ def proposal_effect_snapshot(proposal, profile, public_facts):
     }
 
 
+def contextual_retrieval_support(cards, records, context, as_of):
+    """Count rejection stages for exact candidate actions, without hidden truth.
+
+    Counts are per feasible candidate option. The stages are nested:
+    action seen -> fresh receipt -> sufficiently similar public context.
+    """
+    result = {
+        "options_examined": len(cards),
+        "options_with_action_history": 0,
+        "options_with_fresh_action_history": 0,
+        "options_with_context_match": 0,
+        "options_with_two_context_matches": 0,
+        "matching_receipts": 0,
+    }
+    features = tuple((str(k), float(v)) for k, v in context)
+    for card in cards:
+        action = tuple(sorted(f"{axis}={choice}" for axis, choice in card["decisions"]))
+        seen = [row for row in records if tuple(row["keys"]) == action]
+        fresh = [row for row in seen
+                 if 0 <= as_of - row["learned_at"] <= MAX_AGE]
+        matched = [row for row in fresh
+                   if _similarity(features, row["context"]) >= MIN_SIMILARITY]
+        result["options_with_action_history"] += bool(seen)
+        result["options_with_fresh_action_history"] += bool(fresh)
+        result["options_with_context_match"] += bool(matched)
+        result["options_with_two_context_matches"] += len(matched) >= 2
+        result["matching_receipts"] += len(matched)
+    return result
+
+
+def memory_retrieval_snapshot(proposal, store, tenant_id, domain_id):
+    """Inspect only the policy's OWN versioned model after it issued its proposal."""
+    if proposal is None or proposal.memory is None:
+        return {"mode": "none", "stored_records": 0}
+    mode = proposal.memory.get("mode")
+    key = (f"{domain_id}::contextual_v12::{proposal.scope_id}"
+           if mode == "contextual" else
+           f"{domain_id}::hybrid_v12::{proposal.scope_id}"
+           if mode == "hybrid" else domain_id)
+    if mode not in ("on", "contextual", "hybrid"):
+        return {"mode": "off", "stored_records": 0}
+    model = store.active_effect_model(tenant_id, key)
+    if model is None:
+        return {"mode": mode, "stored_records": 0}
+    body = model["body"]
+    if mode == "on":
+        # An additive term may represent multiple verified receipts;
+        # its count must not be mistaken for the number of events.
+        return {"mode": "on", "stored_records": None,
+                "stored_general_terms": len(body["entries"])}
+    records = body["records"] if mode == "contextual" else body["contextual"]["records"]
+    result = contextual_retrieval_support(
+        proposal.candidate_options, records,
+        proposal.memory.get("context", ()), proposal.as_of)
+    return {"mode": mode, "stored_records": len(records), **result}
+
+
 class TracedRuntimePolicy(RuntimePolicy):
     """A research observer that cannot change the inherited decision method."""
 
@@ -115,6 +173,8 @@ class TracedRuntimePolicy(RuntimePolicy):
         self.snapshots.append({
             "case_id": step.case_id,
             **proposal_effect_snapshot(proposal, profile, current["usable_facts"]),
+            "retrieval": memory_retrieval_snapshot(
+                proposal, self.store, self.tenant_id, self.domain_id),
         })
         return proposal
 
@@ -201,6 +261,15 @@ def _summarize(rows, reference="v09_strategist"):
                 c["regret"] for c in cases if c["regret"] is not None), 6)
                 if any(c["regret"] is not None for c in cases) else None,
             "memory_version_present": _ratio(available, len(used)),
+            "retrieval_stage_counts": {
+                field: sum(c["instrumentation"]["retrieval"].get(field, 0)
+                           for c in cases)
+                for field in ("options_examined", "options_with_action_history",
+                              "options_with_fresh_action_history",
+                              "options_with_context_match",
+                              "options_with_two_context_matches",
+                              "matching_receipts")
+            },
             "memory_changed_any_estimate": _ratio(applied, len(used)),
             "memory_changed_score_leader": _ratio(sum(
                 c["instrumentation"]["ranking_flip"] for c in used), len(used)),
