@@ -37,6 +37,10 @@ jobs:
         run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --output aion-adaptive-benchmark.json
       - name: Repeat comparison on 72 independently seeded validation cases
         run: python -m aion_genesis.adaptive_benchmark --seeds 1601 1602 1603 --output aion-adaptive-validation.json
+      - name: Test all-on-first causal stress probe on development seeds
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy all_on --output aion-probe-all-on.json
+      - name: Test two-corner causal stress probes on development seeds
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy corners --output aion-probe-corners.json
       - name: Save paired learning-speed and prediction evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -45,6 +49,8 @@ jobs:
           path: |
             research/aion-genesis/aion-adaptive-benchmark.json
             research/aion-genesis/aion-adaptive-validation.json
+            research/aion-genesis/aion-probe-all-on.json
+            research/aion-genesis/aion-probe-corners.json
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify unknown-grammar detector and model escalation boundary

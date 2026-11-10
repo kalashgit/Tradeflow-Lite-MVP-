@@ -46,6 +46,19 @@ class AdaptiveSynthesisTests(unittest.TestCase):
         self.assertTrue(triples["includesOnlyApprovedDSL"])
         self.assertTrue(quadruples["includesOnlyApprovedDSL"])
 
+    def test_boundary_probes_are_observable_nonrepeating_inputs(self):
+        variables=("A","B","C")
+        ones={"A":1,"B":1,"C":1}
+        zeros={"A":0,"B":0,"C":0}
+        for strategy in ("all_on","corners"):
+            solver=AdaptiveSynthesis(probe_strategy=strategy)
+            self.assertEqual(solver.choose_intervention(variables,[]),ones)
+            observation=[{"state":ones,"result":1}]
+            next_state=solver.choose_intervention(variables,observation)
+            self.assertNotEqual(next_state,ones)
+            if strategy=="corners":
+                self.assertEqual(next_state,zeros)
+
     def test_expanded_intervention_never_repeats_and_respects_budget(self):
         world=novel_worlds(seed=939,count=6)[4]
         solver=AdaptiveSynthesis(top_k=64)
