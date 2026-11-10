@@ -94,6 +94,56 @@ jobs:
           name: aion-v12-contextual-${{ github.run_id }}
           path: ${{ runner.temp }}/aion-genesis-v12/runs/
           retention-days: 14
+      - name: Run prospective v1.2.1 hybrid memory comparison (new dev + validation)
+        run: >-
+          python -m aion_genesis.lab run
+          --config aion_genesis/lab/configs/genesis_v121_hybrid_eval.json
+          --partitions dev validation
+          --out "${{ runner.temp }}/aion-genesis-v121"
+      - name: Reproduce v1.2.1 hybrid ledger independently
+        run: >-
+          python -m aion_genesis.lab validate
+          --out "${{ runner.temp }}/aion-genesis-v121"
+          --reproduce
+      - name: Show hybrid vs legacy memory and each family result
+        env:
+          AION_HYBRID_REPORT: ${{ runner.temp }}/aion-genesis-v121
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["AION_HYBRID_REPORT"])
+          index = json.loads(root.joinpath("index.jsonl").read_text().splitlines()[-1])
+          folder = root / "runs" / index["run_id"]
+          report = json.loads((folder / "result.json").read_text())
+          verified = json.loads((folder / "validation.json").read_text())
+          assert verified["valid"] and verified["reproduced"]
+          assert set(report["partitions"]) == {"dev", "validation"}
+          assert report["verdict"] == "INCONCLUSIVE"
+          assert report["config"]["candidate"] == "aion_v12_hybrid"
+          assert report["config"]["baseline"] == "aion_v1_memory"
+          assert report["labels"]["model_inference_calls"] == 0
+          assert report["labels"]["external_actions"] == 0
+          for part, block in report["partitions"].items():
+              card = block["scorecard"]
+              pooled = card["comparisons"]["candidate_vs_baseline"]["pooled"]["shifted"]
+              print(part, "hybrid_vs_legacy", pooled["harmful_choice_rate_delta"])
+              for family in report["config"]["families"]:
+                  by = card["decision_quality"][family]["shifted"]
+                  print(part, family, {
+                      p: by[p]["harmful_choice"] for p in (
+                          "aion_v12_hybrid", "aion_v1_memory", "aion_v12_contextual",
+                          "v09_strategist")})
+          print("Unseen holdout left unrun; no promotion.")
+          PY
+      - name: Archive independent hybrid dev and validation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-v121-hybrid-${{ github.run_id }}
+          path: ${{ runner.temp }}/aion-genesis-v121/runs/
+          retention-days: 14
       - name: Grounded situation to strategic option plan
         run: >-
           python -m aion_genesis.strategic_cli plan
