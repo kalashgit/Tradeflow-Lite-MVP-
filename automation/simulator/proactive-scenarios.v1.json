@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "description": "TF-MI-LEARN-01 Phase B synthetic overlay for the three fabricated contractors in businesses.v1.json. Adds crew, schedule, field-blocker, purchase-order, quotation-timing and contact-restriction records. Never import into customer data.",
+  "asOfDate": "2026-11-10",
+  "now": "2026-11-10T09:00:00.000Z",
+  "overlays": {
+    "TF-SIM-05": {
+      "customers": [{"id": "c-101", "name": "Mock Cedar Realty", "contactRestriction": "none"}, {"id": "c-102", "name": "Mock Hilltop Cafe", "contactRestriction": "do_not_contact"}],
+      "crew": [{"id": "crew-101", "name": "Sim Lead Electrician", "role": "Electrician", "status": "Active"}],
+      "jobs": [
+        {"id": "j-101", "customerId": "c-101", "title": "Tenant fitout", "status": "In Progress", "crewId": "crew-101", "date": "2026-11-10", "startTime": "08:00", "durationMinutes": 240,
+         "fieldUpdates": [{"eventId": "evt-101", "kind": "job_blocker_reported", "actorId": "sim_crew_05", "at": "2026-11-10T07:40:00Z"}]}
+      ],
+      "supplyOrders": [
+        {"id": "po-101", "jobId": "j-101", "supplierId": "sup-101", "status": "Ordered", "documentStatus": "Issued", "plannedDate": "2026-11-07", "poNumber": "PO-101"},
+        {"id": "po-102", "jobId": "j-101", "supplierId": "sup-101", "status": "Planned", "documentStatus": "Draft"}
+      ],
+      "quotes": [
+        {"id": "q-101", "customerId": "c-102", "title": "Panel replacement", "status": "Sent", "amount": 4200, "currency": "USD", "sentDate": "2026-10-21"},
+        {"id": "q-102", "customerId": "c-101", "title": "Lighting retrofit", "status": "Sent", "amount": 1800, "currency": "USD"}
+      ],
+      "invoices": [{"id": "i-101", "customerId": "c-101", "jobId": "j-101", "status": "Issued", "dueDate": "2026-11-14", "currency": "USD"}],
+      "payments": [{"id": "p-101", "invoiceId": "i-101", "amount": 600, "currency": "USD"}]
+    },
+    "TF-SIM-12": {
+      "customers": [{"id": "c-201", "name": "Mock East Campus Developer"}],
+      "crew": [{"id": "crew-201", "name": "Sim Crew Lead", "role": "Foreman", "status": "Active"}],
+      "jobs": [
+        {"id": "j-201", "customerId": "c-201", "title": "Commercial service upgrade", "status": "In Progress", "crewId": "crew-201", "date": "2026-11-11", "startTime": "07:00", "durationMinutes": 480},
+        {"id": "j-202", "customerId": "c-201", "title": "EV charging install", "status": "Planned", "crewId": "crew-201", "date": "2026-11-11", "startTime": "13:00", "durationMinutes": 240},
+        {"id": "j-203", "customerId": "c-201", "title": "Panel inspection", "status": "Planned", "crewId": "crew-201", "date": "2026-11-12"}
+      ],
+      "quotes": [{"id": "q-201", "customerId": "c-201", "title": "EV charging install", "status": "Accepted", "amount": 18500, "currency": "USD"}],
+      "invoices": [],
+      "payments": []
+    },
+    "TF-SIM-20": {
+      "customers": [{"id": "c-301", "name": "Mock Westside Property Group"}],
+      "crew": [{"id": "crew-301", "name": "Sim Team A", "role": "Electrician", "status": "Active"}, {"id": "crew-302", "name": "Sim Team B", "role": "Electrician", "status": "Active"}],
+      "jobs": [
+        {"id": "j-301", "customerId": "c-301", "title": "Retail build-out", "status": "Scheduled", "crewId": "crew-301", "date": "2026-11-12", "startTime": "08:00", "durationMinutes": 480},
+        {"id": "j-302", "customerId": "c-301", "title": "Warehouse lighting", "status": "Scheduled", "crewId": "crew-302", "date": "2026-11-12", "startTime": "08:00", "durationMinutes": 480}
+      ],
+      "supplyOrders": [{"id": "po-301", "jobId": "j-301", "supplierId": "sup-301", "status": "In transit", "documentStatus": "Issued", "poNumber": "PO-301"}],
+      "quotes": [],
+      "invoices": [],
+      "payments": []
+    }
+  }
+}

@@ -1,14 +1,24 @@
 import {recordIdentity,linksForRecord} from './record-model.js';
 export const EVIDENCE_FIELDS=Object.freeze({
- customers:['name','company'],opportunities:['title','name','status','category'],
- jobs:['title','status','customerId','quoteId','opportunityId','crewId','date','scheduledDate'],
+ customers:['name','company','contactRestriction'],opportunities:['title','name','status','category'],
+ jobs:['title','status','customerId','quoteId','opportunityId','crewId','date','scheduledDate','startTime','durationMinutes'],
  crew:['name','role','status'],tasks:['title','status','taskKind','due','jobId','customerId','quoteId','invoiceId'],
- quotes:['title','status','customerId','jobId','opportunityId','amount','currency'],
+ quotes:['title','status','customerId','jobId','opportunityId','amount','currency','sentDate','lastFollowUpAt','lastContactAt','followup_date'],
  jobCosts:['jobId','customerId','category','type','amount','currency','laborHours'],
  expenses:['jobId','customerId','relatedId','amount','currency','category'],
  invoices:['number','status','customerId','jobId','quoteId','dueDate','currency','taxRate'],
- payments:['invoiceId','customerId','jobId','amount','currency','date']
+ payments:['invoiceId','customerId','jobId','amount','currency','date'],
+ supplyOrders:['jobId','supplierId','status','documentStatus','plannedDate','poNumber']
 });
+// TF-MI-LEARN-01 Phase B additive projection (reviewed contract, 2026-11-10):
+//  - jobs.startTime/durationMinutes: existing Dispatch schedule scalars (public/operations.js) for same-crew conflict checks.
+//  - jobs.fieldUpdates: bounded projection of the existing TF-RM-03 crew report readback (src/role-exchange.js).
+//    Only identifiers, kinds and timestamps are projected; the free-text note is withheld as untrusted content.
+//  - quotes.sentDate/lastFollowUpAt/lastContactAt/followup_date: existing quotation timing fields written by the app
+//    and by customer.contact.record. customers.contactRestriction: optional owner-recorded restriction; absent = unknown.
+//  - supplyOrders: existing purchase-order scalars (owner/admin only; server rows exist only with extended records enabled).
+const FIELD_UPDATE_KINDS=new Set(['job_blocker_reported','job_blocker_acknowledged']);
+export const FIELD_UPDATE_LIMIT=50;
 Object.values(EVIDENCE_FIELDS).forEach(Object.freeze);
 export const canonical=value=>JSON.stringify(value,(key,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>[k,v[k]])):v);
 export const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(value)))),b=>b.toString(16).padStart(2,'0')).join('');
@@ -21,6 +31,8 @@ export function projectEvidenceRecord(type,record){
  const scalar=v=>{if(typeof v==='string'){if(v.length>240)bound('Context field exceeds safe bounds; review source record');return v}if(typeof v==='number'&&Number.isFinite(v)||v===null)return v};
  const out={};for(const field of EVIDENCE_FIELDS[type]){const v=scalar(record[field]);if(v!==undefined)out[field]=v}
  if(type==='invoices'&&Array.isArray(record.lines)){if(record.lines.length>100)bound('Invoice context exceeds safe line limit');out.lines=record.lines.map(l=>({qty:scalar(l?.qty),unitPrice:scalar(l?.unitPrice)}))}
+ if(type==='jobs'&&Array.isArray(record.fieldUpdates)){if(record.fieldUpdates.length>FIELD_UPDATE_LIMIT)bound('Job field updates exceed safe context limit');
+  out.fieldUpdates=record.fieldUpdates.map(u=>{const kind=typeof u?.kind==='string'&&FIELD_UPDATE_KINDS.has(u.kind)?u.kind:null;const entry={eventId:scalar(u?.eventId)??null,kind,actorId:scalar(u?.actorId)??null,at:scalar(u?.at)??null};if(u?.acknowledgesEventId!==undefined)entry.acknowledgesEventId=scalar(u.acknowledgesEventId)??null;return entry})}
  return out;
 }
 export function evidenceLinks(records){

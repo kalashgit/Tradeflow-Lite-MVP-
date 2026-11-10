@@ -19,7 +19,17 @@ export const PROACTIVE_CASE_TTL_MS=24*60*60*1000;
 export const LEARNING_TTL_MS=90*24*60*60*1000;
 export const DETECTORS=Object.freeze({
  invoiceDueDate:'invoice.due_date_review',          // O1 — P10/P11
- cashCoverageGap:'finance.cash_coverage_evidence_gap' // O2 — P52
+ cashCoverageGap:'finance.cash_coverage_evidence_gap', // O2 — P52
+ fieldBlocker:'job.field_blocker_unacknowledged',   // O3 — P14/P21 (Phase B, public/intelligence-proactive-operations.js)
+ crewConflict:'job.crew_double_booking',            // O3 — P13/P26
+ materialOrder:'job.material_order_review',         // O3 — P41/P42
+ quoteFollowUp:'quotation.follow_up_review'         // O4 — P02/P33
+});
+// Internal, approval-gated command each detector may PROPOSE (never execute). Missing entry = no supported capability.
+export const PROPOSAL_COMMANDS=Object.freeze({
+ 'invoice.due_date_review':{commandId:'invoice.followup.schedule',approval:'explicit',effect:'modification',requires:'past_due'},
+ 'quotation.follow_up_review':{commandId:'quotation.followup.schedule',approval:'explicit',effect:'modification',requires:'follow_up_due'},
+ 'job.field_blocker_unacknowledged':{commandId:'draft.prepare',approval:'review_on_save',effect:'draft',requires:'unacknowledged'}
 });
 const TRIGGER_SOURCES=Object.freeze({server_commit:'server_session',authorized_reconciliation:'authorized_service',local_pending:'local_only'});
 const FINAL_INVOICE_STATES=new Set(['paid','recorded_paid','void','voided','cancelled','canceled','written_off','written off']);
@@ -33,7 +43,8 @@ const iso=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(x)&&Number.isFinite
 const state=x=>String(x??'').trim().toLowerCase();
 const refKey=r=>r.type+':'+r.id;
 const shortHash=async value=>(await digest(value)).slice(0,24);
-const deny=(status,reason,extra={})=>freeze({status,reason,cases:[],unknowns:[],modelInvoked:false,executionAuthority:false,...extra});
+export const deny=(status,reason,extra={})=>freeze({status,reason,cases:[],unknowns:[],modelInvoked:false,executionAuthority:false,...extra});
+export {id as validId,refKey,time as parseTime};
 function safeNumber(v){return typeof v==='number'&&Number.isFinite(v)&&v>=0?v:null}
 function time(label,value){const t=Date.parse(value);if(!iso(value)||!Number.isFinite(t))throw Error(label+' must be an ISO timestamp');return t}
 
@@ -49,7 +60,7 @@ export function createTrigger({source,tenantId,eventId:eventIdentifier,recordRef
   recordRef:{type:recordRef.type,id:recordRef.id,revision:recordRef.revision,updatedAt:recordRef.updatedAt},
   detectedAt:new Date(at).toISOString(),actorScope:TRIGGER_SOURCES[source],confirmed:source!=='local_pending',executionAuthority:false});
 }
-function checkTrigger(trigger,tenantId){
+export function checkTrigger(trigger,tenantId){
  if(trigger==null)return null;
  if(trigger.kind!==PROACTIVE_TRIGGER_KIND||trigger.executionAuthority!==false||!TRIGGER_SOURCES[trigger.source]||trigger.actorScope!==TRIGGER_SOURCES[trigger.source])throw Error('Invalid proactive trigger');
  if(trigger.tenantId!==tenantId)throw Error('Trigger tenant does not match the evaluated scope');
@@ -57,9 +68,10 @@ function checkTrigger(trigger,tenantId){
 }
 
 /* ------------------------------------------------------------- case shape */
-async function buildCase({tenantId,detectorId,subjectRefs,evidenceTrust,completeness,missingData,severity,priorityReasons,conclusion,explanation,recommendation,unknowns,observedAt,dedupeKey,actor,jobId=null,trigger=null,evidence={},limitations=[]}){
+export async function createProactiveCase({tenantId,detectorId,subjectRefs,evidenceTrust,completeness,missingData,severity,priorityReasons,conclusion,explanation,recommendation,unknowns,observedAt,dedupeKey,subjectKey=null,actor,jobId=null,trigger=null,evidence={},limitations=[]}){
+ if(!['informational','attention','urgent'].includes(severity)||!['needs_review','missing_data','conditional_hypothesis'].includes(conclusion))throw Error('Invalid case severity or conclusion');
  const caseId='pcase_'+await shortHash(dedupeKey);
- return freeze({kind:PROACTIVE_CASE_KIND,version:1,caseId,tenantId,detectorId,
+ return freeze({kind:PROACTIVE_CASE_KIND,version:1,caseId,tenantId,detectorId,subjectKey:subjectKey||dedupeKey.split('|')[2]||null,
   subjectRefs:[...subjectRefs].sort((a,b)=>refKey(a).localeCompare(refKey(b))),
   evidenceTrust,completeness,missingData:[...new Set(missingData)],status:'candidate',severity,priorityReasons:[...new Set(priorityReasons)],
   conclusion,explanation,recommendation,unknowns:[...new Set(unknowns)],limitations,evidence,
@@ -67,8 +79,8 @@ async function buildCase({tenantId,detectorId,subjectRefs,evidenceTrust,complete
   observedAt:new Date(observedAt).toISOString(),expiresAt:new Date(observedAt+PROACTIVE_CASE_TTL_MS).toISOString(),dedupeKey,
   proposals:[],learningHints:[],modelInvoked:false,executionAuthority:false,persistence:'in_memory_derived'});
 }
-function actorOf(scope){return scope.mode==='local'?{subject:scope.actor,role:'owner'}:{subject:scope.identity.subject,role:scope.role}}
-function trustOf(scope,local,trigger){
+export function actorOf(scope){return scope.mode==='local'?{subject:scope.actor,role:'owner'}:{subject:scope.identity.subject,role:scope.role}}
+export function trustOf(scope,local,trigger){
  if(scope.synthetic===true){if(!/^sim_/.test(scope.businessId))throw Error('Synthetic evidence requires a sim_ tenant');return 'synthetic'}
  if(local||trigger?.source==='local_pending')return 'local_unconfirmed';
  return 'authorized_current_record';
@@ -123,7 +135,7 @@ export async function detectInvoiceDueDateReview({context,scope,asOfDate,now=new
    ?'Review the invoice due date and recorded payments in TradeFlow. Any internal follow-up task requires explicit approval through the existing command path; no customer contact is proposed.'
    :'Complete the missing linkage or confirm the evidence source before relying on this review; no action is proposed from incomplete evidence.';
   const dedupeKey=[scope.businessId,DETECTORS.invoiceDueDate,refKey(inv),inv.revision===null?'hash:'+inv.contentHash:'rev:'+inv.revision].join('|');
-  cases.push(await buildCase({tenantId:scope.businessId,detectorId:DETECTORS.invoiceDueDate,subjectRefs,evidenceTrust,completeness,missingData,severity,priorityReasons,conclusion,explanation,recommendation,
+  cases.push(await createProactiveCase({tenantId:scope.businessId,detectorId:DETECTORS.invoiceDueDate,subjectRefs,evidenceTrust,completeness,missingData,severity,priorityReasons,conclusion,explanation,recommendation,
    unknowns:['settlement_not_verified','customer_payment_intent_unknown'],observedAt,dedupeKey,actor,jobId,trigger:trig,
    evidence:{dueDate:inv.record.dueDate,daysUntilDue,dueState,recordedStatus:status,recordedPaymentCount:own.length,recordedPaymentsTotal,settlementVerified:false,currency:currencyCode(inv.record.currency)},
    limitations:['Recorded invoice status and local payment entries are not bank or provider-confirmed settlement.','Bounded current snapshot; historical invoices outside the snapshot are not evaluated.']}));
@@ -165,7 +177,7 @@ export async function detectCashCoverageEvidenceGap({packet,scope,asOfDate,now=n
   declared.includes('collection_timing_and_settlement')?'Identify which open invoices have confirmed settlement timing.':null,
   declared.includes('business_time_zone')?'Set the business time zone so due dates are interpreted consistently.':null
  ].filter(Boolean);
- const c=await buildCase({tenantId:scope.businessId,detectorId:DETECTORS.cashCoverageGap,subjectRefs,evidenceTrust:'authorized_current_record',completeness:subjectRefs.length?'partial':'unknown',missingData,
+ const c=await createProactiveCase({tenantId:scope.businessId,detectorId:DETECTORS.cashCoverageGap,subjectRefs,evidenceTrust:'authorized_current_record',completeness:subjectRefs.length?'partial':'unknown',missingData,
   severity:'attention',priorityReasons:['financial_evidence_incomplete','owner_only_evidence_collection','no_forecast_possible'],conclusion:'missing_data',
   explanation:`The authenticated financial evidence packet for ${asOfDate} (${packet.period?.startDate||'?'} to ${packet.period?.endDate||'?'}) lists ${subjectRefs.length} current financial record reference${subjectRefs.length===1?'':'s'} but reports status "${String(packet.status).slice(0,30)}": bank availability, payroll obligations and supplier commitments are not verified. No cash coverage number can be calculated.`,
   recommendation:'Collect the missing evidence before any cash or payroll conclusion: '+(checklist.length?checklist.join(' '):'see the listed missing data.')+' No forecast, payment, invoice or external contact is proposed.',
@@ -176,7 +188,7 @@ export async function detectCashCoverageEvidenceGap({packet,scope,asOfDate,now=n
 }
 
 /* ----------------------------------- dedupe, supersede, freshness, expiry */
-function subjectOf(c){return c.detectorId===DETECTORS.cashCoverageGap?'asOf:'+c.dedupeKey.split('|')[2]:refKey(c.subjectRefs.find(r=>r.type==='invoices')||c.subjectRefs[0])}
+export function subjectOf(c){if(typeof c.subjectKey==='string'&&c.subjectKey)return c.subjectKey;return c.detectorId===DETECTORS.cashCoverageGap?c.dedupeKey.split('|')[2]:refKey(c.subjectRefs.find(r=>r.type==='invoices')||c.subjectRefs[0])}
 function validCase(c){return c?.kind===PROACTIVE_CASE_KIND&&c.executionAuthority===false&&id(c.tenantId)&&typeof c.dedupeKey==='string'&&c.dedupeKey.startsWith(c.tenantId+'|')&&Array.isArray(c.subjectRefs)}
 export function reconcileCases({existing=[],evaluation,now=new Date().toISOString()}={}){
  const at=time('now',now);
@@ -193,7 +205,7 @@ export function reconcileCases({existing=[],evaluation,now=new Date().toISOStrin
   const incoming=incomingBySubject.get(c.tenantId+'|'+c.detectorId+'|'+subjectOf(c));
   if(incoming&&incoming.dedupeKey===c.dedupeKey){active.push(c);suppressedDuplicates++;continue}
   if(incoming){superseded.push(freeze({...c,status:'superseded',supersedeReason:'source_revision_changed',supersededBy:incoming.caseId}));continue}
-  if(evaluation.complete===true){superseded.push(freeze({...c,status:'superseded',supersedeReason:'record_absent_or_resolved',supersededBy:null}));continue}
+  if(evaluation.complete===true){const resolved=Array.isArray(evaluation.resolvedSubjects)?evaluation.resolvedSubjects.find(r=>r?.subjectKey===subjectOf(c)):null;superseded.push(freeze({...c,status:'superseded',supersedeReason:resolved?'resolved:'+String(resolved.reason).slice(0,40):'record_absent_or_resolved',supersededBy:null}));continue}
   active.push(c);
  }
  for(const c of evaluation.cases){
@@ -222,19 +234,38 @@ export function prepareInternalProposal({caseFile,commandCatalog,due}={}){
  if(!validCase(caseFile))throw Error('Valid proactive case required');
  const unsupported=(commandId,reason)=>freeze({proposalId:'proposal_'+caseFile.caseId.slice(6,22)+'_'+(commandId||'none').replace(/[^a-z0-9]/gi,'_'),caseId:caseFile.caseId,commandId:commandId||null,params:null,status:'unsupported_capability',reason,requiresApproval:true,externalEffects:false,receiptRef:null,executed:false,executionAuthority:false});
  if(caseFile.detectorId===DETECTORS.cashCoverageGap)return unsupported(null,'no_internal_command_for_evidence_collection');
- if(caseFile.detectorId!==DETECTORS.invoiceDueDate)return unsupported(null,'unknown_detector');
- const commandId='invoice.followup.schedule';
+ if(caseFile.detectorId===DETECTORS.crewConflict)return unsupported(null,'no_internal_command_for_schedule_change');
+ if(caseFile.detectorId===DETECTORS.materialOrder)return unsupported(null,'no_internal_command_for_material_review');
+ const mapping=PROPOSAL_COMMANDS[caseFile.detectorId];
+ if(!mapping)return unsupported(null,'unknown_detector');
+ const {commandId}=mapping;
  const definition=Array.isArray(commandCatalog)?commandCatalog.find(d=>d?.id===commandId):null;
  if(!definition)return unsupported(commandId,'command_not_registered');
- if(definition.approval!=='explicit'||definition.effect!=='modification')return unsupported(commandId,'command_contract_changed');
+ if(definition.approval!==mapping.approval||definition.effect!==mapping.effect)return unsupported(commandId,'command_contract_changed');
  if(caseFile.conclusion!=='needs_review')return unsupported(commandId,'evidence_incomplete');
  if(caseFile.evidenceTrust!=='authorized_current_record')return unsupported(commandId,'evidence_not_server_confirmed');
- if(caseFile.evidence?.dueState!=='past_due')return unsupported(commandId,'invoice_not_yet_due');
- if(strictFinancialDate(due)===null)return unsupported(commandId,'follow_up_due_date_required');
- const invoice=caseFile.subjectRefs.find(r=>r.type==='invoices');
- return freeze({proposalId:'proposal_'+caseFile.caseId.slice(6,22)+'_invoice_followup',caseId:caseFile.caseId,commandId,
-  params:{ref:{store:'invoices',id:invoice.id},due},sourceRevision:invoice.revision,status:'proposed_not_authorized',
-  requiresApproval:true,externalEffects:false,approvalPath:'existing_typed_command_registry',receiptRef:null,executed:false,executionAuthority:false});
+ const base={proposalId:'proposal_'+caseFile.caseId.slice(6,22)+'_'+commandId.replace(/[^a-z0-9]/gi,'_'),caseId:caseFile.caseId,commandId,status:'proposed_not_authorized',
+  requiresApproval:true,externalEffects:false,approvalPath:'existing_typed_command_registry',receiptRef:null,executed:false,executionAuthority:false};
+ if(caseFile.detectorId===DETECTORS.invoiceDueDate){
+  if(caseFile.evidence?.dueState!=='past_due')return unsupported(commandId,'invoice_not_yet_due');
+  if(strictFinancialDate(due)===null)return unsupported(commandId,'follow_up_due_date_required');
+  const invoice=caseFile.subjectRefs.find(r=>r.type==='invoices');
+  return freeze({...base,params:{ref:{store:'invoices',id:invoice.id},due},sourceRevision:invoice.revision});
+ }
+ if(caseFile.detectorId===DETECTORS.quoteFollowUp){
+  if(caseFile.evidence?.followUpDue!==true)return unsupported(commandId,'follow_up_not_due');
+  if(strictFinancialDate(due)===null)return unsupported(commandId,'follow_up_due_date_required');
+  const quote=caseFile.subjectRefs.find(r=>r.type==='quotes');
+  // Internal task only: customer messaging is never proposed, whatever the contact restriction says.
+  return freeze({...base,params:{ref:{store:'quotes',id:quote.id},due},sourceRevision:quote.revision,customerContact:'not_proposed'});
+ }
+ if(caseFile.detectorId===DETECTORS.fieldBlocker){
+  if(caseFile.evidence?.acknowledgment!=='none_recorded')return unsupported(commandId,'blocker_already_acknowledged');
+  const job=caseFile.subjectRefs.find(r=>r.type==='jobs');
+  return freeze({...base,params:{kind:'task',ref:{store:'jobs',id:job.id},title:'Review reported field blocker on job '+job.id},sourceRevision:job.revision,
+   requiresApproval:true,approvalPath:'existing_draft_review_on_save',crewReassignment:'not_proposed',supplierOrder:'not_proposed'});
+ }
+ return unsupported(commandId,'unknown_detector');
 }
 
 /* -------------------------------------------- governed learning candidates */

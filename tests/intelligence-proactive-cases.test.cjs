@@ -265,7 +265,8 @@ test('internal proposal reuses the registered invoice follow-up command and is n
 test('contract kinds stay distinct from the existing owner-requested Intelligence case and detector set is closed',async()=>{
  const legacy=await import('../public/intelligence-case.js');
  assert.notEqual(m.PROACTIVE_CASE_KIND,legacy.CASE_KIND);
- assert.deepEqual(Object.values(m.DETECTORS),['invoice.due_date_review','finance.cash_coverage_evidence_gap']);
+ assert.deepEqual(Object.values(m.DETECTORS),['invoice.due_date_review','finance.cash_coverage_evidence_gap','job.field_blocker_unacknowledged','job.crew_double_booking','job.material_order_review','quotation.follow_up_review']);
+ for(const [detectorId,mapping]of Object.entries(m.PROPOSAL_COMMANDS)){const def=registry.definitions.find(d=>d.id===mapping.commandId);assert.ok(def,detectorId);assert.equal(def.approval,mapping.approval);assert.equal(def.effect,mapping.effect)}
  assert.throws(()=>m.reconcileCases({existing:[],evaluation:{status:'denied',cases:[]},now:NOW}),/completed detector evaluation/);
  assert.throws(()=>m.reconcileCases({existing:[{kind:'tradeflow.intelligence.case.v1'}],evaluation:{status:'evaluated',tenantId:business,detectorId:'x',cases:[]},now:NOW}),/Invalid proactive case/);
 });
