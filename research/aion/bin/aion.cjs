@@ -3,6 +3,7 @@
 const {qwenProvider,oracleProvider}=require('../src/provider.cjs');
 const {runBenchmark}=require('../src/benchmark.cjs');
 const {runResearchGates,consistentRules}=require('../src/research-gates.cjs');
+const {runEpistemicGates}=require('../src/epistemic-gates.cjs');
 const {runTransferBenchmark}=require('../src/transfer-benchmark.cjs');
 async function main(){
  const [command,...args]=process.argv.slice(2);
