@@ -384,7 +384,9 @@ class World:
             self.cash -= job.crew_cost
             self._crew_used += 1
             s["work_done"] += 1
-            self._publish("foreman", ("project_manager",), name, "work",
+            self._publish("project_manager", ("dispatcher", "technician"), name,
+                          "assignment", "committed", amount=job.crew_cost, lag=0)
+            self._publish("foreman", ("project_manager", "technician"), name, "work",
                           "shift_verified", amount=job.crew_cost, lag=0)
         elif tool == "escalate_blocker":
             if not s["blocked"] or s["blocker_due"] is not None:
@@ -472,6 +474,7 @@ class World:
             "materials": "materials_and_supplier",
             "blocker": "dispatch_and_field",
             "work": "dispatch_and_field",
+            "assignment": "dispatch_and_field",
             "change": "field_to_change_order",
             "invoice": "milestone_to_invoice",
             "payment": "invoice_to_collection",
