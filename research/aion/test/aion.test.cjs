@@ -30,10 +30,35 @@ test('Qwen probe verifies an actual model response and rejects fake readiness',a
   assert.equal(JSON.parse(opts.body).stream,false);
   return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'{"pong":true}'}}]})};
  }});
- assert.deepEqual(await provider.probe(),{kind:'live-qwen',ready:true,validatedCompletion:true});
+ assert.deepEqual(await provider.probe(),{kind:'live-qwen',runtime:'llama.cpp',ready:true,validatedCompletion:true});
  assert.equal(requests,2);
  const unavailable=qwenProvider({fetchImpl:async()=>{throw Error('offline')}});
  await assert.rejects(()=>unavailable.probe(),/not ready/);
+});
+test('Ollama adapter uses native readiness and real JSON inference, not a llama.cpp health check',async()=>{
+ const calls=[];
+ const provider=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',baseUrl:'http://127.0.0.1:11434',fetchImpl:async(url,options)=>{
+  calls.push({url,options});
+  if(url.endsWith('/api/version'))return {ok:true,status:200};
+  if(url.endsWith('/api/chat')){
+   const body=JSON.parse(options.body);
+   assert.equal(body.model,'qwen3:0.6b');
+   assert.equal(body.think,false);
+   assert.equal(body.format,'json');
+   assert.equal(body.stream,false);
+   return {ok:true,json:async()=>({message:{content:'{"pong":true}'},done:true,done_reason:'stop'})};
+  }
+  throw Error('Unexpected provider endpoint');
+ }});
+ assert.deepEqual(await provider.probe(),{kind:'live-qwen',runtime:'ollama',ready:true,validatedCompletion:true});
+ assert.equal(calls.length,2);
+ assert.match(calls[0].url,/\/api\/version$/);
+ assert.match(calls[1].url,/\/api\/chat$/);
+});
+test('Ollama rejected responses do not silently pass',async()=>{
+ assert.throws(()=>qwenProvider({runtime:'ollama'}),/requires AION_MODEL_ID/);
+ const provider=qwenProvider({runtime:'ollama',model:'qwen3:0.6b',fetchImpl:async()=>({ok:true,json:async()=>({message:{content:'{"pong":true}'},done:false})})});
+ await assert.rejects(()=>provider.infer({observations:[]}),/incomplete/);
 });
 test('invalid or truncated Qwen rule is rejected (not auto-corrected into an oracle answer)',async()=>{
  const provider=qwenProvider({fetchImpl:async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'not-json'}}]})})});
