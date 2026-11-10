@@ -46,7 +46,11 @@ class PortfolioContractTests(unittest.TestCase):
         self.assertNotIn("case_hash", public)
 
     def test_shared_supplier_capacity_and_permission_denial(self):
-        case = DEV[4]
+        # Admit the third mock project at tick zero so that the second
+        # order is genuinely testing supplier throughput, not arrival.
+        case = replace(DEV[4], jobs=tuple(
+            replace(job, arrival=0) if job.job_id == "JOB-C" else job
+            for job in DEV[4].jobs))
         world = PortfolioWorld(case)
         a = world.step({"tool": "order_materials", "job_id": "JOB-A",
                         "key": "no-approval"})
@@ -80,9 +84,13 @@ class PortfolioContractTests(unittest.TestCase):
 
     def test_project_priorities_change_without_future_information(self):
         world = PortfolioWorld(DEV[2])
+        # JOB-B arrives at tick one; future jobs must remain hidden.
+        self.assertNotIn("JOB-B", [
+            j["job_id"] for j in world.public_view()["jobs"]])
+        world.step({"tool": "wait", "job_id": "", "key": ""})
         self.assertEqual(next(j["priority"] for j in world.public_view()[
             "jobs"] if j["job_id"] == "JOB-B"), 1)
-        for _ in range(5):
+        for _ in range(4):
             world.step({"tool": "wait", "job_id": "", "key": ""})
         current = world.public_view()
         b = next(j for j in current["jobs"] if j["job_id"] == "JOB-B")
