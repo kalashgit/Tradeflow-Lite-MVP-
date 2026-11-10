@@ -2,6 +2,9 @@
 
 Read `README.md`, `ARCHITECTURE.md`, `docs/RESEARCH_GATES.md` and the root
 `CLAUDE.md`/`AGENTS.md` before selecting an experiment.
+For the current v1.0 implementation milestone, also read the repository-root
+`docs/AION_V1_CLAUDE_EXECUTION_MANDATE.md`: build the reusable runtime and
+independent experimental control plane before option-discovery upgrades.
 
 ## What is presently proven
 

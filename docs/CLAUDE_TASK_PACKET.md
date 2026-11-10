@@ -18,7 +18,48 @@ smarter" is insufficient until it specifies an observable improvement.
 | Independent acceptance | Holdout/CI/physical pilot, thresholds set before implementation |
 | Stop and handoff | Concrete failure/approval gates and report artifact |
 
-## Ready-to-paste first Claude session — AION research
+## Current priority — ready-to-paste AION Genesis v1.0 launch
+
+> You are the implementation lead for **AION Genesis v1.0: Unified Intelligence
+> and Experimental Control Plane** in `kalashgit/Tradeflow-Lite-MVP-`.
+> Start from the current verified head of `research/aion-v06-qwen-bridge` and
+> create a fresh isolated implementation branch. Read root `CLAUDE.md` and
+> `AGENTS.md`, then `docs/AION_V1_CLAUDE_EXECUTION_MANDATE.md`,
+> `docs/AION_CLAUDE_EXECUTION_PLAYBOOK.md`, and the scoped
+> `research/aion-v06/CLAUDE.md` and `docs/RESEARCH_GATES.md`.
+>
+> **Implement, do not stop at a proposal.** Audit existing modules and the
+> 74-test historical baseline once, state a concise dependency plan, then
+> deliver the mandate's **Work Package 1** (one portable, typed
+> observe–investigate–propose–outcome runtime) and a **minimal working Work
+> Package 2** (three unfamiliar/shifted simulation families; independent
+> held-out referee; seed-controlled matched evaluation; full outcome/failure
+> ledger; simple promotion gate; scorecard and phone-readable standalone HTML
+> report). Reuse the current engine, evaluators, CLI and dashboard machinery;
+> preserve prior results and unit tests. Add tests for stale evidence,
+> corrections, tenant isolation, abstention, unknown facts, hidden-truth
+> leakage, invalid candidates, deterministic replay and report integrity.
+>
+> Demonstrate a complete experiment with one documented CLI command and
+> independent baseline comparison. Report **decision quality**, **learning
+> gain**, and **validated research throughput** separately; never invent a
+> 100× intelligence gain, live model learning, paid-model execution or real
+> contractor value. If both mandatory packages are complete and verified,
+> begin the mandate's Work Package 3 as a bounded, evaluated stretch. Maintain
+> strict research-vs-product boundaries: no real data, external action,
+> production edit, deployment, merge, credential use or hidden-judge exposure.
+>
+> Preserve usage with concise incremental checkpoints; implement the first
+> safe vertical slice immediately. On completion, return exact source SHA,
+> changed files, interfaces, runnable commands, tests, genuine metrics,
+> negative findings, resource costs, unresolved gates and the next packet.
+> Publish a draft PR only when branch ownership and authorization permit;
+> otherwise leave the tested isolated branch and an exact handoff.
+
+The earlier AION-100 alternative-generation packet below is a **follow-up**, not
+the first task while the unified runtime and research laboratory are missing.
+
+## Deferred Claude session — AION option discovery
 
 > Open `kalashgit/Tradeflow-Lite-MVP-` on the isolated
 > `research/aion-v06-qwen-bridge` branch. Read root `CLAUDE.md`, `AGENTS.md`,

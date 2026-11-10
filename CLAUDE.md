@@ -26,7 +26,9 @@ working TradeFlow MVP.** The product must have useful deterministic fallbacks.
 - Experimental Python engine: `research/aion-v06/`. Start with its scoped
   `CLAUDE.md`, README and `docs/RESEARCH_GATES.md`.
 - Project operating plan: `docs/AION_CLAUDE_EXECUTION_PLAYBOOK.md`.
-- Task contract: `docs/CLAUDE_TASK_PACKET.md`. Implement one bounded packet
+- Current AION v1.0 execution contract:
+  `docs/AION_V1_CLAUDE_EXECUTION_MANDATE.md` (staged runtime and research lab).
+- Copy-ready launch and task contract: `docs/CLAUDE_TASK_PACKET.md`. Implement one bounded packet
   with a single accountable code writer; parallel investigation is read-only.
 
 Do not introduce a second command executor, shadow business truth store,
