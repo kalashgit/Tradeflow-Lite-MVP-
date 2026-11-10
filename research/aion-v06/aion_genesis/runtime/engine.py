@@ -22,6 +22,7 @@ from .learning import EffectModel, effect_keys
 from .contextual_memory import ContextualEffectModel, public_context
 from .hybrid_memory import HybridEffectModel
 from .relevant_memory import RelevantEffectModel
+from .domain_general_memory import DomainGeneralRelevantEffectModel
 from .store import DUPLICATE, RuntimeStore
 
 FAST_PATH_MS = 10          # a request this urgent skips bounded search
@@ -53,6 +54,11 @@ def _relevant_store_key(domain_id: str, scope_id: str) -> str:
     return f"{domain_id}::relevant_v123::{scope_id}"
 
 
+def _domain_general_store_key(domain_id: str) -> str:
+    """One tenant/domain model, with independently gated scope histories."""
+    return f"{domain_id}::relevant_v124::domain"
+
+
 class _Abstain(Exception):
     def __init__(self, reason: str, known_unknowns=(), constraints=(), version=None):
         super().__init__(reason)
@@ -65,13 +71,13 @@ class _Abstain(Exception):
 class _BoundedDomain:
     """Applies hard constraints and provisional memory around a domain pack."""
 
-    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | RelevantEffectModel | None,
-                 forbidden, context=(), as_of=0):
+    def __init__(self, base, model: EffectModel | ContextualEffectModel | HybridEffectModel | RelevantEffectModel | DomainGeneralRelevantEffectModel | None,
+                 forbidden, context=(), as_of=0, scope_id=None):
         self.name = base.name
         self.axes = base.axes
         self.baseline_decisions = base.baseline_decisions
         self._base, self._model, self._forbidden = base, model, forbidden
-        self._context, self._as_of = context, as_of
+        self._context, self._as_of, self._scope_id = context, as_of, scope_id
         self.raw: dict[str, Choice] = {}
         self.adjusted: dict[str, Choice] = {}
         self.assessments = self.excluded_forbidden = self.excluded_prerequisite = 0
@@ -91,8 +97,11 @@ class _BoundedDomain:
         if self._model is not None:
             keys = effect_keys(decisions)
             choice = replace(choice, expected_effects={
-                name: round(value + (self._model.correction(
-                    keys, name, self._context, self._as_of)
+                name: round(value + (
+                    self._model.correction(keys, name, self._context, self._as_of,
+                                           self._scope_id)
+                    if isinstance(self._model, DomainGeneralRelevantEffectModel)
+                    else self._model.correction(keys, name, self._context, self._as_of)
                     if isinstance(self._model, (ContextualEffectModel, HybridEffectModel, RelevantEffectModel))
                     else self._model.correction(keys, name)), 6)
                 for name, value in choice.expected_effects.items()})
@@ -278,7 +287,7 @@ class AionRuntime:
         context = ()
         memory_modes = capabilities & {
             "outcome_memory", "contextual_outcome_memory", "hybrid_outcome_memory",
-            "relevant_outcome_memory"}
+            "relevant_outcome_memory", "domain_relevant_memory"}
         if len(memory_modes) > 1:
             raise _Abstain("conflicting_memory_modes", unknowns, version=version)
         if "relevant_outcome_memory" in capabilities:
