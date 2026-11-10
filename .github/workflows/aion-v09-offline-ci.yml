@@ -498,7 +498,7 @@ jobs:
           --suite dev --out "${{ runner.temp }}/genesis-portfolio-v21-dev"
       - name: Independently verify portfolio trace and report
         run: |
-          python -m aion_genesis.eval_v2.portfolio_runner verify \\
+          python -m aion_genesis.eval_v2.portfolio_runner verify \
             --out "${{ runner.temp }}/genesis-portfolio-v21-dev"
           python - <<'PY'
           from pathlib import Path
