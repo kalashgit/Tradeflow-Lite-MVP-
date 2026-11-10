@@ -199,6 +199,87 @@ jobs:
             ${{ runner.temp }}/genesis-v122-memory-effects-dev.json
             ${{ runner.temp }}/genesis-v122-memory-effects-validation.json
           retention-days: 14
+      - name: Evaluate new v1.2.3 relevant-recall policy on sealed prospective dev and validation
+        run: >-
+          python -m aion_genesis.lab run
+          --config aion_genesis/lab/configs/genesis_v123_relevance_eval.json
+          --partitions dev validation
+          --out "${{ runner.temp }}/aion-genesis-v123"
+      - name: Independently reproduce new v1.2.3 policy results
+        run: >-
+          python -m aion_genesis.lab validate
+          --out "${{ runner.temp }}/aion-genesis-v123"
+          --reproduce
+      - name: Observe relevant memory on resource allocation dev
+        run: >-
+          python -m aion_genesis.lab.relevant_diagnostics
+          --partition dev --out "${{ runner.temp }}/v123-relevant-dev.json"
+      - name: Observe relevant memory on disjoint resource allocation validation
+        run: >-
+          python -m aion_genesis.lab.relevant_diagnostics
+          --partition validation --out "${{ runner.temp }}/v123-relevant-validation.json"
+      - name: Enforce verified recall, audit trail and independent scoring boundaries
+        env:
+          EVAL_ROOT: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["EVAL_ROOT"])
+          data = root / "aion-genesis-v123"
+          index = json.loads((data / "index.jsonl").read_text().splitlines()[-1])
+          folder = data / "runs" / index["run_id"]
+          result = json.loads((folder / "result.json").read_text())
+          validation = json.loads((folder / "validation.json").read_text())
+          assert validation["valid"] and validation["reproduced"]
+          assert set(result["partitions"]) == {"dev", "validation"}
+          assert result["verdict"] == "INCONCLUSIVE"
+          assert result["config"]["candidate"] == "aion_v123_relevant"
+          assert result["config"]["baseline"] == "aion_v1_memory"
+          assert result["labels"]["model_inference_calls"] == 0
+          assert result["labels"]["external_actions"] == 0
+          for part in ("dev", "validation"):
+              diag = json.loads((root / f"v123-relevant-{part}.json").read_text())
+              assert diag["schema"] == "GenesisRelevantRecallDiagnostics/1.0"
+              assert diag["partition"] == part
+              assert not diag["protected_holdout_evaluated"]
+              assert not diag["policy_actions_modified_by_instrumentation"]
+              assert not diag["hidden_truth_exposed_to_policy"]
+              assert not diag["real_world_improvement_proven"]
+              expected = {"dev": [330000, 330008],
+                          "validation": [340000, 340016]}[part]
+              assert diag["seed_range"] == expected
+              print(part, "observed memory activity", diag["activity"])
+              for variant in ("nominal", "shifted"):
+                  print(part, variant, "resource allocation:")
+                  for policy in diag["policies"]:
+                      stat = diag["comparison"][f"{variant}/{policy}"]
+                      print(" ", policy, "harm", stat["harmful_choice"],
+                            "leader_flips", stat["memory_changed_score_leader"],
+                            "action_divergence", stat["different_actions_than_memory_off"],
+                            "regret", stat["mean_regret"])
+                  pooled = result["partitions"][part]["scorecard"][
+                      "comparisons"]["candidate_vs_baseline"]["pooled"][variant][
+                      "harmful_choice_rate_delta"]
+                  print(part, variant, "all-family pooled comparison", pooled)
+          dev = json.loads((root / "v123-relevant-dev.json").read_text())
+          assert any(v["supported_option_occurrences"] > 0
+                     for v in dev["activity"].values()), "No relevant recalls on development scenarios"
+          assert any(v["applied_estimate_corrections"] > 0
+                     for v in dev["activity"].values()), "No applied memory on development scenarios"
+          print("Non-holdout diagnostic complete. No promotion or deployment.")
+          PY
+      - name: Archive prospective v1.2.3 research evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-v123-relevance-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/aion-genesis-v123/runs/
+            ${{ runner.temp }}/v123-relevant-dev.json
+            ${{ runner.temp }}/v123-relevant-validation.json
+          retention-days: 14
       - name: Grounded situation to strategic option plan
         run: >-
           python -m aion_genesis.strategic_cli plan
