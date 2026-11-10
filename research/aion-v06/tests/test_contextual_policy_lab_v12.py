@@ -16,7 +16,7 @@ _CONFIG = Path(__file__).resolve().parents[1] / (
 
 class ProspectiveCandidateTests(unittest.TestCase):
     def test_registered_policy_is_opt_in_and_old_baselines_stay_present(self):
-        self.assertEqual(LAB_VERSION, "genesis-lab-1.2.0")
+        self.assertEqual(LAB_VERSION, "genesis-lab-1.2.1")
         self.assertIn("aion_v12_contextual", POLICIES)
         self.assertIn("aion_v12_contextual", POLICY_VERSIONS)
         budgets = {"time_budget_ms": 5000, "compute_budget": 64}
