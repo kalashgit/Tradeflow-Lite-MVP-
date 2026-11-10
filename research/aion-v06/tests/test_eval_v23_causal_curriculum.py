@@ -216,6 +216,21 @@ class CurriculumAndCriticTests(unittest.TestCase):
                                     difficulty=following.difficulty), "no_action",
                 "deadline_first")
 
+    def test_tied_total_failure_never_escalates_difficulty(self):
+        scheduler = Curriculum()
+        lesson = scheduler.next_lesson()
+        scenario = generate("dev", 0, family=lesson.family,
+                            difficulty=lesson.difficulty, novelty=lesson.novelty)
+        result = scheduler.admit_feedback(
+            lesson, scenario, "no_action", "no_action")
+        self.assertFalse(result["win"])
+        self.assertEqual(result["mode_next"], "remediate")
+        self.assertEqual(scheduler.levels[lesson.family], 1)
+        self.assertFalse(result["code_update_permitted"])
+        next_lesson = scheduler.next_lesson()
+        self.assertEqual(next_lesson.mode, "remediate")
+        self.assertEqual(next_lesson.family, lesson.family)
+
     def test_learning_is_empirical_and_validation_cannot_update(self):
         learner = OutcomeBandit()
         case = generate("dev", 1)
