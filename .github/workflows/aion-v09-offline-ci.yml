@@ -43,6 +43,57 @@ jobs:
           python-version: '3.12'
       - name: Unit and research contract tests
         run: python -m unittest discover -s tests -q
+      - name: Run prospective v1.2 contextual memory comparison (dev + validation only)
+        run: >-
+          python -m aion_genesis.lab run
+          --config aion_genesis/lab/configs/genesis_v12_contextual_eval.json
+          --partitions dev validation
+          --out "${{ runner.temp }}/aion-genesis-v12"
+      - name: Independently replay prospective experimental ledger
+        run: >-
+          python -m aion_genesis.lab validate
+          --out "${{ runner.temp }}/aion-genesis-v12"
+          --reproduce
+      - name: Disclose family-level v1.2 comparisons and holdout status
+        env:
+          AION_V12_REPORT: ${{ runner.temp }}/aion-genesis-v12
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["AION_V12_REPORT"])
+          entry = json.loads((root / "index.jsonl").read_text().splitlines()[-1])
+          report = json.loads((root / "runs" / entry["run_id"] / "result.json").read_text())
+          validation = json.loads((root / "runs" / entry["run_id"] / "validation.json").read_text())
+          assert set(report["partitions"]) == {"dev", "validation"}
+          assert report["status"] == "completed"
+          assert report["verdict"] == "INCONCLUSIVE"
+          assert report["config"]["candidate"] == "aion_v12_contextual"
+          assert report["config"]["baseline"] == "aion_v1_memory"
+          assert report["config"]["memory_off_control"] == "v09_strategist"
+          assert report["labels"]["model_inference_calls"] == 0
+          assert report["labels"]["external_actions"] == 0
+          assert validation["valid"] and validation["reproduced"]
+          for partition, body in report["partitions"].items():
+              score = body["scorecard"]
+              pooled = score["comparisons"]["candidate_vs_baseline"]["pooled"]["shifted"]
+              delta = pooled["harmful_choice_rate_delta"]
+              print(partition, "contextual_vs_v1", delta)
+              for family in report["config"]["families"]:
+                  by_policy = score["decision_quality"][family]["shifted"]
+                  print(partition, family, {
+                      policy: by_policy[policy]["harmful_choice"]
+                      for policy in ("aion_v12_contextual", "aion_v1_memory", "v09_strategist")})
+          print("Protected holdout deliberately not evaluated; no promotion claim.")
+          PY
+      - name: Store v1.2 prospective research artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-v12-contextual-${{ github.run_id }}
+          path: ${{ runner.temp }}/aion-genesis-v12/runs/
+          retention-days: 14
       - name: Grounded situation to strategic option plan
         run: >-
           python -m aion_genesis.strategic_cli plan
