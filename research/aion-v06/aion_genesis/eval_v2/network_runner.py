@@ -40,7 +40,7 @@ def execute(split: str, count: int):
     workflow_counts, role_counts, disruption_counts = (
         Counter(), Counter(), Counter())
     source_total = delivery_total = undelivered = 0
-    stale_total = missing_total = 0
+    stale_total = missing_total = unrouted_total = 0
     max_state_lag = 0
     digests = []
     for case in cases:
@@ -66,6 +66,7 @@ def execute(split: str, count: int):
             for role, info in report.items():
                 stale_total += info.get("stale", 0)
                 missing_total += info.get("missing", 0)
+                unrouted_total += info.get("latest_revision_not_routed", 0)
                 max_state_lag = max(max_state_lag, info.get("stale", 0))
             ledger.append({"type": "information_flow_audit",
                            "case_id": case.scenario_id,
@@ -89,6 +90,7 @@ def execute(split: str, count: int):
         "undelivered": undelivered,
         "audited_missing_streams": missing_total,
         "audited_stale_streams": stale_total,
+        "audited_latest_revisions_not_routed": unrouted_total,
         "max_stale_streams_in_a_role_snapshot": max_state_lag,
         "source_ledger_hash": ledger.head,
         "protected_holdout_evaluated": False,
@@ -124,6 +126,7 @@ def render(result, timing=None):
              f"**Routed messages:** {result['routed_deliveries']}",
              f"**Undelivered messages:** {result['undelivered']}",
              f"**Audited stale streams:** {result['audited_stale_streams']}",
+             f"**Audited latest revisions not routed:** {result['audited_latest_revisions_not_routed']}",
              "", "## Disruptions", ""]
     for kind, n in result["disruption_coverage"].items():
         lines.append(f"- {kind}: {n} cases")
