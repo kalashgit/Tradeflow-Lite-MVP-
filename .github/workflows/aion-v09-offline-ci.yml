@@ -182,6 +182,7 @@ jobs:
                             "memory_present", s["memory_version_present"],
                             "changed_estimates", s["memory_changed_any_estimate"],
                             "score_leader_flips", s["memory_changed_score_leader"],
+                            "retrieval_stages", s["retrieval_stage_counts"],
                             "changed_actions_vs_off", s["different_actions_than_memory_off"],
                             "better/worse/equal", (s["divergence_realized_better"],
                             s["divergence_realized_worse"],
