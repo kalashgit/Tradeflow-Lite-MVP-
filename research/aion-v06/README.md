@@ -23,6 +23,52 @@ Actions. The new runner has local-only Ollama access, structured outputs, a
 preflight, and a predeclared two-cohort memory ablation. It is not a completed
 live experiment until its GitHub Actions evidence artifact exists.
 
+Version 0.7 begins the **Operator Lab**: a reproducible, synthetic business
+command center with proactive evidence cards, a persisted approval queue,
+attention budgeting, safe conflict/supersession handling, and a deliberately
+simulation-only execution journal. The initial detector is a transparent
+rule-based baseline, **not** an adaptive model or production service.
+
+## AION Operator Lab: owner + business intelligence
+
+The long-term product loop is:
+
+1. *Observe*: ingest authorized business signals through a tenant-isolated
+   connector with provenance and timestamps.
+2. *Understand*: maintain a source-backed company state and causal hypotheses,
+   avoiding overconfidence from observational correlations.
+3. *Watch*: background services recognize meaningful changes and assemble a
+   ranked, deduplicated inbox without flooding the owner.
+4. *Collaborate*: the owner can ask questions by voice or text and inspect the
+   evidence behind any proposed recommendation.
+5. *Approve*: consequential actions require a named, explicit approval, with
+   scope, expiration, audit history, and revocation.
+6. *Act + evaluate*: an authorized executor works within its permissions and
+   records actual outcomes for later learning and holdout checks.
+
+The v0.7 code implements **only a synthetic slice of steps 1, 3, and 5**.
+There is no voice integration, production data connection, long-running worker,
+or actual external action executor yet. A SQLite file persists across process
+restarts, which demonstrates durable state but does **not** make a process run
+when a phone is switched off. That requires a separate hosted worker/scheduler.
+
+Try the safe synthetic demonstration:
+
+```bash
+python -m aion_genesis.operator_lab seed --db operator-demo.sqlite3
+python -m aion_genesis.operator_lab watch --db operator-demo.sqlite3 \
+  --output operator-demo.json
+python -m aion_genesis.operator_lab inbox --db operator-demo.sqlite3
+```
+
+The watch generates up to three visible attention cards, while preserving all
+additional work in the queue. Two overlapping signals (materials and crew
+capacity) become one coordinated-risk card. The queue survives restarts and
+expires pending or approved recommendations if later observations invalidate
+them. Approval and `execute` commands act **only on this synthetic ledger**.
+No real supplier contact, permit change, crew assignment, or payment action is
+possible from these commands.
+
 ## Run real Qwen without a persistent Codespace
 
 The manual-only `.github/workflows/aion-v06-qwen-live.yml` workflow is intended
