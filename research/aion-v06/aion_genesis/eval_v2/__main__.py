@@ -40,11 +40,11 @@ def main(argv=None):
         packet = make_review_packet(result, records, args.limit)
         dest = Path(args.out)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\\n")
+        dest.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\n")
         if args.reviewer_id:
             template = blank_labels(packet, args.reviewer_id)
             dest.with_suffix(".blank-ratings.json").write_text(
-                json.dumps(template, indent=2, sort_keys=True) + "\\n")
+                json.dumps(template, indent=2, sort_keys=True) + "\n")
         print(json.dumps({"packet": str(dest), "items": len(packet["items"]),
                           "human_ratings_received": False}))
     else:
@@ -53,7 +53,7 @@ def main(argv=None):
         report = calibrate(packet, labels)
         target = Path(args.out)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(report, indent=2, sort_keys=True) + "\\n")
+        target.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         print(json.dumps({"output": str(target),
                           "items_to_adjudicate": len(report["items_needing_adjudication"]),
                           "adjudication_complete": False}))
