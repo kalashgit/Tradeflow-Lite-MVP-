@@ -1,0 +1,32 @@
+{
+  "config_version": "genesis-v1.0-minimal-1",
+  "families": [
+    "electrical_procurement",
+    "hidden_causal_rules",
+    "resource_allocation",
+    "operational_dependencies"
+  ],
+  "variants": ["nominal", "shifted"],
+  "policies": ["no_action", "fixed_rule", "v09_strategist", "aion_v1_memory"],
+  "candidate": "aion_v1_memory",
+  "baseline": "v09_strategist",
+  "memory_off_control": "v09_strategist",
+  "partitions": {
+    "dev": {"start_seed": 20000, "episodes": 30},
+    "validation": {"start_seed": 30000, "episodes": 40},
+    "holdout": {"start_seed": 40000, "episodes": 80}
+  },
+  "budgets": {
+    "max_decisions": 200000,
+    "max_model_calls": 0,
+    "max_wall_seconds": 900,
+    "time_budget_ms": 5000,
+    "compute_budget": 64
+  },
+  "promotion_gate": {
+    "partition": "holdout",
+    "min_relative_harm_reduction_shifted": 0.25,
+    "max_relative_nominal_utility_drop": 0.05,
+    "bootstrap_resamples": 1000
+  }
+}
