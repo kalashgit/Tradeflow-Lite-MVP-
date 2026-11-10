@@ -55,8 +55,11 @@ class ReviewJournal:
                 })
         return sorted(results, key=lambda x: (-x["worlds"], x["hypothesis"]))
 
-    def counterexamples(self, limit=4):
-        return deepcopy([x["observation"] for x in self._items if x["contradictions"] > 0][-limit:])
+    def counterexamples(self, limit=4, world_id=None):
+        # Never contaminate a current world's inference prompt with unrelated worlds.
+        selected = [x["observation"] for x in self._items
+                    if x["contradictions"] > 0 and (world_id is None or x["world_id"] == world_id)]
+        return deepcopy(selected[-limit:])
 
     def __len__(self):
         return len(self._items)
