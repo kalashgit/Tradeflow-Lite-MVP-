@@ -136,13 +136,15 @@ def memory_retrieval_snapshot(proposal, store, tenant_id, domain_id):
     if proposal is None or proposal.memory is None:
         return {"mode": "none", "stored_records": 0}
     mode = proposal.memory.get("mode")
-    key = (f"{domain_id}::relevant_v123::{proposal.scope_id}"
+    key = (f"{domain_id}::relevant_v124::domain"
+           if mode == "domain_relevant" else
+           f"{domain_id}::relevant_v123::{proposal.scope_id}"
            if mode == "relevant" else
            f"{domain_id}::contextual_v12::{proposal.scope_id}"
            if mode == "contextual" else
            f"{domain_id}::hybrid_v12::{proposal.scope_id}"
            if mode == "hybrid" else domain_id)
-    if mode not in ("on", "contextual", "hybrid", "relevant"):
+    if mode not in ("on", "contextual", "hybrid", "relevant", "domain_relevant"):
         return {"mode": "off", "stored_records": 0}
     model = store.active_effect_model(tenant_id, key)
     if model is None:
@@ -153,6 +155,31 @@ def memory_retrieval_snapshot(proposal, store, tenant_id, domain_id):
         # its count must not be mistaken for the number of events.
         return {"mode": "on", "stored_records": None,
                 "stored_general_terms": len(body["entries"])}
+    if mode == "domain_relevant":
+        from ..runtime.domain_general_memory import DomainGeneralRelevantEffectModel
+        from ..domains.equipment_maintenance import EquipmentMaintenanceAdapter
+        declared = (EquipmentMaintenanceAdapter.memory_relevance_schema
+                    if domain_id == EquipmentMaintenanceAdapter.domain_id else None)
+        model = DomainGeneralRelevantEffectModel.from_json(body, declared)
+        scope = proposal.scope_id
+        matches = affected = 0
+        for card in proposal.candidate_options:
+            keys = tuple(f"{axis}={value}" for axis, value in card["decisions"])
+            support = [
+                model.evidence(keys, objective, proposal.memory["context"],
+                               proposal.as_of, scope)
+                for objective in card["raw_expected_effects"]
+            ]
+            if any(row["reason"] == "verified_relevant_recall" for row in support):
+                affected += 1
+                matches += max(row["matched_receipts"] for row in support)
+        return {"mode": mode, "stored_records": sum(
+                    len(rows) for rows in model.scopes.values()),
+                "stored_general_terms": len(model.general.entries),
+                "scopes_with_records": len(model.scopes),
+                "options_examined": len(proposal.candidate_options),
+                "supported_relevant_options": affected,
+                "supported_receipt_matches": matches}
     if mode == "relevant":
         from ..runtime.relevant_memory import RelevantEffectModel
         from ..domains.equipment_maintenance import EquipmentMaintenanceAdapter
