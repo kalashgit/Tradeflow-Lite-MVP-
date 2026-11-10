@@ -7,9 +7,10 @@ const {runTransferBenchmark}=require('../src/transfer-benchmark.cjs');
 async function main(){
  const [command,...args]=process.argv.slice(2);
  if(command==='research-gates'){
-  const outcome=runResearchGates();
-  console.log(JSON.stringify(outcome,null,2));
-  if(!outcome.passed)process.exitCode=3;
+  const controller=runResearchGates();
+  const epistemic=runEpistemicGates();
+  console.log(JSON.stringify({controller,epistemic,passed:controller.passed&&epistemic.passed},null,2));
+  if(!controller.passed||!epistemic.passed)process.exitCode=3;
   return;
  }
  if(command==='probe'){

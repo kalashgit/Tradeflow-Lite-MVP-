@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {statesFor,candidatesFor,evaluateRule,consistentRules,activeChoice,identifyRule,discoverDrift,runResearchGates}=require('../src/research-gates.cjs');
+const {statesFor,candidatesFor,evaluateRule,consistentRules,activeChoice,identifyRule,firstViolation,discoverDrift,runResearchGates}=require('../src/research-gates.cjs');
 test('held-out 4-switch candidate space has 18 distinct mechanisms and 16 interventions',()=>{
  const switches=['A','B','C','D'];
  const rules=candidatesFor(switches);
@@ -54,4 +54,12 @@ test('control gate report distinguishes deterministic success from real Qwen per
  assert.equal(r.drift.falseAlarms,0);
  assert.ok(r.core.active.meanExperiments<r.core.fixed.meanExperiments);
  assert.ok(r.heldOutFourSwitch.active.meanExperiments<r.heldOutFourSwitch.fixed.meanExperiments);
+});
+
+test('observable drift monitor detects only measured contradictions, never the hidden rule',()=>{
+ const rule={op:'xor',inputs:['A','C']};
+ const seen=[{state:{A:1,B:0,C:1},result:0},{state:{A:1,B:0,C:0},result:1}];
+ assert.equal(firstViolation(rule,seen),null);
+ const altered=[...seen,{state:{A:1,B:1,C:1},result:1}];
+ assert.equal(firstViolation(rule,altered),3);
 });

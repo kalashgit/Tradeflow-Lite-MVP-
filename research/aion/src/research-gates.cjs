@@ -64,20 +64,23 @@ function identifyRule(trueRule,{variables=['A','B','C'],policy='active',seed=17,
  }
  return {identified:remaining.length===1&&ruleId(remaining[0])===ruleId(trueRule),experiments:newExperiments,remaining:remaining.length,history};
 }
-function discoverDrift(previousRule,currentRule,variables=['A','B','C']){
- // The detector is not informed of a change point or the new true rule.
- // It sees predictions from the established rule and incoming observed outcomes.
- const states=statesFor(variables);
- let falseAlarms=0;
- for(const state of states)if(evaluateRule(previousRule,state,variables)!==evaluateRule(previousRule,state,variables))falseAlarms++;
- let detection=null,firstMeasurement=null;
- for(let i=0;i<states.length;i++){
-  const state=states[i],observed=evaluateRule(currentRule,state,variables);
-  if(evaluateRule(previousRule,state,variables)!==observed){
-   detection=i+1;firstMeasurement={state:{...state},result:observed};break;
-  }
+function firstViolation(establishedRule,observations,variables=['A','B','C']){
+ // This monitor receives only observable measurements and the existing hypothesis.
+ // It is NOT passed the environment's new causal law or the change-point label.
+ for(let i=0;i<observations.length;i++){
+  if(evaluateRule(establishedRule,observations[i].state,variables)!==observations[i].result)return i+1;
  }
+ return null;
+}
+function discoverDrift(previousRule,currentRule,variables=['A','B','C']){
+ const states=statesFor(variables);
+ const before=states.map(state=>({state:{...state},result:evaluateRule(previousRule,state,variables)}));
+ const after=states.map(state=>({state:{...state},result:evaluateRule(currentRule,state,variables)}));
+ const falseAlarms=firstViolation(previousRule,before,variables)?1:0;
+ const detection=firstViolation(previousRule,after,variables);
  if(detection===null)return {detected:false,detectionDelay:null,recovered:false,falseAlarms,postChangeExperiments:0};
+ const firstMeasurement=after[detection-1];
+ // Discard stale pre-change data ONLY AFTER an observable contradiction triggers detection.
  const recovered=identifyRule(currentRule,{variables,policy:'active',initial:[firstMeasurement]});
  return {detected:true,detectionDelay:detection,recovered:recovered.identified,falseAlarms,postChangeExperiments:1+recovered.experiments};
 }
@@ -98,4 +101,4 @@ function runResearchGates(){
  const passed=[core,heldOut].every(g=>g.active.identified===g.ruleCount&&g.fixed.identified===g.ruleCount&&g.active.meanExperiments<g.fixed.meanExperiments)&&drift.detected===drift.orderedTransitions&&drift.recovered===drift.orderedTransitions&&drift.falseAlarms===0;
  return {kind:'deterministic-controller-gates',realModelInference:false,persistentMemoryEnabled:false,passed,core,heldOutFourSwitch:heldOut,drift,limitations:['Oracle-known Boolean rule grammar, no observational noise','Held-out variable count tests controller transfer, NOT Qwen or new causal operator discovery','Change detection uses truth-table interventions and known previous rule, not a learned drift policy','No evidence of model-weight improvement or real-world scientific discovery']};
 }
-module.exports={statesFor,candidatesFor,evaluateRule,consistentRules,activeChoice,identifyRule,discoverDrift,runResearchGates};
+module.exports={statesFor,candidatesFor,evaluateRule,consistentRules,activeChoice,identifyRule,firstViolation,discoverDrift,runResearchGates};
