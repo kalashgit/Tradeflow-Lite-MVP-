@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+'use strict';
+const {qwenProvider,oracleProvider}=require('../src/provider.cjs');
+const {runBenchmark}=require('../src/benchmark.cjs');
+const {runResearchGates,consistentRules}=require('../src/research-gates.cjs');
+const {runEpistemicGates}=require('../src/epistemic-gates.cjs');
+const {runTransferBenchmark}=require('../src/transfer-benchmark.cjs');
+async function main(){
+ const [command,...args]=process.argv.slice(2);
+ if(command==='research-gates'){
+  const controller=runResearchGates();
+  const epistemic=runEpistemicGates();
+  console.log(JSON.stringify({controller,epistemic,passed:controller.passed&&epistemic.passed},null,2));
+  if(!controller.passed||!epistemic.passed)process.exitCode=3;
+  return;
+ }
+ if(command==='probe'){
+  const outcome=await qwenProvider().probe();
+  console.log(JSON.stringify({status:'PASS',...outcome},null,2));return;
+ }
+ if(command==='transfer'){
+  const kind=args.includes('oracle')?'oracle':'qwen';
+  const provider=kind==='oracle'?{kind:'oracle-simulator',async infer({observations,allowedSwitches}){
+   const remaining=consistentRules(observations,allowedSwitches);
+   if(!remaining.length)throw Error('Contradictory evidence in transfer oracle');
+   return {rule:remaining[0],modelCalls:0};
+  }}:qwenProvider();
+  if(kind==='qwen')await provider.probe();
+  const outcome=await runTransferBenchmark(provider);
+  console.log(JSON.stringify(outcome,null,2));
+  if(outcome.summary.meanTruthTableAccuracy<0.85||outcome.summary.hypothesisConsistencyRate<0.9)process.exitCode=2;
+  return;
+ }
+ if(command==='benchmark'){
+  const flag=args.indexOf('--provider');
+  const kind=flag<0?'qwen':args[flag+1];
+  if(!['qwen','oracle'].includes(kind))throw Error('Choose --provider qwen or --provider oracle');
+  const provider=kind==='qwen'?qwenProvider():oracleProvider();
+  if(kind==='qwen')await provider.probe(); // no fallback to oracle/mocks
+  const outcome=await runBenchmark(provider);
+  console.log(JSON.stringify(outcome,null,2));
+  // Success of the command means the experiment executed, NOT that the research hypothesis passed.
+  if(outcome.summary.meanTruthTableAccuracy<0.85||outcome.summary.hypothesisConsistencyRate<0.9)process.exitCode=2;
+  return;
+ }
+ throw Error('Usage: node bin/aion.cjs research-gates | probe | benchmark --provider qwen|oracle | transfer --provider qwen|oracle');
+}
+main().catch(error=>{console.error('AION ERROR:',error.message);process.exitCode=1});

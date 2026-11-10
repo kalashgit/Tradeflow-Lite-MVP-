@@ -1,0 +1,128 @@
+name: AION — Real Qwen Research Benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'research/aion/**'
+      - '.github/workflows/aion-qwen-research.yml'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: CPU Qwen model for manual validation
+        type: choice
+        options:
+          - qwen3:0.6b
+          - qwen3:1.7b
+        default: qwen3:0.6b
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-research-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aion-research:
+    name: CPU ${{ inputs.model || 'qwen3:0.6b' }} research gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      AION_MODEL_RUNTIME: ollama
+      AION_MODEL_URL: http://127.0.0.1:11434
+      AION_MODEL_ID: ${{ inputs.model || 'qwen3:0.6b' }}
+      OLLAMA_HOST: 127.0.0.1:11434
+    defaults:
+      run:
+        working-directory: research/aion
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Software and independent verification tests
+        run: npm test
+      - name: Deterministic three-switch baseline
+        run: npm run benchmark:oracle
+      - name: Identifiability, drift and epistemic gates
+        run: npm run research:gates
+      - name: Deterministic held-out four-switch control
+        run: npm run benchmark:transfer-oracle
+      - name: Install isolated Ollama runtime
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-ollama-install.sh
+          sh /tmp/aion-ollama-install.sh
+      - name: Start loopback server and pull model
+        run: |
+          ollama serve > /tmp/aion-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/version
+          ollama pull "$AION_MODEL_ID"
+          ollama list
+      - name: Real model inference probe
+        run: npm run probe
+      - name: Run JSON-only raw Qwen control
+        run: |
+          set +e
+          AION_FORMAT_MODE=json AION_REPAIR_MODE=none node bin/aion.cjs benchmark --provider qwen > aion-qwen-json-raw.json
+          status=$?
+          set -e
+          echo "JSON raw benchmark exit: $status (2 = metric gate blocked)"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
+      - name: Run schema-constrained raw Qwen
+        run: |
+          set +e
+          AION_FORMAT_MODE=schema AION_REPAIR_MODE=none node bin/aion.cjs benchmark --provider qwen > aion-qwen-schema-raw.json
+          status=$?
+          set -e
+          echo "Schema raw benchmark exit: $status (2 = metric gate blocked)"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
+      - name: Run schema and bounded counterexample correction
+        run: |
+          set +e
+          AION_FORMAT_MODE=schema AION_REPAIR_MODE=feedback node bin/aion.cjs benchmark --provider qwen > aion-qwen-schema-repair.json
+          status=$?
+          set -e
+          echo "Schema repair benchmark exit: $status (2 = metric gate blocked)"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
+      - name: Run schema and correction on held-out four-switch worlds
+        run: |
+          set +e
+          AION_FORMAT_MODE=schema AION_REPAIR_MODE=feedback node bin/aion.cjs transfer --provider qwen > aion-qwen-schema-transfer.json
+          status=$?
+          set -e
+          echo "Held-out transfer benchmark exit: $status (2 = metric gate blocked)"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
+      - name: Preserve synthetic research traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-qwen-benchmarks-${{ github.run_id }}
+          path: research/aion/aion-qwen-*.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish gate status with model-call costs
+        if: always()
+        run: |
+          echo "### AION independent model research" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`$GITHUB_SHA\`; model: $AION_MODEL_ID; NO model training, tenant records or persistent causal memory." >> "$GITHUB_STEP_SUMMARY"
+          for f in aion-qwen-json-raw.json aion-qwen-schema-raw.json aion-qwen-schema-repair.json aion-qwen-schema-transfer.json; do
+            if [ -s "$f" ]; then
+              node -e 'const p=require("./"+process.argv[1]);const s=p.summary;console.log(process.argv[1]+": accuracy="+s.meanTruthTableAccuracy+", consistency="+s.hypothesisConsistencyRate+", invalid="+s.invalidOutputCount+", calls="+s.modelCalls+", repairs="+s.repairAttempts+", live="+s.realModelInference);' "$f" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Enforce research admission gate (memory remains blocked)
+        run: |
+          node -e '
+            const fs=require("fs");
+            const names=["aion-qwen-schema-repair.json","aion-qwen-schema-transfer.json"];
+            const results=names.map(x=>JSON.parse(fs.readFileSync(x,"utf8")).summary);
+            const passed=results.every(s=>s.realModelInference===true&&s.memoryEnabled===false&&s.meanTruthTableAccuracy>=0.85&&s.hypothesisConsistencyRate>=0.9);
+            if(!passed){console.error("Research admission BLOCKED: require >=0.85 accuracy and >=0.90 evidence consistency on both tests.");process.exit(2);}
+            console.log("Research quality smoke criteria met. Persistent memory remains BLOCKED pending reproducibility and held-out operator-family validation.");
+          '
