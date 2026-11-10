@@ -48,9 +48,10 @@ class PortfolioContractTests(unittest.TestCase):
     def test_shared_supplier_capacity_and_permission_denial(self):
         # Admit the third mock project at tick zero so that the second
         # order is genuinely testing supplier throughput, not arrival.
-        case = replace(DEV[4], jobs=tuple(
+        approval = next(s for s in DEV if s.case_id == "SYN-PORT-D-APPROVAL")
+        case = replace(approval, jobs=tuple(
             replace(job, arrival=0) if job.job_id == "JOB-C" else job
-            for job in DEV[4].jobs))
+            for job in approval.jobs))
         world = PortfolioWorld(case)
         a = world.step({"tool": "order_materials", "job_id": "JOB-A",
                         "key": "no-approval"})
@@ -162,6 +163,19 @@ class PortfolioResearchTests(unittest.TestCase):
             counts = result["scorecards"][name]
             self.assertGreaterEqual(counts["possible_jobs"], counts["verified_jobs"])
             self.assertGreaterEqual(counts["possible_jobs"], counts["paid_jobs"])
+
+    def test_cash_trap_separates_strategy_quality(self):
+        case = next(row for row in self.result["paired_cases"]
+                    if row["case_id"] == "SYN-PORT-D-CASH-TRAP")
+        scores = case["policies"]
+        # Cash-flow awareness should avoid buying an urgent low-margin job
+        # that exhausts the money required to deliver any work.
+        self.assertGreater(scores["cash_aware"]["verified_jobs"],
+                           scores["deadline_first"]["verified_jobs"])
+        self.assertGreater(scores["cash_aware"]["cash_delta"],
+                           scores["deadline_first"]["cash_delta"])
+        self.assertEqual(scores["cash_aware"]["safety_denied_or_invalid"], 0)
+        self.assertEqual(scores["deadline_first"]["safety_denied_or_invalid"], 0)
 
     def test_deterministic_replay_and_artifact_tamper_rejection(self):
         with tempfile.TemporaryDirectory() as tmp:
