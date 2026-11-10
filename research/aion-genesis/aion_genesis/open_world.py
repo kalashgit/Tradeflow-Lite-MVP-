@@ -4,6 +4,8 @@ import random
 
 from .core import HiddenWorld, variable, violations, validate, MechanismError, states
 from .synthesis import SynthesisBaseline
+from .adaptive_synthesis import AdaptiveSynthesis
+from .core import choose_intervention as legacy_choose_intervention
 
 
 def v(name):
@@ -51,11 +53,16 @@ class HybridProposer:
     independent DSL validator and fit existing observations before provisional
     in-memory reuse. Memory is wiped with each new HybridProposer instance.
     """
-    def __init__(self, inventor=None, max_invention_attempts=1):
+    use_full_history=True
+
+    def __init__(self, inventor=None, max_invention_attempts=1, symbolic_strategy="adaptive"):
+        if symbolic_strategy not in ("adaptive","fixed"):
+            raise ValueError("unsupported symbolic strategy")
+        self.symbolic_strategy=symbolic_strategy
         if type(max_invention_attempts) is not int or not 1 <= max_invention_attempts <= 3:
             raise ValueError("repair budget must be 1-3 model calls")
         self.max_invention_attempts=max_invention_attempts
-        self.symbolic=SynthesisBaseline()
+        self.symbolic=AdaptiveSynthesis() if symbolic_strategy=='adaptive' else SynthesisBaseline()
         self.inventor=inventor
         self._provisional={}
         self.calls=0
@@ -63,22 +70,34 @@ class HybridProposer:
         self.completion_tokens=0
         self.escalations=0
         self.known_decisions=0
+        self.expanded_symbolic_decisions=0
+        self.symbolic_expansions=0
         self.rejected_inventions=0
         self.rejection_counts={}
         self.admitted_inventions=0
 
     def candidates(self, variables, observations):
-        known=self.symbolic.candidates(variables,observations)
-        if known:
-            return known
+        symbolic=self.symbolic.candidates(variables,observations)
+        if symbolic:
+            return symbolic
         return [deepcopy(p) for p in self._provisional.get(tuple(variables),())
                 if not violations(p,observations,variables)]
 
+    def choose_intervention(self,variables,observations):
+        if hasattr(self.symbolic,"choose_intervention"):
+            return self.symbolic.choose_intervention(variables,observations)
+        return legacy_choose_intervention(variables,observations,
+                                           self.candidates(variables,observations))
+
     def propose(self, *, variables, recent, feedback, previous, analogies=()):
-        known=self.symbolic.candidates(variables,recent)
-        if known:
+        symbolic=self.symbolic.propose(variables=variables,recent=recent,
+                                        feedback=feedback,previous=previous,analogies=analogies)
+        if symbolic is not None:
             self.known_decisions+=1
-            return deepcopy(known[0])
+            self.expanded_symbolic_decisions=getattr(self.symbolic,"expanded_decisions",0)
+            self.symbolic_expansions=getattr(self.symbolic,"expansion_events",0)
+            return deepcopy(symbolic)
+        self.symbolic_expansions=getattr(self.symbolic,"expansion_events",0)
         remembered=self.candidates(variables,recent)
         if remembered:
             return deepcopy(remembered[0])

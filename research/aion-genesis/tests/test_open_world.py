@@ -39,7 +39,7 @@ class UnknownMechanismTests(unittest.TestCase):
                           {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}},
                           "unseen")
         evidence=[world.intervene(s) for s in states(world.variables)]
-        agent=HybridProposer(inventor=SyntheticInventor())
+        agent=HybridProposer(inventor=SyntheticInventor(),symbolic_strategy="fixed")
         proposal=agent.propose(variables=world.variables,recent=evidence,feedback=[],
                                previous=None)
         self.assertEqual(proposal["op"],"not")
@@ -66,7 +66,7 @@ class UnknownMechanismTests(unittest.TestCase):
                           "unseen")
         observed=[world.intervene(s) for s in states(world.variables)]
         inventor=RevisionInventor()
-        agent=HybridProposer(inventor=inventor,max_invention_attempts=2)
+        agent=HybridProposer(inventor=inventor,max_invention_attempts=2,symbolic_strategy="fixed")
         result=agent.propose(variables=world.variables,recent=observed,feedback=[],previous=None)
         self.assertEqual(result["op"],"not")
         self.assertEqual(agent.calls,2)
@@ -87,11 +87,48 @@ class UnknownMechanismTests(unittest.TestCase):
                           {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}},
                           "unseen")
         observations=[world.intervene(s) for s in states(world.variables)]
-        agent=HybridProposer(inventor=UnhelpfulInventor())
+        agent=HybridProposer(inventor=UnhelpfulInventor(),symbolic_strategy="fixed")
         self.assertIsNone(agent.propose(variables=world.variables,recent=observations,
                                         feedback=[],previous=None))
         self.assertEqual(agent.calls,1)
         self.assertEqual(agent.rejection_counts["contradicts_evidence"],1)
+
+    def test_adaptive_hybrid_solves_expressible_novel_rules_without_qwen(self):
+        class MustNotCall:
+            def propose(self, **kwargs):
+                raise AssertionError("no reason to pay for an LLM on representable mechanisms")
+        from aion_genesis.scientist import Scientist
+        from aion_genesis.adaptive_synthesis import AdaptiveSynthesis
+        for world in novel_worlds(seed=942,count=6):
+            budget=7 if len(world.variables)==3 else 12
+            hybrid=HybridProposer(inventor=MustNotCall())
+            result=Scientist(hybrid,working_limit=16).investigate(world,budget)
+            self.assertEqual(hybrid.calls,0)
+            self.assertGreaterEqual(hybrid.symbolic_expansions,1)
+            self.assertGreater(result.final_accuracy,0.5)
+
+    def test_true_outside_expanded_grammar_uses_qwen_fallback(self):
+        from aion_genesis.adaptive_synthesis import AdaptiveSynthesis
+        from aion_genesis.core import HiddenWorld
+        names=("A","B","C","D")
+        inputs=[v(x) for x in names]
+        mechanism={"op":"and","args":[
+            {"op":"threshold","k":2,"args":inputs},
+            {"op":"not","arg":{"op":"threshold","k":3,"args":inputs}}]}
+        world=HiddenWorld("exact-two",names,mechanism,"unseen")
+        evidence=[world.intervene(state) for state in states(names)]
+        self.assertEqual(AdaptiveSynthesis().candidates(names,evidence),[])
+        class Inventor:
+            def __init__(self):
+                self.calls=0
+            def propose(self, **kwargs):
+                self.calls+=1
+                return mechanism
+        agent=HybridProposer(inventor=Inventor())
+        solved=agent.propose(variables=names,recent=evidence,feedback=[],previous=None)
+        self.assertIsNotNone(solved)
+        self.assertEqual(agent.calls,1)
+        self.assertEqual(world.accuracy(solved),1.0)
 
     def test_repair_budget_cannot_expand_without_a_new_approval(self):
         with self.assertRaises(ValueError):
@@ -108,7 +145,7 @@ class UnknownMechanismTests(unittest.TestCase):
                           {"op":"not","arg":{"op":"and","args":[v("A"),v("B")]}},
                           "unseen")
         evidence=[world.intervene(s) for s in states(world.variables)]
-        agent=HybridProposer(inventor=BadInventor(),max_invention_attempts=1)
+        agent=HybridProposer(inventor=BadInventor(),max_invention_attempts=1,symbolic_strategy="fixed")
         self.assertIsNone(agent.propose(variables=world.variables,recent=evidence,
                                         feedback=[],previous=None))
         self.assertEqual(agent.rejected_inventions,1)
