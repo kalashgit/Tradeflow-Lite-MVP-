@@ -59,6 +59,19 @@ class AdaptiveSynthesisTests(unittest.TestCase):
             if strategy=="corners":
                 self.assertEqual(next_state,zeros)
 
+    def test_evidence_triggered_probe_avoids_early_forced_experiments(self):
+        vars=("A","B","C")
+        solver=AdaptiveSynthesis(probe_strategy="surprise")
+        initial=solver.choose_intervention(vars,[])
+        # Surprise policy cannot force either corner without evidence.
+        self.assertEqual(initial,AdaptiveSynthesis(probe_strategy="balanced").choose_intervention(vars,[]))
+        known=[{"state":{"A":0,"B":0,"C":0},"result":0},
+               {"state":{"A":0,"B":0,"C":1},"result":0},
+               {"state":{"A":0,"B":1,"C":0},"result":0}]
+        self.assertEqual(solver.choose_intervention(vars,known),{"A":1,"B":1,"C":1})
+        mixed=known[:2]+[{"state":{"A":0,"B":1,"C":0},"result":1}]
+        self.assertNotEqual(solver.choose_intervention(vars,mixed),{"A":1,"B":1,"C":1})
+
     def test_expanded_intervention_never_repeats_and_respects_budget(self):
         world=novel_worlds(seed=939,count=6)[4]
         solver=AdaptiveSynthesis(top_k=64)

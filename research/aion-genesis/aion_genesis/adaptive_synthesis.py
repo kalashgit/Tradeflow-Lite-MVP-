@@ -125,7 +125,7 @@ class AdaptiveSynthesis:
     use_full_history=True
 
     def __init__(self,top_k=96,probe_strategy="balanced"):
-        if probe_strategy not in ("balanced","all_on","corners"):
+        if probe_strategy not in ("balanced","all_on","corners","surprise"):
             raise ValueError("unknown experiment strategy")
         self.probe_strategy=probe_strategy
         if type(top_k) is not int or not 8<=top_k<=512:
@@ -185,6 +185,18 @@ class AdaptiveSynthesis:
             zero={key:0 for key in names}
             if tuple(zero[key] for key in names) not in already:
                 return zero
+        if self.probe_strategy=="surprise" and not expanded and len(observations)>=3:
+            # Seek a falsifying extreme only if repeated observations have
+            # never revealed a contrasting outcome, not unconditionally.
+            results={entry["result"] for entry in observations}
+            if results=={0}:
+                challenge={key:1 for key in names}
+                if tuple(challenge[key] for key in names) not in already:
+                    return challenge
+            elif results=={1}:
+                challenge={key:0 for key in names}
+                if tuple(challenge[key] for key in names) not in already:
+                    return challenge
         if not possible:
             return deepcopy(options[0][1])
         # On expanded grammars, plan from minimum-complexity survivors.

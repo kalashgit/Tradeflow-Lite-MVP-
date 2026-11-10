@@ -41,6 +41,8 @@ jobs:
         run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy all_on --output aion-probe-all-on.json
       - name: Test two-corner causal stress probes on development seeds
         run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy corners --output aion-probe-corners.json
+      - name: Test evidence-triggered rare-event probe on development seeds
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy surprise --output aion-probe-surprise.json
       - name: Save paired learning-speed and prediction evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,6 +53,7 @@ jobs:
             research/aion-genesis/aion-adaptive-validation.json
             research/aion-genesis/aion-probe-all-on.json
             research/aion-genesis/aion-probe-corners.json
+            research/aion-genesis/aion-probe-surprise.json
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify unknown-grammar detector and model escalation boundary

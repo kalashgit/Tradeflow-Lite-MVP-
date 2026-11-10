@@ -118,7 +118,7 @@ def main():
     parser.add_argument("--worlds-per-seed",type=int,default=24)
     parser.add_argument("--seeds",type=int,nargs="+",default=[938,939,940])
     parser.add_argument("--output",type=str,default="")
-    parser.add_argument("--probe-strategy",choices=("balanced","all_on","corners"),default="balanced")
+    parser.add_argument("--probe-strategy",choices=("balanced","all_on","corners","surprise"),default="balanced")
     args=parser.parse_args()
     result=compare(seeds=tuple(args.seeds),worlds_per_seed=args.worlds_per_seed,probe_strategy=args.probe_strategy)
     if args.output:
