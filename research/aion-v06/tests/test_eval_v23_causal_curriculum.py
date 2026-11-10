@@ -47,9 +47,9 @@ class EconomicCausalityTests(unittest.TestCase):
         self.assertNotEqual(w.jobs["JOB-A"]["material"], "ready")
         self.assertEqual(w.public_view()["jobs"][0]["materials_seen"], "unknown")
         w.step(action("wait"))
-        self.assertEqual(w.jobs["JOB-A"]["delivery_due"], 7)
+        self.assertEqual(w.jobs["JOB-A"]["delivery_due"], 6)
         # Supplier message can be in transit while the true shipment is delayed.
-        for _ in range(5):
+        for _ in range(4):
             w.step(action("wait"))
         self.assertNotEqual(w.jobs["JOB-A"]["material"], "ready")
         w.step(action("wait"))
