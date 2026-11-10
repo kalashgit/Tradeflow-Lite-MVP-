@@ -43,20 +43,25 @@ class Scientist:
             proposal = self.proposer.propose(
                 variables=world.variables,
                 recent=working.snapshot(),
-                feedback=self.reviewer.counterexamples(limit=3),
+                feedback=self.reviewer.counterexamples(limit=3, world_id=world.world_id),
                 previous=current,
             )
             try:
                 parsed = validate(proposal, world.variables) if proposal is not None else None
             except (MechanismError, TypeError, RecursionError):
                 parsed = None
+            wrong = len(violations(parsed, all_evidence, world.variables)) if parsed is not None else len(all_evidence)
+            old_wrong = len(violations(current, all_evidence, world.variables)) if current is not None else len(all_evidence) + 1
+            accepted = parsed is not None and (current is None or wrong <= old_wrong)
             if parsed is not None:
                 valid += 1
                 candidate_pool.append(parsed)
-                current = parsed
-            wrong = len(violations(parsed, all_evidence, world.variables)) if parsed is not None else len(all_evidence)
-            if parsed is not None and wrong == 0:
-                consistent += 1
+                if accepted:
+                    # Evidence-based local repair: reject a plausible-looking update if
+                    # it explains FEWER of the actual observations than the prior rule.
+                    current = parsed
+                if wrong == 0:
+                    consistent += 1
             self.reviewer.add(world.world_id, world.variables, parsed, measured, wrong)
             trace.append({
                 "step": i + 1,
@@ -64,6 +69,8 @@ class Scientist:
                 "valid": parsed is not None,
                 "contradictions": wrong,
                 "candidate": parsed,
+                "accepted": accepted,
+                "current": current,
             })
         return Trial(
             world=world.world_id, split=world.split,
