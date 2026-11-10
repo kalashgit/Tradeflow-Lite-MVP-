@@ -275,7 +275,7 @@ def generate(split: str, index: int, *, base_seed: int | None = None,
         event = Event(event_id, tenant, job, stream, revision, actor, tick,
                       status, workflow, amount, "SIM-EVIDENCE-" + source_ref)
         all_events.append(event)
-        for role in set((*recipients, actor)):
+        for role in sorted(set((*recipients, actor))):
             span = rng.randrange(4) if delay is None else delay
             if variant == "offline_field_blocker" and role in ("project_manager", "foreman"):
                 if stream in ("field", "blocker"):
