@@ -86,6 +86,17 @@ class EquipmentMaintenanceAdapter:
     default_freshness_ticks = 50
     freshness_ticks = {"technician_hours": 5}
     decision_domain = EquipmentMaintenancePack()
+    # Public domain semantics, reviewed separately from the independent grader.
+    # Only the selected maintenance targets and scarce shared resources are
+    # relevant to reusing a previous intervention's outcome.
+    memory_relevance_schema = {
+        "target_axes": ("first", "second"),
+        "target_metrics": {"wear_index": 75.0, "criticality": 3.0},
+        "global_keys": {
+            "CREW:technician_hours": 10.0,
+            "CREW:spare_kits": 2.0,
+        },
+    }
 
     def build_case(self, observations, tenant_id, scope_id) -> CaseBuild:
         facts = {f"{item.metric}:{item.subject_id}": item for item in observations}
