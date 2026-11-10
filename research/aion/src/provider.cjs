@@ -1,5 +1,5 @@
 'use strict';
-const {normalizeRule,consistentCandidates}=require('./world.cjs');
+const {normalizeRule,consistentCandidates,prediction}=require('./world.cjs');
 const DEFAULT_BASE='http://127.0.0.1:8088';
 const HOSTS=new Set(['localhost','127.0.0.1','[::1]']);
 const RUNTIMES=new Set(['llama.cpp','ollama']);
@@ -13,7 +13,7 @@ function oracleProvider(){return {kind:'oracle-simulator',async infer({observati
  if(!surviving.length)throw Error('Oracle: inconsistent observations');
  return {rule:normalizeRule(surviving[0]),rationale:'Deterministic candidate elimination (not AI inference)'};
 }};}
-function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=process.env.AION_MODEL_ID||undefined,runtime=process.env.AION_MODEL_RUNTIME||'llama.cpp',fetchImpl=globalThis.fetch,timeoutMs=90000}={}){
+function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=process.env.AION_MODEL_ID||undefined,runtime=process.env.AION_MODEL_RUNTIME||'llama.cpp',fetchImpl=globalThis.fetch,timeoutMs=90000,repair=process.env.AION_REPAIR_MODE==='feedback'}={}){
  if(!RUNTIMES.has(runtime))throw Error('Unsupported model runtime: '+runtime);
  if(runtime==='ollama'&&(!model||typeof model!=='string'))throw Error('Ollama requires AION_MODEL_ID');
  const endpoint=localEndpoint(baseUrl,runtime==='ollama'?'/api/chat':'/v1/chat/completions');
@@ -53,12 +53,23 @@ function qwenProvider({baseUrl=process.env.AION_MODEL_URL||DEFAULT_BASE,model=pr
   return {kind:'live-qwen',runtime,ready:true,validatedCompletion:true};
  }
  async function infer({observations,previousRule}){
-  const system='You are discovering an unknown Boolean mechanism with exactly 3 binary switches A,B,C. The output is 0 or 1. Its true rule uses EXACTLY TWO DISTINCT switches and one operator: and, or, xor. Choose a rule consistent with EVERY observation. If evidence cannot distinguish rules, propose the most plausible rule but state uncertainty. Previous hypothesis may be wrong. Output EXACT JSON: {"op":"and|or|xor","inputs":["A","B"],"rationale":"brief evidence-based explanation"}. Do not add markdown.';
+  const system='You are discovering an unknown Boolean mechanism with exactly 3 binary switches A,B,C. The output is 0 or 1. Its true rule uses EXACTLY TWO DISTINCT switches and one operator: and, or, xor. Choose a rule consistent with EVERY observation, including ones with C=1. Evaluate all observations before choosing. If evidence cannot distinguish rules, propose a plausible rule and state uncertainty. Previous hypothesis may be wrong. Output EXACT JSON: {"op":"and|or|xor","inputs":["A","B"],"rationale":"brief evidence-based explanation"}. Do not add markdown.';
   const prompt={observations,previousHypothesis:previousRule||null};
-  const answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(prompt)}],256);
-  let parsed;try{parsed=JSON.parse(answer)}catch{throw Error('Qwen hypothesis was not valid JSON')}
-  const rule=normalizeRule(parsed);
-  return {rule,rationale:typeof parsed.rationale==='string'?parsed.rationale.slice(0,400):''};
+  const maxAttempts=repair?3:1;
+  let rejected=null;
+  for(let attempt=1;attempt<=maxAttempts;attempt++){
+   const requestPrompt=rejected?{...prompt,verificationFeedback:rejected,instruction:'The previous answer contradicted REAL observations. Revise the hypothesis to avoid EVERY listed contradiction. Do not repeat the rejected hypothesis.'}:prompt;
+   const answer=await request([{role:'system',content:system},{role:'user',content:JSON.stringify(requestPrompt)}],256);
+   let parsed;try{parsed=JSON.parse(answer)}catch{throw Error('Qwen hypothesis was not valid JSON')}
+   const rule=normalizeRule(parsed);
+   const contradictions=observations.filter(o=>prediction(rule,o.state)!==o.result)
+    .map(o=>({state:o.state,observed:o.result,predictedByRejectedRule:prediction(rule,o.state)}));
+   if(!repair||contradictions.length===0||attempt===maxAttempts){
+    return {rule,rationale:typeof parsed.rationale==='string'?parsed.rationale.slice(0,400):'',modelCalls:attempt,repairAttempts:attempt-1,unresolvedContradictions:contradictions.length};
+   }
+   rejected={rejectedRule:rule,contradictions};
+  }
+  throw Error('AION internal repair loop error');
  }
  return {kind:'live-qwen',runtime,health,probe,infer};
 }
