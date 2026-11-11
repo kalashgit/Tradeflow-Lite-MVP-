@@ -1,0 +1,40 @@
+name: AION Genesis — ASIL v2.6 safety foundations (research only)
+
+on:
+  push:
+    branches:
+      - research/aion-asil-v26-safety-foundations
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-asil-v26-foundations-ci.yml'
+  pull_request:
+    paths:
+      - 'research/aion-v06/aion_genesis/asil_v26/**'
+      - 'research/aion-v06/tests/test_asil_v26_foundations.py'
+      - '.github/workflows/aion-asil-v26-foundations-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full historic plus v2.6 foundational Python suite
+        run: python -m unittest discover -s tests -q
+      - name: Frozen v2.5 denial forensics (already inspected cases)
+        run: python -m aion_genesis.asil_v26.forensics
+      - name: Research disclosure
+        run: |
+          echo 'Foundations only. No v2.6 policy integration or fresh validation.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No business action, paid model call, deployment, merge, or promotion.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact SHA: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
