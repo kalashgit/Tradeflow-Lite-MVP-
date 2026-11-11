@@ -218,8 +218,8 @@ class GenesisCausalPolicy:
     def _observe(self, view):
         if view.get("role") != "project_manager" or view.get("global_truth") is not False:
             raise PermissionError("Genesis accepts only its scoped public PM observation")
-        if view.get("fictional") is not True or set(view.get("jobs", []).__class__.__name__) == set():
-            pass
+        if view.get("fictional") is not True or not isinstance(view.get("jobs"), list):
+            raise PermissionError("Non-synthetic or incomplete model input is forbidden")
         if not isinstance(view.get("tick"), int) or not isinstance(view.get("cash_budget"), int):
             raise ValueError("Malformed public role observation")
         if {j.get("job_id") for j in view["jobs"]} != set(self.domain.job_ids):
