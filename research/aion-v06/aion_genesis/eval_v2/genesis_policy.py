@@ -362,6 +362,27 @@ class GenesisCausalPolicy:
         self.pending = None
 
 
+def bind_local_inference(config, *, explicit_authorization=False):
+    """Opt-in local-only model advice through the existing provider interface.
+
+    A local model is a ranking advisor over Genesis's already safe proposals.
+    It never receives live tenant data and never calls a production tool.
+    CI must not run this function with an active model session.
+    """
+    from urllib.parse import urlparse
+    from ..provider import CompatibleChatAdapter, InferenceConfig
+
+    if not explicit_authorization:
+        raise PermissionError("Local inference requires explicit user authorization")
+    if not isinstance(config, InferenceConfig):
+        raise ValueError("Expected the existing bounded inference configuration")
+    parsed = urlparse(config.base_url)
+    if parsed.hostname not in ("127.0.0.1", "localhost", "::1") or (
+            parsed.username is not None or parsed.password is not None):
+        raise PermissionError("Lab model inference must stay loopback-only")
+    return ModelBinding(CompatibleChatAdapter(config), config.model, False)
+
+
 def run_genesis_episode(case, *, model_binding=None, enable_outcome_memory=True,
                         model_call_budget=0):
     policy = GenesisCausalPolicy(
