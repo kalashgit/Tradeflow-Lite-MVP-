@@ -185,6 +185,36 @@ class StrategicIntuitionTests(unittest.TestCase):
                 return
         self.fail("no replacement test world sampled")
 
+    def test_metacognitive_controller_reconstructs_under_widespread_alarm(self):
+        from aion_genesis.strategic_intuition import DriftSentinel
+        monitor=DriftSentinel(0.04,window=48,min_samples=32)
+        for _ in range(40):
+            monitor.record(False)
+        self.assertTrue(monitor.alarm)
+        cert=Calibration(min_samples=1,lower_bound=0.0)
+        cert.observe(True,True)
+        cert.freeze()
+        remembered=self.bank.recall("context-00",VARS)
+        world=HiddenWorld("broad-change-reconstruct",VARS,remembered.mechanism,"eval")
+        result=route(world,"context-00",self.bank,cert,mode="gated_meta",sentinel=monitor)
+        self.assertEqual(result["route"],"deep")
+        self.assertTrue(result["metaChoseColdDeep"])
+        self.assertEqual(result["metaReason"],"widespread_observed_disagreement")
+
+    def test_metacognitive_controller_can_repair_small_local_change(self):
+        from aion_genesis.strategic_intuition import DriftSentinel, choose_canaries
+        monitor=DriftSentinel(0.04,window=48,min_samples=32)
+        cert=Calibration(min_samples=1,lower_bound=0.0)
+        cert.observe(True,True)
+        cert.freeze()
+        memory=self.bank.recall("context-00",VARS)
+        first=choose_canaries(memory,self.bank.alternatives("context-00",VARS),[])
+        world=HiddenWorld("small-change",VARS,flip_one_input(memory.mechanism,first),"eval")
+        result=route(world,"context-00",self.bank,cert,mode="gated_meta",sentinel=monitor)
+        self.assertEqual(result["route"],"repair")
+        self.assertEqual(result["metaReason"],"bounded_local_strategy_repair")
+        self.assertEqual(result["fullAccuracy"],1.0)
+
     def test_false_familiarity_is_recorded_not_hidden(self):
         rows=[{"confidence":0.9,"exact":False},{"confidence":0.9,"exact":True}]
         metrics=reliability(rows)

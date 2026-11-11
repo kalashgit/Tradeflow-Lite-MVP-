@@ -378,7 +378,7 @@ def residual_repair(world,memory,observations,max_interventions=5,max_exceptions
 
 
 def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
-    if mode not in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual"):
+    if mode not in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual","gated_meta"):
         raise ValueError("invalid mode")
     if type(budget) is not int or budget<3 or budget>7:
         raise ValueError("invalid world budget")
@@ -388,6 +388,8 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
     fast_used=False
     repair_used=False
     repair_patches=0
+    meta_cold_deep=False
+    meta_reason=None
     deep_steps=0
     checks=0
     contradicted=False
@@ -396,7 +398,7 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
         candidate=memory.mechanism
         fast_used=True
     else:
-        if mode in ("gated","gated_drift_aware","gated_residual") and memory is not None and calibration.trusted:
+        if mode in ("gated","gated_drift_aware","gated_residual","gated_meta") and memory is not None and calibration.trusted:
             memory,observations,passed=probe_memory(world,bank,context,2)
             contradicted=not passed
             if sentinel is not None:
@@ -406,7 +408,27 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
                 candidate=memory.mechanism
                 fast_used=True
         if not fast_used:
-            if mode=="gated_residual" and memory is not None and calibration.trusted:
+            if mode=="gated_meta" and memory is not None and calibration.trusted:
+                number_of_current_mismatches=sum(
+                    predict(memory.mechanism,x["state"],world.variables)!=x["result"]
+                    for x in observations)
+                # Only observed contradiction evidence and historical diagnostic
+                # failure rates may select the strategy. No hidden-world labels.
+                broadly_changed=(number_of_current_mismatches>=2 or
+                                 (sentinel is not None and sentinel.alarm and
+                                  sentinel.observed_mismatch>=0.43))
+                if broadly_changed:
+                    meta_cold_deep=True
+                    meta_reason="widespread_observed_disagreement"
+                    candidate,observations,deep_steps,checks=deep_investigate(
+                        world,observations,budget)
+                else:
+                    meta_reason="bounded_local_strategy_repair"
+                    candidate,observations,repair_patches,checks,fell_back=residual_repair(
+                        world,memory,observations,budget,
+                        alternatives=bank.alternatives(context,world.variables))
+                    repair_used=not fell_back
+            elif mode=="gated_residual" and memory is not None and calibration.trusted:
                 candidate,observations,repair_patches,checks,fell_back=residual_repair(
                     world,memory,observations,budget,alternatives=bank.alternatives(context,world.variables))
                 repair_used=not fell_back
@@ -423,6 +445,8 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
                 for s in unseen) if candidate is not None else 0
     return {
         "route":"fast" if fast_used else ("repair" if repair_used else "deep"),
+        "metaChoseColdDeep":meta_cold_deep,
+        "metaReason":meta_reason,
         "residualExceptions":repair_patches,
         "fullAccuracy":accuracy,
         "exact":accuracy==1.0,
@@ -431,7 +455,7 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
         "deepSteps":deep_steps,
         "candidateChecksProxy":checks,
         "latencyMs":elapsed,
-        "confidence":calibration.confidence if fast_used and mode in ("gated","gated_drift_aware","gated_residual") else None,
+        "confidence":calibration.confidence if fast_used and mode in ("gated","gated_drift_aware","gated_residual","gated_meta") else None,
         "falseFamiliarity":fast_used and accuracy!=1.0,
         "contradictionRoutedDeep":contradicted and not fast_used,
         "monitorAlarmBefore":alarm_before,
@@ -460,12 +484,13 @@ def reliability(results):
 def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,change_points=1,change_style="sparse"):
     bank=build_bank(seed=19)
     calibration=calibrate(bank,seed=811,count=800,shift_probability=0.18)
-    rows={mode:[] for mode in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual")}
+    rows={mode:[] for mode in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual","gated_meta")}
     grouped={mode:defaultdict(list) for mode in rows}
     sentinel_summaries=[]
     for seed in seeds:
         monitors={"gated_drift_aware":DriftSentinel(calibration.mismatch_rate),
-                  "gated_residual":DriftSentinel(calibration.mismatch_rate)}
+                  "gated_residual":DriftSentinel(calibration.mismatch_rate),
+                  "gated_meta":DriftSentinel(calibration.mismatch_rate)}
         for index in range(count_per_seed):
             # Fresh world per mode. Identical hidden generator inputs, no outcome
             # or agent state transfer across arms.
@@ -494,6 +519,7 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,chang
             "monitorForcedDeep":sum(r["monitorForcedDeep"] for r in part),
             "monitorForcedInvestigation":sum(r["monitorForcedInvestigation"] for r in part),
             "residualRepairRoutes":sum(r["route"]=="repair" for r in part),
+            "metaColdDeepRoutes":sum(r["metaChoseColdDeep"] for r in part),
             "residualExceptionCount":sum(r["residualExceptions"] for r in part),
             "confidenceCalibration":reliability(part),
             "modelCalls":0,
@@ -526,6 +552,8 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,chang
                 for a,b in zip(rows["gated_drift_aware"],rows["gated_residual"]))/len(rows["gated_residual"]),5),
             "residualReducedFalseFamiliarity":sum(r["falseFamiliarity"] for r in rows["gated"])-
                 sum(r["falseFamiliarity"] for r in rows["gated_residual"]),
+            "metaVsRepairUnseenDelta":round(sum(a["unseenAccuracy"]-b["unseenAccuracy"]
+                for b,a in zip(rows["gated_residual"],rows["gated_meta"]))/len(rows["gated_meta"]),5),
         },
         "safety":{"noProductionData":True,"noExternalActions":True,
                   "persistentCausalMemory":"DISABLED","realQwenInference":False},
