@@ -1,0 +1,1653 @@
+{
+ "commit": "d3f0eaa8fa1a4e9166943766345a064d4616195f",
+ "curriculum": {
+  "arms": {
+   "adaptive": {
+    "coverage": {
+     "distinct_template_lineages": 35,
+     "family_share": {
+      "field_blocker": 0.2639,
+      "scope_approval": 0.25,
+      "supplier_shock": 0.2292,
+      "working_capital": 0.2569
+     },
+     "rejected_invalid": 12,
+     "scenarios": 144
+    },
+    "curve": [
+     {
+      "by_family": {
+       "field_blocker": 0.07253,
+       "scope_approval": 0.07892,
+       "supplier_shock": 0.06436,
+       "working_capital": 0.06405
+      },
+      "dev_check_brier": 0.07026,
+      "examples": 639,
+      "simulator_steps": 3933
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.07506,
+       "scope_approval": 0.06059,
+       "supplier_shock": 0.05779,
+       "working_capital": 0.04915
+      },
+      "dev_check_brier": 0.06059,
+      "examples": 1426,
+      "simulator_steps": 8034
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.06247,
+       "scope_approval": 0.05935,
+       "supplier_shock": 0.04983,
+       "working_capital": 0.05432
+      },
+      "dev_check_brier": 0.05658,
+      "examples": 2104,
+      "simulator_steps": 11982
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.0551,
+       "scope_approval": 0.05213,
+       "supplier_shock": 0.04307,
+       "working_capital": 0.05429
+      },
+      "dev_check_brier": 0.0512,
+      "examples": 2780,
+      "simulator_steps": 15903
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.05493,
+       "scope_approval": 0.05265,
+       "supplier_shock": 0.04335,
+       "working_capital": 0.05355
+      },
+      "dev_check_brier": 0.05118,
+      "examples": 3555,
+      "simulator_steps": 19956
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.05094,
+       "scope_approval": 0.05024,
+       "supplier_shock": 0.04029,
+       "working_capital": 0.04896
+      },
+      "dev_check_brier": 0.04771,
+      "examples": 4226,
+      "simulator_steps": 23904
+     }
+    ],
+    "proposals_sample": [
+     {
+      "allowed_interventions": [
+       "fixed_strategy_rollouts",
+       "random_order_actions"
+      ],
+      "causal_mechanism": [
+       "cash_constraint",
+       "supplier_delay"
+      ],
+      "current_uncertainty": 1.0,
+      "difficulty": 2,
+      "estimated_simulation_cost": 186,
+      "expected_information_gain": 1.0,
+      "family": "supplier_shock",
+      "hypothesis": "the current world model mispredicts outcomes in supplier_shock scenarios",
+      "novelty": 1.0,
+      "pool_index": 1000,
+      "target_capability": "plan around late material deliveries",
+      "verification_method": "simulator_receipts_and_end_of_episode_truth"
+     },
+     {
+      "allowed_interventions": [
+       "fixed_strategy_rollouts",
+       "random_order_actions"
+      ],
+      "causal_mechanism": [
+       "cash_constraint",
+       "supplier_delay"
+      ],
+      "current_uncertainty": 1.0,
+      "difficulty": 3,
+      "estimated_simulation_cost": 150,
+      "expected_information_gain": 1.0,
+      "family": "supplier_shock",
+      "hypothesis": "the current world model mispredicts outcomes in supplier_shock scenarios",
+      "novelty": 1.0,
+      "pool_index": 1001,
+      "target_capability": "plan around late material deliveries",
+      "verification_method": "simulator_receipts_and_end_of_episode_truth"
+     },
+     {
+      "allowed_interventions": [
+       "fixed_strategy_rollouts",
+       "random_order_actions"
+      ],
+      "causal_mechanism": [
+       "cash_constraint",
+       "supplier_delay"
+      ],
+      "current_uncertainty": 1.0,
+      "difficulty": 1,
+      "estimated_simulation_cost": 180,
+      "expected_information_gain": 1.0,
+      "family": "supplier_shock",
+      "hypothesis": "the current world model mispredicts outcomes in supplier_shock scenarios",
+      "novelty": 1.0,
+      "pool_index": 1002,
+      "target_capability": "plan around late material deliveries",
+      "verification_method": "simulator_receipts_and_end_of_episode_truth"
+     }
+    ],
+    "rejected_invalid": [
+     {
+      "family": "field_blocker",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1154"
+     },
+     {
+      "family": "supplier_shock",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1010"
+     },
+     {
+      "family": "field_blocker",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1163"
+     },
+     {
+      "family": "scope_approval",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1307"
+     },
+     {
+      "family": "scope_approval",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1316"
+     }
+    ]
+   },
+   "uniform": {
+    "coverage": {
+     "distinct_template_lineages": 35,
+     "family_share": {
+      "field_blocker": 0.25,
+      "scope_approval": 0.25,
+      "supplier_shock": 0.25,
+      "working_capital": 0.25
+     },
+     "rejected_invalid": 11,
+     "scenarios": 144
+    },
+    "curve": [
+     {
+      "by_family": {
+       "field_blocker": 0.07253,
+       "scope_approval": 0.07892,
+       "supplier_shock": 0.06436,
+       "working_capital": 0.06405
+      },
+      "dev_check_brier": 0.07026,
+      "examples": 639,
+      "simulator_steps": 3933
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.07864,
+       "scope_approval": 0.06598,
+       "supplier_shock": 0.06749,
+       "working_capital": 0.05677
+      },
+      "dev_check_brier": 0.06712,
+      "examples": 1410,
+      "simulator_steps": 7986
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.06329,
+       "scope_approval": 0.06103,
+       "supplier_shock": 0.04838,
+       "working_capital": 0.05369
+      },
+      "dev_check_brier": 0.05674,
+      "examples": 2121,
+      "simulator_steps": 11988
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.05788,
+       "scope_approval": 0.05735,
+       "supplier_shock": 0.0459,
+       "working_capital": 0.0595
+      },
+      "dev_check_brier": 0.05525,
+      "examples": 2759,
+      "simulator_steps": 15888
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.05437,
+       "scope_approval": 0.0522,
+       "supplier_shock": 0.03792,
+       "working_capital": 0.04556
+      },
+      "dev_check_brier": 0.04767,
+      "examples": 3517,
+      "simulator_steps": 19914
+     },
+     {
+      "by_family": {
+       "field_blocker": 0.05369,
+       "scope_approval": 0.05239,
+       "supplier_shock": 0.03927,
+       "working_capital": 0.04645
+      },
+      "dev_check_brier": 0.0481,
+      "examples": 4252,
+      "simulator_steps": 23925
+     }
+    ],
+    "proposals_sample": [
+     {
+      "allowed_interventions": [
+       "fixed_strategy_rollouts",
+       "random_order_actions"
+      ],
+      "causal_mechanism": [
+       "cash_constraint",
+       "supplier_delay"
+      ],
+      "current_uncertainty": 1.0,
+      "difficulty": 2,
+      "estimated_simulation_cost": 186,
+      "expected_information_gain": 1.0,
+      "family": "supplier_shock",
+      "hypothesis": "the current world model mispredicts outcomes in supplier_shock scenarios",
+      "novelty": 1.0,
+      "pool_index": 1000,
+      "target_capability": "plan around late material deliveries",
+      "verification_method": "simulator_receipts_and_end_of_episode_truth"
+     },
+     {
+      "allowed_interventions": [
+       "fixed_strategy_rollouts",
+       "random_order_actions"
+      ],
+      "causal_mechanism": [
+       "cash_constraint",
+       "supplier_delay"
+      ],
+      "current_uncertainty": 1.0,
+      "difficulty": 3,
+      "estimated_simulation_cost": 150,
+      "expected_information_gain": 1.0,
+      "family": "supplier_shock",
+      "hypothesis": "the current world model mispredicts outcomes in supplier_shock scenarios",
+      "novelty": 1.0,
+      "pool_index": 1001,
+      "target_capability": "plan around late material deliveries",
+      "verification_method": "simulator_receipts_and_end_of_episode_truth"
+     },
+     {
+      "allowed_interventions": [
+       "fixed_strategy_rollouts",
+       "random_order_actions"
+      ],
+      "causal_mechanism": [
+       "cash_constraint",
+       "supplier_delay"
+      ],
+      "current_uncertainty": 1.0,
+      "difficulty": 1,
+      "estimated_simulation_cost": 180,
+      "expected_information_gain": 1.0,
+      "family": "supplier_shock",
+      "hypothesis": "the current world model mispredicts outcomes in supplier_shock scenarios",
+      "novelty": 1.0,
+      "pool_index": 1002,
+      "target_capability": "plan around late material deliveries",
+      "verification_method": "simulator_receipts_and_end_of_episode_truth"
+     }
+    ],
+    "rejected_invalid": [
+     {
+      "family": "field_blocker",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1154"
+     },
+     {
+      "family": "supplier_shock",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1010"
+     },
+     {
+      "family": "scope_approval",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1307"
+     },
+     {
+      "family": "field_blocker",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1163"
+     },
+     {
+      "family": "scope_approval",
+      "reason": "impossible_no_strategy_can_succeed",
+      "scenario_id": "GML-train-1316"
+     }
+    ]
+   }
+  },
+  "evaluated_on": "development-only check scenarios",
+  "final_relative_brier_gain_adaptive_vs_uniform": 0.0081,
+  "mean_brier_over_rounds": {
+   "adaptive": 0.05625,
+   "uniform": 0.05752
+  },
+  "seconds": 23.09,
+  "simulator_steps": {
+   "adaptive": 23904,
+   "uniform": 23925
+  },
+  "single_run_no_interval": true,
+  "stage": "curriculum",
+  "stage_key": "4d42df8006671ec0770a6b3ac117023428a84da51ea70bd325a1d0f22bb3699f",
+  "threshold": 0.05,
+  "verdict": "INCONCLUSIVE"
+ },
+ "datasets": {
+  "datasets": {
+   "preference": {
+    "data_permissions": "synthetic_public_research",
+    "dataset_id": "policy-preference-1cddf30b80e3e87b",
+    "examples": 917,
+    "families": [
+     "field_blocker",
+     "scope_approval",
+     "supplier_shock",
+     "working_capital"
+    ],
+    "gml_version": "gml-01.0",
+    "kind": "policy-preference",
+    "parents": [
+     "policy-sft-20ae18a160491f49"
+    ],
+    "partition": "train",
+    "path": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/datasets/policy-preference-1cddf30b80e3e87b",
+    "prompt_version": "gml-strategy-prompt/1",
+    "report": {
+     "duplicates_removed": 0,
+     "excluded": {
+      "no_verified_receipt": 5
+     },
+     "preference_pairs": 917,
+     "sft_examples": 235,
+     "trajectories": 240
+    },
+    "scenario_ids_hash": "fb96cf8907eeaa0a7b8dcbfa2fb0c94d6d003a98aa9f6109470e8aa826a846f7",
+    "schema": "GenesisDatasetManifest/1",
+    "sha256": "1cddf30b80e3e87b358cb84f78c538cfbe794c5e244639fd8dff932f682d45b6",
+    "template_lineages": [
+     "field_blocker.d1.n0.j4",
+     "field_blocker.d1.n1.j2",
+     "field_blocker.d1.n2.j3",
+     "field_blocker.d2.n0.j2",
+     "field_blocker.d2.n1.j3",
+     "field_blocker.d2.n2.j4",
+     "field_blocker.d3.n0.j3",
+     "field_blocker.d3.n1.j4",
+     "field_blocker.d3.n2.j2",
+     "scope_approval.d1.n0.j2",
+     "scope_approval.d1.n1.j3",
+     "scope_approval.d1.n2.j4",
+     "scope_approval.d2.n0.j3",
+     "scope_approval.d2.n1.j4",
+     "scope_approval.d2.n2.j2",
+     "scope_approval.d3.n0.j4",
+     "scope_approval.d3.n1.j2",
+     "scope_approval.d3.n2.j3",
+     "supplier_shock.d1.n0.j3",
+     "supplier_shock.d1.n1.j4",
+     "supplier_shock.d1.n2.j2",
+     "supplier_shock.d2.n0.j4",
+     "supplier_shock.d2.n1.j2",
+     "supplier_shock.d2.n2.j3",
+     "supplier_shock.d3.n0.j2",
+     "supplier_shock.d3.n1.j3",
+     "supplier_shock.d3.n2.j4",
+     "working_capital.d1.n0.j3",
+     "working_capital.d1.n1.j4",
+     "working_capital.d1.n2.j2",
+     "working_capital.d2.n0.j4",
+     "working_capital.d2.n1.j2",
+     "working_capital.d2.n2.j3",
+     "working_capital.d3.n0.j2",
+     "working_capital.d3.n1.j3",
+     "working_capital.d3.n2.j4"
+    ],
+    "world_version": "causal-business-v23"
+   },
+   "sft": {
+    "data_permissions": "synthetic_public_research",
+    "dataset_id": "policy-sft-20ae18a160491f49",
+    "examples": 235,
+    "families": [
+     "field_blocker",
+     "scope_approval",
+     "supplier_shock",
+     "working_capital"
+    ],
+    "gml_version": "gml-01.0",
+    "kind": "policy-sft",
+    "parents": [],
+    "partition": "train",
+    "path": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/datasets/policy-sft-20ae18a160491f49",
+    "prompt_version": "gml-strategy-prompt/1",
+    "report": {
+     "duplicates_removed": 0,
+     "excluded": {
+      "no_verified_receipt": 5
+     },
+     "preference_pairs": 917,
+     "sft_examples": 235,
+     "trajectories": 240
+    },
+    "scenario_ids_hash": "fb96cf8907eeaa0a7b8dcbfa2fb0c94d6d003a98aa9f6109470e8aa826a846f7",
+    "schema": "GenesisDatasetManifest/1",
+    "sha256": "20ae18a160491f497b3ecb79baacc4e2af0da38723a526cee7f88869b08cb24e",
+    "template_lineages": [
+     "field_blocker.d1.n0.j4",
+     "field_blocker.d1.n1.j2",
+     "field_blocker.d1.n2.j3",
+     "field_blocker.d2.n0.j2",
+     "field_blocker.d2.n1.j3",
+     "field_blocker.d2.n2.j4",
+     "field_blocker.d3.n0.j3",
+     "field_blocker.d3.n1.j4",
+     "field_blocker.d3.n2.j2",
+     "scope_approval.d1.n0.j2",
+     "scope_approval.d1.n1.j3",
+     "scope_approval.d1.n2.j4",
+     "scope_approval.d2.n0.j3",
+     "scope_approval.d2.n1.j4",
+     "scope_approval.d2.n2.j2",
+     "scope_approval.d3.n0.j4",
+     "scope_approval.d3.n1.j2",
+     "scope_approval.d3.n2.j3",
+     "supplier_shock.d1.n0.j3",
+     "supplier_shock.d1.n1.j4",
+     "supplier_shock.d1.n2.j2",
+     "supplier_shock.d2.n0.j4",
+     "supplier_shock.d2.n1.j2",
+     "supplier_shock.d2.n2.j3",
+     "supplier_shock.d3.n0.j2",
+     "supplier_shock.d3.n1.j3",
+     "supplier_shock.d3.n2.j4",
+     "working_capital.d1.n0.j3",
+     "working_capital.d1.n1.j4",
+     "working_capital.d1.n2.j2",
+     "working_capital.d2.n0.j4",
+     "working_capital.d2.n1.j2",
+     "working_capital.d2.n2.j3",
+     "working_capital.d3.n0.j2",
+     "working_capital.d3.n1.j3",
+     "working_capital.d3.n2.j4"
+    ],
+    "world_version": "causal-business-v23"
+   },
+   "transitions": {
+    "data_permissions": "synthetic_public_research",
+    "dataset_id": "transitions-c9caef52bca2b4e7",
+    "examples": 7231,
+    "families": [
+     "field_blocker",
+     "scope_approval",
+     "supplier_shock",
+     "working_capital"
+    ],
+    "gml_version": "gml-01.0",
+    "kind": "transitions",
+    "parents": [],
+    "partition": "train",
+    "path": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/datasets/transitions-c9caef52bca2b4e7",
+    "prompt_version": "gml-strategy-prompt/1",
+    "report": {
+     "censored_job_outcomes_masked": 0,
+     "duplicates_removed": 2287,
+     "examples": 7231,
+     "leaky_dropped": 0,
+     "rows": 9518
+    },
+    "scenario_ids_hash": "4d617d29172f6703a6cfa82e9d218c2c9b0863804173d686aadccc1475714fa6",
+    "schema": "GenesisDatasetManifest/1",
+    "sha256": "c9caef52bca2b4e73f7834426fcd6475fb429ee1ac3b16ec78d74c83b09c770f",
+    "template_lineages": [
+     "field_blocker.d1.n0.j4",
+     "field_blocker.d1.n1.j2",
+     "field_blocker.d1.n2.j3",
+     "field_blocker.d2.n0.j2",
+     "field_blocker.d2.n1.j3",
+     "field_blocker.d2.n2.j4",
+     "field_blocker.d3.n0.j3",
+     "field_blocker.d3.n1.j4",
+     "field_blocker.d3.n2.j2",
+     "scope_approval.d1.n0.j2",
+     "scope_approval.d1.n1.j3",
+     "scope_approval.d1.n2.j4",
+     "scope_approval.d2.n0.j3",
+     "scope_approval.d2.n1.j4",
+     "scope_approval.d2.n2.j2",
+     "scope_approval.d3.n0.j4",
+     "scope_approval.d3.n1.j2",
+     "scope_approval.d3.n2.j3",
+     "supplier_shock.d1.n0.j3",
+     "supplier_shock.d1.n1.j4",
+     "supplier_shock.d1.n2.j2",
+     "supplier_shock.d2.n0.j4",
+     "supplier_shock.d2.n1.j2",
+     "supplier_shock.d2.n2.j3",
+     "supplier_shock.d3.n0.j2",
+     "supplier_shock.d3.n1.j3",
+     "supplier_shock.d3.n2.j4",
+     "working_capital.d1.n0.j3",
+     "working_capital.d1.n1.j4",
+     "working_capital.d1.n2.j2",
+     "working_capital.d2.n0.j4",
+     "working_capital.d2.n1.j2",
+     "working_capital.d2.n2.j3",
+     "working_capital.d3.n0.j2",
+     "working_capital.d3.n1.j3",
+     "working_capital.d3.n2.j4"
+    ],
+    "world_version": "causal-business-v23"
+   }
+  },
+  "efficiency": {
+   "simulated_episodes": 1680,
+   "simulated_steps": 92400,
+   "useful_verified_experiences_per_1000_simulations": 4444.0
+  },
+  "preference_labels_validated": false,
+  "preference_note": "pairs come from exact same-world counterfactual rollouts with a value margin; not yet used for training",
+  "scenarios": 240,
+  "seconds": 3.76,
+  "stage": "datasets",
+  "stage_key": "6dff15188ce5f6fc88fe6c342693ee0563cc31d66211d46d4d0ce02316e4021f",
+  "trajectories": 240,
+  "trajectories_sha256": "e56e4b6a721d9d2db0b0390ab374eb3ee277dd5e2e952c5cdbd3de6b22a9986a"
+ },
+ "policy": {
+  "backend": "fixture",
+  "base_model": "gml-fixture-tiny-gpt2",
+  "comparisons": {
+   "adversarial": {
+    "trained_vs_base": {
+     "better": 0,
+     "cases": 60,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "base",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    },
+    "trained_vs_constant_risk_averse": {
+     "better": 0,
+     "cases": 60,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "constant_risk_averse",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    }
+   },
+   "protected_test": {
+    "trained_vs_base": {
+     "better": 0,
+     "cases": 120,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "base",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    },
+    "trained_vs_base_with_counterfactual_trials": {
+     "better": 0,
+     "cases": 120,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "base_with_counterfactual_trials",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    },
+    "trained_vs_base_with_memory": {
+     "better": 0,
+     "cases": 120,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "base_with_memory",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    },
+    "trained_vs_constant_risk_averse": {
+     "better": 0,
+     "cases": 120,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "constant_risk_averse",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    },
+    "trained_with_memory_vs_base_with_memory": {
+     "better": 0,
+     "cases": 120,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained_with_memory",
+     "second": "base_with_memory",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    }
+   },
+   "public_validation": {
+    "trained_vs_base": {
+     "better": 0,
+     "cases": 60,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "base",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    },
+    "trained_vs_constant_risk_averse": {
+     "better": 0,
+     "cases": 60,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "denied_delta": 0,
+     "first": "trained",
+     "second": "constant_risk_averse",
+     "success_rate_delta": 0.0,
+     "worse": 0
+    }
+   }
+  },
+  "contamination": {
+   "checked_examples": 235,
+   "contaminated": 0,
+   "evaluation_scenarios": 240,
+   "examples": [],
+   "seeds_checked": 240
+  },
+  "evaluation": {
+   "adversarial": {
+    "base": {
+     "cases": 60,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 60
+     },
+     "denied_actions": 21,
+     "invalid_outputs": 0,
+     "mean_regret": 530.93,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 111,
+     "possible_jobs": 180,
+     "success_rate": 0.6167,
+     "successes": 37
+    },
+    "constant_risk_averse": {
+     "cases": 60,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 60
+     },
+     "denied_actions": 21,
+     "invalid_outputs": 0,
+     "mean_regret": 530.93,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 111,
+     "possible_jobs": 180,
+     "success_rate": 0.6167,
+     "successes": 37
+    },
+    "trained": {
+     "cases": 60,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 60
+     },
+     "denied_actions": 21,
+     "invalid_outputs": 0,
+     "mean_regret": 530.93,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 111,
+     "possible_jobs": 180,
+     "success_rate": 0.6167,
+     "successes": 37
+    }
+   },
+   "protected_test": {
+    "base": {
+     "cases": 120,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 120
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 120.21,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 272,
+     "possible_jobs": 360,
+     "success_rate": 0.8,
+     "successes": 96
+    },
+    "base_with_counterfactual_trials": {
+     "cases": 120,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 120
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 120.21,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 272,
+     "possible_jobs": 360,
+     "success_rate": 0.8,
+     "successes": 96
+    },
+    "base_with_memory": {
+     "cases": 120,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 120
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 120.21,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 272,
+     "possible_jobs": 360,
+     "success_rate": 0.8,
+     "successes": 96
+    },
+    "constant_risk_averse": {
+     "cases": 120,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 120
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 120.21,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 272,
+     "possible_jobs": 360,
+     "success_rate": 0.8,
+     "successes": 96
+    },
+    "trained": {
+     "cases": 120,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 120
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 120.21,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 272,
+     "possible_jobs": 360,
+     "success_rate": 0.8,
+     "successes": 96
+    },
+    "trained_with_memory": {
+     "cases": 120,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 120
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 120.21,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 272,
+     "possible_jobs": 360,
+     "success_rate": 0.8,
+     "successes": 96
+    }
+   },
+   "public_validation": {
+    "base": {
+     "cases": 60,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 60
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 83.78,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 161,
+     "possible_jobs": 180,
+     "success_rate": 0.8,
+     "successes": 48
+    },
+    "constant_risk_averse": {
+     "cases": 60,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 60
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 83.78,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 161,
+     "possible_jobs": 180,
+     "success_rate": 0.8,
+     "successes": 48
+    },
+    "trained": {
+     "cases": 60,
+     "choices": {
+      "cash_first": 0,
+      "deadline_first": 0,
+      "no_action": 0,
+      "risk_averse": 60
+     },
+     "denied_actions": 0,
+     "invalid_outputs": 0,
+     "mean_regret": 83.78,
+     "missed_opportunity_by_inaction": 0,
+     "paid_jobs": 161,
+     "possible_jobs": 180,
+     "success_rate": 0.8,
+     "successes": 48
+    }
+   }
+  },
+  "headline": {
+   "base": 0.8,
+   "base_with_counterfactual_trials": 0.8,
+   "base_with_memory": 0.8,
+   "constant_risk_averse": 0.8,
+   "trained": 0.8,
+   "trained_with_memory": 0.8
+  },
+  "inference_tokens": {
+   "base": 2400,
+   "trained": 1800
+  },
+  "is_fixture_not_a_real_language_model": true,
+  "model_id": "policy-20ae18a160",
+  "protected_test_seen_before": false,
+  "seconds": 5.58,
+  "stage": "policy-fixture",
+  "stage_key": "75abe52219bc372aec5f7557382d28a5c405e24224feec70529d4c8c4a787c09",
+  "status": "COMPLETED",
+  "successful_tasks_per_1000_inference_tokens": {
+   "trained": 100.5556
+  },
+  "training": {
+   "adapter_changes_outputs": true,
+   "adapter_files": {
+    "README.md": "43ab6fca8aaf287f2ffeadf06d1adc927ba15b6920488c06dc03aa3cea6a277d",
+    "adapter_config.json": "affd54b17e6b51b7029adbdfa2340439ce264dd80bfba2f6c429d98cd5f5061a",
+    "adapter_model.safetensors": "2ce094f9922e0033698c1354168759a92e83fe07ea34f2b239951ddd936e9ab6"
+   },
+   "algorithm": "sft",
+   "approx_training_tokens": 2115,
+   "base_model": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/fixture-base",
+   "base_revision": "local",
+   "config": {
+    "algorithm": "sft",
+    "alpha": 16,
+    "base_model": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/fixture-base",
+    "batch_size": 4,
+    "dropout": 0.05,
+    "epochs": 3.0,
+    "extra": {},
+    "lr": 0.005,
+    "max_length": 512,
+    "max_steps": 0,
+    "max_wall_seconds": 2400,
+    "rank": 8,
+    "revision": null,
+    "seed": 0,
+    "target_modules": [],
+    "threads": 4
+   },
+   "cpu_count": 4,
+   "dataset_id": "policy-sft-20ae18a160491f49",
+   "dataset_sha256": "20ae18a160491f497b3ecb79baacc4e2af0da38723a526cee7f88869b08cb24e",
+   "device": "cpu",
+   "examples": 235,
+   "loss_first": 5.61387,
+   "loss_last_mean_5": 4.79243,
+   "losses": [
+    5.61387,
+    5.55033,
+    5.50413,
+    5.42431,
+    5.29321,
+    5.28366,
+    5.28298,
+    5.20137,
+    5.07326,
+    5.10635,
+    5.02903,
+    5.00051,
+    4.97393,
+    4.94058,
+    5.13052,
+    4.88612,
+    4.94993,
+    4.86052,
+    4.97923,
+    5.05204,
+    4.83763,
+    4.83546,
+    4.94028,
+    4.82635,
+    4.91748,
+    4.94874,
+    4.81777,
+    4.94977,
+    4.88249,
+    4.7938,
+    4.93318,
+    4.85897,
+    4.89533,
+    4.77422,
+    4.86356,
+    4.86634,
+    4.72492,
+    4.74694,
+    4.74005,
+    4.86583,
+    4.94352,
+    4.78261,
+    4.83324,
+    4.71611,
+    4.74461,
+    4.87955,
+    4.75529,
+    4.82574,
+    4.88048,
+    4.79843,
+    4.74014,
+    4.86472,
+    4.92571,
+    4.84393,
+    4.85639,
+    4.71572,
+    4.78349,
+    4.6953,
+    4.90532,
+    4.78555,
+    4.80959,
+    4.70785,
+    4.72874,
+    4.70102,
+    4.75892,
+    4.93721,
+    4.79492,
+    4.72318,
+    4.7765,
+    4.8336,
+    4.87827,
+    4.80983,
+    4.8879,
+    4.81901,
+    4.84291,
+    4.79727,
+    4.67107,
+    4.81638,
+    4.70723,
+    4.70233,
+    4.7975,
+    4.77436,
+    4.9518,
+    4.94541,
+    4.72228,
+    4.84427,
+    4.75846,
+    4.71435,
+    4.70912,
+    4.69512,
+    4.73144,
+    4.74501,
+    4.87171,
+    4.82539,
+    4.67537,
+    4.66449,
+    4.70776,
+    4.85696,
+    4.88058,
+    4.69091,
+    4.773,
+    4.83057,
+    4.70455,
+    4.85068,
+    4.76151,
+    4.78338,
+    4.83049,
+    4.76746,
+    4.90513,
+    4.70766,
+    4.88336,
+    4.75084,
+    4.80595,
+    4.75546,
+    4.8071,
+    4.73681,
+    4.82077,
+    4.76301,
+    4.82178,
+    4.88414,
+    4.76432,
+    4.7808,
+    4.77811,
+    4.77178,
+    4.86717,
+    4.72903,
+    4.81983,
+    4.70146,
+    4.7775,
+    4.69461,
+    4.79839,
+    4.6836,
+    4.68024,
+    4.72139,
+    4.81962,
+    4.772,
+    4.68819,
+    4.88324,
+    4.82609,
+    4.70502,
+    4.86773,
+    4.88158,
+    4.72819,
+    4.73976,
+    4.75482,
+    4.80345,
+    4.90051,
+    4.75539,
+    4.73961,
+    4.69075,
+    4.70184,
+    4.68791,
+    4.88568,
+    4.806,
+    4.67416,
+    4.89142,
+    4.81336,
+    4.7363,
+    4.7806,
+    4.77661,
+    4.78899,
+    4.70433,
+    4.83851,
+    4.73073,
+    4.92347,
+    4.78146,
+    4.8559,
+    4.79278,
+    4.7728,
+    4.84887,
+    4.84257,
+    4.69499,
+    4.74807,
+    4.88762,
+    4.78441,
+    4.77068,
+    4.77139
+   ],
+   "parameter_delta_l2": 4.903776,
+   "parameters_changed": true,
+   "peak_rss_mb": 771.1,
+   "reload_max_logprob_gap": 0.0,
+   "reload_reproduces_trained_model": true,
+   "reloaded_vs_base_max_logprob_shift": 0.866748,
+   "schema": "GenesisAdapterManifest/1",
+   "steps": 177,
+   "stopped": "completed",
+   "tokenizer_revision": "local",
+   "torch_version": "2.15.0+cu132",
+   "trainable_parameters": 3072,
+   "training_verified": true,
+   "wall_seconds": 0.8
+  },
+  "verdict": {
+   "adds_value_over_constant_policy": false,
+   "always_same_choice": true,
+   "authority_version": "gml-authority/1.0",
+   "auto_promoted": false,
+   "base": "base",
+   "blockers": [
+    "fixture model: mechanics only, not evidence of learning"
+   ],
+   "candidate": "trained",
+   "human_approval_required": true,
+   "issued_by": "gml-evaluation-authority",
+   "protected_test": {
+    "better": 0,
+    "cases": 120,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "denied_delta": 0,
+    "first": "trained",
+    "second": "base",
+    "success_rate_delta": 0.0,
+    "worse": 0
+   },
+   "retention_public_validation": {
+    "better": 0,
+    "cases": 60,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "denied_delta": 0,
+    "first": "trained",
+    "second": "base",
+    "success_rate_delta": 0.0,
+    "worse": 0
+   },
+   "reused_protected_test": false,
+   "threshold": 0.08,
+   "verdict": "INCONCLUSIVE",
+   "versus_best_constant_policy": {
+    "better": 0,
+    "cases": 120,
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "denied_delta": 0,
+    "first": "trained",
+    "second": "constant_risk_averse",
+    "success_rate_delta": 0.0,
+    "worse": 0
+   }
+  }
+ },
+ "world-model": {
+  "evaluation": {
+   "adversarial": {
+    "delivered_within_4": {
+     "constant": {
+      "base_rate": 0.461,
+      "brier": 0.45516,
+      "ece": 0.45462,
+      "log_loss": 1.37343,
+      "n": 308
+     },
+     "heuristic": {
+      "base_rate": 0.461,
+      "brier": 0.45516,
+      "ece": 0.45462,
+      "log_loss": 1.37343,
+      "n": 308
+     },
+     "learned": {
+      "base_rate": 0.461,
+      "brier": 0.49111,
+      "ece": 0.48721,
+      "log_loss": 2.12992,
+      "n": 308
+     },
+     "untrained": {
+      "base_rate": 0.461,
+      "brier": 0.24778,
+      "ece": 0.00237,
+      "log_loss": 0.68747,
+      "n": 308
+     }
+    },
+    "denied": {
+     "constant": {
+      "base_rate": 0.0094,
+      "brier": 0.0094,
+      "ece": 0.0094,
+      "log_loss": 0.1299,
+      "n": 1808
+     },
+     "heuristic": {
+      "base_rate": 0.0094,
+      "brier": 0.0094,
+      "ece": 0.0094,
+      "log_loss": 0.1299,
+      "n": 1808
+     },
+     "learned": {
+      "base_rate": 0.0094,
+      "brier": 0.0094,
+      "ece": 0.00934,
+      "log_loss": 0.11146,
+      "n": 1808
+     },
+     "untrained": {
+      "base_rate": 0.0094,
+      "brier": 0.29808,
+      "ece": 0.53102,
+      "log_loss": 1.01954,
+      "n": 1808
+     }
+    },
+    "examples": 1808,
+    "intervention_sensitivity": {
+     "accuracy": 0.7222,
+     "model_ranked_correctly": 26,
+     "pairs": 100,
+     "pairs_with_different_outcomes": 36
+    },
+    "job_paid": {
+     "constant": {
+      "base_rate": 0.68,
+      "brier": 0.25563,
+      "ece": 0.19498,
+      "log_loss": 0.75619,
+      "n": 1003
+     },
+     "heuristic": {
+      "base_rate": 0.68,
+      "brier": 0.22943,
+      "ece": 0.15349,
+      "log_loss": 0.6553,
+      "n": 1003
+     },
+     "learned": {
+      "base_rate": 0.68,
+      "brier": 0.17017,
+      "ece": 0.13173,
+      "log_loss": 0.76992,
+      "n": 1003
+     },
+     "untrained": {
+      "base_rate": 0.68,
+      "brier": 0.24739,
+      "ece": 0.18915,
+      "log_loss": 0.84341,
+      "n": 1003
+     }
+    },
+    "mean_ensemble_disagreement": 0.07252
+   },
+   "protected_test": {
+    "delivered_within_4": {
+     "constant": {
+      "base_rate": 0.425,
+      "brier": 0.48509,
+      "ece": 0.49062,
+      "log_loss": 1.45928,
+      "n": 567
+     },
+     "heuristic": {
+      "base_rate": 0.425,
+      "brier": 0.48509,
+      "ece": 0.49062,
+      "log_loss": 1.45928,
+      "n": 567
+     },
+     "learned": {
+      "base_rate": 0.425,
+      "brier": 0.50024,
+      "ece": 0.50075,
+      "log_loss": 2.52256,
+      "n": 567
+     },
+     "untrained": {
+      "base_rate": 0.425,
+      "brier": 0.24267,
+      "ece": 0.03147,
+      "log_loss": 0.69664,
+      "n": 567
+     }
+    },
+    "denied": {
+     "constant": {
+      "base_rate": 0.0,
+      "brier": 0.0,
+      "ece": 0.0,
+      "log_loss": 0.0,
+      "n": 3523
+     },
+     "heuristic": {
+      "base_rate": 0.0,
+      "brier": 0.0,
+      "ece": 0.0,
+      "log_loss": 0.0,
+      "n": 3523
+     },
+     "learned": {
+      "base_rate": 0.0,
+      "brier": 0.0,
+      "ece": 7e-05,
+      "log_loss": 7e-05,
+      "n": 3523
+     },
+     "untrained": {
+      "base_rate": 0.0,
+      "brier": 0.30162,
+      "ece": 0.54313,
+      "log_loss": 1.0429,
+      "n": 3523
+     }
+    },
+    "examples": 3523,
+    "intervention_sensitivity": {
+     "accuracy": 0.7344,
+     "model_ranked_correctly": 47,
+     "pairs": 204,
+     "pairs_with_different_outcomes": 64
+    },
+    "job_paid": {
+     "constant": {
+      "base_rate": 0.6538,
+      "brier": 0.27525,
+      "ece": 0.22114,
+      "log_loss": 0.80708,
+      "n": 1814
+     },
+     "heuristic": {
+      "base_rate": 0.6538,
+      "brier": 0.20032,
+      "ece": 0.08867,
+      "log_loss": 0.5879,
+      "n": 1814
+     },
+     "learned": {
+      "base_rate": 0.6538,
+      "brier": 0.1127,
+      "ece": 0.0695,
+      "log_loss": 0.42806,
+      "n": 1814
+     },
+     "untrained": {
+      "base_rate": 0.6538,
+      "brier": 0.24278,
+      "ece": 0.16531,
+      "log_loss": 0.77267,
+      "n": 1814
+     }
+    },
+    "mean_ensemble_disagreement": 0.08823
+   },
+   "public_validation": {
+    "delivered_within_4": {
+     "constant": {
+      "base_rate": 0.9275,
+      "brier": 0.06735,
+      "ece": 0.01187,
+      "log_loss": 0.26092,
+      "n": 276
+     },
+     "heuristic": {
+      "base_rate": 0.9275,
+      "brier": 0.06735,
+      "ece": 0.01187,
+      "log_loss": 0.26092,
+      "n": 276
+     },
+     "learned": {
+      "base_rate": 0.9275,
+      "brier": 0.06279,
+      "ece": 0.04108,
+      "log_loss": 0.25111,
+      "n": 276
+     },
+     "untrained": {
+      "base_rate": 0.9275,
+      "brier": 0.28563,
+      "ece": 0.4679,
+      "log_loss": 0.76461,
+      "n": 276
+     }
+    },
+    "denied": {
+     "constant": {
+      "base_rate": 0.0,
+      "brier": 0.0,
+      "ece": 0.0,
+      "log_loss": 0.0,
+      "n": 1653
+     },
+     "heuristic": {
+      "base_rate": 0.0,
+      "brier": 0.0,
+      "ece": 0.0,
+      "log_loss": 0.0,
+      "n": 1653
+     },
+     "learned": {
+      "base_rate": 0.0,
+      "brier": 0.0,
+      "ece": 9e-05,
+      "log_loss": 9e-05,
+      "n": 1653
+     },
+     "untrained": {
+      "base_rate": 0.0,
+      "brier": 0.28394,
+      "ece": 0.53262,
+      "log_loss": 0.76118,
+      "n": 1653
+     }
+    },
+    "examples": 1653,
+    "intervention_sensitivity": {
+     "accuracy": 0.9524,
+     "model_ranked_correctly": 20,
+     "pairs": 107,
+     "pairs_with_different_outcomes": 21
+    },
+    "job_paid": {
+     "constant": {
+      "base_rate": 0.89,
+      "brier": 0.09812,
+      "ece": 0.01507,
+      "log_loss": 0.34757,
+      "n": 891
+     },
+     "heuristic": {
+      "base_rate": 0.89,
+      "brier": 0.14598,
+      "ece": 0.15606,
+      "log_loss": 0.4362,
+      "n": 891
+     },
+     "learned": {
+      "base_rate": 0.89,
+      "brier": 0.04431,
+      "ece": 0.01471,
+      "log_loss": 0.13652,
+      "n": 891
+     },
+     "untrained": {
+      "base_rate": 0.89,
+      "brier": 0.23672,
+      "ece": 0.37097,
+      "log_loss": 0.66656,
+      "n": 891
+     }
+    },
+    "mean_ensemble_disagreement": 0.05322
+   }
+  },
+  "members": [
+   {
+    "checkpoint_sha256": "b26f194ec38e0003635d9dfefa87bdb5ff40f36fe567ae05a5e6d161cb0d4b9b",
+    "config": {
+     "batch": 256,
+     "epochs": 120,
+     "feature_version": "gml-step-features/1",
+     "hidden": 48,
+     "lr": 0.003,
+     "seed": 0,
+     "weight_decay": 0.0001
+    },
+    "dataset_id": "transitions-c9caef52bca2b4e7",
+    "dataset_sha256": "c9caef52bca2b4e73f7834426fcd6475fb429ee1ac3b16ec78d74c83b09c770f",
+    "device": "cpu",
+    "examples": 7231,
+    "inputs": 39,
+    "kind": "world_model",
+    "loss_first_epoch": 0.374665,
+    "loss_last_epoch": 0.060728,
+    "parameter_delta_l2": 9.950583,
+    "parameters": 4419,
+    "path": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/models/world-model-c9caef52bc-s0",
+    "torch_version": "2.15.0+cu132",
+    "train_seconds": 3.92
+   },
+   {
+    "checkpoint_sha256": "5c7cfaff9712261eda90453cc67284a646edd4e0e838544a6e0d7ad5ec199382",
+    "config": {
+     "batch": 256,
+     "epochs": 120,
+     "feature_version": "gml-step-features/1",
+     "hidden": 48,
+     "lr": 0.003,
+     "seed": 1,
+     "weight_decay": 0.0001
+    },
+    "dataset_id": "transitions-c9caef52bca2b4e7",
+    "dataset_sha256": "c9caef52bca2b4e73f7834426fcd6475fb429ee1ac3b16ec78d74c83b09c770f",
+    "device": "cpu",
+    "examples": 7231,
+    "inputs": 39,
+    "kind": "world_model",
+    "loss_first_epoch": 0.327331,
+    "loss_last_epoch": 0.060771,
+    "parameter_delta_l2": 10.289778,
+    "parameters": 4419,
+    "path": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/models/world-model-c9caef52bc-s1",
+    "torch_version": "2.15.0+cu132",
+    "train_seconds": 4.011
+   },
+   {
+    "checkpoint_sha256": "dcb6d40f4f288dceff9d03ca22ee3f5a64153fb715625c7b5037aa5cba435692",
+    "config": {
+     "batch": 256,
+     "epochs": 120,
+     "feature_version": "gml-step-features/1",
+     "hidden": 48,
+     "lr": 0.003,
+     "seed": 2,
+     "weight_decay": 0.0001
+    },
+    "dataset_id": "transitions-c9caef52bca2b4e7",
+    "dataset_sha256": "c9caef52bca2b4e73f7834426fcd6475fb429ee1ac3b16ec78d74c83b09c770f",
+    "device": "cpu",
+    "examples": 7231,
+    "inputs": 39,
+    "kind": "world_model",
+    "loss_first_epoch": 0.375361,
+    "loss_last_epoch": 0.060847,
+    "parameter_delta_l2": 10.672453,
+    "parameters": 4419,
+    "path": "/tmp/claude-0/-home-user/491ca0b2-2e71-54fa-9942-31cea0b7fbfb/scratchpad/gml-ref/models/world-model-c9caef52bc-s2",
+    "torch_version": "2.15.0+cu132",
+    "train_seconds": 3.872
+   }
+  ],
+  "model_id": "world-model-c9caef52bc",
+  "reload_max_abs_difference": 0.0,
+  "seconds": 19.45,
+  "stage": "world-model",
+  "stage_key": "76b3cc7f34e992c2339c1e0c98ce3682c2971581e715720cb2d66b422d80bc6b",
+  "train_base_rates": {
+   "delivered_within_4": 0.9156626506024096,
+   "denied": 0.0,
+   "job_paid": 0.8749399903984637
+  },
+  "verdict": {
+   "checks": {
+    "delivered_within_4": {
+     "constant": false,
+     "heuristic": false,
+     "untrained": false
+    },
+    "denied": {
+     "constant": false,
+     "heuristic": false,
+     "untrained": true
+    },
+    "job_paid": {
+     "constant": true,
+     "heuristic": true,
+     "untrained": true
+    }
+   },
+   "criterion": "lower brier than constant, heuristic and untrained baselines on every head of the protected test",
+   "human_approval_required": true,
+   "issued_by": "gml-evaluation-authority",
+   "verdict": "FAIL"
+  }
+ }
+}
