@@ -122,30 +122,45 @@ class CausalLMPolicy:
         return "\n".join(f"{m['role']}: {m['content']}" for m in messages) + "\nassistant: "
 
     def scores(self, messages) -> dict:
+        """Log-likelihood of each strategy name; the shared prompt is run once."""
+        import copy
         import torch
         prefix = self.tokenizer(self.prompt_text(messages), add_special_tokens=False)[
             "input_ids"][-self.max_length:]
         options = [self.tokenizer(name, add_special_tokens=False)["input_ids"]
                    for name in STRATEGIES]
-        width = len(prefix) + max(len(o) for o in options)
-        pad = self.tokenizer.pad_token_id or 0
-        ids = torch.full((len(options), width), pad, dtype=torch.long)
-        mask = torch.zeros((len(options), width), dtype=torch.long)
-        for row, option in enumerate(options):
-            sequence = prefix + option
-            ids[row, :len(sequence)] = torch.tensor(sequence)
-            mask[row, :len(sequence)] = 1
         self.model.eval()
         with torch.no_grad():
-            logits = self.model(input_ids=ids, attention_mask=mask).logits
-        logp = torch.log_softmax(logits.float(), dim=-1)
-        result = {}
-        for row, (name, option) in enumerate(zip(STRATEGIES, options)):
-            total = sum(logp[row, len(prefix) + i - 1, token].item()
-                        for i, token in enumerate(option))
-            result[name] = total
-        self.tokens += len(options) * width
+            head = self.model(input_ids=torch.tensor([prefix]), use_cache=True)
+            first = torch.log_softmax(head.logits[0, -1].float(), dim=-1)
+            result = {}
+            for name, option in zip(STRATEGIES, options):
+                total = first[option[0]].item()
+                if len(option) > 1:
+                    tail = self.model(input_ids=torch.tensor([option[:-1]]),
+                                      past_key_values=copy.deepcopy(head.past_key_values),
+                                      use_cache=True)
+                    logp = torch.log_softmax(tail.logits[0].float(), dim=-1)
+                    total += sum(logp[i, token].item()
+                                 for i, token in enumerate(option[1:]))
+                result[name] = total
+        self.tokens += len(prefix) + sum(len(o) for o in options)
         self.calls += 1
+        return result
+
+    def scores_reference(self, messages) -> dict:
+        """Slow, cache-free scoring used only to test ``scores``."""
+        import torch
+        prefix = self.tokenizer(self.prompt_text(messages), add_special_tokens=False)[
+            "input_ids"][-self.max_length:]
+        result = {}
+        with torch.no_grad():
+            for name in STRATEGIES:
+                option = self.tokenizer(name, add_special_tokens=False)["input_ids"]
+                logits = self.model(input_ids=torch.tensor([prefix + option])).logits[0]
+                logp = torch.log_softmax(logits.float(), dim=-1)
+                result[name] = sum(logp[len(prefix) + i - 1, token].item()
+                                   for i, token in enumerate(option))
         return result
 
     def choose(self, observation, *, memory=(), trials=None):

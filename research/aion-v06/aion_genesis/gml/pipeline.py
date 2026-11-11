@@ -263,11 +263,15 @@ def stage_policy(run: Run, datasets: dict, backend: str, base_model: str) -> dic
             obs, memory=memory.nearest(obs, memory_k)),
         "constant_risk_averse": lambda obs, _: constant.choose(obs),
     }
+    # Every arm runs on the protected test. The slower context arms are skipped
+    # on the two diagnostic partitions to keep a CPU-only run bounded.
+    core = {k: arms[k] for k in ("base", "trained", "constant_risk_averse")}
     results, all_scenarios = {}, []
     for partition in ("public_validation", "protected_test", "adversarial"):
         scenarios = authority.sealed_scenarios(partition, run.protocol, run.limit)
         all_scenarios += scenarios
-        results[partition] = authority.evaluate_policies(arms, scenarios, label=partition)
+        results[partition] = authority.evaluate_policies(
+            arms if partition == "protected_test" else core, scenarios, label=partition)
     reused = authority.record_exposure(run.out / "authority-state.json", "protected_test",
                                        run.protocol, "policy:" + manifest["sha256"][:10])
     contamination = authority.contamination(examples, all_scenarios)
@@ -276,12 +280,14 @@ def stage_policy(run: Run, datasets: dict, backend: str, base_model: str) -> dic
         candidate="trained", base="base", contamination_report=contamination,
         training_verified=training["training_verified"], reused_protected_test=reused,
         real_model=backend != "fixture")
+    pairs = (("trained", "base"), ("trained", "base_with_memory"),
+             ("trained", "base_with_counterfactual_trials"),
+             ("trained_with_memory", "base_with_memory"),
+             ("trained", "constant_risk_averse"))
     comparisons = {partition: {
-        f"{a}_vs_{b}": authority.compare(results[partition], a, b)
-        for a, b in (("trained", "base"), ("trained", "base_with_memory"),
-                     ("trained", "base_with_counterfactual_trials"),
-                     ("trained_with_memory", "base_with_memory"),
-                     ("trained", "constant_risk_averse"))} for partition in results}
+        f"{a}_vs_{b}": authority.compare(results[partition], a, b) for a, b in pairs
+        if a in results[partition]["summary"] and b in results[partition]["summary"]}
+        for partition in results}
     model_id = f"policy-{manifest['sha256'][:10]}"
     if not any(e["model_id"] == model_id for e in run.registry.state["entries"]):
         run.registry.register(model_id=model_id, family="policy", path=str(folder),

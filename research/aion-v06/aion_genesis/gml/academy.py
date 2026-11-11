@@ -86,11 +86,22 @@ class Curriculum:
             total = sum(self.counts.values()) + 1
             score = {f: self.uncertainty[f] + self.exploration * sqrt(
                 log(total + 1) / (self.counts[f] + 1)) for f in self.families}
-            norm = sum(score.values()) or 1.0
-            share = {f: min(MAX_SHARE, max(MIN_SHARE, score[f] / norm))
-                     for f in self.families}
-            norm = sum(share.values())
-            share = {f: v / norm for f, v in share.items()}
+            # Every family keeps MIN_SHARE; the rest follows the scores, and
+            # anything above MAX_SHARE is handed to the families still below it.
+            share = {f: MIN_SHARE for f in self.families}
+            spare, open_ = 1.0 - MIN_SHARE * len(self.families), set(self.families)
+            while spare > 1e-9 and open_:
+                norm = sum(score[f] for f in open_) or 1.0
+                given = 0.0
+                for family in sorted(open_):
+                    extra = min(MAX_SHARE - share[family], spare * score[family] / norm)
+                    share[family] += extra
+                    given += extra
+                    if share[family] >= MAX_SHARE - 1e-9:
+                        open_.discard(family)
+                if given <= 1e-9:
+                    break
+                spare -= given
         counts = {f: int(share[f] * batch) for f in self.families}
         for family in sorted(self.families, key=lambda f: -share[f]):
             if sum(counts.values()) >= batch:
@@ -104,7 +115,10 @@ class Curriculum:
         for family, wanted in self._allocation(batch).items():
             taken = 0
             while taken < wanted and self.cursor[family] < self.pool_size:
-                index = self.pool_start + self.cursor[family]
+                # Each family draws from its own index range: no scenario or
+                # seed is ever proposed twice, within or across families.
+                index = (self.pool_start + self.families.index(family) * self.pool_size
+                         + self.cursor[family])
                 self.cursor[family] += 1
                 scenario = laboratory.scenarios("train", 1, start=index,
                                                 families=(family,))[0]

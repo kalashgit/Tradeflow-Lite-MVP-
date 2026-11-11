@@ -233,14 +233,14 @@ def policy_verdict(protected: dict, public: dict, protocol: dict, *, candidate: 
         blockers.append("fixture model: mechanics only, not evidence of learning")
     elif reused_protected_test:
         verdict = "INCONCLUSIVE"
-    elif ci is not None and gain >= criteria["policy_min_success_gain_vs_base"] and ci[0] > 0:
+    elif ci is None or not powered:
+        verdict = "INCONCLUSIVE"   # too few paired cases to decide either way
+    elif gain >= criteria["policy_min_success_gain_vs_base"] and ci[0] > 0:
         verdict = "PASS"
-    elif ci is None or (not powered and ci[0] <= 0 <= ci[1]):
-        verdict = "INCONCLUSIVE"
-    elif ci[0] <= 0 <= ci[1] and gain > 0:
-        verdict = "INCONCLUSIVE"
+    elif ci[1] < criteria["policy_min_success_gain_vs_base"]:
+        verdict = "FAIL"           # the target gain is outside the interval
     else:
-        verdict = "FAIL"
+        verdict = "INCONCLUSIVE"
     return {"issued_by": ISSUER, "authority_version": AUTHORITY_VERSION,
             "verdict": verdict, "candidate": candidate, "base": base,
             "protected_test": main, "retention_public_validation": retention,
