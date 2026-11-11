@@ -1,0 +1,21 @@
+{
+  "checks": {
+    "artifact_hashes": "ok",
+    "grader_unchanged": "ok",
+    "independent_reproduction": "ok",
+    "ledger_hash_chain": "ok",
+    "ledger_recomputation": "ok",
+    "logical_digest": "ok",
+    "matched_design_complete": "ok",
+    "report_integrity": "ok",
+    "research_only_invariants": "ok"
+  },
+  "logical_digest": "eb796f9d553e5591f2381804cd58fb5eef99e3db80074f03c35894720445c464",
+  "note": "Validation confirms the report matches its ledger and replays identically. It does not make a synthetic result real-world evidence.",
+  "problems": [],
+  "reproduced": true,
+  "run_id": "RUN-20261110T170655Z-58af8783",
+  "schema": "GenesisLabValidation/1.0",
+  "valid": true,
+  "verdict": "FAIL"
+}

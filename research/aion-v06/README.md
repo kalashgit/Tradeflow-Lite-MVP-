@@ -38,6 +38,82 @@ records human review without performing actions. A separate domain pack defines
 which business patterns matter. A test-only factory-maintenance adapter runs
 through the same core to verify architectural portability, not learning transfer.
 
+## Genesis v1.0 — unified runtime and experimental control plane
+
+**Status: synthetic research milestone. Zero model calls. The first candidate
+FAILED its preregistered promotion gate.** Nothing here is live model learning,
+a real-world improvement, or a TradeFlow product feature.
+
+```text
+ObservationV1 ──> RuntimeStore (same SQLite file as the v0.8 ledger)
+GoalProfileV1 ──>   revisions · corrections · stale/unknown/restricted facts
+DecisionRequestV1 ─> AionRuntime.investigate
+                       deterministic fast path  |  bounded search (v0.9 planner)
+                       optional fail-closed model advice · outcome memory
+                 ──> DecisionProposalV1  (pending_human_review, or an abstention)
+OutcomeRecordV1 ──> match receipt to prediction ──> provisional effect estimates
+                    (versioned, human promotion, reversible rollback)
+```
+
+`aion_genesis/runtime/` is domain-neutral. Four packs use the same typed API:
+the existing synthetic TradeFlow procurement pack, equipment maintenance,
+process tuning and dependency dispatch. The runtime has **no way to act**: there
+is no execute capability to request and every proposal carries
+`external_actions: 0`.
+
+`aion_genesis/lab/` is the laboratory. `lab/hidden/` and `lab/referee.py` hold
+world state, true dynamics and grading; candidate code may not import them (a
+test enforces this). Same-process module separation is **not** a security
+boundary.
+
+### One command
+
+```bash
+cd research/aion-v06
+python -m aion_genesis.lab run --out /tmp/genesis-lab            # ~50 s, one CPU
+python -m aion_genesis.lab validate --out /tmp/genesis-lab --reproduce
+```
+
+`run` writes `runs/<run_id>/ledger.jsonl` (hash-chained raw outcomes),
+`result.json` (machine-readable scorecard and verdict), `report.html`
+(phone-readable observatory) and `manifest.json`. `validate` trusts none of
+them: it recomputes every number from the ledger, checks hashes, and with
+`--reproduce` re-runs the recorded config and compares logical outcomes.
+
+### First measured result (commit `cbc8e7c`, protected holdout, 80 episodes per world and variant)
+
+Candidate: v0.9 planner **plus outcome memory**. Baseline: the same planner with
+memory off. Both face identical seeded worlds and shocks. Thresholds were
+committed before any validation or holdout seed was run.
+
+| Check (holdout) | Observed | Target | Status |
+| --- | --- | --- | --- |
+| Decisions worse than no action, shifted worlds | 562/1440 (39.0%) vs 664/1440 (46.1%); 15.4% relative reduction; difference 95% CI −9.7 to −4.4 points | ≥ 25% relative reduction | **FAIL** |
+| Nominal utility preserved | largest drop 2.9 of 5.2 allowed utility units | ≤ 5% of baseline | PASS |
+| No family significantly worse under shift | none | CI upper bound ≥ 0 | PASS |
+| Safety (invalid, ungrounded or inadmissible proposals) | 0 | 0 | PASS |
+| **Verdict** | | | **FAIL — not eligible for promotion** |
+
+| Shifted world (holdout) | Baseline harm | Candidate harm | Paired utility Δ (95% CI) |
+| --- | ---: | ---: | ---: |
+| Hidden causal rules | 208/480 | 119/480 | +15.26 (+8.56 to +21.95) |
+| Electrical procurement (v0.9 world) | 67/480 | 75/480 | +0.06 (−2.55 to +2.67) |
+| Resource allocation | 389/480 | 368/480 | −0.68 (−4.15 to +2.79) |
+| Operational dependencies (multi-step) | not defined per decision | not defined | +0.87 (−0.51 to +2.26) |
+
+What this says: outcome memory gave a real, repeatable gain in **one** of four
+world families and no detectable gain in the other three. The 14.5% shifted
+harmful-choice rate reported for v0.9 is **not** reduced (14.0% → 15.6% here).
+In the nominal electrical world memory was slightly but significantly worse
+(−1.15 utility, CI −1.93 to −0.37). “Harm” counts any decision realized worse
+than no action, so prudent maintenance that turned out unnecessary is counted
+too; read the resource-allocation row with its mean utility.
+
+The committed reference outputs are in `reports/genesis_v1/` (the 22 MB ledger
+is reproduced by the command above, not committed). Logical digest:
+`eb796f9d553e5591f2381804cd58fb5eef99e3db80074f03c35894720445c464`
+(CPython 3.12/3.13; older interpreters sum floats differently).
+
 ## Situation Intelligence v0.8 — one core, many domains
 
 ```text
@@ -202,6 +278,13 @@ python -m aion_genesis.live_ablation --model qwen3:0.6b \
 The report never automatically admits persistent causal memory. A single
 successful run is not proof of learning. This study probes **short-lived prompt
 memory**, not a newly trained model. The existing TradeFlow AION Genesis V1
+Version 1.0 adds the **unified Genesis runtime** and an **independent
+experimental control plane**: one typed observe → investigate → propose → outcome
+core shared by four domain packs, and a laboratory that judges candidates on
+held-out seeded worlds it controls. Details and the first measured result are in
+[Genesis v1.0](#genesis-v10--unified-runtime-and-experimental-control-plane) below
+and in `docs/GENESIS_V1_HANDOFF.md`.
+
 Qwen memory-transfer experiment is an important earlier independent baseline;
 its metrics must not be represented as v0.6.1 experiment results.
 

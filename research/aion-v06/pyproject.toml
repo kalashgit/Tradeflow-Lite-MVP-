@@ -11,6 +11,10 @@ dependencies = []
 
 [project.scripts]
 aion-genesis = "aion_genesis.cli:main"
+aion-genesis-lab = "aion_genesis.lab.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["aion_genesis*"]
+
+[tool.setuptools.package-data]
+aion_genesis = ["lab/configs/*.json"]

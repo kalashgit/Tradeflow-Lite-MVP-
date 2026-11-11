@@ -36,6 +36,18 @@ v0.9 baseline was 74 local tests, but recheck the active commit and suite.
 
 `python -m unittest discover -s tests -q`
 
+For the v1.0 runtime and laboratory (see `docs/GENESIS_V1_HANDOFF.md`):
+
+`python -m aion_genesis.lab run --out /tmp/genesis-lab`
+
+`python -m aion_genesis.lab validate --out /tmp/genesis-lab --reproduce`
+
+The v1.0 judging protocol (`lab/referee.py`, `lab/scorecard.py`,
+`lab/promotion.py`, `lab/hidden/`, the gate thresholds and seed partitions) is
+frozen by hash. Holdout seeds 40000–40079 have been seen for candidate
+`aion_v1_memory`; a new candidate needs a new protocol version and fresh
+holdout seeds, never a retune against those results.
+
 For v0.9 synthetic strategy checks:
 
 `python -m aion_genesis.strategic_cli plan --output /tmp/aion-plan.json`
