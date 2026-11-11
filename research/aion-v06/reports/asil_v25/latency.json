@@ -1,0 +1,72 @@
+{
+ "adaptive:deep": {
+  "decisions": 1471,
+  "p50_ms": 7.244,
+  "p95_ms": 9.317
+ },
+ "adaptive:deep_abstain": {
+  "decisions": 1924,
+  "p50_ms": 5.525,
+  "p95_ms": 9.048
+ },
+ "adaptive:fast": {
+  "decisions": 1850,
+  "p50_ms": 5.721,
+  "p95_ms": 7.59
+ },
+ "adaptive:reflex": {
+  "decisions": 9905,
+  "p50_ms": 5.361,
+  "p95_ms": 7.394
+ },
+ "deep_only:deep": {
+  "decisions": 1463,
+  "p50_ms": 6.904,
+  "p95_ms": 9.367
+ },
+ "deep_only:deep_abstain": {
+  "decisions": 991,
+  "p50_ms": 5.838,
+  "p95_ms": 8.585
+ },
+ "deep_only:reflex": {
+  "decisions": 4374,
+  "p50_ms": 5.379,
+  "p95_ms": 7.441
+ },
+ "fast_only:fallback_planner": {
+  "decisions": 169,
+  "p50_ms": 6.654,
+  "p95_ms": 7.65
+ },
+ "fast_only:fast": {
+  "decisions": 309,
+  "p50_ms": 5.76,
+  "p95_ms": 7.576
+ },
+ "fast_only:reflex": {
+  "decisions": 2858,
+  "p50_ms": 5.346,
+  "p95_ms": 7.424
+ },
+ "memory_off:deep": {
+  "decisions": 1446,
+  "p50_ms": 6.413,
+  "p95_ms": 8.607
+ },
+ "memory_off:deep_abstain": {
+  "decisions": 1035,
+  "p50_ms": 5.744,
+  "p95_ms": 8.038
+ },
+ "memory_off:reflex": {
+  "decisions": 4347,
+  "p50_ms": 5.352,
+  "p95_ms": 7.277
+ },
+ "planner_only:planner": {
+  "decisions": 3336,
+  "p50_ms": 5.386,
+  "p95_ms": 7.2
+ }
+}
