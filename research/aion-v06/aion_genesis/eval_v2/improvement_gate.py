@@ -14,7 +14,7 @@ TYPES = frozenset(("belief_state_estimator", "planning_objective",
                    "outcome_memory_hypothesis", "workflow_recovery",
                    "information_routing"))
 _SHA = re.compile(r"^[0-9a-f]{40}$")
-_CASE = re.compile(r"^SYN-CAUSAL-DEV-[A-Za-z0-9-]{10,150}$")
+_CASE = re.compile(r"^SYN-CAUSAL-DEV-[A-Za-z0-9_-]{10,150}$")
 
 
 def _hash(x):
