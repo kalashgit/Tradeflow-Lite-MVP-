@@ -46,6 +46,40 @@ delayed causal attribution, cross-company transfer, or proven ML
 generalization. Each synthetic company has its own isolated memory.
 A model advisor can rank only pre-validated options and cannot execute.
 
+## 1.1 First measured weakness — preserve as a negative baseline
+
+The first **4-dev / 4-public-validation** integration run was independently
+replayed at PR #93. These are **only 11 possible paid synthetic jobs**
+per split, with different seeded families:
+
+| Candidate/control | Dev jobs paid | Public validation jobs paid |
+|---|---:|---:|
+| Actual `AionRuntime`, provisional memory ON | **7/11** | **5/11** |
+| Actual `AionRuntime`, memory OFF | **11/11** | **8/11** |
+| Fixed deadline-first | 11/11 | 8/11 |
+| Fixed cash-first | 8/11 | 9/11 |
+| Fixed risk-averse | 9/11 | 8/11 |
+| No-action | 0/11 | 0/11 |
+
+All runs had zero denied operations in that small synthetic cohort.
+The memory-enabled candidate **regresses** relative to its memory-off
+ablation. **Do not promote it.** The v2.4 integration report has an
+explicit `development_only_memory_admission` check; a public
+validation comparison cannot rescue a dev failure or authorize rollout.
+
+This result does **not** establish that memory cannot help. It suggests
+the existing local additive correction is not sufficiently
+outcome-grounded or calibrated in this domain. It may be rewarding
+proxy effects from a committed tool receipt rather than delayed
+business outcomes. That is a hypothesis to test, **not an explanation
+that has already been proven**.
+
+**Claude instruction:** Freeze these observed scenarios as historical
+negative evidence. Do not tune the current memory candidate using the
+public-validation set above. Invent a distinct causal-memory design,
+pre-register a fresh development cohort, and use independently
+controlled new comparisons. Report failures and uncertainty openly.
+
 ## 2. Reproduce exact integration and compare with controls
 
 ```bash
