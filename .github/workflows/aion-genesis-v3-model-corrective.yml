@@ -1,13 +1,6 @@
 name: AION Genesis v3 — real Qwen corrective pilot (research only)
 
 on:
-  push:
-    branches:
-      - research/aion-v3-model-corrective-experiment
-    paths:
-      - 'research/aion-v06/aion_genesis/learning_v3/**'
-      - 'research/aion-v06/tests/test_genesis_v3_model_corrective.py'
-      - '.github/workflows/aion-genesis-v3-model-corrective.yml'
   pull_request:
     paths:
       - 'research/aion-v06/aion_genesis/learning_v3/**'
@@ -52,7 +45,7 @@ jobs:
   qwen-cpu-pilot:
     # Only one bounded experimental run on this isolated research branch;
     # no scheduled endless inference, credentials, model training or live tools.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/research/aion-v3-model-corrective-experiment'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'research/aion-v3-model-corrective-experiment'
     needs: offline-contract
     runs-on: ubuntu-latest
     timeout-minutes: 30
