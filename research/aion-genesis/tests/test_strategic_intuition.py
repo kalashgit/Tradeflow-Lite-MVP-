@@ -172,6 +172,19 @@ class StrategicIntuitionTests(unittest.TestCase):
                 break
         self.assertTrue(found)
 
+    def test_replacement_worlds_are_not_just_one_or_two_local_exceptions(self):
+        from aion_genesis.strategic_intuition import synthetic_episode
+        for index in range(30):
+            world,context,kind=synthetic_episode(self.bank,9541,index,shift_probability=0.7,
+                                                  change_style="replacement")
+            if kind=="deceptive_shift":
+                prior=self.bank.recall(context,VARS).mechanism
+                mismatch=sum(predict(prior,s,VARS)!=world.intervene(s)["result"]
+                             for s in states(VARS))
+                self.assertGreaterEqual(mismatch,3)
+                return
+        self.fail("no replacement test world sampled")
+
     def test_false_familiarity_is_recorded_not_hidden(self):
         rows=[{"confidence":0.9,"exact":False},{"confidence":0.9,"exact":True}]
         metrics=reliability(rows)

@@ -128,7 +128,7 @@ def build_bank(seed=19):
     return bank
 
 
-def synthetic_episode(bank,seed,index,shift_probability=0.18,novel_probability=0.08,change_points=1):
+def synthetic_episode(bank,seed,index,shift_probability=0.18,novel_probability=0.08,change_points=1,change_style="sparse"):
     """Surface context may deliberately conceal a changed underlying mechanism."""
     rng=random.Random(_seed(seed,index))
     if not 0<=shift_probability<=1 or not 0<=novel_probability<=1-shift_probability:
@@ -144,10 +144,19 @@ def synthetic_episode(bank,seed,index,shift_probability=0.18,novel_probability=0
         rule=deepcopy(source.mechanism)
         kind="stable"
         if trial<novel_probability+shift_probability:
-            if type(change_points) is not int or not 1<=change_points<=3:
-                raise ValueError("invalid semantic change budget")
-            for altered_state in rng.sample(states(VARS),change_points):
-                rule=flip_one_input(rule,altered_state)
+            if change_style=="sparse":
+                if type(change_points) is not int or not 1<=change_points<=3:
+                    raise ValueError("invalid semantic change budget")
+                for altered_state in rng.sample(states(VARS),change_points):
+                    rule=flip_one_input(rule,altered_state)
+            elif change_style=="replacement":
+                prior=rule
+                choices=[candidate for candidate in grammar(VARS)
+                         if sum(predict(candidate,state,VARS)!=predict(prior,state,VARS)
+                                for state in states(VARS))>=3]
+                rule=deepcopy(rng.choice(choices))
+            else:
+                raise ValueError("invalid environment change style")
             kind="deceptive_shift"
     world=HiddenWorld("challenge-%d-%d" % (seed,index),VARS,rule,"eval")
     return world,context,kind
@@ -448,7 +457,7 @@ def reliability(results):
     return {"samples":len(scored),"brier":round(brier,5),"ece":round(ece,5)}
 
 
-def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,change_points=1):
+def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,change_points=1,change_style="sparse"):
     bank=build_bank(seed=19)
     calibration=calibrate(bank,seed=811,count=800,shift_probability=0.18)
     rows={mode:[] for mode in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual")}
@@ -462,7 +471,7 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,chang
             # or agent state transfer across arms.
             for mode in rows:
                 world,context,kind=synthetic_episode(bank,seed,index,shift_probability,
-                                                     change_points=change_points)
+                                                     change_points=change_points,change_style=change_style)
                 result=route(world,context,bank,calibration,mode=mode,
                              sentinel=monitors.get(mode))
                 result.update({"world":world.world_id,"context":context,"kind":kind})
@@ -494,7 +503,8 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,chang
         "provenance":"deterministic Python, synthetic binary mechanism worlds, no neural learning",
         "seeds":list(seeds),"perSeed":count_per_seed,
         "shiftProbability":shift_probability,
-        "hiddenChangePoints":change_points,
+        "hiddenChangePoints":change_points if change_style=="sparse" else None,
+        "hiddenChangeStyle":change_style,
         "independentCalibrationSeed":811,"calibration":calibration.summary(),
         "bank":bank.summary(),
         "prequentialDriftSentinels":sentinel_summaries,
@@ -534,9 +544,10 @@ def main():
     parser.add_argument("--per-seed",type=int,default=160)
     parser.add_argument("--shift",type=float,default=0.18)
     parser.add_argument("--change-points",type=int,choices=(1,2,3),default=1)
+    parser.add_argument("--change-style",choices=("sparse","replacement"),default="sparse")
     parser.add_argument("--out",default="")
     args=parser.parse_args()
-    report=experiment(tuple(args.seeds),args.per_seed,args.shift,args.change_points)
+    report=experiment(tuple(args.seeds),args.per_seed,args.shift,args.change_points,args.change_style)
     if args.out:
         with open(args.out,"w") as f: json.dump(report,f,indent=2)
     print(json.dumps(report,indent=2))
