@@ -128,7 +128,7 @@ def build_bank(seed=19):
     return bank
 
 
-def synthetic_episode(bank,seed,index,shift_probability=0.18,novel_probability=0.08):
+def synthetic_episode(bank,seed,index,shift_probability=0.18,novel_probability=0.08,change_points=1):
     """Surface context may deliberately conceal a changed underlying mechanism."""
     rng=random.Random(_seed(seed,index))
     if not 0<=shift_probability<=1 or not 0<=novel_probability<=1-shift_probability:
@@ -144,7 +144,10 @@ def synthetic_episode(bank,seed,index,shift_probability=0.18,novel_probability=0
         rule=deepcopy(source.mechanism)
         kind="stable"
         if trial<novel_probability+shift_probability:
-            rule=flip_one_input(rule,rng.choice(states(VARS)))
+            if type(change_points) is not int or not 1<=change_points<=3:
+                raise ValueError("invalid semantic change budget")
+            for altered_state in rng.sample(states(VARS),change_points):
+                rule=flip_one_input(rule,altered_state)
             kind="deceptive_shift"
     world=HiddenWorld("challenge-%d-%d" % (seed,index),VARS,rule,"eval")
     return world,context,kind
@@ -327,8 +330,46 @@ def deep_investigate(world,previous,max_interventions):
     return candidate,observed,deep_steps,checks
 
 
+
+def residual_repair(world,memory,observations,max_interventions=5,max_exceptions=2,alternatives=()):
+    """Compose a prior mechanism with observed, state-specific residuals.
+
+    This is a candidate only, never proof that other states are correct.
+    The exception hypothesis is explicit and bounded; if it becomes too
+    complicated, abandon patching and use the ordinary deep solver.
+    """
+    observed=deepcopy(observations)
+    names=memory.variables
+    def correction():
+        wrong=[o["state"] for o in observed
+               if predict(memory.mechanism,o["state"],names)!=o["result"]]
+        if len(wrong)>max_exceptions:
+            return None,len(wrong)
+        if not wrong:
+            return deepcopy(memory.mechanism),0
+        clauses=[]
+        for state in wrong:
+            literals=[_literal(k,state[k]) for k in names]
+            clauses.append({"op":"and","args":literals})
+        change=clauses[0] if len(clauses)==1 else {"op":"or","args":clauses}
+        return validate({"op":"xor","args":[deepcopy(memory.mechanism),change]},names),len(wrong)
+    candidate,patches=correction()
+    checks=1
+    while len(observed)<max_interventions and candidate is not None:
+        state=choose_canaries(memory,alternatives,observed)
+        if state is None:
+            break
+        observed.append(world.intervene(state))
+        candidate,patches=correction()
+        checks+=1
+    if candidate is None:
+        deep,observed,extra_steps,extra_checks=deep_investigate(world,observed,max_interventions)
+        return deep,observed,patches,checks+extra_checks,True
+    return candidate,observed,patches,checks,False
+
+
 def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
-    if mode not in ("deep_only","memory_only","gated","gated_drift_aware"):
+    if mode not in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual"):
         raise ValueError("invalid mode")
     if type(budget) is not int or budget<3 or budget>7:
         raise ValueError("invalid world budget")
@@ -336,6 +377,8 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
     memory=bank.recall(context,world.variables)
     observations=[]
     fast_used=False
+    repair_used=False
+    repair_patches=0
     deep_steps=0
     checks=0
     contradicted=False
@@ -344,7 +387,7 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
         candidate=memory.mechanism
         fast_used=True
     else:
-        if mode in ("gated","gated_drift_aware") and memory is not None and calibration.trusted:
+        if mode in ("gated","gated_drift_aware","gated_residual") and memory is not None and calibration.trusted:
             memory,observations,passed=probe_memory(world,bank,context,2)
             contradicted=not passed
             if sentinel is not None:
@@ -354,7 +397,13 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
                 candidate=memory.mechanism
                 fast_used=True
         if not fast_used:
-            candidate,observations,deep_steps,checks=deep_investigate(world,observations,budget)
+            if mode=="gated_residual" and memory is not None and calibration.trusted:
+                candidate,observations,repair_patches,checks,fell_back=residual_repair(
+                    world,memory,observations,budget,alternatives=bank.alternatives(context,world.variables))
+                repair_used=not fell_back
+                deep_steps=budget-len(observations) if fell_back else 0
+            else:
+                candidate,observations,deep_steps,checks=deep_investigate(world,observations,budget)
     elapsed=(time.perf_counter()-t0)*1000
     # Independent evaluator scoring starts only AFTER routing commits an answer.
     accuracy=world.accuracy(candidate)
@@ -364,7 +413,8 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
     correct=sum(predict(candidate,s,world.variables)==world.intervene(s)["result"]
                 for s in unseen) if candidate is not None else 0
     return {
-        "route":"fast" if fast_used else "deep",
+        "route":"fast" if fast_used else ("repair" if repair_used else "deep"),
+        "residualExceptions":repair_patches,
         "fullAccuracy":accuracy,
         "exact":accuracy==1.0,
         "unseenAccuracy":correct/len(unseen) if unseen else None,
@@ -372,12 +422,13 @@ def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
         "deepSteps":deep_steps,
         "candidateChecksProxy":checks,
         "latencyMs":elapsed,
-        "confidence":calibration.confidence if fast_used and mode=="gated" else None,
+        "confidence":calibration.confidence if fast_used and mode in ("gated","gated_drift_aware","gated_residual") else None,
         "falseFamiliarity":fast_used and accuracy!=1.0,
         "contradictionRoutedDeep":contradicted and not fast_used,
         "monitorAlarmBefore":alarm_before,
         "monitorAlarmAfter":bool(sentinel.alarm) if sentinel is not None else False,
         "monitorForcedDeep":bool(sentinel is not None and (alarm_before or sentinel.alarm) and not contradicted and not fast_used),
+        "monitorForcedInvestigation":bool(sentinel is not None and (alarm_before or sentinel.alarm) and not fast_used),
         "externalActions":False,
         "persistentKnowledgeWrites":False,
         "modelCalls":0,
@@ -397,25 +448,27 @@ def reliability(results):
     return {"samples":len(scored),"brier":round(brier,5),"ece":round(ece,5)}
 
 
-def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
+def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18,change_points=1):
     bank=build_bank(seed=19)
     calibration=calibrate(bank,seed=811,count=800,shift_probability=0.18)
-    rows={mode:[] for mode in ("deep_only","memory_only","gated","gated_drift_aware")}
+    rows={mode:[] for mode in ("deep_only","memory_only","gated","gated_drift_aware","gated_residual")}
     grouped={mode:defaultdict(list) for mode in rows}
     sentinel_summaries=[]
     for seed in seeds:
-        monitor=DriftSentinel(calibration.mismatch_rate)
+        monitors={"gated_drift_aware":DriftSentinel(calibration.mismatch_rate),
+                  "gated_residual":DriftSentinel(calibration.mismatch_rate)}
         for index in range(count_per_seed):
             # Fresh world per mode. Identical hidden generator inputs, no outcome
             # or agent state transfer across arms.
             for mode in rows:
-                world,context,kind=synthetic_episode(bank,seed,index,shift_probability)
+                world,context,kind=synthetic_episode(bank,seed,index,shift_probability,
+                                                     change_points=change_points)
                 result=route(world,context,bank,calibration,mode=mode,
-                             sentinel=monitor if mode=="gated_drift_aware" else None)
+                             sentinel=monitors.get(mode))
                 result.update({"world":world.world_id,"context":context,"kind":kind})
                 rows[mode].append(result)
                 grouped[mode][kind].append(result)
-        sentinel_summaries.append({"seed":seed,**monitor.summary()})
+        sentinel_summaries.append({"seed":seed,**{k:v.summary() for k,v in monitors.items()}})
     def aggregate(part):
         n=len(part)
         return {
@@ -430,6 +483,9 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
             "falseFamiliarityCount":sum(r["falseFamiliarity"] for r in part),
             "detectedContradictions":sum(r["contradictionRoutedDeep"] for r in part),
             "monitorForcedDeep":sum(r["monitorForcedDeep"] for r in part),
+            "monitorForcedInvestigation":sum(r["monitorForcedInvestigation"] for r in part),
+            "residualRepairRoutes":sum(r["route"]=="repair" for r in part),
+            "residualExceptionCount":sum(r["residualExceptions"] for r in part),
             "confidenceCalibration":reliability(part),
             "modelCalls":0,
         }
@@ -438,6 +494,7 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
         "provenance":"deterministic Python, synthetic binary mechanism worlds, no neural learning",
         "seeds":list(seeds),"perSeed":count_per_seed,
         "shiftProbability":shift_probability,
+        "hiddenChangePoints":change_points,
         "independentCalibrationSeed":811,"calibration":calibration.summary(),
         "bank":bank.summary(),
         "prequentialDriftSentinels":sentinel_summaries,
@@ -455,6 +512,10 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
                 sum(r["falseFamiliarity"] for r in rows["gated_drift_aware"]),
             "monitorExtraInterventions":sum(r["interventions"] for r in rows["gated_drift_aware"])-
                 sum(r["interventions"] for r in rows["gated"]),
+            "residualMinusMonitorUnseenAccuracy":round(sum(b["unseenAccuracy"]-a["unseenAccuracy"]
+                for a,b in zip(rows["gated_drift_aware"],rows["gated_residual"]))/len(rows["gated_residual"]),5),
+            "residualReducedFalseFamiliarity":sum(r["falseFamiliarity"] for r in rows["gated"])-
+                sum(r["falseFamiliarity"] for r in rows["gated_residual"]),
         },
         "safety":{"noProductionData":True,"noExternalActions":True,
                   "persistentCausalMemory":"DISABLED","realQwenInference":False},
@@ -472,9 +533,10 @@ def main():
     parser.add_argument("--seeds",nargs="+",type=int,default=[1901,1902])
     parser.add_argument("--per-seed",type=int,default=160)
     parser.add_argument("--shift",type=float,default=0.18)
+    parser.add_argument("--change-points",type=int,choices=(1,2,3),default=1)
     parser.add_argument("--out",default="")
     args=parser.parse_args()
-    report=experiment(tuple(args.seeds),args.per_seed,args.shift)
+    report=experiment(tuple(args.seeds),args.per_seed,args.shift,args.change_points)
     if args.out:
         with open(args.out,"w") as f: json.dump(report,f,indent=2)
     print(json.dumps(report,indent=2))

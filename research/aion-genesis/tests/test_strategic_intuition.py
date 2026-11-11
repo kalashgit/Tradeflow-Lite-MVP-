@@ -142,6 +142,36 @@ class StrategicIntuitionTests(unittest.TestCase):
         self.assertTrue(evaluation["monitorForcedDeep"])
         self.assertEqual(evaluation["interventions"],5)
 
+    def test_residual_hypothesis_repairs_observed_local_rule_change(self):
+        from aion_genesis.strategic_intuition import residual_repair, choose_canaries
+        memory=self.bank.recall("context-00",VARS)
+        first=choose_canaries(memory,self.bank.alternatives("context-00",VARS),[])
+        rule=flip_one_input(memory.mechanism,first)
+        world=HiddenWorld("local-change",VARS,rule,"eval")
+        observed=[world.intervene(first)]
+        proposal,additional,patches,checks,fallback=residual_repair(
+            world,memory,observed,max_interventions=5,
+            alternatives=self.bank.alternatives("context-00",VARS))
+        self.assertFalse(fallback)
+        self.assertEqual(patches,1)
+        self.assertEqual(world.accuracy(proposal),1.0)
+        self.assertEqual(len(additional),5)
+
+    def test_multi_change_generator_alters_two_distinct_inputs(self):
+        from aion_genesis.strategic_intuition import synthetic_episode
+        found=False
+        for index in range(80):
+            world,context,kind=synthetic_episode(self.bank,9301,index,shift_probability=0.70,
+                                                 change_points=2)
+            if kind=="deceptive_shift":
+                original=self.bank.recall(context,VARS).mechanism
+                wrong=sum(predict(original,state,VARS)!=world.intervene(state)["result"]
+                          for state in states(VARS))
+                self.assertEqual(wrong,2)
+                found=True
+                break
+        self.assertTrue(found)
+
     def test_false_familiarity_is_recorded_not_hidden(self):
         rows=[{"confidence":0.9,"exact":False},{"confidence":0.9,"exact":True}]
         metrics=reliability(rows)
