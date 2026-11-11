@@ -1,0 +1,118 @@
+name: AION Genesis v3 — real Qwen corrective pilot (research only)
+
+on:
+  push:
+    branches:
+      - research/aion-v3-model-corrective-experiment
+    paths:
+      - 'research/aion-v06/aion_genesis/learning_v3/**'
+      - 'research/aion-v06/tests/test_genesis_v3_model_corrective.py'
+      - '.github/workflows/aion-genesis-v3-model-corrective.yml'
+  pull_request:
+    paths:
+      - 'research/aion-v06/aion_genesis/learning_v3/**'
+      - 'research/aion-v06/tests/test_genesis_v3_model_corrective.py'
+      - '.github/workflows/aion-genesis-v3-model-corrective.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-v3-corrective-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test bounded model/world integration
+        run: python -m unittest discover -s tests -p test_genesis_v3_model_corrective.py -v
+      - name: Test all historic AION research modules
+        run: python -m unittest discover -s tests -q
+      - name: Mock corrective diagnostic (NOT actual inference)
+        run: python -m aion_genesis.learning_v3.model_corrective --provider mock --output /tmp/genesis-v3-mock.json
+      - name: Mock integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-v3-mock-${{ github.run_id }}
+          path: /tmp/genesis-v3-mock.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  qwen-cpu-pilot:
+    # Only one bounded experimental run on this isolated research branch;
+    # no scheduled endless inference, credentials, model training or live tools.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/research/aion-v3-model-corrective-experiment'
+    needs: offline-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    env:
+      OLLAMA_HOST: 127.0.0.1:11434
+      AION_MODEL_ID: qwen3:0.6b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated CPU Ollama from official installer
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/genesis-ollama-install.sh
+          sh /tmp/genesis-ollama-install.sh
+      - name: Start loopback Qwen 0.6B
+        run: |
+          ollama serve > /tmp/genesis-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/version
+          ollama pull "$AION_MODEL_ID"
+      - name: Real Qwen first-feedback paired replay and fresh-seed transfer
+        run: |
+          python -m aion_genesis.learning_v3.model_corrective --provider ollama --model "$AION_MODEL_ID" --output /tmp/genesis-v3-qwen.json
+      - name: Preserve complete synthetic experiment output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-v3-qwen-corrective-${{ github.run_id }}
+          path: /tmp/genesis-v3-qwen.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish evidence, not promotion
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          out=["## Real Qwen corrective pilot — research only",
+               "First model feedback experiment; not powered to establish transfer or broad reliability.",
+               "No production tools, no external tenant data, no promotion. Exact SHA: " + os.environ["GITHUB_SHA"]]
+          try:
+              with open("/tmp/genesis-v3-qwen.json") as f:
+                  result=json.load(f)
+              m=result["metrics"]
+              out.extend([
+                  "REAL_MODEL="+str(result["real_model_inference"])+" Model="+result["model"],
+                  "Initially failed development cases="+str(m["initial_failed_cases"]),
+                  "Exact-case first-feedback recoveries="+str(m["verified_exact_case_recoveries"]),
+                  "Model calls="+str(m["model_calls"])+" tokens-in="+str(m["prompt_tokens"])+" tokens-out="+str(m["completion_tokens"]),
+                  "Denied attempt counts before/after="+str(m["denied_attempts_before"])+"/"+str(m["denied_attempts_after"]),
+                  "Public validation transfer difference vs memory-off="+str(result["transfer"]["memory_on_minus_off_value"]),
+                  "Candidate promotion: BLOCKED; independent causal gate and hidden holdout absent."])
+          except (OSError, ValueError, KeyError) as exc:
+              out.append("Model experiment INCOMPLETE: "+str(exc))
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("\n\n".join(out)+"\n")
+          PY
