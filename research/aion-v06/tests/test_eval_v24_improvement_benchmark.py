@@ -71,6 +71,13 @@ class ActualRuntimeBenchmarkTests(unittest.TestCase):
             self.assertEqual(report["summaries"][split][
                 "no_action"]["paid_jobs"], 0)
         self.assertEqual(report["ledger_hash"], ledger.head)
+        gate = report["development_only_memory_admission"]
+        self.assertEqual(gate["evaluated_on"], "dev_only")
+        self.assertFalse(gate["validation_used_for_gate"])
+        self.assertFalse(gate["candidate_promotion_allowed"])
+        self.assertIn(gate["status"], (
+            "BLOCKED_DEVELOPMENT_REGRESSION",
+            "DEV_CHECK_ONLY_EXTERNAL_REVIEW_REQUIRED"))
 
     def test_exact_paired_replay_integrity_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
