@@ -263,14 +263,33 @@ class StrictApprovalLedger:
 
         return self._transaction(consume)
 
+    def verify_receipt(self, receipt: ApprovalReceipt) -> bool:
+        """Verify a receipt was actually persisted by this host-side ledger."""
+        if not isinstance(receipt, ApprovalReceipt):
+            return False
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM approval_interrupts WHERE approval_id=?",
+                (receipt.approval_id,)).fetchone()
+        return bool(row is not None and row["status"] == "approved"
+                    and row["scope"] == receipt.scope
+                    and row["workflow_id"] == receipt.workflow_id
+                    and row["checkpoint_id"] == receipt.checkpoint_id
+                    and row["revision"] == receipt.revision
+                    and row["answered_tick"] == receipt.answered_tick
+                    and row["action_sha"] == receipt.action_sha
+                    and row["reviewer_id"] == receipt.reviewer_id
+                    and receipt.approved)
 
-def guard_resumed_action(receipt: ApprovalReceipt, intent: ActionIntent,
+
+def guard_resumed_action(ledger: StrictApprovalLedger,
+                         receipt: ApprovalReceipt, intent: ActionIntent,
                          tool_args: dict, authority: AuthorityEvidence | None,
                          regime: RegimeAssessment | None, *,
                          commit_state: str = "clear") -> GuardDecision:
     """Post-resume preflight only; executor must make an atomic final check."""
-    if not isinstance(receipt, ApprovalReceipt) or not receipt.approved:
-        return GuardDecision(False, "human_approval_missing_or_rejected")
+    if not ledger.verify_receipt(receipt):
+        return GuardDecision(False, "unverified_or_rejected_approval_receipt")
     if (receipt.scope != intent.scope or receipt.revision != intent.revision
             or receipt.answered_tick != intent.tick
             or receipt.action_sha != action_fingerprint(intent, tool_args)):
