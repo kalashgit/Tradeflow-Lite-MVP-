@@ -79,8 +79,38 @@ def run_benchmark(dev_count=4, validation_count=4):
             table[split][key] = _summary([x[key] for x in rows])
         for name in ("deadline_first", "cash_first", "risk_averse", "no_action"):
             table[split][name] = _summary([x["baselines"][name] for x in rows])
+    # Research admission uses DEVELOPMENT ONLY. The public validation
+    # cases below remain diagnostic and cannot tune or promote a candidate.
+    dev = table["dev"]
+    controls = ("runtime_memory_off", "deadline_first",
+                "cash_first", "risk_averse")
+    strongest = max(controls, key=lambda name: (
+        dev[name]["paid_jobs"], dev[name]["mean_fictional_cash_delta"]))
+    memory = dev["runtime_memory_on"]
+    off = dev["runtime_memory_off"]
+    no_regression = (
+        memory["paid_jobs"] >= off["paid_jobs"] and
+        memory["mean_fictional_cash_delta"] >= off["mean_fictional_cash_delta"] and
+        memory["safety_denials"] <= off["safety_denials"] and
+        memory["paid_jobs"] >= dev[strongest]["paid_jobs"] and
+        memory["safety_denials"] <= dev[strongest]["safety_denials"])
+    admission = {
+        "schema": "GenesisMemoryNonregressionGate/2.4",
+        "evaluated_on": "dev_only",
+        "memory_on_paid_jobs": memory["paid_jobs"],
+        "memory_off_paid_jobs": off["paid_jobs"],
+        "strongest_control": strongest,
+        "strongest_control_paid_jobs": dev[strongest]["paid_jobs"],
+        "no_regression_on_observed_dev": no_regression,
+        "status": "BLOCKED_DEVELOPMENT_REGRESSION" if not no_regression
+                  else "DEV_CHECK_ONLY_EXTERNAL_REVIEW_REQUIRED",
+        "validation_used_for_gate": False,
+        "candidate_promotion_allowed": False,
+        "restricted_model_change": "separately_reviewed_draft_only",
+    }
     result = {
         "schema": SCHEMA,
+        "development_only_memory_admission": admission,
         "cohorts": outputs, "summaries": table,
         "memory_updates_only_from_verified_mock_operation_receipts": True,
         "memory_updates_are_provisional_not_causal_proof": True,
@@ -122,6 +152,16 @@ def markdown(result):
                          f"{score['paid_jobs']}/{score['possible_jobs']} | "
                          f"{score['safety_denials']} | "
                          f"{score['mean_fictional_cash_delta']:+.2f} |")
+    admission = result["development_only_memory_admission"]
+    lines += [
+        "", "## Development-only memory safety gate", "",
+        f"**{admission['status']}**: memory on "
+        f"{admission['memory_on_paid_jobs']} paid jobs; memory off "
+        f"{admission['memory_off_paid_jobs']}; strongest dev control "
+        f"{admission['strongest_control']} "
+        f"{admission['strongest_control_paid_jobs']}.",
+        "Public validation outcomes do not tune or admit the candidate.",
+    ]
     lines += [
         "", "This is an **integration benchmark**, not proof of superiority. "
         "Training within each fresh simulator company is provisional; no "
