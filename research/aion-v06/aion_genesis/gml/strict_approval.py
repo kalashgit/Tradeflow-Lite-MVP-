@@ -286,10 +286,19 @@ def guard_resumed_action(ledger: StrictApprovalLedger,
                          receipt: ApprovalReceipt, intent: ActionIntent,
                          tool_args: dict, authority: AuthorityEvidence | None,
                          regime: RegimeAssessment | None, *,
+                         current_context: ResumeContext | None = None,
                          commit_state: str = "clear") -> GuardDecision:
     """Post-resume preflight only; executor must make an atomic final check."""
     if not ledger.verify_receipt(receipt):
         return GuardDecision(False, "unverified_or_rejected_approval_receipt")
+    if not isinstance(current_context, ResumeContext):
+        return GuardDecision(False, "trusted_current_checkpoint_missing")
+    if ((receipt.scope, receipt.workflow_id, receipt.checkpoint_id, receipt.revision,
+         receipt.answered_tick) !=
+        (current_context.scope, current_context.workflow_id,
+         current_context.checkpoint_id, current_context.current_revision,
+         current_context.current_tick)):
+        return GuardDecision(False, "approval_checkpoint_or_state_changed")
     if (receipt.scope != intent.scope or receipt.revision != intent.revision
             or receipt.answered_tick != intent.tick
             or receipt.action_sha != action_fingerprint(intent, tool_args)):
