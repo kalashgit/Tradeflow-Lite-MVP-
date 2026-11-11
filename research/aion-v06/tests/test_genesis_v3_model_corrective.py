@@ -111,6 +111,7 @@ class ModelBoundaryTests(unittest.TestCase):
             dev_indices=(0,), transfer_index=18)
         self.assertEqual(len(transport.calls), 4)
         self.assertEqual(result["metrics"]["model_calls"], 4)
+        self.assertFalse(result["real_model_inference"])
         self.assertEqual(result["metrics"]["prompt_tokens"], 216)
         self.assertEqual(result["transfer"]["case_id"].split("-")[2], "VALIDATION")
         self.assertFalse(result["candidate_promoted"])
