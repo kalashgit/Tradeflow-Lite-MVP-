@@ -60,6 +60,23 @@ jobs:
           retention-days: 14
       - name: Verify unknown-grammar detector and model escalation boundary
         run: python -m aion_genesis.open_world
+      - name: Adaptive Strategic Intuition — development calibration and paired baseline
+        run: python -m aion_genesis.strategic_intuition --seeds 1901 1902 --per-seed 160 --out aion-intuition-dev.json
+      - name: Strategic Intuition — independent untouched test seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 4101 4102 --per-seed 160 --out aion-intuition-validation.json
+      - name: False familiarity stress — 70 percent hidden rule changes
+        run: python -m aion_genesis.strategic_intuition --seeds 9301 --per-seed 120 --shift 0.70 --out aion-intuition-drift-stress.json
+      - name: Archive strategic intuition experiments and calibration results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-intuition-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-intuition-dev.json
+            research/aion-genesis/aion-intuition-validation.json
+            research/aion-genesis/aion-intuition-drift-stress.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Run synthetic TradeFlow owner interviews and proactive operating benchmark
         run: python -m aion_genesis.business_trial --seeds 11 12 13 14 15 16 17 18 --output aion-business-dev.json
       - name: Reproduce business experiment with independent simulation seeds
