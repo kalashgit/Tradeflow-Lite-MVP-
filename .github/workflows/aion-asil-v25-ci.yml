@@ -1,0 +1,79 @@
+name: AION Genesis — ASIL v2.5 routing experiment (offline)
+
+on:
+  push:
+    branches:
+      - claude/aion-asil-v25
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-asil-v25-ci.yml'
+  pull_request:
+    paths:
+      - 'research/aion-v06/aion_genesis/asil/**'
+      - 'research/aion-v06/aion_genesis/eval_v2/asil_*'
+      - 'research/aion-v06/tests/test_asil_v25.py'
+      - '.github/workflows/aion-asil-v25-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-asil-v25-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Full Python suite (no model, no secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: All historic and ASIL tests
+        run: python -m unittest discover -s tests -q
+
+  experiment:
+    name: Preregistered experiment and independent replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Train on development, freeze, validate
+        run: python -m aion_genesis.eval_v2.asil_runner run --out "${{ runner.temp }}/asil-v25"
+      - name: Independent replay must reproduce every scored receipt
+        run: python -m aion_genesis.eval_v2.asil_runner verify --out "${{ runner.temp }}/asil-v25"
+      - name: Replay must match the committed reference result
+        run: |
+          if [ -f reports/asil_v25/result.json ]; then
+            python - "${{ runner.temp }}/asil-v25/result.json" <<'PY'
+          import json, sys
+          fresh = json.load(open(sys.argv[1]))
+          committed = json.load(open("reports/asil_v25/result.json"))
+          assert fresh == committed, "CI result differs from the committed reference"
+          assert not fresh["candidate_promoted"] and not fresh["promotion_authorized"]
+          print("status:", fresh["status"])
+          PY
+          else
+            echo "No committed reference yet (protocol registration commit)."
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asil-v25-${{ github.run_id }}
+          path: ${{ runner.temp }}/asil-v25
+          retention-days: 14
+      - name: Evidence disclaimer
+        run: |
+          echo "Synthetic simulation only; zero model calls; no protected holdout; no promotion." >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"

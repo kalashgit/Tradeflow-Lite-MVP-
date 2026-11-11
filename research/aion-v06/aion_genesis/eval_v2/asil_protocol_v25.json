@@ -1,0 +1,46 @@
+{
+  "schema": "GenesisAsilProtocol/2.5",
+  "candidate": "asil-0.1.0 adaptive routing over AionRuntime review-only proposals",
+  "registered_before_validation": true,
+  "protected_holdout_used": false,
+  "hypotheses": [
+    "H1: adaptive routing pays more synthetic jobs than the strongest existing fixed or runtime baseline on fresh validation cases.",
+    "H2: verified experience does not hurt (memory-on >= memory-off), unlike the v2.4 residual memory.",
+    "H3: experience improves decisions beyond investigation alone (memory-on > memory-off).",
+    "H4: after a development career the router needs far fewer planning operations than deep-only at no material quality loss.",
+    "H5: confident fast decisions are rarely wrong, including on similar-looking cases with different shocks.",
+    "H6: knowledge is retained on familiar cases and does not harm novel, harder ones."
+  ],
+  "previously_inspected_cases_excluded": {
+    "dev": "indices 0-3 (PR #93), 1000-1023 (regression diagnosis), 1300-1335 (development trial)",
+    "validation": "indices 0-3 (PR #93 public validation; never used here)"
+  },
+  "cohorts": {
+    "training_career": {"split": "dev", "start_index": 1100, "count": 60,
+                        "difficulty": [1, 2, 3, 4], "novelty": [0, 1, 2, 3]},
+    "validation": {"split": "validation", "start_index": 2000, "count": 60,
+                   "difficulty": [1, 2, 3, 4], "novelty": [0, 1, 2, 3]},
+    "novel": {"split": "validation", "start_index": 2200, "count": 30,
+              "difficulty": [5], "novelty": [4, 5]},
+    "false_familiarity_twins": {"split": "validation", "start_index": 2300, "count": 30,
+                                "family": "compound", "twin_of_start_index": 2000,
+                                "difficulty": [1, 2, 3, 4], "novelty": [0, 1, 2, 3]}
+  },
+  "memory_control_cases": 30,
+  "stale_memory_age_episodes": 400,
+  "router_config": {
+    "min_support": 4.0, "trust_lower_bound": 0.7, "veto_upper_bound": 0.3,
+    "high_stakes": 0.25, "high_stakes_lower_bound": 0.8, "half_life_episodes": 40.0,
+    "contradiction_window": 6, "contradiction_gap": 0.4, "confounded_weight": 0.5,
+    "partial_match_discount": 0.5, "deep_cost_units": 1.0,
+    "deep_budget_per_episode": 10000
+  },
+  "criteria": {
+    "max_planning_ops_ratio_vs_deep_only": 0.7,
+    "max_quality_loss_vs_deep_only": 0.02,
+    "max_false_familiarity_rate": 0.1,
+    "max_fast_ece": 0.15,
+    "max_novel_cases_worse_than_memory_off": 2
+  },
+  "analysis": "Paired by case; 95% percentile bootstrap (2000 resamples) of the mean per-case difference in paid jobs. Scoring by the frozen v2.3 judge. One run; no retuning after validation is seen."
+}
