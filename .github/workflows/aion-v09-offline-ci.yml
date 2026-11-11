@@ -634,3 +634,52 @@ jobs:
           name: genesis-causal-curriculum-v23-${{ github.run_id }}
           path: ${{ runner.temp }}/genesis-causal-curriculum-v23/
           retention-days: 14
+
+  actual-genesis-runtime-v24:
+    name: Actual Genesis runtime causal policy adapter (mock only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test AionRuntime model binding, proposal, learning and boundaries
+        run: python -m unittest discover -s tests -p test_eval_v24_genesis_runtime_bridge.py -q
+      - name: Test restricted improvements and independent Genesis benchmark
+        run: python -m unittest discover -s tests -p test_eval_v24_improvement_benchmark.py -q
+      - name: Run matched Genesis runtime memory-on/off and fixed policies
+        run: >-
+          python -m aion_genesis.eval_v2.genesis_runner run
+          --dev 4 --validation 4
+          --out "${{ runner.temp }}/genesis-actual-runtime-v24"
+      - name: Reproduce actual Genesis runtime proposals and scores
+        run: >-
+          python -m aion_genesis.eval_v2.genesis_runner verify
+          --out "${{ runner.temp }}/genesis-actual-runtime-v24"
+      - name: Archive immutable synthetic runtime evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-real-runtime-mock-v24-${{ github.run_id }}
+          path: ${{ runner.temp }}/genesis-actual-runtime-v24/
+          retention-days: 14
+      - name: Assert no network model inference or business actions in CI
+        run: |
+          python - <<'PY'
+          from aion_genesis.eval_v2.causal_world import generate
+          from aion_genesis.eval_v2.genesis_policy import run_genesis_episode
+          result = run_genesis_episode(generate("dev", 0))
+          assert result["runtime"] == "AionRuntime"
+          assert result["model_calls"] == 0
+          assert result["external_business_actions"] == 0
+          assert result["protected_holdout_evaluated"] is False
+          print("REAL GENESIS RUNTIME, MOCK BUSINESS WORLD, NO REMOTE MODEL INFERENCE")
+          print("Paid synthetic jobs:", result["score"]["paid_jobs"])
+          print("Verified mock operation receipts:", result["verified_operations"])
+          print("Provisional outcome-memory updates:", result["learning_receipts"])
+          PY

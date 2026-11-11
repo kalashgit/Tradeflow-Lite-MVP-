@@ -33,6 +33,31 @@ as engineering facts, **not** business-quality gains. Historical negative
 experiments and the protected holdout remain frozen. No real-world
 business actions or merges/deployments are authorized.
 
+## Genesis v2.4 real runtime policy integration — Claude handoff
+
+**Required read** before the next major architecture change:
+repository root `docs/AION_GENESIS_V24_CLAUDE_ARCHITECTURE_HANDOFF.md`,
+`aion_genesis/eval_v2/genesis_policy.py`,
+`aion_genesis/eval_v2/genesis_runner.py`,
+`aion_genesis/eval_v2/improvement_gate.py`, and the
+PR #93 exact-head CI evidence.
+
+The **actual** `AionRuntime` is connected to a synthetic causal
+contractor domain and constrained mock-only tool actions. Its
+`ModelBinding` can accept a local explicitly authorized chat model
+for **ranking already admissible draft options**, but all standard
+CI runs are inference-off. Receipt-backed memory updates remain
+provisional and are not causal proof. A non-executable improvement
+hypothesis is not permission to change runtime policy.
+
+Claude's first implementation mission: belief-state estimator,
+causal transition model, bounded long-horizon planner, risk governor
+and evidence-grounded outcome memory, behind one opt-in research
+adapter. Evaluate matched independent outcomes; use dev-only
+adaptation, no automatic scorer edits, holdout reads, code promotion,
+production business actions or deployments. Preserve v1/v1.2 gates
+and avoid costly remote model inference without explicit approval.
+
 ## What is presently proven
 
 The Python standard-library harness, synthetic causal worlds, memory ablations,
