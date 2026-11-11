@@ -102,6 +102,40 @@ class ModelBoundaryTests(unittest.TestCase):
         self.assertFalse(result["dev"][0]["causal_lesson_independently_certified"])
         self.assertFalse(result["new_model_weights_trained"])
 
+    def test_counterfactual_trials_are_evidence_limited_and_metered(self):
+        transport = FakeTransport()
+        result = run_experiment(
+            proposer=LocalOllamaStrategy(model="fake-qwen", transport=transport),
+            dev_indices=(0,), transfer_index=18)
+        self.assertEqual(result["metrics"]["counterfactual_policy_evaluations"], 3)
+        query = json.loads(transport.calls[1]["messages"][-1]["content"])
+        trials = query["previous_attempt_feedback"]["tested_alternatives"]
+        self.assertEqual(len(trials), 3)
+        self.assertTrue(all("observed_paid_job_receipts" in trial for trial in trials))
+        self.assertTrue(all("synthetic_value_proxy" not in trial for trial in trials))
+        self.assertNotIn("shocks", json.dumps(query))
+        self.assertNotIn("future", json.dumps(query))
+
+    def test_no_lesson_does_not_create_spurious_negative_transfer(self):
+        class UnchangingNoAction:
+            model = "all-abstain-mock"
+            real_inference = False
+            prompt_tokens = completion_tokens = 0
+            def __init__(self):
+                self.calls = 0
+            def choose(self, *, observation, feedback=None, prior=None):
+                _public_observation(observation)
+                self.calls += 1
+                return {"strategy": "no_action", "hypothesis": "unproven",
+                        "uncertainty": "unknown"}
+        result = run_experiment(proposer=UnchangingNoAction(),
+                                dev_indices=(0,), transfer_index=17)
+        self.assertEqual(result["metrics"]["provisional_transfer_lessons"], 0)
+        self.assertTrue(result["metrics"]["transfer_without_lessons_is_identical_control"])
+        self.assertEqual(result["transfer"]["memory_on_minus_off_value"], 0)
+        self.assertEqual(result["metrics"]["model_calls"], 3)
+        self.assertFalse(result["dev"][0]["paired_correction"]["recovered"])
+
     def test_fake_model_cycle_uses_real_model_contract_but_is_not_real_inference(self):
         # Adapter is genuine, but injected transport is a FAKE; never claim
         # actual model inference from this test. Runner label is only a mode.
