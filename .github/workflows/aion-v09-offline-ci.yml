@@ -651,6 +651,23 @@ jobs:
           python-version: '3.12'
       - name: Test AionRuntime model binding, proposal, learning and boundaries
         run: python -m unittest discover -s tests -p test_eval_v24_genesis_runtime_bridge.py -q
+      - name: Test restricted improvements and independent Genesis benchmark
+        run: python -m unittest discover -s tests -p test_eval_v24_improvement_benchmark.py -q
+      - name: Run matched Genesis runtime memory-on/off and fixed policies
+        run: >-
+          python -m aion_genesis.eval_v2.genesis_runner run
+          --dev 4 --validation 4
+          --out "${{ runner.temp }}/genesis-actual-runtime-v24"
+      - name: Reproduce actual Genesis runtime proposals and scores
+        run: >-
+          python -m aion_genesis.eval_v2.genesis_runner verify
+          --out "${{ runner.temp }}/genesis-actual-runtime-v24"
+      - name: Archive immutable synthetic runtime evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-real-runtime-mock-v24-${{ github.run_id }}
+          path: ${{ runner.temp }}/genesis-actual-runtime-v24/
+          retention-days: 14
       - name: Assert no network model inference or business actions in CI
         run: |
           python - <<'PY'
