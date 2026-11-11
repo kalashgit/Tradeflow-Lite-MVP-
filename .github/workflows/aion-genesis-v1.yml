@@ -70,6 +70,12 @@ jobs:
         run: python -m aion_genesis.strategic_intuition --seeds 9401 --per-seed 120 --shift 0.70 --change-points 2 --out aion-intuition-two-change-stress.json
       - name: Out-of-distribution test — wholesale alternative mechanism
         run: python -m aion_genesis.strategic_intuition --seeds 9501 --per-seed 120 --shift 0.70 --change-style replacement --out aion-intuition-replacement-stress.json
+      - name: Independent meta-selector validation — one-state drift, fresh seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 9601 9602 --per-seed 120 --shift 0.70 --out aion-meta-new-local.json
+      - name: Independent meta-selector validation — two-state drift, fresh seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 9701 9702 --per-seed 120 --shift 0.70 --change-points 2 --out aion-meta-new-two-change.json
+      - name: Independent meta-selector validation — replacement rules, fresh seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 9801 9802 --per-seed 120 --shift 0.70 --change-style replacement --out aion-meta-new-replacement.json
       - name: Archive strategic intuition experiments and calibration results
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,6 +87,9 @@ jobs:
             research/aion-genesis/aion-intuition-drift-stress.json
             research/aion-genesis/aion-intuition-two-change-stress.json
             research/aion-genesis/aion-intuition-replacement-stress.json
+            research/aion-genesis/aion-meta-new-local.json
+            research/aion-genesis/aion-meta-new-two-change.json
+            research/aion-genesis/aion-meta-new-replacement.json
           if-no-files-found: ignore
           retention-days: 14
       - name: Run synthetic TradeFlow owner interviews and proactive operating benchmark

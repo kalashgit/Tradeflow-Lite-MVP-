@@ -150,3 +150,8 @@ The monitor's observed false-familiarity reduction is not necessarily a net accu
 ### Generalization failure check — unrelated mechanism replacement
 
 A third stress distribution replaces a remembered synthetic Boolean rule with a different whole mechanism that disagrees on at least three of eight possible inputs. This is deliberately NOT the sparse local-change generator used to develop residual repair. The experimental report must measure whether residual memory composition still helps, instead of promoting it based only on the benchmark it was optimized for. Passing cannot establish general-world competence; failing should cause controlled abstention or a better model-family mismatch detector, not hidden oracle correction.
+
+
+### Experimental metacognitive strategy selection — post-hoc discovery, new seeds required
+
+A bounded meta-controller can choose between local residual repair and cold symbolic reconstruction. It uses only contradictions observed in the current diagnostic probes and a sequential, observation-only mismatch rate. Recurrent high mismatch rates (>0.43, or two immediately contradictory diagnostic observations) trigger whole-mechanism reconstruction; otherwise the controller can try a small local correction, then test it with the remaining intervention budget. This heuristic was introduced AFTER examining a sparse-vs-replacement stress comparison and is therefore not independently validated by those original scores. The workflow runs three NEW cohorts (one-point, two-point and full replacement shifts, seeds 9601-9802) before making any stronger claim. All strategies remain provisional; no model weights or durable memories are changed.
