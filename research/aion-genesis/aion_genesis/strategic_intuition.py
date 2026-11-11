@@ -11,7 +11,7 @@ calibration probe selection or the deep reasoning controller.
 from copy import deepcopy
 from dataclasses import dataclass
 from math import sqrt
-from collections import defaultdict
+from collections import defaultdict, deque
 import hashlib
 import json
 import random
@@ -199,18 +199,24 @@ class Calibration:
         self.min_samples=min_samples
         self.lower_bound=lower_bound
         self._n=0
+        self._recalled=0
         self._correct=0
         self.frozen=False
 
     def observe(self,canary_passed,exact):
         if self.frozen:
             raise ValueError("cannot calibrate using evaluation outcomes")
+        self._recalled+=1
         if canary_passed:
             self._n+=1
             self._correct+=bool(exact)
 
     def freeze(self):
         self.frozen=True
+
+    @property
+    def mismatch_rate(self):
+        return 1-self._n/self._recalled if self._recalled else 1.0
 
     @property
     def confidence(self):
@@ -222,7 +228,9 @@ class Calibration:
             self._correct,self._n)>=self.lower_bound
 
     def summary(self):
-        return {"calibrationPasses":self._n,"correctAmongPasses":self._correct,
+        return {"calibrationPasses":self._n,"totalRecalled":self._recalled,
+                "mismatchRate":round(self.mismatch_rate,5),
+                "correctAmongPasses":self._correct,
                 "smoothedConfidence":round(self.confidence,5),
                 "wilsonLower":round(wilson_lower(self._correct,self._n),5),
                 "confidenceGateOpen":self.trusted,"frozen":self.frozen,
@@ -234,10 +242,65 @@ def calibrate(bank,seed=811,count=800,shift_probability=0.18):
     for i in range(count):
         world,context,_=synthetic_episode(bank,seed,i,shift_probability)
         memory,observations,passed=probe_memory(world,bank,context)
-        if memory is not None and passed:
-            calibration.observe(True,world.accuracy(memory.mechanism)==1.0)
+        if memory is not None:
+            calibration.observe(passed,world.accuracy(memory.mechanism)==1.0)
     calibration.freeze()
     return calibration
+
+
+
+class DriftSentinel:
+    """Prequential metacognitive controller built ONLY from observed canary outcomes.
+
+    Calibration supplies a baseline mismatch rate learned on a separate stream.
+    Each next-world routing decision uses only prior canary outcomes. The current
+    world's diagnostic measurements may falsify its memory, but no evaluator
+    full-truth-table score is permitted into this controller.
+    """
+    def __init__(self, baseline_mismatch_rate, window=48, min_samples=32,
+                 alert_margin=0.08, clear_margin=0.025):
+        if not 0<=baseline_mismatch_rate<1:
+            raise ValueError("invalid calibrated mismatch rate")
+        if type(window) is not int or not 16<=window<=256:
+            raise ValueError("invalid evidence window")
+        if type(min_samples) is not int or not 8<=min_samples<=window:
+            raise ValueError("invalid minimum monitoring coverage")
+        self.baseline=baseline_mismatch_rate
+        self.window=window
+        self.min_samples=min_samples
+        self.alert_margin=alert_margin
+        self.clear_margin=clear_margin
+        self._recent=deque(maxlen=window)
+        self.alarm=False
+        self.alerts=0
+        self.recoveries=0
+
+    @property
+    def observed_mismatch(self):
+        return sum(self._recent)/len(self._recent) if self._recent else 0.0
+
+    def record(self, passed):
+        if type(passed) is not bool:
+            raise ValueError("sentinel accepts only observed diagnostic outcomes")
+        self._recent.append(not passed)
+        if len(self._recent)<self.min_samples:
+            return
+        rate=self.observed_mismatch
+        if not self.alarm and rate>self.baseline+self.alert_margin:
+            self.alarm=True
+            self.alerts+=1
+        elif self.alarm and len(self._recent)==self.window and rate<self.baseline+self.clear_margin:
+            self.alarm=False
+            self.recoveries+=1
+
+    def summary(self):
+        return {"alarm":self.alarm,"alerts":self.alerts,
+                "recoveries":self.recoveries,
+                "priorDiagnosticSamples":len(self._recent),
+                "observedMismatchRate":round(self.observed_mismatch,5),
+                "calibratedMismatchRate":round(self.baseline,5),
+                "noEvaluatorLabelsUsed":True,
+                "persistent":False}
 
 
 def deep_investigate(world,previous,max_interventions):
@@ -264,8 +327,8 @@ def deep_investigate(world,previous,max_interventions):
     return candidate,observed,deep_steps,checks
 
 
-def route(world,context,bank,calibration,mode="gated",budget=5):
-    if mode not in ("deep_only","memory_only","gated"):
+def route(world,context,bank,calibration,mode="gated",budget=5,sentinel=None):
+    if mode not in ("deep_only","memory_only","gated","gated_drift_aware"):
         raise ValueError("invalid mode")
     if type(budget) is not int or budget<3 or budget>7:
         raise ValueError("invalid world budget")
@@ -276,14 +339,18 @@ def route(world,context,bank,calibration,mode="gated",budget=5):
     deep_steps=0
     checks=0
     contradicted=False
+    alarm_before=bool(sentinel.alarm) if sentinel is not None else False
     if mode=="memory_only" and memory is not None:
         candidate=memory.mechanism
         fast_used=True
     else:
-        if mode=="gated" and memory is not None and calibration.trusted:
+        if mode in ("gated","gated_drift_aware") and memory is not None and calibration.trusted:
             memory,observations,passed=probe_memory(world,bank,context,2)
             contradicted=not passed
-            if passed:
+            if sentinel is not None:
+                sentinel.record(bool(passed))
+            alarm_after=bool(sentinel.alarm) if sentinel is not None else False
+            if passed and not alarm_before and not alarm_after:
                 candidate=memory.mechanism
                 fast_used=True
         if not fast_used:
@@ -308,6 +375,9 @@ def route(world,context,bank,calibration,mode="gated",budget=5):
         "confidence":calibration.confidence if fast_used and mode=="gated" else None,
         "falseFamiliarity":fast_used and accuracy!=1.0,
         "contradictionRoutedDeep":contradicted and not fast_used,
+        "monitorAlarmBefore":alarm_before,
+        "monitorAlarmAfter":bool(sentinel.alarm) if sentinel is not None else False,
+        "monitorForcedDeep":bool(sentinel is not None and (alarm_before or sentinel.alarm) and not contradicted and not fast_used),
         "externalActions":False,
         "persistentKnowledgeWrites":False,
         "modelCalls":0,
@@ -330,18 +400,22 @@ def reliability(results):
 def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
     bank=build_bank(seed=19)
     calibration=calibrate(bank,seed=811,count=800,shift_probability=0.18)
-    rows={mode:[] for mode in ("deep_only","memory_only","gated")}
+    rows={mode:[] for mode in ("deep_only","memory_only","gated","gated_drift_aware")}
     grouped={mode:defaultdict(list) for mode in rows}
+    sentinel_summaries=[]
     for seed in seeds:
+        monitor=DriftSentinel(calibration.mismatch_rate)
         for index in range(count_per_seed):
             # Fresh world per mode. Identical hidden generator inputs, no outcome
             # or agent state transfer across arms.
             for mode in rows:
                 world,context,kind=synthetic_episode(bank,seed,index,shift_probability)
-                result=route(world,context,bank,calibration,mode=mode)
+                result=route(world,context,bank,calibration,mode=mode,
+                             sentinel=monitor if mode=="gated_drift_aware" else None)
                 result.update({"world":world.world_id,"context":context,"kind":kind})
                 rows[mode].append(result)
                 grouped[mode][kind].append(result)
+        sentinel_summaries.append({"seed":seed,**monitor.summary()})
     def aggregate(part):
         n=len(part)
         return {
@@ -355,6 +429,7 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
             "fastRouteCount":sum(r["route"]=="fast" for r in part),
             "falseFamiliarityCount":sum(r["falseFamiliarity"] for r in part),
             "detectedContradictions":sum(r["contradictionRoutedDeep"] for r in part),
+            "monitorForcedDeep":sum(r["monitorForcedDeep"] for r in part),
             "confidenceCalibration":reliability(part),
             "modelCalls":0,
         }
@@ -365,6 +440,7 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
         "shiftProbability":shift_probability,
         "independentCalibrationSeed":811,"calibration":calibration.summary(),
         "bank":bank.summary(),
+        "prequentialDriftSentinels":sentinel_summaries,
         "policies":{k:aggregate(v) for k,v in rows.items()},
         "regimes":{mode:{kind:aggregate(v) for kind,v in kinds.items()}
                    for mode,kinds in grouped.items()},
@@ -375,6 +451,10 @@ def experiment(seeds=(1901,1902),count_per_seed=160,shift_probability=0.18):
                 for a,b in zip(rows["deep_only"],rows["gated"])),
             "gatedWorseExactWorlds":sum(a["exact"] and not b["exact"]
                 for a,b in zip(rows["deep_only"],rows["gated"])),
+            "monitorReductionInFalseFamiliarity":sum(r["falseFamiliarity"] for r in rows["gated"])-
+                sum(r["falseFamiliarity"] for r in rows["gated_drift_aware"]),
+            "monitorExtraInterventions":sum(r["interventions"] for r in rows["gated_drift_aware"])-
+                sum(r["interventions"] for r in rows["gated"]),
         },
         "safety":{"noProductionData":True,"noExternalActions":True,
                   "persistentCausalMemory":"DISABLED","realQwenInference":False},

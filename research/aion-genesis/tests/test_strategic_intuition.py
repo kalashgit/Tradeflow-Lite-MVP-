@@ -110,6 +110,38 @@ class StrategicIntuitionTests(unittest.TestCase):
         self.assertEqual(summary["policies"]["gated"]["modelCalls"],0)
         self.assertTrue(summary["calibration"]["frozen"])
 
+    def test_stream_drift_monitor_uses_only_canary_outcomes(self):
+        from aion_genesis.strategic_intuition import DriftSentinel
+        monitor=DriftSentinel(baseline_mismatch_rate=0.04,window=48,min_samples=32)
+        for _ in range(20):
+            monitor.record(True)
+        self.assertFalse(monitor.alarm)
+        for _ in range(13):
+            monitor.record(False)
+        self.assertTrue(monitor.alarm)
+        self.assertGreaterEqual(monitor.alerts,1)
+        self.assertTrue(monitor.summary()["noEvaluatorLabelsUsed"])
+        with self.assertRaises(ValueError):
+            monitor.record("bad model truth")
+
+    def test_drift_alarm_rejects_familiar_fast_path_without_oracle(self):
+        from aion_genesis.strategic_intuition import DriftSentinel
+        monitor=DriftSentinel(0.04,window=48,min_samples=32)
+        for _ in range(40):
+            monitor.record(False)
+        self.assertTrue(monitor.alarm)
+        certificate=Calibration(min_samples=1,lower_bound=0.0)
+        certificate.observe(True,True)
+        certificate.freeze()
+        memory=self.bank.recall("context-00",VARS)
+        world=HiddenWorld("drift-alert",VARS,memory.mechanism,"eval")
+        evaluation=route(world,"context-00",self.bank,certificate,
+                         mode="gated_drift_aware",sentinel=monitor)
+        self.assertEqual(evaluation["route"],"deep")
+        self.assertTrue(evaluation["monitorAlarmBefore"])
+        self.assertTrue(evaluation["monitorForcedDeep"])
+        self.assertEqual(evaluation["interventions"],5)
+
     def test_false_familiarity_is_recorded_not_hidden(self):
         rows=[{"confidence":0.9,"exact":False},{"confidence":0.9,"exact":True}]
         metrics=reliability(rows)
