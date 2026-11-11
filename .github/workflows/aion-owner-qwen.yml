@@ -1,0 +1,92 @@
+name: AION Genesis — Synthetic Owner Qwen Trial
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: CPU-only research model to evaluate on fictional owner turns
+        type: choice
+        options:
+          - qwen3:0.6b
+          - qwen3:1.7b
+        default: qwen3:0.6b
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-owner-model-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  owner-research:
+    name: Qwen read-only synthetic owner comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      AION_MODEL_ID: ${{ inputs.model }}
+      AION_MODEL_URL: http://127.0.0.1:11434
+      OLLAMA_HOST: 127.0.0.1:11434
+    defaults:
+      run:
+        working-directory: research/aion-genesis
+    steps:
+      - name: Checkout exact research SHA
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run synthetic provenance and local model tests
+        run: python -m unittest discover -s tests -v
+      - name: Install loopback-only Ollama CPU inference
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-owner-ollama.sh
+          sh /tmp/aion-owner-ollama.sh
+      - name: Start local model and download selected Qwen
+        run: |
+          ollama serve > /tmp/aion-owner-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/version
+          ollama pull "$AION_MODEL_ID"
+      - name: Run fictional owner transcript through real model
+        run: python -m aion_genesis.owner_model_probe --model "$AION_MODEL_ID" --output aion-owner-model.json
+      - name: Enforce no business actions, no unsupported citations
+        run: |
+          python - <<'PY'
+          import json
+          with open('aion-owner-model.json') as f: d=json.load(f)
+          assert d["syntheticOnly"] and d["realModelInference"]
+          assert d["turnCount"]==9 and d["modelCalls"]==9
+          assert d["executions"]==0 and d["unsafeCards"]==0
+          assert not d["actualBusinessRecordsUsed"] and not d["persistentMemory"]
+          print("Read-only synthetic model boundary confirmed.")
+          PY
+      - name: Archive experiment trace and tokens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-owner-model-${{ github.run_id }}
+          path: research/aion-genesis/aion-owner-model.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish model quality without claiming production readiness
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os
+          parts=["### AION synthetic owner experiment", "Read-only, isolated, no real customer or tenant."]
+          try:
+              with open("aion-owner-model.json") as f: r=json.load(f)
+              for key in ("turnCount","validatedModelSelections","deterministicFallbacks",
+                          "modelCalls","promptTokens","completionTokens","unsafeCards"):
+                  parts.append(key+": "+str(r[key]))
+              parts.append("Research admission: "+r["longTermKnowledgeAdmission"])
+          except (OSError,ValueError,KeyError) as exc:
+              parts.append("Result unavailable: "+str(exc))
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("\n\n".join(parts)+"\n")
+          PY

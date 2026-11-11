@@ -1,0 +1,97 @@
+"""Private Ollama inference for hypothetical mechanisms; no generated-code execution."""
+import json
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
+from .core import validate, MechanismError
+
+
+def expression_schema(variables, depth=2):
+    """Finite, non-recursive JSON Schema for compound ASTs (no hidden mechanism)."""
+    leaf={"type":"object","properties":{
+            "op":{"const":"var"},"name":{"type":"string","enum":list(variables)}},
+          "required":["op","name"],"additionalProperties":False}
+    if depth <= 0:
+        return leaf
+    sub=expression_schema(variables,depth-1)
+    neg={"type":"object","properties":{"op":{"const":"not"},"arg":sub},
+         "required":["op","arg"],"additionalProperties":False}
+    arity={"type":"array","items":sub,"minItems":2,"maxItems":4}
+    logical={"type":"object","properties":{"op":{"type":"string","enum":["and","or","xor"]},"args":arity},
+             "required":["op","args"],"additionalProperties":False}
+    threshold={"type":"object","properties":{"op":{"const":"threshold"},"args":arity,
+                  "k":{"type":"integer","minimum":1,"maximum":4}},
+               "required":["op","args","k"],"additionalProperties":False}
+    return {"anyOf":[leaf,neg,logical,threshold]}
+
+class LocalQwenProposer:
+    def __init__(self, model="qwen3:0.6b", endpoint="http://127.0.0.1:11434", transport=None, output_mode="json"):
+        if output_mode not in ("json","schema"):
+            raise ValueError("invalid output mode")
+        self.output_mode = output_mode
+        parsed = urlsplit(endpoint)
+        if parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1") or parsed.username or parsed.password or parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+            raise ValueError("AION model endpoint must be loopback HTTP")
+        if not isinstance(model, str) or not model or len(model) > 128:
+            raise ValueError("invalid model id")
+        self.model = model
+        self.endpoint = endpoint.rstrip("/")
+        self.transport = transport if transport is not None else self._call
+        self.calls = 0
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.last_failure_kind = None
+
+    def _call(self, request_body):
+        req = Request(self.endpoint + "/api/chat", data=json.dumps(request_body).encode(),
+                      headers={"Content-Type": "application/json"}, method="POST")
+        with urlopen(req, timeout=90) as response:
+            return json.load(response)
+
+    def propose(self, *, variables, recent, feedback, previous, analogies=()):
+        self.last_failure_kind = None
+        system = (
+            "Infer a testable binary mechanism consistent with observations. "
+            "Output only a JSON expression tree using op=var with name; op=not with arg; "
+            "op=and/or/xor with args list (2-4 expressions); or op=threshold with args and integer k. "
+            "Use only variable names provided. Do not output Python, functions, prose, or markdown. "
+            "Do not pretend the rule is proven by one example. "
+            "If the prior hypothesis was rejected by observations, revise it and do not repeat it. "
+            "Tentative analogies come from separate development worlds and are UNVERIFIED. "
+            "Reject analogies that contradict the current observations."
+        )
+        query = {"variables": list(variables), "observations": recent, "prior": previous,
+                 "observedCounterexamples": feedback[-3:], "provisionalAnalogies": list(analogies)[:3]}
+        payload = {
+            "model": self.model, "stream": False, "think": False, "format": expression_schema(variables) if self.output_mode == "schema" else "json",
+            "options": {"temperature": 0, "num_predict": 512},
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": json.dumps(query)}]
+        }
+        self.calls += 1
+        result = self.transport(payload)
+        if not isinstance(result, dict):
+            self.last_failure_kind = "malformed_transport"
+            return None
+        tokens_in = result.get('prompt_eval_count', 0)
+        tokens_out = result.get('eval_count', 0)
+        if type(tokens_in) is int and tokens_in > 0:
+            self.prompt_tokens += tokens_in
+        if type(tokens_out) is int and tokens_out > 0:
+            self.completion_tokens += tokens_out
+        if result.get("done") is not True or result.get("done_reason", "stop") != "stop":
+            self.last_failure_kind = "incomplete_generation"
+            return None
+        output = result.get("message", {}).get("content")
+        if not isinstance(output, str) or not 0 < len(output) <= 24000:
+            self.last_failure_kind = "missing_content"
+            return None
+        try:
+            parsed = json.loads(output)
+        except (json.JSONDecodeError, TypeError):
+            self.last_failure_kind = "invalid_json"
+            return None
+        try:
+            return validate(parsed, variables)
+        except (MechanismError, ValueError, TypeError, RecursionError):
+            self.last_failure_kind = "invalid_ast"
+            return None

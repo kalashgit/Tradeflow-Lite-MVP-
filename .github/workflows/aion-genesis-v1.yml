@@ -1,0 +1,132 @@
+name: AION Genesis V1 — Python Scientific Lab
+
+on:
+  pull_request:
+    paths:
+      - 'research/aion-genesis/**'
+      - '.github/workflows/aion-genesis-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Python science and memory gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: research/aion-genesis
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test mechanism safety, synthetic worlds and memory gates
+        run: python -m unittest discover -s tests -v
+      - name: Run reproducible 120-world offline experiment
+        run: python -m aion_genesis.demo
+      - name: Run matched-world provisional memory ablation (deterministic control)
+        run: python -m aion_genesis.ablation --mode reference --worlds 8 --budget 5
+      - name: Bounded symbolic program-synthesis benchmark
+        run: python -c 'import json; from aion_genesis.synthesis import evaluate_synthesis; print(json.dumps(evaluate_synthesis(seed=71,count=120,budget=8),indent=2))'
+      - name: Compare fixed and progressive mechanism discovery on 72 paired development cases
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --output aion-adaptive-benchmark.json
+      - name: Repeat comparison on 72 independently seeded validation cases
+        run: python -m aion_genesis.adaptive_benchmark --seeds 1601 1602 1603 --output aion-adaptive-validation.json
+      - name: Test all-on-first causal stress probe on development seeds
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy all_on --output aion-probe-all-on.json
+      - name: Test two-corner causal stress probes on development seeds
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy corners --output aion-probe-corners.json
+      - name: Test evidence-triggered rare-event probe on development seeds
+        run: python -m aion_genesis.adaptive_benchmark --seeds 938 939 940 --probe-strategy surprise --output aion-probe-surprise.json
+      - name: Gate accuracy, sample efficiency and CPU costs against both seed suites
+        run: python -m aion_genesis.gates aion-adaptive-benchmark.json aion-adaptive-validation.json
+      - name: Save paired learning-speed and prediction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-progressive-induction-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-adaptive-benchmark.json
+            research/aion-genesis/aion-adaptive-validation.json
+            research/aion-genesis/aion-probe-all-on.json
+            research/aion-genesis/aion-probe-corners.json
+            research/aion-genesis/aion-probe-surprise.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Verify unknown-grammar detector and model escalation boundary
+        run: python -m aion_genesis.open_world
+      - name: Adaptive Strategic Intuition — development calibration and paired baseline
+        run: python -m aion_genesis.strategic_intuition --seeds 1901 1902 --per-seed 160 --out aion-intuition-dev.json
+      - name: Strategic Intuition — independent untouched test seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 4101 4102 --per-seed 160 --out aion-intuition-validation.json
+      - name: False familiarity stress — 70 percent hidden rule changes
+        run: python -m aion_genesis.strategic_intuition --seeds 9301 --per-seed 120 --shift 0.70 --out aion-intuition-drift-stress.json
+      - name: Generality check — two changed inputs per hidden rule
+        run: python -m aion_genesis.strategic_intuition --seeds 9401 --per-seed 120 --shift 0.70 --change-points 2 --out aion-intuition-two-change-stress.json
+      - name: Out-of-distribution test — wholesale alternative mechanism
+        run: python -m aion_genesis.strategic_intuition --seeds 9501 --per-seed 120 --shift 0.70 --change-style replacement --out aion-intuition-replacement-stress.json
+      - name: Independent meta-selector validation — one-state drift, fresh seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 9601 9602 --per-seed 120 --shift 0.70 --out aion-meta-new-local.json
+      - name: Independent meta-selector validation — two-state drift, fresh seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 9701 9702 --per-seed 120 --shift 0.70 --change-points 2 --out aion-meta-new-two-change.json
+      - name: Independent meta-selector validation — replacement rules, fresh seeds
+        run: python -m aion_genesis.strategic_intuition --seeds 9801 9802 --per-seed 120 --shift 0.70 --change-style replacement --out aion-meta-new-replacement.json
+      - name: Archive strategic intuition experiments and calibration results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-intuition-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-intuition-dev.json
+            research/aion-genesis/aion-intuition-validation.json
+            research/aion-genesis/aion-intuition-drift-stress.json
+            research/aion-genesis/aion-intuition-two-change-stress.json
+            research/aion-genesis/aion-intuition-replacement-stress.json
+            research/aion-genesis/aion-meta-new-local.json
+            research/aion-genesis/aion-meta-new-two-change.json
+            research/aion-genesis/aion-meta-new-replacement.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Run synthetic TradeFlow owner interviews and proactive operating benchmark
+        run: python -m aion_genesis.business_trial --seeds 11 12 13 14 15 16 17 18 --output aion-business-dev.json
+      - name: Reproduce business experiment with independent simulation seeds
+        run: python -m aion_genesis.business_trial --seeds 101 102 103 104 105 106 107 108 --output aion-business-validation.json
+      - name: Archive fictional-business evidence and transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-business-twin-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-business-dev.json
+            research/aion-genesis/aion-business-validation.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Export AION-selected synthetic business proposals for real TradeFlow tools
+        run: python -m aion_genesis.tool_contract --output aion-tools-evidence.json
+      - name: Exercise existing TradeFlow command registry with safe owner approvals
+        run: node --test --test-reporter=tap bridge/aion-capability-bridge.test.cjs > aion-tool-contract-tests.tap || { cat aion-tool-contract-tests.tap; exit 1; }
+      - name: Archive model-to-application capability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-tradeflow-capabilities-${{ github.run_id }}
+          path: |
+            research/aion-genesis/aion-tools-evidence.json
+            research/aion-genesis/aion-tool-contract-tests.tap
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Verify no experimental knowledge store was created
+        run: |
+          if find . -type f \( -name '*.sqlite' -o -name '*.db' \) | grep -q .; then
+            echo "Unexpected persistent knowledge database" >&2
+            exit 1
+          fi
+      - name: Report evidence boundary
+        run: |
+          echo "AION Genesis V1 research-only. No live Qwen calls or long-term knowledge promotion." >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"

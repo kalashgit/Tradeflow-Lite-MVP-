@@ -1,0 +1,81 @@
+name: AION Genesis — Live Qwen Novel Mechanism Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-novel-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-novel:
+    name: CPU Qwen3-0.6B six held-out novel compositions
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      AION_MODEL_ID: qwen3:0.6b
+      AION_MODEL_URL: http://127.0.0.1:11434
+      OLLAMA_HOST: 127.0.0.1:11434
+    defaults:
+      run:
+        working-directory: research/aion-genesis
+    steps:
+      - name: Checkout exact research commit
+        uses: actions/checkout@v4
+      - name: Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit and security boundary tests
+        run: python -m unittest discover -s tests -v
+      - name: Confirm these worlds are outside known grammar
+        run: python -m aion_genesis.open_world
+      - name: Install isolated CPU Ollama runtime
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/genesis-novel-ollama.sh
+          sh /tmp/genesis-novel-ollama.sh
+      - name: Start private model and pull Qwen3-0.6B
+        run: |
+          ollama serve >/tmp/genesis-novel-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/version
+          ollama pull "$AION_MODEL_ID"
+          ollama list
+      - name: Real Qwen invention on held-out mechanism compositions
+        run: python -m aion_genesis.novel_experiment --model "$AION_MODEL_ID" --worlds 6 --output-mode schema > aion-novel-evidence.json
+      - name: Archive independent experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aion-novel-qwen-${{ github.run_id }}
+          path: research/aion-genesis/aion-novel-evidence.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish measured gate status
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          lines=["### AION: real Qwen novel-composition gate", "Research only; no tenant data, deployment, model training, or durable knowledge writes."]
+          try:
+              with open("aion-novel-evidence.json") as f:
+                  data=json.load(f)
+              lines.extend([
+                  "Actual model calls: "+str(data["qwenCalls"]),
+                  "Escalations: "+str(data["escalations"]),
+                  "Validated novel ASTs: "+str(data["acceptedNovelASTs"]),
+                  "Mean unseen accuracy: "+str(data["meanUnseenAccuracy"]),
+                  "Full truth-table accuracy: "+str(data["meanFullAccuracy"]),
+                  "Model input/output tokens: "+str(data["totalInputTokens"])+"/"+str(data["totalOutputTokens"]),
+                  "Memory admission: "+data["researchAdmission"]])
+          except (OSError, ValueError) as error:
+              lines.append("No complete novel-model report: "+str(error))
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as file:
+              file.write("\n\n".join(lines)+"\n")
+          PY
