@@ -68,6 +68,7 @@ class LocalOllamaStrategy:
             raise ValueError("Model must run on explicit localhost HTTP port")
         if not isinstance(model, str) or not 0 < len(model) <= 100:
             raise ValueError("Invalid model identity")
+        self.real_inference = transport is None
         self.endpoint, self.model = endpoint.rstrip("/"), model
         self.transport = transport or self._post
         self.calls = self.prompt_tokens = self.completion_tokens = 0
@@ -267,7 +268,7 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
     return {
         "schema": "GenesisV3ModelGuidedCorrectionResearch/0.1",
         "model": getattr(proposer, "model", "unknown"),
-        "real_model_inference": isinstance(proposer, LocalOllamaStrategy),
+        "real_model_inference": bool(getattr(proposer, "real_inference", False)),
         "mode": "bounded_strategy_selector_not_action_model",
         "dev": dev_rows, "transfer": {
             "case_id": transfer.case_id, "case_digest": transfer.fingerprint(),
