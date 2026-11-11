@@ -1,0 +1,32 @@
+name: AION Genesis v3 grounded corrective research
+on:
+  pull_request:
+    paths:
+      - 'research/aion-v06/aion_genesis/learning_v3/**'
+      - 'research/aion-v06/tests/test_genesis_v3_grounded_correction.py'
+      - 'docs/AION_GENESIS_V3_LITERATURE_TO_EXPERIMENTS.md'
+      - '.github/workflows/aion-genesis-v3-grounded-correction-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  research-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Grounding and paired corrective replay tests
+        run: python -m unittest discover -s tests -p test_genesis_v3_grounded_correction.py -q
+      - name: Full AION Python research regression
+        run: python -m unittest discover -s tests -q
+      - name: Research limitations
+        run: |
+          echo 'Advisory evidence and paired-replay contracts only.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No actual model inference, independently certified learning, release holdout, autonomous policy change or production action.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact SHA: \u0060$GITHUB_SHA\u0060" >> "$GITHUB_STEP_SUMMARY"
