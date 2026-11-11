@@ -29,7 +29,14 @@ SYSTEM = (
     "Never claim to see hidden events, future shocks, or source truth. "
     "Output a JSON object with strategy, hypothesis and uncertainty. "
     "A hypothesis is provisional, not verified. The simulator, not you, "
-    "determines actual results. Never output tool commands."
+    "determines actual results. Never output tool commands. " 
+    "If previous feedback includes tested_alternatives, compare ACTUAL " 
+    "observed paid-job receipts, denied operations and cash budgets. " 
+    "Prefer a tested strategy with more verified paid-job receipts and no " 
+    "denied operations; prefer higher cash if results tie. Do not choose " 
+    "no_action merely because nothing is known when trial evidence shows " 
+    "that safe work produces better results. Never claim trial results " 
+    "that were not supplied."
 )
 
 
@@ -225,14 +232,32 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
         raise ValueError("Bound experiment indices required")
     dev_rows = []
     memory = []
+    counterfactual_evaluations = 0
     for idx in dev_indices:
         case = generate("dev", idx, family="supplier_shock", difficulty=2)
         initial_view = World(case).public_view(
             "project_manager", tenant="SYN-TENANT-" + str(case.seed))
         guess = proposer.choose(observation=initial_view)
         first = run_strategy(case, guess["strategy"])
-        revised = proposer.choose(observation=initial_view,
-                                  feedback=first["feedback"])
+        # Deliberate research-only simulation budget: independently run each
+        # other fixed policy from the identical initial world. The model sees
+        # only these trials\u0027 PM-delivered observations/receipts, NOT judge
+        # scores, hidden shock state or oracle recommendations. The number of
+        # trials is charged to the learning-efficiency metric.
+        tested = []
+        for alternative in STRATEGIES:
+            if alternative == guess["strategy"]:
+                continue
+            preview = run_strategy(case, alternative)
+            counterfactual_evaluations += 1
+            tested.append({
+                "strategy": alternative,
+                "observed_paid_job_receipts": preview["feedback"]["observed_paid_job_receipts"],
+                "observed_cash_budget": preview["feedback"]["observed_cash_budget"],
+                "denied_operation_receipts": preview["feedback"]["denied_operation_receipts"],
+                "visible_source_refs": preview["network"]["pm_source_refs"]})
+        feedback = {**first["feedback"], "tested_alternatives": tested}
+        revised = proposer.choose(observation=initial_view, feedback=feedback)
         second = run_strategy(case, revised["strategy"])
         # Some policies produce identical action histories; independent receipts
         # are therefore identified by *run number*, not just identical hashes.
@@ -247,7 +272,9 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
                "initial_model_choice": guess, "revised_model_choice": revised,
                "initial": first, "replay": second,
                "paired_correction": asdict(correction),
-               "intervention_isolation_performed": False,
+               "counterfactual_policy_trials": tested,
+               "policy_level_intervention_performed": True,
+               "action_specific_causal_effect_proven": False,
                "causal_lesson_independently_certified": False}
         dev_rows.append(row)
         # Strict: even success on exact replay is not established transfer.
@@ -261,12 +288,17 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
     view = World(transfer).public_view(
         "project_manager", tenant="SYN-TENANT-" + str(transfer.seed))
     control_choice = proposer.choose(observation=view)
-    learned_choice = proposer.choose(observation=view, prior=memory[:2])
     control = run_strategy(transfer, control_choice["strategy"])
-    learned = run_strategy(transfer, learned_choice["strategy"])
+    if memory:
+        learned_choice = proposer.choose(observation=view, prior=memory[:2])
+        learned = run_strategy(transfer, learned_choice["strategy"])
+    else:
+        # No established lessons: do not call the model again with a subtly
+        # different prompt and mistakenly label sampling drift as transfer.
+        learned_choice, learned = control_choice, control
     references = {s: episode(transfer, s) for s in STRATEGIES}
     return {
-        "schema": "GenesisV3ModelGuidedCorrectionResearch/0.1",
+        "schema": "GenesisV3ModelGuidedCorrectionResearch/0.2",
         "model": getattr(proposer, "model", "unknown"),
         "real_model_inference": bool(getattr(proposer, "real_inference", False)),
         "mode": "bounded_strategy_selector_not_action_model",
@@ -288,6 +320,8 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
             "verified_exact_case_recoveries": sum(
                 x["paired_correction"]["recovered"] for x in dev_rows),
             "provisional_transfer_lessons": len(memory),
+            "counterfactual_policy_evaluations": counterfactual_evaluations,
+            "transfer_without_lessons_is_identical_control": not bool(memory),
             "model_calls": proposer.calls,
             "prompt_tokens": proposer.prompt_tokens,
             "completion_tokens": proposer.completion_tokens,
@@ -300,7 +334,7 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
         "new_model_weights_trained": False,
         "candidate_promoted": False,
         "real_business_actions": 0,
-        "result_interpretation": "pilot_diagnostic_not_statistically_powered"
+        "result_interpretation": "pilot_counterfactual_training_not_statistically_powered"
     }
 
 
