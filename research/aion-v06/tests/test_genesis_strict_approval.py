@@ -46,14 +46,21 @@ class StrictApprovalTests(unittest.TestCase):
             {ticket.approval_id: answer}, ctx or self.ctx,
             intent or self.intent, args if args is not None else self.args)
 
+    def guarded(self, receipt, intent, args, authority, regime, *,
+                context=None, commit_state="clear"):
+        return guard_resumed_action(
+            self.ledger, receipt, intent, args, authority, regime,
+            current_context=self.ctx if context is None else context,
+            commit_state=commit_state)
+
     def test_valid_resume_persists_then_requires_executor_recheck(self):
         ticket = self.issue()
         receipt = self.resume(ticket)
         self.assertTrue(receipt.approved)
         self.assertTrue(receipt.requires_atomic_executor_recheck)
         self.assertTrue(self.ledger.verify_receipt(receipt))
-        decision = guard_resumed_action(
-            self.ledger, receipt, self.intent, self.args,
+        decision = self.guarded(
+             receipt, self.intent, self.args,
             self.authority, RegimeAssessment("normal", (), ()))
         self.assertTrue(decision.admissible)
         self.assertTrue(decision.requires_atomic_recheck)
@@ -140,8 +147,8 @@ class StrictApprovalTests(unittest.TestCase):
         receipt = self.resume(ticket, answer="reject")
         self.assertFalse(receipt.approved)
         self.assertFalse(self.ledger.verify_receipt(receipt))
-        decision = guard_resumed_action(
-            self.ledger, receipt, self.intent, self.args, self.authority, None)
+        decision = self.guarded(
+             receipt, self.intent, self.args, self.authority, None)
         self.assertFalse(decision.admissible)
         with self.assertRaises(StaleApprovalError):
             self.resume(ticket)
@@ -151,12 +158,12 @@ class StrictApprovalTests(unittest.TestCase):
         fake = ApprovalReceipt(ticket.approval_id, ticket.scope, ticket.workflow_id,
                                ticket.checkpoint_id, ticket.revision, 2,
                                ticket.action_sha, "owner", True)
-        self.assertFalse(guard_resumed_action(
-            self.ledger, fake, self.intent, self.args, self.authority, None).admissible)
+        self.assertFalse(self.guarded(
+             fake, self.intent, self.args, self.authority, None).admissible)
         good = self.resume(ticket)
         forged = replace(good, reviewer_id="model")
-        self.assertFalse(guard_resumed_action(
-            self.ledger, forged, self.intent, self.args, self.authority, None).admissible)
+        self.assertFalse(self.guarded(
+             forged, self.intent, self.args, self.authority, None).admissible)
 
     def test_human_approval_is_not_authority_and_cannot_override_governor(self):
         receipt = self.resume(self.issue())
@@ -165,25 +172,35 @@ class StrictApprovalTests(unittest.TestCase):
         for authority in (None, denied, stale):
             self.assertFalse(guard_resumed_action(
                 self.ledger, receipt, self.intent, self.args, authority, None).admissible)
-        self.assertFalse(guard_resumed_action(
-            self.ledger, receipt, self.intent, self.args, self.authority,
+        self.assertFalse(self.guarded(
+             receipt, self.intent, self.args, self.authority,
             RegimeAssessment("shift", ("denied_action",), ())).admissible)
-        self.assertFalse(guard_resumed_action(
-            self.ledger, receipt, self.intent, self.args, self.authority, None,
+        self.assertFalse(self.guarded(
+             receipt, self.intent, self.args, self.authority, None,
             commit_state="ambiguous").admissible)
-        self.assertFalse(guard_resumed_action(
-            self.ledger, receipt, replace(self.intent, cash_needed=200),
+        self.assertFalse(self.guarded(
+             receipt, replace(self.intent, cash_needed=200),
             self.args, self.authority, None).admissible)
 
     def test_execution_context_cannot_drift_after_approval(self):
         receipt = self.resume(self.issue())
         advanced = replace(self.intent, tick=3)
-        self.assertFalse(guard_resumed_action(
-            self.ledger, receipt, advanced, self.args,
+        self.assertFalse(self.guarded(
+             receipt, advanced, self.args,
             replace(self.authority, checked_tick=3), None).admissible)
-        self.assertFalse(guard_resumed_action(
-            self.ledger, receipt, self.intent, {"invoice_id": "INV-1", "amount": 100},
+        self.assertFalse(self.guarded(
+             receipt, self.intent, {"invoice_id": "INV-1", "amount": 100},
             self.authority, None).admissible)
+        self.assertFalse(self.guarded(
+             receipt, self.intent, self.args, self.authority, None,
+             context=replace(self.ctx, checkpoint_id="cp-3")).admissible)
+        self.assertFalse(self.guarded(
+             receipt, self.intent, self.args, self.authority, None,
+             context=replace(self.ctx, current_revision=8)).admissible)
+        self.assertFalse(guard_resumed_action(
+            self.ledger, receipt, self.intent, self.args,
+            self.authority, None).admissible)
+
 
     def test_persists_across_restart(self):
         ticket = self.issue()
