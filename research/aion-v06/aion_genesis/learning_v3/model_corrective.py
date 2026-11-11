@@ -155,9 +155,11 @@ def run_strategy(case, strategy):
     world = World(case)
     policy = Policy(strategy)
     witnessed = []
+    last_view = None
     tenant = "SYN-TENANT-" + str(case.seed)
     while world.tick < case.horizon:
         view = world.public_view("project_manager", tenant=tenant)
+        last_view = view
         action = policy.choose(view)
         event = world.step(action)
         policy.observe(action, event["result"])
@@ -177,7 +179,7 @@ def run_strategy(case, strategy):
         "pm_source_refs": [r["observed_from"] for r in pm["known"][-12:]],
     }
     # Feedback includes ONLY authorized public observations and receipts.
-    observed = world.public_view("project_manager", tenant=tenant)
+    observed = last_view  # last delivered role view, never post-horizon truth
     feedback = {"observed_cash_budget": observed["cash_budget"],
                 "observed_paid_job_receipts": sum(
                     bool(j["paid_receipted"]) for j in observed["jobs"]),
@@ -279,7 +281,9 @@ def run_experiment(*, proposer, dev_indices=(0, 1), transfer_index=17):
                 - control["score"]["synthetic_value_proxy"])},
         "metrics": {
             "initial_failed_cases": sum(
-                x["initial"]["score"]["paid_jobs"] == 0 for x in dev_rows),
+                x["initial"]["score"]["paid_jobs"] == 0 or
+                x["initial"]["score"]["safety_denials"] > 0
+                for x in dev_rows),
             "verified_exact_case_recoveries": sum(
                 x["paired_correction"]["recovered"] for x in dev_rows),
             "provisional_transfer_lessons": len(memory),
