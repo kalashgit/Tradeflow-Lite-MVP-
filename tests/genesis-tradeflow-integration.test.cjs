@@ -66,7 +66,8 @@ test('AION live preview uses local Qwen with retrieval and real conversational t
   assert.ok(body.knowledgeSources.some(x=>x.sourceTitle));
   assert.ok(modelPayload);
   assert.ok(modelPayload.messages.find(m=>m.role==='system').content.includes('AION Genesis'));
-  assert.doesNotMatch(JSON.stringify(modelPayload),/9000000|unapprovedFinancialAmount|\\\"businessId\\\":\\\"other\\\"/);
+  assert.doesNotMatch(JSON.stringify(modelPayload),/9000000|unapprovedFinancialAmount/);
+  assert.ok(!modelPayload.messages.some(m=>m.content.includes('\"businessId\":\"other\"')));
   assert.equal(metrics.writes,0);assert.equal(metrics.reads,0);
  });
 });
