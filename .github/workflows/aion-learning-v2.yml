@@ -1,0 +1,115 @@
+name: Genesis learning architecture v2 — causal evidence and generation lineage
+
+on:
+  push:
+    branches:
+      - research/aion-learning-v2-diagnostic-foundation
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/learning_v2.py'
+      - 'research/aion-v06/aion_genesis/gml/learning_v2_cli.py'
+      - 'research/aion-v06/aion_genesis/gml/learning_v2_replication.py'
+      - 'research/aion-v06/tests/test_genesis_learning_v2.py'
+      - 'research/aion-v06/tests/test_genesis_learning_v2_replication.py'
+      - '.github/workflows/aion-learning-v2.yml'
+      - 'docs/AION_GENESIS_LEARNING_V2_OVERHAUL.md'
+  pull_request:
+    branches:
+      - research/aion-approval-atomic-execution
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/learning_v2.py'
+      - 'research/aion-v06/aion_genesis/gml/learning_v2_cli.py'
+      - 'research/aion-v06/tests/test_genesis_learning_v2.py'
+      - '.github/workflows/aion-learning-v2.yml'
+      - 'docs/AION_GENESIS_LEARNING_V2_OVERHAUL.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-learning-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: New causal-data, transfer-split and generation-ledger tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Exact-head v2 targeted tests
+        run: python -m unittest discover -s tests -p test_genesis_learning_v2.py -v
+      - name: Matching-budget and multi-seed protocol tests
+        run: python -m unittest discover -s tests -p test_genesis_learning_v2_replication.py -v
+      - name: Existing Genesis suite (no inference or paid compute)
+        run: python -m unittest discover -s tests -q
+      - name: Pure Python dataset coverage experiment
+        run: >-
+          python -m aion_genesis.gml.learning_v2_cli audit
+          --out "${{ runner.temp }}/learning-v2"
+          --training-cases 12 --dev-check-cases 6
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: genesis-learning-v2-audit-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/learning-v2/result.json
+            ${{ runner.temp }}/learning-v2/datasets/
+          retention-days: 14
+
+  cpu-model:
+    name: Actual world model re-training and matched dev-only comparison (CPU)
+    needs: contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Real model parameter updates on baseline versus improved labels
+        run: >-
+          python -m aion_genesis.gml.learning_v2_cli compare
+          --out "${{ runner.temp }}/learning-v2-compare"
+          --training-cases 24 --dev-check-cases 12 --epochs 32
+      - name: Replication — three training seeds, matched example/optimizer volume, four dev-check families
+        run: >-
+          python -m aion_genesis.gml.learning_v2_replication
+          --out "${{ runner.temp }}/learning-v2-replication"
+          --train-cases 24 --check-cases 48 --epochs 20
+      - name: Publish research-only outcome
+        if: always()
+        run: |
+          echo 'GML learning-v2: developer-owned causal probe experiment only; no hidden holdout, no promotion.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "${{ runner.temp }}/learning-v2-compare/result.json" ]; then
+            python -c 'import json,os; x=json.load(open(os.environ["RUNNER_TEMP"]+"/learning-v2-compare/result.json")); print(json.dumps(x["model_results"]["comparison"],indent=2))' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "${{ runner.temp }}/learning-v2-replication/result.json" ]; then
+            python -c 'import json,os; x=json.load(open(os.environ["RUNNER_TEMP"]+"/learning-v2-replication/result.json")); print(json.dumps(x["per_head"],indent=2))' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: genesis-learning-v2-dev-compare-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/learning-v2-compare/result.json
+            ${{ runner.temp }}/learning-v2-compare/datasets/
+            ${{ runner.temp }}/learning-v2-compare/generations.sqlite3
+            ${{ runner.temp }}/learning-v2-compare/models/
+            ${{ runner.temp }}/learning-v2-replication/result.json
+            ${{ runner.temp }}/learning-v2-replication/generations.sqlite3
+            ${{ runner.temp }}/learning-v2-replication/datasets/
+            ${{ runner.temp }}/learning-v2-replication/models/
+          retention-days: 14
