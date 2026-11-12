@@ -1,0 +1,54 @@
+name: Genesis authenticated approval and atomic synthetic commit
+
+on:
+  push:
+    branches:
+      - research/aion-approval-atomic-execution
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/approval_host.py'
+      - 'research/aion-v06/aion_genesis/gml/strict_approval.py'
+      - 'research/aion-v06/tests/test_genesis_approval_host.py'
+      - 'research/aion-v06/tests/test_genesis_strict_approval.py'
+      - '.github/workflows/aion-approval-atomic.yml'
+  pull_request:
+    branches:
+      - research/aion-strict-approval-resume
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/approval_host.py'
+      - 'research/aion-v06/aion_genesis/gml/strict_approval.py'
+      - 'research/aion-v06/tests/test_genesis_approval_host.py'
+      - 'research/aion-v06/tests/test_genesis_strict_approval.py'
+      - '.github/workflows/aion-approval-atomic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-approval-atomic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Offline authenticated approval, atomic effect and research regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Authenticated host and atomic executor adversarial tests
+        run: python -m unittest discover -s tests -p test_genesis_approval_host.py -v
+      - name: Earlier strict-resume adversarial tests
+        run: python -m unittest discover -s tests -p test_genesis_strict_approval.py -v
+      - name: Full existing Genesis Python regression suite
+        run: python -m unittest discover -s tests -q
+      - name: Write evidence summary
+        if: always()
+        run: |
+          echo 'Genesis research-only SQLite atomic approval integration. No TradeFlow production writes.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact source SHA: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
