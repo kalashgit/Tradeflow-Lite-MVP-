@@ -6,10 +6,12 @@ on:
       - research/aion-industry-intelligence-v1
     paths:
       - 'src/genesis-industry-intelligence.cjs'
+      - 'src/genesis-economic-data-import.cjs'
       - 'src/genesis-adviser.cjs'
       - 'scripts/local-ai-preview-server.cjs'
       - 'public/conversation-store.js'
       - 'tests/genesis-industry-intelligence.test.cjs'
+      - 'tests/genesis-economic-data-import.test.cjs'
       - 'docs/AION_INDUSTRY_INTELLIGENCE_RESEARCH_V1.md'
       - '.github/workflows/aion-industry-intelligence.yml'
   pull_request:
@@ -37,6 +39,7 @@ jobs:
       - name: Compile new and reused modules
         run: |
           node --check src/genesis-industry-intelligence.cjs
+          node --check src/genesis-economic-data-import.cjs
           node --check src/genesis-adviser.cjs
           node --check scripts/local-ai-preview-server.cjs
           node --check public/conversation-store.js
@@ -46,6 +49,7 @@ jobs:
         run: >-
           node --test
           tests/genesis-industry-intelligence.test.cjs
+          tests/genesis-economic-data-import.test.cjs
           tests/genesis-external-knowledge.test.cjs
           tests/genesis-source-refresh.test.cjs
           tests/genesis-adviser.test.cjs
