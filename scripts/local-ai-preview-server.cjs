@@ -11,6 +11,7 @@ const {adviseGenerally}=require('../src/local-ai-general-advice.cjs');
 const {converseGenesis}=require('../src/genesis-adviser.cjs');
 const {catalog:genesisCatalog}=require('../src/genesis-contractor-knowledge.cjs');
 const {validate:genesisExternalCatalog}=require('../src/genesis-external-knowledge.cjs');
+const {audit:genesisIndustryCatalog}=require('../src/genesis-industry-intelligence.cjs');
 const STATIC_ROOT=path.resolve(__dirname,'../public');
 const principal=Object.freeze({verified:true,issuer:'https://synthetic.preview.invalid',subject:'synthetic_owner'});
 const businessId='synthetic_demo_business';
@@ -99,7 +100,7 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      if(mode==='live'){
       try{const probe=await fetch('http://127.0.0.1:8088/health',{signal:AbortSignal.timeout(1500)});modelReady=probe.ok}catch{modelReady=false}
      }
-     return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady,genesisPilot:true,genesisKnowledge:genesisCatalog(),genesisExternalKnowledge:genesisExternalCatalog()});
+     return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady,genesisPilot:true,genesisKnowledge:genesisCatalog(),genesisExternalKnowledge:genesisExternalCatalog(),genesisIndustryIntelligence:genesisIndustryCatalog()});
     }
     if((url.pathname==='/api/ai/verify'||url.pathname==='/api/ai/chat')&&req.method==='POST'){
      if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON required'});
@@ -120,7 +121,7 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
       if(result.status!=='completed')return send(res,200,{reply:'AION Genesis could not complete this turn ('+result.status+'). No business data was read or changed.',source:'genesis_unavailable',refs:[],syntheticDemo:true,executionAuthority:false,genesisPilot:true});
       return send(res,200,{reply:result.answer,source:result.source,
        refs:[],knowledgeSources:result.knowledgeSources,
-       knowledgeVersion:result.knowledgeVersion,externalKnowledgeVersion:result.externalKnowledgeVersion,genesisPilot:true,
+       knowledgeVersion:result.knowledgeVersion,externalKnowledgeVersion:result.externalKnowledgeVersion,industryKnowledgeVersion:result.industryKnowledgeVersion,genesisPilot:true,
        model:result.model,syntheticDemo:true,executionAuthority:false,
        companyRecordsRead:0,autonomousLearningActive:false});
      }
