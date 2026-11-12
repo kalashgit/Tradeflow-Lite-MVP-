@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {audit,SOURCES,RECORDS,SERIES,retrieveIndustry,historicalSeries,
- competitorMatrix,VERSION}=require('../src/genesis-industry-intelligence.cjs');
+ competitorMatrix,PUBLIC_FIRM_HISTORY,VERSION}=require('../src/genesis-industry-intelligence.cjs');
 const {referenceSelection,referencePacket,converseGenesis}=require('../src/genesis-adviser.cjs');
 const store=require('../public/conversation-store.js');
 const {createPreviewServer}=require('../scripts/local-ai-preview-server.cjs');
@@ -118,4 +118,20 @@ test('preview health declares catalog coverage without live research or real ten
   assert.ok(body.genesisIndustryIntelligence.sources>=30);
   assert.equal(body.genesisIndustryIntelligence.trainingWeightsUpdated,false);
  }finally{await new Promise(resolve=>server.close(resolve))}
+});
+
+test('SEC-filed public electrical/infrastructure business financial history is real, dated and consolidated',()=>{
+ const firm=PUBLIC_FIRM_HISTORY.ies_holding;
+ assert.equal(firm.unit,'USD thousands');
+ assert.equal(firm.scope,'consolidated_all_segments');
+ assert.deepEqual(firm.filedHistoricalYears.map(x=>x.year),[2023,2024,2025]);
+ assert.deepEqual(firm.filedHistoricalYears.map(x=>x.revenue),[2377227,2884358,3371468]);
+ assert.equal(firm.filedHistoricalYears.at(-1).grossProfit,859497);
+ assert.match(firm.limitations,/not electrical-only/i);
+ const hits=retrieveIndustry('IES Holdings SEC 10K historical consolidated revenues 2023 2024 2025',{limit:8});
+ assert.ok(hits.some(x=>x.sourceId==='ies-2025-10k'));
+ const cite={id:'tf-industry-ies-history',title:'SEC annual filing',
+  url:'https://www.sec.gov/Archives/edgar/data/1048268/000104826825000174/iesc-20250930.htm'};
+ assert.equal(store.isApprovedCitation(cite),true);
+ assert.equal(store.isApprovedCitation({...cite,url:'https://sec.gov.evil.invalid/x'}),false);
 });
