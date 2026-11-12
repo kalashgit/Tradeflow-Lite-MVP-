@@ -151,7 +151,7 @@ function words(text){
 }
 const CARDS=Object.freeze(NOTES.map(([sourceId,family,title,keywords,summary,limit],n)=>
  Object.freeze({
-  id:'ext-'+String(n+1).padStart(3,'0'),sourceId,family,title,
+  id:'tf-ext-'+String(n+1).padStart(3,'0'),sourceId,family,title,
   keywords,summary,applicability:limit,verifiedOn:REVIEWED_ON,
   interpretation:'original_reviewed_research_summary_not_executable_instruction'
  })));
