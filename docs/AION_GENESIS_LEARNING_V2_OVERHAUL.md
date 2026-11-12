@@ -78,3 +78,33 @@ python -m unittest discover -s tests -q
 - Train a Qwen LoRA adapter from higher-quality, independently verified decisions after validating the label and preference quality; compare matched base+memory and adapter+memory on fresh cases.
 - Build a signed generation approval service and cross-generation retention/forgetting diagnostics. Do not trust self-issued local verdicts for production releases.
 - Request Q01 independent review before any merge. No live TradeFlow actions.
+
+
+## 7. Exploratory replication after the first development result
+
+The **first** development-only retraining experiment at SHA `9fb4584` improved per-head Brier on separate development seeds:
+
+| Head | Old-data model | Paired-counterexample model | Candidate delta |
+| --- | ---: | ---: | ---: |
+| Delivered within four ticks | 0.135947 | 0.104245 | -0.031702 |
+| Action denied | 0.028776 | 0.016823 | -0.011953 |
+| Eventually paid | 0.061511 | 0.060387 | -0.001124 |
+
+The historical original GML-01 protected result is unchanged. This first finding was **development-only** and did not use a protected holdout, statistical confidence interval or repeated training seeds. The improved training arm also had *more examples*, making additional gradient steps a possible confounder.
+
+The new `learning_v2_replication.py` therefore adds a **third arm**:
+
+- Original dataset, original number of samples.
+- **Equal-volume replay:** Original examples repeated to match the candidate's sample count and optimizer-step budget, with no new causal information.
+- **Causal counterexamples:** Original dataset plus independent permission and supplier interventions.
+
+Every arm uses identical model architecture and training hyperparameters for each seed. The CLI runs three explicitly recorded training seeds and compares against a **new development-only cohort** spanning four causal families. The program stores actual model weight hashes, per-head metrics, training times, training-row counts, per-generation lineage and the full result in a content-addressed provenance structure.
+
+This is an exploratory follow-up motivated by looking at a positive first result. It **cannot be presented as an independent preregistered confirmation**, and it does not replace a future externally custodied holdout. It can tell us whether newly generated causal evidence beats simply replaying existing records under matched compute.
+
+```bash
+cd research/aion-v06
+python -m aion_genesis.gml.learning_v2_replication --out /tmp/gml-replication
+```
+
+If these replication scores regress, preserve the failures, do not retune to the development check and investigate example weighting, delayed-delivery label semantics or world-model calibration. No policy promotion is authorized.
