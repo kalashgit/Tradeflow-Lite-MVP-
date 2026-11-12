@@ -1,0 +1,82 @@
+name: Genesis external electrical contractor knowledge — research validation
+
+on:
+  push:
+    branches:
+      - research/aion-external-knowledge-foundation
+    paths:
+      - 'src/genesis-external-knowledge.cjs'
+      - 'src/genesis-adviser.cjs'
+      - 'scripts/genesis-source-review.cjs'
+      - 'scripts/genesis-source-refresh.cjs'
+      - 'scripts/local-ai-preview-server.cjs'
+      - 'public/conversation-store.js'
+      - 'public/app.js'
+      - 'tests/genesis-external-knowledge.test.cjs'
+      - 'tests/genesis-source-refresh.test.cjs'
+      - 'docs/AION_ELECTRICAL_EXTERNAL_KNOWLEDGE.md'
+      - '.github/workflows/aion-external-knowledge.yml'
+  pull_request:
+    branches:
+      - feature/aion-tradeflow-voice-knowledge-pilot
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-external-knowledge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference-contract:
+    name: Source integrity, no licensed full text, Qwen retrieval and citation security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node syntax and static source integrity
+        run: |
+          node --check src/genesis-external-knowledge.cjs
+          node --check src/genesis-adviser.cjs
+          node --check scripts/genesis-source-review.cjs
+          node --check scripts/genesis-source-refresh.cjs
+          node --check scripts/local-ai-preview-server.cjs
+          node --check public/conversation-store.js
+          node --check public/app.js
+          node -e "const q=require('./src/genesis-external-knowledge.cjs').validate(); if(!q.pass)throw Error(JSON.stringify(q)); console.log(JSON.stringify(q))"
+      - name: Focused new source and inherited adviser/voice/scope tests
+        run: >-
+          node --test
+          tests/genesis-external-knowledge.test.cjs
+          tests/genesis-source-refresh.test.cjs
+          tests/genesis-adviser.test.cjs
+          tests/genesis-contractor-knowledge.test.cjs
+          tests/genesis-official-reference.test.cjs
+          tests/genesis-conversation-isolation.test.cjs
+          tests/genesis-tradeflow-integration.test.cjs
+          tests/genesis-voice-fallback.test.cjs
+          tests/conversation-store.test.cjs
+          tests/local-ai-preview-server.test.cjs
+      - name: Zero-network reference refresh queue
+        run: node scripts/genesis-source-review.cjs --as-of=2027-04-01
+      - name: Safety scope
+        run: |
+          echo 'Reference-only vetted original summaries; no auto-crawl, copyrighted code ingestion or production deployment.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  full-tradeflow:
+    name: Inherited TradeFlow regression (known missing welcome MP4 dependency)
+    runs-on: ubuntu-latest
+    needs: reference-contract
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run entire unmodified TradeFlow Node suite (do not bypass missing orb asset test)
+        run: npm test

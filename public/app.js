@@ -515,7 +515,9 @@ function tfAiAttribution(message){
  if(['genesis_qwen','genesis_reference','genesis_unavailable'].includes(message.source)){
   const label=message.source==='genesis_qwen'?'AION GENESIS · LOCAL QWEN · GENERAL EXPERTISE':message.source==='genesis_reference'?'AION GENESIS · REFERENCE-ONLY (NO MODEL)':'AION GENESIS · MODEL UNAVAILABLE';
   const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^knowledge:tf-[A-Za-z0-9_-]+@1$/.test(x)).slice(0,6):[];
-  return '<div class="tf-ai-evidence"><span>'+esc(label)+' · NOT COMPANY RECORDS</span>'+(refs.length?'<small>Reference notes: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
+  const citations=Array.isArray(message.citations)?message.citations.filter(c=>window.TradeFlowConversationStore?.isApprovedCitation?.(c)).slice(0,5):[];
+  const citeLinks=citations.map(c=>'<a href="'+esc(c.url)+'" target="_blank" rel="noopener noreferrer">'+esc(c.title)+'</a>').join(' · ');
+  return '<div class="tf-ai-evidence"><span>'+esc(label)+' · NOT COMPANY RECORDS</span>'+(citations.length?'<small>Sources: '+citeLinks+'</small>':refs.length?'<small>Reference notes: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
  }
  const mode=message.source==='synthetic_mock'?'SYNTHETIC · MOCK':message.source==='local_qwen'?'SYNTHETIC · QWEN (UNTRUSTED)':message.source==='general_advice'?'QWEN · GENERAL ADVICE (NO COMPANY DATA)':message.source==='unverified_model'?'UNVERIFIED MODEL RESPONSE':'MODEL UNAVAILABLE';
  const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x)).slice(0,8):[];
@@ -952,7 +954,10 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
   if(payload.syntheticDemo&&['mock','live','unavailable'].includes(payload.modelMode))tfAiPreviewMode=payload.modelMode;
   await tfAiSaveTurn({role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
    source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable','genesis_qwen','genesis_reference','genesis_unavailable'].includes(payload.source)?payload.source:'unverified_model',
-   refs:payload.genesisPilot&&Array.isArray(payload.knowledgeSources)?payload.knowledgeSources.slice(0,6).filter(x=>typeof x?.id==='string'&&/^tf-[A-Za-z0-9_-]+$/.test(x.id)).map(x=>'knowledge:'+x.id+'@1'):payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[]});
+   refs:payload.genesisPilot&&Array.isArray(payload.knowledgeSources)?payload.knowledgeSources.slice(0,6).filter(x=>typeof x?.id==='string'&&/^tf-[A-Za-z0-9_-]+$/.test(x.id)).map(x=>'knowledge:'+x.id+'@1'):payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[],
+   citations:payload.genesisPilot&&['genesis_qwen','genesis_reference'].includes(payload.source)&&Array.isArray(payload.knowledgeSources)?
+    payload.knowledgeSources.slice(0,8).map(x=>({id:x?.id,title:x?.sourceTitle||x?.title,url:x?.sourceUrl}))
+     .filter(c=>window.TradeFlowConversationStore?.isApprovedCitation?.(c)).slice(0,5):[]});
   if(speakReply&&!window.TradeFlowSpeech?.auto&&tfAiKey())void window.TradeFlowSpeech?.speak?.(payload.reply.trim().slice(0,1200),tfAiKey());
  }catch(err){tfChatError=await tfAiDescribeError(err)}
  finally{tfChatBusy=false;await tfAiUpdateChatUI()}
