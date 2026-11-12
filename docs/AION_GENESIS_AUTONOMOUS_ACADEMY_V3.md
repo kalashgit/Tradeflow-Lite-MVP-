@@ -47,6 +47,9 @@ Inspect `result.json`, `generations.sqlite3`, every `datasets/generation-*.jsonl
 
 The default CLI has no background schedule and does not buy compute. The opt-in GitHub Actions job proves that the controller can complete multiple learning cycles without receiving human instructions between cycles. Job orchestration is not enabled for production.
 
+
+Resource accounting: the total distinct-scenario limit covers both the immutable development-check cohort and every initial/selected training scenario. The initial model's gradient steps also count toward the training-step cap. This is a count of unique scenario specifications, **not** a count of individual simulator episodes, which can be larger because policies and counterfactuals replay a case. Rerunning a completed output verifies the generation-ledger chain and saved champion model hash; incomplete outputs fail closed until inspected.
+
 ## 4. Exact measurement goals
 
 For a candidate to become the local development champion, the following must all hold:
