@@ -8,6 +8,8 @@ const http=require('node:http'),fs=require('node:fs/promises'),path=require('nod
 const crypto=require('node:crypto');
 const {briefFromAuthorizedSource}=require('../src/local-ai-context-bridge.cjs');
 const {adviseGenerally}=require('../src/local-ai-general-advice.cjs');
+const {converseGenesis}=require('../src/genesis-adviser.cjs');
+const {catalog:genesisCatalog}=require('../src/genesis-contractor-knowledge.cjs');
 const STATIC_ROOT=path.resolve(__dirname,'../public');
 const principal=Object.freeze({verified:true,issuer:'https://synthetic.preview.invalid',subject:'synthetic_owner'});
 const businessId='synthetic_demo_business';
@@ -96,7 +98,7 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      if(mode==='live'){
       try{const probe=await fetch('http://127.0.0.1:8088/health',{signal:AbortSignal.timeout(1500)});modelReady=probe.ok}catch{modelReady=false}
      }
-     return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady});
+     return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady,genesisPilot:true,genesisKnowledge:genesisCatalog()});
     }
     if((url.pathname==='/api/ai/verify'||url.pathname==='/api/ai/chat')&&req.method==='POST'){
      if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON required'});
@@ -105,6 +107,22 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      if(url.pathname==='/api/ai/verify')return send(res,200,{authorized:true,syntheticDemo:true,modelMode:mode});
      const question=Array.isArray(data.messages)?[...data.messages].reverse().find(m=>m?.role==='user')?.content:null;
      if(typeof question!=='string'||question.trim().length<3||question.length>500)return send(res,400,{error:'Question must contain 3–500 characters'});
+     if(data.assistant!==undefined&&data.assistant!=='genesis')return send(res,400,{error:'Unknown assistant mode'});
+     // AION is an explicit, separate advisory lane inside the SAME conversation UI.
+     // All user/assistant history is treated as untrusted and no client-provided
+     // business/context/identity/permissions are forwarded to this model.
+     if(data.assistant==='genesis'){
+      if(mode==='unavailable')return send(res,200,{reply:'AION Genesis Qwen is unavailable. This research preview did not access business records or perform any action.',source:'genesis_unavailable',refs:[],syntheticDemo:true,executionAuthority:false,genesisPilot:true});
+      const result=await converseGenesis({messages:data.messages,enabled:true,
+       mode:mode==='live'?'live':'mock',timeoutMs:45000,
+       ...(localFetch?{fetchImpl:localFetch}:{})});
+      if(result.status!=='completed')return send(res,200,{reply:'AION Genesis could not complete this turn ('+result.status+'). No business data was read or changed.',source:'genesis_unavailable',refs:[],syntheticDemo:true,executionAuthority:false,genesisPilot:true});
+      return send(res,200,{reply:result.answer,source:result.source,
+       refs:[],knowledgeSources:result.knowledgeSources,
+       knowledgeVersion:result.knowledgeVersion,genesisPilot:true,
+       model:result.model,syntheticDemo:true,executionAuthority:false,
+       companyRecordsRead:0,autonomousLearningActive:false});
+     }
      // Intentionally ignore the browser's "business", "screen" and claimed identity fields.
      // This server has ONLY a fixed synthetic tenant/principal and cannot open real records.
      if(mode==='unavailable')return send(res,200,{reply:'The model is unavailable. Synthetic business records were not changed. Retry when Qwen is available.',refs:[],source:'unavailable',syntheticDemo:true,executionAuthority:false});
