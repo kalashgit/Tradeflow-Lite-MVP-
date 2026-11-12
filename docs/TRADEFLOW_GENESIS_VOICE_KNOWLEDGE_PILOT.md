@@ -26,6 +26,10 @@
 - electrical compliance reference metadata (OSHA Subpart K, §1926.417, NFPA 70, NFPA 70E, DOE local energy-code adoption, IRS worker classification);
 - AI/product workflow safeguards (authorized approvals, voice transcripts, system-of-record boundaries).
 
+For OSHA-focused safety questions, the adviser now additionally reads the **existing** checksum-verified `public/osha-electrical-safety-pack.json` using TradeFlow's original `offline-knowledge-pack.js` verifier. It supplies up to three source-linked, rights-reviewed OSHA paraphrases without copying standards into prompt instructions. The pack contains six vetted passages and remains only a limited public federal reference; it is not proof of correct on-site procedure, a code-adoption lookup or permission for energized work.
+
+The existing `academy-catalog.json` lists 59 curriculum source titles and authors but contains **no book text** and has unreviewed redistribution rights. This pilot does not misrepresent those titles as ingested CEO textbooks.
+
 The corpus is **not** all electrical-code text, a license to reproduce NFPA standards, a verified contractor outcome database, or an up-to-date jurisdiction-specific rule checker. Each card is labelled either TradeFlow original management guidance or official public reference metadata. The NEC 2026 edition and NFPA 70E 2027 edition are *publication* references, not assertions that those editions are locally adopted.
 
 Reference URLs are listed in `src/genesis-contractor-knowledge.cjs`. Local code adoption, contracts and site conditions must be verified before any technical decision.
