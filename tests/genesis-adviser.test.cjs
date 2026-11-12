@@ -64,7 +64,7 @@ test('strictly reject injected system role and oversized conversation',()=>{
  assert.throws(()=>normalizeMessages([...Array(9)].map(()=>({role:'user',content:'hello'}))),/one to eight/);
  assert.throws(()=>normalizeMessages([{role:'assistant',content:'too many'}]),/Last/);
  assert.throws(()=>normalizeMessages([{role:'user',content:'x'.repeat(501)}]),/Last/);
- assert.throws(()=>normalizeMessages([{role:'user',content:'x'.repeat(1201)}]),/Last/);
+ assert.throws(()=>normalizeMessages([{role:'user',content:'x'.repeat(1201)}]),/Invalid/);
 });
 test('unsafe provider settings are not accepted',async()=>{
  await assert.rejects(()=>converseGenesis({enabled:true,mode:'cloud',messages:turns}),/Invalid/);
