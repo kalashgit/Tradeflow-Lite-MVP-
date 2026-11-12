@@ -17,6 +17,8 @@ const SOURCE_ROWS=[
  ['bls-api','labor_history','US BLS','https://www.bls.gov/developers/api_FAQs.htm','government_api','public_aggregates',365],
  ['fred-wire','material_history','FRED / US BLS','https://fred.stlouisfed.org/series/WPU102603','government_index_via_fred','public_aggregate',35],
  ['usaspending','market_history','USAspending','https://api.usaspending.gov/docs/endpoints','government_api','public_award_data',45],
+ ['sec-api','public_firm_history','US SEC','https://www.sec.gov/search-filings/edgar-application-programming-interfaces','government_api','public_company_data',90],
+ ['ies-2025-10k','public_firm_history','IES Holdings / US SEC','https://www.sec.gov/Archives/edgar/data/1048268/000104826825000174/iesc-20250930.htm','public_company_financial_filing','public_filing',365],
  ['nec-adoption','jurisdiction','NFPA','https://www.nfpa.org/for-professionals/codes-and-standards/standards-development/nfpa-codes-and-standards-with-jurisdictional-changes','licensed_reference_metadata','link_only',90],
  ['texas-rule','jurisdiction','Texas TDLR','https://www.tdlr.texas.gov/news/rulemaking/2026/09/01/commission-adopts-rules-12/','official_rule_notice','original_paraphrase',30],
  ['texas-guide','jurisdiction','Texas TDLR','https://www.tdlr.texas.gov/electricians/compliance-guide.htm','official_guidance_potentially_stale','original_paraphrase',30],
@@ -63,6 +65,12 @@ const LINES=[
  ['fred-copper','fred-wire','material_history','Measure cable and nonferrous wire input-cost trends','copper wire cable material escalation pricing cost trend inflation 2026 ppi',
   'FRED displays BLS PPI series WPU102603 for nonferrous wire and cable. This is a broad aggregate price index, not a job-site quotation or supplier SKU price. Compare the correct observation months and base index.',
   'Use index trends for sensitivity analysis only; validate real distributor quotes before estimating materials.'],
+ ['sec-xbrl','sec-api','public_firm_history','Research actual public contractor financial statements','SEC public company EDGAR financial statements annual revenues profit cashflow XBRL history',
+  'SEC EDGAR offers public annual/quarterly filing history and XBRL company financial facts. Use filing date, fiscal period, entity ID and currency, and account for consolidation and restatements.',
+  'Public corporation financials do not reveal private electrical firm profitability or a comparable small-contractor margin.'],
+ ['ies-history','ies-2025-10k','public_firm_history','IES Holdings annual consolidated financial history','IES Holdings public electrical contractor revenue 2023 2024 2025 10K financial profitability',
+  'IES Holdings 2025 Form 10-K reports consolidated revenues in USD thousands: fiscal 2023 2,377,227; fiscal 2024 2,884,358; fiscal 2025 3,371,468. Fiscal years end September 30. Its group has several segments including communications and non-electrical services.',
+  'These are SEC-filed historical consolidated values, NOT electrical-only revenue or a financial benchmark for a 2–15-worker contractor.'],
  ['federal-awards','usaspending','market_history','Analyze federal electrical contracting awards','competitor federal contract tenders bids USAspending awarded NAICS 238210 public historical',
   'USAspending has public award and spending-by-category endpoints. Historical federal procurement can show awarded amounts, named public recipients, agencies and patterns within the actual NAICS/PSC filters.',
   'Awarded value is not contractor revenue or profit; data corrections, scope classifications and subawards require review.'],
@@ -160,6 +168,18 @@ const SERIES=Object.freeze({
   limitations:'Aggregate PPI only, not a SKU/contractor material price, not a future quote or profit margin.'
  })
 });
+const PUBLIC_FIRM_HISTORY=Object.freeze({
+ ies_holding:Object.freeze({
+  sourceId:'ies-2025-10k',report:'IES Holdings 2025 Form 10-K',
+  fiscalYearEnd:'09-30',unit:'USD thousands',scope:'consolidated_all_segments',
+  filedHistoricalYears:Object.freeze([
+   {year:2023,revenue:2377227,grossProfit:444539},
+   {year:2024,revenue:2884358,grossProfit:696590},
+   {year:2025,revenue:3371468,grossProfit:859497},
+  ].map(x=>Object.freeze(x))),
+  limitations:'Consolidated, larger public corporation with multiple segments and acquisitions; not electrical-only sales, job-level profit, typical small-firm performance, or a forecast.',
+ })
+});
 const CAPABILITIES=Object.freeze({
  servicetitan:Object.freeze(['estimating','pricebooks','dispatch','timesheets','field_mobile','client_messaging']),
  simpro:Object.freeze(['estimating','dispatch','job_costing','invoicing','supplier_pricing','voice_site_notes']),
@@ -253,12 +273,19 @@ function audit(){
   for(let i=1;i<s.observations.length;i++)if(s.observations[i].period<=s.observations[i-1].period)
    errors.push('out of order historical data '+s.seriesId);
  }
+ for(const firm of Object.values(PUBLIC_FIRM_HISTORY)){
+  if(!SOURCES[firm.sourceId]||firm.filedHistoricalYears.some((row,i)=>
+    !Number.isSafeInteger(row.revenue)||!Number.isSafeInteger(row.grossProfit)||
+    row.grossProfit>row.revenue||(i&&row.year<=firm.filedHistoricalYears[i-1].year)))
+   errors.push('unsafe public company financial history');
+ }
  const counts={};for(const r of RECORDS)counts[r.family]=(counts[r.family]||0)+1;
  return {schema:VERSION,sources:Object.keys(SOURCES).length,notes:RECORDS.length,
   categories:counts,historicalSeries:Object.keys(SERIES).length,
   historicalObservations:Object.values(SERIES).reduce((n,v)=>n+v.observations.length,0),
+  publicCompanyHistoricalYears:Object.values(PUBLIC_FIRM_HISTORY).reduce((n,v)=>n+v.filedHistoricalYears.length,0),
   pass:errors.length===0,errors,rights:'public_sources_short_original_summaries_or_metadata',
   competitorData:'first_party_marketing_not_verified_performance',disclosedPrivateData:0,
   automaticLiveData:false,trainingWeightsUpdated:false,sourceDate:AS_OF};
 }
-module.exports={VERSION,AS_OF,SOURCES,RECORDS,SERIES,CAPABILITIES,retrieveIndustry,historicalSeries,competitorMatrix,audit};
+module.exports={VERSION,AS_OF,SOURCES,RECORDS,SERIES,PUBLIC_FIRM_HISTORY,CAPABILITIES,retrieveIndustry,historicalSeries,competitorMatrix,audit};
