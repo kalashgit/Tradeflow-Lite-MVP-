@@ -188,6 +188,24 @@ class AuthenticatedAtomicApprovalTests(unittest.TestCase):
         self.assertEqual(self.snapshot()["paid_count"], 1)
         self.assertEqual(self.snapshot()["cash"], 75)
 
+    def test_idempotent_receipt_lookup_rejects_forged_metadata(self):
+        receipt = self.approve()
+        self.host.commit_approved(receipt)
+        for forged in (
+            replace(receipt, checkpoint_id="wrong-checkpoint"),
+            replace(receipt, revision=receipt.revision + 1),
+            replace(receipt, answered_tick=receipt.answered_tick + 1),
+        ):
+            with self.assertRaisesRegex(PermissionError, "replayed_receipt_mismatch"):
+                self.host.commit_approved(forged)
+        self.assertEqual(self.snapshot()["paid_count"], 1)
+
+    def test_session_token_length_is_bounded(self):
+        ticket = self.request()
+        with self.assertRaises(PermissionError):
+            self.approve(ticket, session="A" * 10_000)
+        self.assert_unchanged()
+
     def test_two_parallel_approvals_for_same_invoice_one_commit_only(self):
         t1, t2 = self.request("q1"), self.request("q2")
         r1, r2 = self.approve(t1), self.approve(t2)
