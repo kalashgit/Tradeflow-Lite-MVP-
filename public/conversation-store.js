@@ -52,7 +52,7 @@
  }
  const CITATION_HOSTS = new Set(['osha.gov','sba.gov','dol.gov','irs.gov','bls.gov',
    'energycodes.gov','afdc.energy.gov','nfpa.org','sam.gov','apprenticeship.gov','csrc.nist.gov',
-   'census.gov','bls.gov','fred.stlouisfed.org','api.usaspending.gov',
+   'census.gov','bls.gov','fred.stlouisfed.org','api.usaspending.gov','sec.gov',
    'tdlr.texas.gov','dli.mn.gov','apps.leg.wa.gov','www2.cslb.ca.gov','www2.myfloridalicense.com',
    'necanet.org','help.aiacontracts.com','support.procore.com','servicetitan.com',
    'simprogroup.com','fieldpulse.com','buildops.com','housecallpro.com','knowify.com',
