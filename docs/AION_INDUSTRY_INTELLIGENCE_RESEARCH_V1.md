@@ -21,6 +21,7 @@ This iteration extends the existing TradeFlow Qwen adviser with public industry 
 | Electrician labor and employment | BLS OEWS annual tables and BLS time-series API | Dated wage/workforce benchmarks | National wage is not prevailing wage or full employer burden |
 | Electrical input-cost history | BLS PPI via FRED series `WPU102603` | Material-cost trend sensitivity | Index is not copper futures, a supplier quote, or actual price for an SKU |
 | Federal contracting competitors | USAspending public award API, NAICS/PSC categories | Public contracts, recipients, agencies and historical award activity | Public obligations are not winning companies' revenue/profit |
+| Public electrical/infrastructure companies | SEC EDGAR/XBRL, IES Holdings 2025 10-K | Audited/filed historical consolidated company sales and gross profit | Public conglomerate segments and acquisitions are not equivalent to small electrical-contractor financials |
 | Licensing and adopted code | TX TDLR (rule and guide), MN DLI, WA WAC, CA CSLB, FL DBPR | Official rules, state/date scope and local verification leads | Municipality, permit date, amendments and employer license status must be resolved |
 | Estimating and labor productivity | NECA 2025–2027 MLU announcement; company-own verified production records | Estimating methodology and **licensed** benchmark discovery | Do not copy or invent proprietary NECA labor-hour tables |
 | Construction agreements | AIA A201 publisher summary, Procore public change-order explanation | Contract workflow and change-request concepts | Licensed contract forms and legal review remain separate |
@@ -41,6 +42,20 @@ FRED's BLS commodity PPI series `WPU102603` (nonferrous wire and cable, **Index 
 | Sep | 497.992 |
 
 Source: https://fred.stlouisfed.org/series/WPU102603. The snapshot is **not** live and the index does not measure contractor purchasing prices, labor costs or current COMEX market pricing. More history must come from an authorized source API/official downloadable file and be time-stamped; **no extrapolated or fabricated points**.
+
+## Real public-company historical example
+
+The SEC 2025 Form 10-K for **IES Holdings** includes three historical consolidated fiscal years (years ended September 30). The documented values are **USD in thousands**, not dollars or margins.
+
+| Fiscal year | Consolidated revenue (USD thousands) | Consolidated gross profit (USD thousands) |
+| --- | ---: | ---: |
+| 2023 | 2,377,227 | 444,539 |
+| 2024 | 2,884,358 | 696,590 |
+| 2025 | 3,371,468 | 859,497 |
+
+Primary filing: https://www.sec.gov/Archives/edgar/data/1048268/000104826825000174/iesc-20250930.htm. **These are not electrical-only business results.** IES includes communications, residential, infrastructure and commercial/industrial activities at a corporate scale much larger than TradeFlow's initial small-business segment. The purpose is historical industry context, not to prescribe a contractor margin or assert competitors' private economics.
+
+SEC's public financial and submissions APIs support incremental future analysis when rates and use policies are respected: https://www.sec.gov/search-filings/edgar-application-programming-interfaces. The research module has **not** crawled a universe of public contractors or connected to live SEC companyfacts yet.
 
 ## Competitive benchmarking
 
