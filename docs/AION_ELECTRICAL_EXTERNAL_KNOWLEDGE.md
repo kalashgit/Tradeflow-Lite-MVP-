@@ -12,7 +12,8 @@
 4. **Existing TradeFlow Qwen integration:** `src/genesis-adviser.cjs` includes the external notes alongside previously implemented original contractor playbooks and verified offline OSHA summaries. The Qwen system instructions make explicit that references are untrusted DATA and cannot authorize tool actions.
 5. **Durable clickable references:** `public/conversation-store.js` validates source URLs against an explicit HTTPS domain allowlist, limits citation count and payload, and saves vetted references only on AION assistant turns. `public/app.js` presents them as external sources rather than company-record evidence.
 6. **Refresh queue, not unreviewed self-ingestion:** `scripts/genesis-source-review.cjs` lists sources needing review on a specified date and the required independent-review procedure. It does not fetch web pages, spend Firecrawl credits or update the corpus automatically.
-7. **Automated contracts:** independent source-validation, source-age, Qwen retrieval, browser citations, privacy and existing integration regression tests.
+7. **Bounded refresh staging:** `scripts/genesis-source-refresh.cjs` can fetch exactly one selected allowlisted public source with redirect disabled, a hard 1 MiB maximum and a network timeout; it produces **only** a SHA-256/byte-count/review metadata record. It cannot fetch metadata-only NFPA pages, publish raw text, or modify Qwen.
+8. **Automated contracts:** independent source-validation, source-age, source-refresh egress limits, Qwen retrieval, browser citations, privacy and existing integration regression tests.
 
 Some of the external sources (OSHA electrical contractors, SBA manage your business, DOL Davis-Bacon FAQ, DOE energy code adoption) were additionally fetched through Firecrawl during initial review. Other entries are anchored to manually verified official public page results. **No page HTML/markdown or downstream scrape text is shipped as a wholesale reusable book.**
 
@@ -61,6 +62,9 @@ This registry is the first **reviewed canonical layer**. A scalable GKB should g
 node --test tests/genesis-external-knowledge.test.cjs
 node scripts/genesis-source-review.cjs --as-of=2026-11-12
 node scripts/genesis-source-review.cjs --as-of=2027-04-01
+# Optional, explicitly invoked, reads one allowlisted public agency page;
+# returns hash-only staging evidence for independent review (no auto-publish):
+node scripts/genesis-source-refresh.cjs --source=osha-contractors
 npm test
 ```
 
@@ -74,4 +78,4 @@ The full inherited test suite may report the previously known, unrelated missing
 4. Build an expert-reviewed evaluation suite for answer grounding, jurisdiction errors, decision utility, negative transfer and safety.
 5. Connect tenant-scoped TradeFlow data with explicit privacy boundaries only after separate authenticated-read and independent safety gates.
 
-**This release does not start a crawler, self-train a model, change a production Worker, access user records, or merge to main.**
+**This release does not start an unattended crawler, self-train a model, change a production Worker, access user records, or merge to main.** One manually invoked allowlisted metadata-only refresh is supported. It does not stage source text for use by Qwen until independently reviewed.
