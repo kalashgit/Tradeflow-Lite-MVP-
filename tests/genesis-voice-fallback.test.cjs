@@ -4,10 +4,10 @@ const assert=require('node:assert/strict');
 const {readFileSync}=require('node:fs');
 const vm=require('node:vm');
 
-function loadFallback(){
+function loadFallback({onSpeak}={}){
  const calls=[],events={};
  const synthesizer={
-  speak(utterance){calls.push({event:'speak',utterance});},
+  speak(utterance){calls.push({event:'speak',utterance});onSpeak?.(utterance)},
   cancel(){calls.push({event:'cancel'});},
   getVoices(){return [{name:'Device English',lang:'en-US',localService:true}]}
  };
@@ -63,4 +63,17 @@ test('no preview session code means no automatic audio',async()=>{
  const {speech,calls}=loadFallback();
  assert.equal(await speech.speak('Should not speak',''),false);
  assert.equal(calls.filter(e=>e.event==='speak').length,0);
+});
+
+test('native browser can confirm playback synchronously without being reset to loading',async()=>{
+ const ctx=loadFallback({onSpeak:u=>u.onstart()});
+ assert.equal(await ctx.speech.speak('Immediate speech','code'),true);
+ assert.equal(ctx.speech.state,'speaking');
+ ctx.speech.stop();
+ assert.equal(ctx.speech.state,'idle');
+});
+test('synchronous device speech failure never claims loading or speaking',async()=>{
+ const ctx=loadFallback({onSpeak:u=>u.onerror()});
+ assert.equal(await ctx.speech.speak('Blocked speech','code'),false);
+ assert.equal(ctx.speech.state,'unavailable');
 });
