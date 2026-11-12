@@ -31,8 +31,10 @@ test('AION spoken replies fall back to device speech only when requested',async(
  assert.equal(speech.auto,false);
  assert.equal(calls.length,0);
  assert.equal(await speech.speak('This is a natural spoken answer.','synthetic-code'),true);
- assert.equal(speech.state,'speaking');
+ assert.equal(speech.state,'loading','queued device audio must not be treated as audible speech');
  const utterance=calls.find(e=>e.event==='speak').utterance;
+ utterance.onstart();
+ assert.equal(speech.state,'speaking');
  assert.equal(utterance.text,'This is a natural spoken answer.');
  assert.equal(utterance.lang,'en-US');
  assert.equal(utterance.rate,0.96);
@@ -49,7 +51,11 @@ test('pagehide and visibilitychange stop the native iPhone speech fallback',asyn
  assert.equal(ctx.speech.state,'idle');
  const n=ctx.calls.filter(e=>e.event==='speak').length;
  assert.equal(n,1);
+ const prior=ctx.calls.find(e=>e.event==='speak').utterance;
  await ctx.speech.speak('Another reply.','code');
+ assert.equal(ctx.speech.state,'loading');
+ prior.onstart(); // late audio callback from canceled previous generation
+ assert.equal(ctx.speech.state,'loading');
  ctx.events.pagehide();
  assert.equal(ctx.speech.state,'idle');
 });
