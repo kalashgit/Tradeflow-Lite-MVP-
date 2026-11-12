@@ -38,10 +38,13 @@
      const selected=voices.find(v=>v.lang==='en-US'&&v.localService)||voices.find(v=>v.lang?.startsWith('en'));
      if(selected)utterance.voice=selected;
      nativeUtterance=utterance;
+     utterance.onstart=()=>{if(token===generation)emit('speaking')};
      utterance.onend=()=>{if(token===generation)stop()};
      utterance.onerror=()=>{if(token===generation){stop();emit('unavailable')}};
      root.speechSynthesis.speak(utterance);
-     emit('speaking');return true;
+     // The browser can queue or block playback. Report that speech is only
+     // loading until the onstart event confirms real device playback.
+     emit('loading');return true;
     }catch{nativeUtterance=null}
    }
    emit('unavailable');return false;
