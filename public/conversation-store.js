@@ -50,6 +50,18 @@
   }
   return true;
  }
+ const CITATION_HOSTS = new Set(['osha.gov','sba.gov','dol.gov','irs.gov','bls.gov',
+   'energycodes.gov','afdc.energy.gov','nfpa.org','sam.gov','apprenticeship.gov','csrc.nist.gov']);
+ function isApprovedCitation(c) {
+  if (!c || typeof c !== 'object' || typeof c.id !== 'string' ||
+      !/^tf-[A-Za-z0-9_-]{1,110}$/.test(c.id) || typeof c.title !== 'string' ||
+      !c.title.trim() || c.title.length > 180 || typeof c.url !== 'string' ||
+      c.url.length > 700) return false;
+  try { const url = new URL(c.url);
+   return url.protocol === 'https:' && !url.username && !url.password &&
+      CITATION_HOSTS.has(url.hostname.replace(/^www\\./,''));
+  } catch { return false }
+ }
  function sanitizeTurn(value) {
   if (!value || typeof value !== 'object' || !ROLES.has(value.role) ||
       !MODALITIES.has(value.modality || 'text') || value.status !== 'committed' ||
@@ -62,8 +74,14 @@
   const refs = value.refs == null ? [] : value.refs;
   if (!Array.isArray(refs) || refs.length > 8 || refs.some(x => typeof x !== 'string' || !/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]+@[0-9]+$/.test(x))) throw Error('Invalid evidence references');
   if (value.role === 'user' && refs.length) throw Error('User turns cannot assert verified evidence');
+  const citations = value.citations == null ? [] : value.citations;
+  if (!Array.isArray(citations) || citations.length > 8 || citations.some(c => !isApprovedCitation(c)) ||
+      (citations.length && (value.role !== 'assistant' ||
+       !['genesis_qwen','genesis_reference'].includes(value.source))))
+   throw Error('Invalid source citation for read-only Genesis knowledge');
+  const cleanCitations = citations.map(c=>({id:c.id,title:c.title.trim(),url:c.url}));
   return {id: value.id || makeId(), role: value.role, content: value.content.trim(), modality: value.modality || 'text',
-   status: 'committed', source: value.source, refs: refs.slice(), at: now()};
+   status: 'committed', source: value.source, refs: refs.slice(), citations:cleanCitations, at: now()};
  }
  function createThread(db, scope, title = 'New conversation') {
   const key = scopeKey(scope);
@@ -110,7 +128,8 @@
       const existing = prior.result;
       if (existing.threadId !== threadId || existing.scopeKey !== key || existing.role !== input.role ||
           existing.modality !== input.modality || existing.content !== input.content ||
-          existing.source !== input.source || JSON.stringify(existing.refs) !== JSON.stringify(input.refs)) {
+          existing.source !== input.source || JSON.stringify(existing.refs) !== JSON.stringify(input.refs) ||
+          JSON.stringify(existing.citations||[]) !== JSON.stringify(input.citations)) {
        fail(Error('Conflicting conversation event ID')); return;
       }
       finish(existing); return;
@@ -145,5 +164,5 @@
   });
  }
  return Object.freeze({VERSION, THREADS, TURNS, scopeKey, upgrade, sanitizeTurn, createThread,
-  listThreads, listTurns, appendTurn, deleteThread});
+  listThreads, listTurns, appendTurn, deleteThread, isApprovedCitation});
 });
