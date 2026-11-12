@@ -1,0 +1,78 @@
+name: Genesis industry intelligence — competitors historical costs and contractor market research
+
+on:
+  push:
+    branches:
+      - research/aion-industry-intelligence-v1
+    paths:
+      - 'src/genesis-industry-intelligence.cjs'
+      - 'src/genesis-economic-data-import.cjs'
+      - 'src/genesis-adviser.cjs'
+      - 'scripts/local-ai-preview-server.cjs'
+      - 'public/conversation-store.js'
+      - 'tests/genesis-industry-intelligence.test.cjs'
+      - 'tests/genesis-economic-data-import.test.cjs'
+      - 'docs/AION_INDUSTRY_INTELLIGENCE_RESEARCH_V1.md'
+      - '.github/workflows/aion-industry-intelligence.yml'
+  pull_request:
+    branches:
+      - research/aion-external-knowledge-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-industry-intelligence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  industry-contract:
+    name: Verify provenance vendor claims historical periods and local-code conflicts
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile new and reused modules
+        run: |
+          node --check src/genesis-industry-intelligence.cjs
+          node --check src/genesis-economic-data-import.cjs
+          node --check src/genesis-adviser.cjs
+          node --check scripts/local-ai-preview-server.cjs
+          node --check public/conversation-store.js
+          node --check tests/genesis-industry-intelligence.test.cjs
+          node -e "const a=require('./src/genesis-industry-intelligence.cjs').audit();if(!a.pass)throw Error(JSON.stringify(a));console.log(JSON.stringify(a))"
+      - name: Focused industry and existing knowledge tests
+        run: >-
+          node --test
+          tests/genesis-industry-intelligence.test.cjs
+          tests/genesis-economic-data-import.test.cjs
+          tests/genesis-external-knowledge.test.cjs
+          tests/genesis-source-refresh.test.cjs
+          tests/genesis-adviser.test.cjs
+          tests/genesis-conversation-isolation.test.cjs
+          tests/genesis-contractor-knowledge.test.cjs
+          tests/genesis-official-reference.test.cjs
+          tests/genesis-tradeflow-integration.test.cjs
+          tests/conversation-store.test.cjs
+          tests/local-ai-preview-server.test.cjs
+      - name: Scope and research provenance
+        run: |
+          echo "Research-only: aggregate public history, timestamped source snapshots, original notes, and vendor-advertised features (unverified independently)." >> "$GITHUB_STEP_SUMMARY"
+          echo "No copyrighted NEC/NECA tables, scraped competitor confidential data, invented supplier quotes or production writes." >> "$GITHUB_STEP_SUMMARY"
+          echo "Source SHA: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  full-suite:
+    name: Inherited TradeFlow suite — approved orb media remains release gate
+    needs: industry-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
