@@ -285,6 +285,16 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
         if result.get("config_hash") != config_hash:
             raise ValueError("Output already contains a different experiment")
         GenerationLedger(root / "generations.sqlite3").verify()
+        # Idempotent result reuse is allowed only if the reported champion
+        # weights are still present and unmodified.
+        recorded = result.get("research_champion")
+        cycle = next((e["cycle"] for e in reversed(result.get("cycles", []))
+                      if e.get("champion_after") == recorded
+                      and e.get("decision", {}).get("keep")), 0)
+        model_path = root / "models" / f"generation-{cycle}" / "model.pt"
+        if (not model_path.exists()
+                or file_hash(model_path) != result.get("research_champion_checkpoint_sha")):
+            raise ValueError("Champion checkpoint missing or changed")
         return result
     # Fail closed after partial completion. A future task may add checkpoint
     # resumption, but silently restarting an interrupted run can misattribute
@@ -327,6 +337,7 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
         note="independent training-world baseline; no protected test")
     prediction = lambda model, rows: wm.predict(model, rows)
     champ_score = _score(lambda rows: prediction(champion, rows), dev_check)
+    initial_score = champ_score
     champion_id = generation
     ledger.append("evaluation", {
         "generation_id": generation, "kind": "baseline",
@@ -398,7 +409,12 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
             note="self-directed research candidate only")
         candidate_score = _score(
             lambda rows: prediction(candidate, rows), dev_check)
-        decision = _decision(champ_score, candidate_score, budget)
+        # Freeze the original comparison before updating the research champion.
+        # Otherwise the generation report incorrectly displays the candidate
+        # as both the parent and child after an accepted update.
+        parent_score = champ_score
+        parent_id = champion_id
+        decision = _decision(parent_score, candidate_score, budget)
         skills.append({
             "schema": "GenesisSkillHypothesis/1",
             "skill_id": "skill-predict-" + weaknesses["target_head"] + "-g" +
@@ -459,9 +475,10 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
             "verified_new_probes": len(counterexamples),
             "decision": decision,
             "development_measurements": {
-                "champion": champ_score["all"],
+                "parent": parent_score["all"],
                 "candidate": candidate_score["all"],
             },
+            "parent_generation": parent_id,
         })
     integrity = ledger.verify()
     result = {
@@ -473,6 +490,8 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
         "research_champion_checkpoint_sha": champion["checkpoint_sha"],
         "development_cohort_sha": check_hash,
         "development_cases": budget.check_cases,
+        "baseline_metrics": initial_score["all"],
+        "final_research_champion_metrics": champ_score["all"],
         "learning_cycles_attempted": training_attempts,
         "simulated_training_scenarios": active_scenarios,
         "training_gradient_steps_approx": training_steps,
