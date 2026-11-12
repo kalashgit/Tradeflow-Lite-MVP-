@@ -231,6 +231,11 @@ function oracle(b,question){
   refs=['quotes:quote-103@1','quotes:quote-104@1','communications:msg-103@1'];
   flags=['draft_only'];break;
  case 'supplier':
+  if(/purchase orders|committed versus|only drafts/i.test(question)){
+   answer='Supplier PO po-101 ($4700) and po-102 ($1000) are confirmed commitments, while po-103 ($1800) is only a draft and is not included in committed cash outflows. No purchase was placed by this answer.';
+   refs=['purchaseOrders:po-101@1','purchaseOrders:po-102@1','purchaseOrders:po-103@1'];
+   flags=['confirmed_not_draft'];break;
+  }
   answer='Confirmed PO po-101 for $4700 is expected '+m.supplierExpectedDelivery+
    ', '+m.supplierDeliveryGapDays+' days after the scheduled job start. Shipment is unverified; check supplier and site schedule before suggesting an approved substitute.';
   refs=['purchaseOrders:po-101@1','suppliers:sup-beacon@1','jobs:job-101@1'];
