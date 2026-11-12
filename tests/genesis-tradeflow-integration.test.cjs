@@ -19,7 +19,7 @@ test('the EXISTING TradeFlow UI contains an explicit AION mode, not a second dis
  const html=readFileSync(require.resolve('../public/index.html'),'utf8');
  assert.match(app,/tfAiGenesisToggle/);
  assert.match(app,/assistant:'genesis'/);
- assert.match(app,/AION Genesis adviser active/);
+ assert.match(app,/AION Genesis · local Qwen selected/);
  assert.match(app,/genesis_qwen/);
  assert.match(html,/voice-command\.js/);
  assert.match(html,/ai-speech\.js/);
