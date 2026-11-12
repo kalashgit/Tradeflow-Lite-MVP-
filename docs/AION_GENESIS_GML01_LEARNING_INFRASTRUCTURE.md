@@ -11,7 +11,7 @@ Synthetic simulation only; no protected external holdout exists in this repo.
 | M0 architecture, contracts, lineage | **Done** | `aion_genesis/gml/`, 21 tests, leakage and separation tests |
 | M1 verified experience factory | **Done** | 240 sealed trajectories → 235 supervised examples, 917 preference pairs, 7,231 transition examples |
 | M2 learned dynamics | **Trained and evaluated; preregistered verdict FAIL** | Beats every baseline on the main head (job paid) on held-out mechanisms; does not on the delivery head |
-| M3 Qwen LoRA candidate | **Executable path done; real run executes in CI** | See "M3" below; this sandbox cannot reach Hugging Face and has no GPU |
+| M3 Qwen LoRA candidate | **Real adapter trained and evaluated in CI; not recommended for approval** | Beats the frozen base (96 vs 62 of 120) but only equals an always-`risk_averse` constant |
 | M4 self-directed curriculum | **Run once; INCONCLUSIVE** | +0.8% relative gain vs uniform, below the 5% threshold, no interval |
 | M5 second generation | **Not started** | Needs an accepted first-generation candidate |
 | M6 controlled improvement factory | **Not started** | Registry and verdict gate exist; no proposal loop yet |
@@ -128,11 +128,34 @@ The pipeline is verified end to end here with a tiny random fixture model
 reproduces the trained outputs). **That fixture is not evidence of learning**
 and its verdict is forced to INCONCLUSIVE.
 
-The real run needs Qwen weights. This sandbox cannot reach Hugging Face and
-has no GPU, so the run executes as a bounded CPU job on a GitHub-hosted
-runner (`.github/workflows/aion-gml-01-ci.yml`, job `qwen-lora-cpu`), using
-public weights, no secrets and no paid compute. Its outcome is recorded in the
-pull request, not here, until it has actually completed.
+**Real run** (GitHub-hosted CPU runner, commit `d3f0eaa`, about 70 minutes,
+public weights, no paid compute; this sandbox cannot reach Hugging Face).
+118 LoRA steps on 235 verified examples, loss 1.088 → 0.253, adapter saved,
+reloaded onto a fresh base and verified.
+
+| Arm (protected test, 120 scenarios) | Success |
+|---|---:|
+| Frozen base | 62 |
+| Base + verified memory | 86 |
+| Base + counterfactual trial results | 73 |
+| **Trained adapter** | **96** |
+| Trained adapter + memory | 97 |
+| Constant: always `risk_averse` | 96 |
+
+- Automated verdict PASS: trained minus base +28.3 points, 95% CI 18.3 to 38.3,
+  no denied actions.
+- **The adapter gives the same answer on every protected scenario and exactly
+  matches the constant policy.** The weights learned the dominant label, not a
+  situation-dependent decision. The preregistered criterion compared only
+  against the base and was too weak.
+- **Recommendation: do not approve this adapter.** It is real evidence that
+  the experience → dataset → parameter update → reload → independent
+  evaluation loop works, and not evidence that Genesis learned to decide.
+- Weight learning did beat the same base given the same verified examples as
+  context (96 vs 86), and adding memory to the trained adapter changed one
+  case (97).
+
+Details: `research/aion-v06/reports/gml_01/QWEN_LORA_CI_RUN.md`.
 
 ## 6. Runbook
 
@@ -166,6 +189,8 @@ learning are refused until their labels and reward are separately validated.
 
 ## 7. Known limits and blockers
 
+- The policy criterion must be strengthened before the next generation: require a
+  gain over the best constant policy, on a task without one dominant answer.
 - Preference pairs are built and stored but **not validated or used**.
 - The strategy task has only four actions and a dominant default; headroom
   for a trained policy is small by construction.
