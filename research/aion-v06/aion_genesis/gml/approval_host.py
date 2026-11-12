@@ -184,7 +184,7 @@ class AtomicApprovalHost:
         """Trusted fixture-admin method; cannot be called by a model tool."""
         _name(scope)
         _name(reviewer_id)
-        if type(password) is not str or len(password) < 12:
+        if type(password) is not str or not 12 <= len(password) <= 256:
             raise ValueError("synthetic_identity_requires_strong_password")
         if type(can_approve) is not bool:
             raise ValueError("invalid_reviewer_role")
@@ -200,7 +200,7 @@ class AtomicApprovalHost:
         """Real password verification in a **local fictional** identity store."""
         _name(scope)
         _name(reviewer_id)
-        if type(password) is not str or (type(ttl_seconds) is not int
+        if type(password) is not str or len(password) > 256 or (type(ttl_seconds) is not int
                                          or not 1 <= ttl_seconds <= 3600):
             raise PermissionError("invalid_credentials")
         with self._connect() as db:
@@ -231,7 +231,7 @@ class AtomicApprovalHost:
 
     @staticmethod
     def _authenticated(db, token: str, expected_scope: str) -> str:
-        if type(token) is not str or len(token) < 30:
+        if type(token) is not str or not 30 <= len(token) <= 512:
             raise PermissionError("authenticated_reviewer_session_required")
         token_sha = sha256(token.encode()).hexdigest()
         record = db.execute(
@@ -380,7 +380,14 @@ class AtomicApprovalHost:
                 if (existing["scope"], existing["workflow_id"],
                     existing["action_sha"], existing["reviewer_id"]) != (
                         receipt.scope, receipt.workflow_id,
-                        receipt.action_sha, receipt.reviewer_id):
+                        receipt.action_sha, receipt.reviewer_id) or (
+                        a["status"], a["scope"], a["workflow_id"],
+                        a["checkpoint_id"], a["revision"], a["answered_tick"],
+                        a["action_sha"], a["reviewer_id"]) != (
+                        "executed", receipt.scope, receipt.workflow_id,
+                        receipt.checkpoint_id, receipt.revision,
+                        receipt.answered_tick, receipt.action_sha,
+                        receipt.reviewer_id):
                     raise PermissionError("replayed_receipt_mismatch")
                 return SyntheticCommitReceipt(
                     existing["commit_id"], receipt.approval_id,
