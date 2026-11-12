@@ -37,7 +37,7 @@ def fake_coverage():
 class AcademyBudgetTests(unittest.TestCase):
     def test_default_budget_is_finite_and_self_consistent(self):
         b = AcademyBudget()
-        self.assertLessEqual(b.seed_cases + b.rounds * b.batch_cases,
+        self.assertLessEqual(b.check_cases + b.seed_cases + b.rounds * b.batch_cases,
                              b.max_total_scenarios)
         self.assertLessEqual(b.rounds, 5)
         self.assertLessEqual(b.max_wall_seconds, 1800)
@@ -53,6 +53,11 @@ class AcademyBudgetTests(unittest.TestCase):
             with self.subTest(field=field):
                 with self.assertRaises(ValueError):
                     AcademyBudget(**{**AcademyBudget().__dict__, field: val})
+
+    def test_evaluation_cohort_is_counted_against_total_scenario_limit(self):
+        with self.assertRaises(ValueError):
+            AcademyBudget(rounds=2, batch_cases=8, seed_cases=16,
+                          check_cases=40, max_total_scenarios=48)
 
     def test_integer_budget_cannot_be_boolean(self):
         with self.assertRaises(ValueError):
