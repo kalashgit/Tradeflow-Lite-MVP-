@@ -1,0 +1,445 @@
+{
+  "schema": "TradeFlowGenesisFivePersonFixture/1",
+  "synthetic": true,
+  "environment": "research_only",
+  "scenarioId": "TF-GENESIS-LAB-05",
+  "company": "Mock Blue Ridge Electrical LLC — SYNTHETIC",
+  "businessId": "tf_genesis_lab_05",
+  "jurisdiction": "Austin, Texas, USA — synthetic records; not verified code jurisdiction",
+  "asOf": "2026-11-12",
+  "currency": "USD",
+  "employees": [
+    {
+      "id": "e-owner",
+      "name": "Morgan Example",
+      "role": "owner_and_estimator",
+      "weeklyPayroll": 1900,
+      "view": "owner"
+    },
+    {
+      "id": "e-lead",
+      "name": "Casey Example",
+      "role": "lead_electrician",
+      "weeklyPayroll": 1550
+    },
+    {
+      "id": "e-journey",
+      "name": "Riley Example",
+      "role": "journeyman_electrician",
+      "weeklyPayroll": 1400
+    },
+    {
+      "id": "e-apprentice",
+      "name": "Sam Example",
+      "role": "apprentice",
+      "weeklyPayroll": 850
+    },
+    {
+      "id": "e-coord",
+      "name": "Taylor Example",
+      "role": "office_coordinator",
+      "weeklyPayroll": 1100
+    }
+  ],
+  "customers": [
+    {
+      "id": "c-dental",
+      "name": "Mock Riverside Dental",
+      "sector": "commercial_service",
+      "status": "active"
+    },
+    {
+      "id": "c-oak",
+      "name": "Mock Oakwood Property Management",
+      "sector": "commercial_property",
+      "status": "active"
+    },
+    {
+      "id": "c-cafe",
+      "name": "Mock Harbor Cafe",
+      "sector": "hospitality",
+      "status": "lead"
+    },
+    {
+      "id": "c-civic",
+      "name": "Mock Civic Offices",
+      "sector": "commercial_property",
+      "status": "lead"
+    },
+    {
+      "id": "c-school",
+      "name": "Mock North Academy",
+      "sector": "education",
+      "status": "completed_customer"
+    }
+  ],
+  "leads": [
+    {
+      "id": "lead-101",
+      "customerId": "c-dental",
+      "source": "referral",
+      "status": "won",
+      "created": "2026-10-05",
+      "estimatedValue": 14500
+    },
+    {
+      "id": "lead-102",
+      "customerId": "c-oak",
+      "source": "website",
+      "status": "won",
+      "created": "2026-10-12",
+      "estimatedValue": 22000
+    },
+    {
+      "id": "lead-103",
+      "customerId": "c-cafe",
+      "source": "website",
+      "status": "proposal_sent",
+      "created": "2026-10-28",
+      "estimatedValue": 4850,
+      "nextAction": "draft_follow_up_review"
+    },
+    {
+      "id": "lead-104",
+      "customerId": "c-civic",
+      "source": "referral",
+      "status": "qualified",
+      "created": "2026-11-08",
+      "estimatedValue": 9200,
+      "nextAction": "site_walk_required"
+    }
+  ],
+  "quotes": [
+    {
+      "id": "quote-101",
+      "leadId": "lead-101",
+      "customerId": "c-dental",
+      "status": "accepted",
+      "amount": 14500,
+      "date": "2026-10-07",
+      "scope": "Lighting and panel service"
+    },
+    {
+      "id": "quote-102",
+      "leadId": "lead-102",
+      "customerId": "c-oak",
+      "status": "accepted",
+      "amount": 22000,
+      "date": "2026-10-20",
+      "scope": "Commercial distribution upgrade"
+    },
+    {
+      "id": "quote-103",
+      "leadId": "lead-103",
+      "customerId": "c-cafe",
+      "status": "sent",
+      "amount": 4850,
+      "date": "2026-11-01",
+      "scope": "Kitchen circuits and receptacles"
+    },
+    {
+      "id": "quote-104",
+      "leadId": "lead-104",
+      "customerId": "c-civic",
+      "status": "draft",
+      "amount": 9200,
+      "date": null,
+      "scope": "Office renovation estimate - awaiting site walk"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job-090",
+      "customerId": "c-school",
+      "title": "Classroom lighting modernization",
+      "status": "completed",
+      "contractValue": 10500,
+      "actualDirectCost": 7150,
+      "callbackCost": 350,
+      "completedOn": "2026-09-30",
+      "confidence": "verified_synthetic"
+    },
+    {
+      "id": "job-091",
+      "customerId": "c-oak",
+      "title": "Emergency branch-circuit repair",
+      "status": "completed",
+      "contractValue": 6700,
+      "actualDirectCost": 5350,
+      "callbackCost": 0,
+      "completedOn": "2026-10-15",
+      "confidence": "verified_synthetic"
+    },
+    {
+      "id": "job-100",
+      "customerId": "c-dental",
+      "quoteId": "quote-101",
+      "title": "Medical office lighting and panel service",
+      "status": "in_progress",
+      "contractValue": 14500,
+      "costBudget": 11000,
+      "actualDirectCost": 8900,
+      "estimatedCostToComplete": 3500,
+      "estimatedLaborHours": 72,
+      "actualLaborHours": 61,
+      "estimatedRemainingLaborHours": 22,
+      "progressPercentEstimate": 70,
+      "scopeChangeIds": [
+        "co-100"
+      ],
+      "confidence": "synthetic_operating_estimate"
+    },
+    {
+      "id": "job-101",
+      "customerId": "c-oak",
+      "quoteId": "quote-102",
+      "title": "Retail distribution panel upgrade",
+      "status": "scheduled",
+      "startDate": "2026-11-16",
+      "contractValue": 22000,
+      "costBudget": 16200,
+      "actualDirectCost": 1200,
+      "estimatedCostToComplete": 15000,
+      "estimatedLaborHours": 120,
+      "actualLaborHours": 0,
+      "estimatedRemainingLaborHours": 120,
+      "scopeChangeIds": [],
+      "confidence": "synthetic_operating_estimate"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "inv-090",
+      "jobId": "job-090",
+      "customerId": "c-school",
+      "amount": 10500,
+      "status": "paid",
+      "dueDate": "2026-10-20"
+    },
+    {
+      "id": "inv-091",
+      "jobId": "job-091",
+      "customerId": "c-oak",
+      "amount": 6700,
+      "status": "paid",
+      "dueDate": "2026-10-29"
+    },
+    {
+      "id": "inv-100",
+      "jobId": "job-100",
+      "customerId": "c-dental",
+      "amount": 6400,
+      "status": "issued",
+      "dueDate": "2026-11-06"
+    },
+    {
+      "id": "inv-101",
+      "jobId": "job-101",
+      "customerId": "c-oak",
+      "amount": 2500,
+      "status": "issued",
+      "dueDate": "2026-11-14"
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay-090",
+      "invoiceId": "inv-090",
+      "amount": 10500,
+      "settledOn": "2026-10-18",
+      "status": "bank_confirmed"
+    },
+    {
+      "id": "pay-091",
+      "invoiceId": "inv-091",
+      "amount": 6700,
+      "settledOn": "2026-10-27",
+      "status": "bank_confirmed"
+    },
+    {
+      "id": "pay-100",
+      "invoiceId": "inv-100",
+      "amount": 1600,
+      "settledOn": "2026-11-08",
+      "status": "bank_confirmed"
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "sup-beacon",
+      "name": "Mock Beacon Electrical Distribution",
+      "products": [
+        "panels",
+        "switchgear",
+        "breakers"
+      ]
+    },
+    {
+      "id": "sup-wire",
+      "name": "Mock WireLine Wholesale",
+      "products": [
+        "wire",
+        "conduit",
+        "connectors"
+      ]
+    },
+    {
+      "id": "sup-lights",
+      "name": "Mock Lumen Trade Supply",
+      "products": [
+        "led_lighting",
+        "controls"
+      ]
+    }
+  ],
+  "purchaseOrders": [
+    {
+      "id": "po-101",
+      "supplierId": "sup-beacon",
+      "jobId": "job-101",
+      "amount": 4700,
+      "status": "confirmed",
+      "paymentDue": "2026-11-16",
+      "expectedDelivery": "2026-11-18",
+      "material": "Distribution panel assembly",
+      "requestedDelivery": "2026-11-14",
+      "shipmentVerified": false,
+      "substitutionApproved": false
+    },
+    {
+      "id": "po-102",
+      "supplierId": "sup-wire",
+      "jobId": "job-100",
+      "amount": 1000,
+      "status": "confirmed",
+      "paymentDue": "2026-11-18",
+      "expectedDelivery": "2026-11-14",
+      "material": "Wire and conduit package",
+      "shipmentVerified": false,
+      "substitutionApproved": false
+    },
+    {
+      "id": "po-103",
+      "supplierId": "sup-lights",
+      "jobId": "job-100",
+      "amount": 1800,
+      "status": "draft_unapproved",
+      "paymentDue": null,
+      "expectedDelivery": null,
+      "material": "Additional luminaires for possible change order",
+      "shipmentVerified": false,
+      "substitutionApproved": false
+    }
+  ],
+  "schedule": [
+    {
+      "id": "sch-101",
+      "employeeId": "e-lead",
+      "jobId": "job-100",
+      "date": "2026-11-13",
+      "start": "08:00",
+      "end": "16:00",
+      "status": "confirmed"
+    },
+    {
+      "id": "sch-102",
+      "employeeId": "e-lead",
+      "jobId": "job-101",
+      "date": "2026-11-13",
+      "start": "13:00",
+      "end": "17:00",
+      "status": "tentative"
+    },
+    {
+      "id": "sch-103",
+      "employeeId": "e-journey",
+      "jobId": "job-100",
+      "date": "2026-11-13",
+      "start": "08:00",
+      "end": "16:00",
+      "status": "confirmed"
+    },
+    {
+      "id": "sch-104",
+      "employeeId": "e-apprentice",
+      "jobId": "job-100",
+      "date": "2026-11-13",
+      "start": "08:00",
+      "end": "16:00",
+      "status": "confirmed"
+    }
+  ],
+  "changeOrders": [
+    {
+      "id": "co-100",
+      "jobId": "job-100",
+      "description": "Additional isolated circuit",
+      "amount": 1950,
+      "status": "proposed",
+      "approvalReceived": false,
+      "customerAuthorized": false
+    }
+  ],
+  "bank": {
+    "id": "bank-001",
+    "balance": 18400,
+    "verifiedAsOf": "2026-11-12",
+    "status": "confirmed_synthetic",
+    "currency": "USD",
+    "includesSettledPaymentsThrough": "2026-11-12"
+  },
+  "payrollSchedule": [
+    {
+      "id": "payroll-01",
+      "dueDate": "2026-11-13",
+      "amount": 6800,
+      "status": "committed"
+    },
+    {
+      "id": "payroll-02",
+      "dueDate": "2026-11-20",
+      "amount": 6800,
+      "status": "committed"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "contract-100",
+      "jobId": "job-100",
+      "status": "signed",
+      "baseAmount": 14500,
+      "changeOrderPolicy": "written_customer_approval_required"
+    },
+    {
+      "id": "contract-101",
+      "jobId": "job-101",
+      "status": "signed",
+      "baseAmount": 22000,
+      "changeOrderPolicy": "written_customer_approval_required"
+    }
+  ],
+  "communications": [
+    {
+      "id": "msg-103",
+      "subject": "Mock Harbor Cafe quote check-in",
+      "leadId": "lead-103",
+      "status": "draft_only",
+      "sent": false
+    },
+    {
+      "id": "msg-100",
+      "subject": "Mock Dental payment reminder",
+      "invoiceId": "inv-100",
+      "status": "draft_only",
+      "sent": false
+    }
+  ],
+  "rules": [
+    "Never send an email, commit a purchase, pay payroll, approve a change order, submit a bid or mutate any real record.",
+    "Synthetic fixture values are verified only within this laboratory, not bank, customer or regulator facts.",
+    "Confirmed supplier purchase orders are liabilities; draft purchase orders are not committed cash outflows.",
+    "Receivables are not available cash until settlement; previously settled payments are already reflected in the reported bank balance.",
+    "A job margin forecast is not realized profit.",
+    "No code/permit compliance certification from this fictitious Austin address."
+  ]
+}
