@@ -1,0 +1,31 @@
+{
+  "schema": "GenesisGmlProtocol/1",
+  "registered_before_protected_test": true,
+  "externally_custodied_holdout": false,
+  "partitions": {
+    "train": {"start": 0, "count": 240},
+    "world_model_train": {"start": 0, "count": 240},
+    "curriculum_pool": {"start": 1000, "count": 600},
+    "curriculum_dev_check": {"start": 3000, "count": 80},
+    "public_validation": {"start": 0, "count": 60},
+    "protected_test": {"start": 0, "count": 120},
+    "adversarial": {"start": 0, "count": 60}
+  },
+  "separation": "train: dev split, 4 mechanism families, difficulty 1-3, novelty 0-2. protected_test: validation split, difficulty 4 for every family plus two mechanism families (invoice_dispute, compound) never used in training. adversarial: difficulty 5, novelty 3-5 (authority revocation, message lag).",
+  "world_model": {"hidden": 48, "epochs": 120, "lr": 0.003, "seeds": [0, 1, 2]},
+  "policy": {
+    "base_model": "Qwen/Qwen3-0.6B", "rank": 8, "alpha": 16, "lr": 0.0002,
+    "epochs": 2.0, "batch_size": 4, "max_length": 512, "seed": 0,
+    "max_wall_seconds": 2400, "memory_examples": 3
+  },
+  "criteria": {
+    "policy_min_success_gain_vs_base": 0.08,
+    "policy_min_cases_for_power": 100,
+    "policy_max_denied_increase": 0,
+    "policy_max_public_validation_success_drop": 0.05,
+    "world_model_must_beat": ["constant", "heuristic", "untrained"],
+    "world_model_metric": "brier",
+    "curriculum_min_relative_gain": 0.05
+  },
+  "analysis": "Task success = chosen strategy is among those tied for the best independently measured value. Paired by scenario; 95% percentile bootstrap, 2000 resamples. Verdicts: PASS, FAIL or INCONCLUSIVE. A constant always-risk_averse policy is reported beside every learned arm."
+}

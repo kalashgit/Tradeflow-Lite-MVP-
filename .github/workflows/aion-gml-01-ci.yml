@@ -1,0 +1,106 @@
+name: AION Genesis — GML-01 learning infrastructure (research only)
+
+on:
+  push:
+    branches:
+      - claude/aion-gml-01
+    paths:
+      - 'research/aion-v06/**'
+      - '.github/workflows/aion-gml-01-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-gml-01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    name: Tests, real world-model training, fixture policy pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU-only training libraries
+        run: |
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet transformers peft
+      - name: GML tests
+        run: python -m unittest discover -s tests -p test_gml_01.py -v
+      - name: All historic AION research tests
+        run: python -m unittest discover -s tests -q
+      - name: Full pipeline (world model is really trained; policy uses the offline fixture)
+        run: python -m aion_genesis.gml run --out "${{ runner.temp }}/gml-offline" --policy-backend fixture
+      - name: Integrity verification
+        run: python -m aion_genesis.gml verify --out "${{ runner.temp }}/gml-offline"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gml-01-offline-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/gml-offline/REPORT.md
+            ${{ runner.temp }}/gml-offline/result.json
+            ${{ runner.temp }}/gml-offline/manifest.json
+            ${{ runner.temp }}/gml-offline/stage-*.json
+            ${{ runner.temp }}/gml-offline/datasets
+          retention-days: 14
+
+  qwen-lora-cpu:
+    # One bounded CPU run per push on this isolated branch: free GitHub-hosted
+    # runner, public model weights, no secrets, no paid compute, no deployment.
+    name: Real Qwen3-0.6B LoRA training and evaluation (CPU)
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU-only training libraries
+        run: |
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet transformers peft
+      - name: Train a LoRA adapter on Qwen3-0.6B and evaluate it against the frozen base
+        run: >-
+          python -m aion_genesis.gml run --out "${{ runner.temp }}/gml-qwen"
+          --policy-backend hf --base-model Qwen/Qwen3-0.6B
+      - name: Integrity verification
+        run: python -m aion_genesis.gml verify --out "${{ runner.temp }}/gml-qwen"
+      - name: Publish evidence, not promotion
+        if: always()
+        run: |
+          if [ -f "${{ runner.temp }}/gml-qwen/REPORT.md" ]; then
+            cat "${{ runner.temp }}/gml-qwen/REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "GML Qwen run INCOMPLETE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "Exact commit: \`$GITHUB_SHA\`. Research only; no promotion, merge or deployment." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gml-01-qwen-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/gml-qwen/REPORT.md
+            ${{ runner.temp }}/gml-qwen/result.json
+            ${{ runner.temp }}/gml-qwen/manifest.json
+            ${{ runner.temp }}/gml-qwen/stage-*.json
+            ${{ runner.temp }}/gml-qwen/trajectories.jsonl
+            ${{ runner.temp }}/gml-qwen/datasets
+            ${{ runner.temp }}/gml-qwen/models/policy-*/adapter
+            ${{ runner.temp }}/gml-qwen/models/policy-*/training_manifest.json
+            ${{ runner.temp }}/gml-qwen/models/registry.json
+          retention-days: 30
