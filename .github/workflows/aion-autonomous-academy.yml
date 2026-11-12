@@ -1,0 +1,128 @@
+name: AION Genesis Autonomous Academy — bounded self-directed learning
+
+on:
+  push:
+    branches:
+      - research/aion-autonomous-academy-v3
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/autonomous_academy.py'
+      - 'research/aion-v06/tests/test_genesis_autonomous_academy.py'
+      - 'docs/AION_GENESIS_AUTONOMOUS_ACADEMY_V3.md'
+      - '.github/workflows/aion-autonomous-academy.yml'
+  pull_request:
+    branches:
+      - research/aion-learning-v2-diagnostic-foundation
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/autonomous_academy.py'
+      - 'research/aion-v06/tests/test_genesis_autonomous_academy.py'
+      - 'docs/AION_GENESIS_AUTONOMOUS_ACADEMY_V3.md'
+      - '.github/workflows/aion-autonomous-academy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-autonomous-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Autonomy budget and safety contracts, full Genesis regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Self-directed controller acceptance contracts
+        run: python -m unittest discover -s tests -p test_genesis_autonomous_academy.py -v
+      - name: All historical Genesis Python regressions
+        run: python -m unittest discover -s tests -q
+
+  autonomous-cpu:
+    name: Actual autonomous scenario-selection and PyTorch checkpoint learning
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch only
+        run: pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Two unprompted bounded learning cycles in synthetic Academy
+        run: >-
+          python -m aion_genesis.gml.autonomous_academy
+          --out "${{ runner.temp }}/genesis-autonomous"
+          --rounds 2 --batch-cases 8 --seed-cases 16 --check-cases 40
+          --initial-epochs 24 --step-epochs 12
+          --max-training-steps 300 --max-wall-seconds 420
+      - name: Independent structural check of evidence artifacts
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from aion_genesis.gml.learning_v2 import GenerationLedger
+          root = Path(os.environ["RUNNER_TEMP"]) / "genesis-autonomous"
+          result = json.loads((root / "result.json").read_text())
+          assert result["status"] == "COMPLETE_BOUNDED_RESEARCH_ONLY"
+          assert result["learning_cycles_attempted"] >= 1, result
+          assert len(result["skill_hypotheses"]) == result["learning_cycles_attempted"]
+          assert not result["external_holdout_used"]
+          assert not result["automatic_production_promotion"]
+          assert not result["external_actions_executed"]
+          assert not result["qwen_weights_modified"]
+          integrity = GenerationLedger(root / "generations.sqlite3").verify()
+          assert integrity == result["ledger"] and integrity["valid"]
+          for cycle in result["cycles"]:
+              if "decision" in cycle:
+                  assert cycle["decision"]["research_only"]
+                  assert not cycle["decision"]["independent_evaluation"]
+          print("Verified autonomous-cycle research artifacts:", result["research_champion"])
+          print("Cycles:", result["learning_cycles_attempted"], "Event count:", integrity["events"])
+          PY
+      - name: Re-invoke same protocol to verify finished-run idempotency
+        run: >-
+          python -m aion_genesis.gml.autonomous_academy
+          --out "${{ runner.temp }}/genesis-autonomous"
+          --rounds 2 --batch-cases 8 --seed-cases 16 --check-cases 40
+          --initial-epochs 24 --step-epochs 12
+          --max-training-steps 300 --max-wall-seconds 420
+      - name: Publish research-only measurement caveat
+        if: always()
+        run: |
+          echo 'Self-directed training is restricted to dev-only synthetic causal scenarios.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No Qwen weight changes, no production model promotion, no customer writes, no hidden holdout access.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Source commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "${{ runner.temp }}/genesis-autonomous/result.json" ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"genesis-autonomous"/"result.json"
+          r=json.loads(p.read_text())
+          print("Research champion:",r["research_champion"])
+          print("Cycles attempted:",r["learning_cycles_attempted"])
+          for cycle in r["cycles"]:
+              print("Cycle",cycle["cycle"],"target",cycle.get("target"),
+                    "keep",cycle.get("decision",{}).get("keep"))
+          PY
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: genesis-autonomous-academy-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/genesis-autonomous/result.json
+            ${{ runner.temp }}/genesis-autonomous/generations.sqlite3
+            ${{ runner.temp }}/genesis-autonomous/datasets/
+            ${{ runner.temp }}/genesis-autonomous/models/
+          retention-days: 14
