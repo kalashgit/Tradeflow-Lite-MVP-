@@ -179,6 +179,8 @@ function topicFor(question){
  // over incidental words such as 'cash' and 'supplier' in the same question.
  if(/prioriti[sz]|as owner|as ceo|what.*next week/i.test(question))return 'strategy';
  if(/change order|extra scope|signed change|approve.*change/i.test(question))return 'change';
+ if(/\bbacklog\b|booked work|signed contracts|\bpipeline\b/i.test(question))return 'backlog';
+ if(/\bleads?\b|customer segment|best customer/i.test(question))return 'leads';
  for(const [name,pattern] of TOPICS)if(pattern.test(question))return name;
  return 'strategy';
 }
