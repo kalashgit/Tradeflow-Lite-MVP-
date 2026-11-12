@@ -185,7 +185,7 @@ function retrieve(question,{limit=5}={}){
   sourceUrl:item.source.url,sourceType:item.source.kind,
   asOf:REVIEWED,score,provenance:item.source.reliability,
   limitations:item.family==='compliance'?
-   'Confirm site location, code adoption, current edition, qualified-person review and applicable rules.' :
+   'Confirm local jurisdiction, adopted code edition, qualified-person review, site conditions and applicable rules.' :
    'Original suggested practice; not a verified result for a specific company.',
  }));
 }
