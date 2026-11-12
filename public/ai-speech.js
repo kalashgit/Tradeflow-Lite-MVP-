@@ -1,11 +1,11 @@
 /* Opt-in speech playback for the existing local TradeFlow conversation. No microphone or command authority. */
 (function(root){
  'use strict';
- let generation=0,controller=null,audio=null,objectUrl=null,auto=false,speaker='orion';
+ let generation=0,controller=null,audio=null,objectUrl=null,nativeUtterance=null,auto=false,speaker='orion';
  const listeners=new Set();
  let state='idle';
  function emit(next){state=next;for(const fn of listeners)try{fn(state)}catch{}}
- function stop(){generation++;controller?.abort();controller=null;if(audio){audio.pause();audio.removeAttribute('src');audio.load?.();audio=null}if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}emit('idle')}
+ function stop(){generation++;controller?.abort();controller=null;if(audio){audio.pause();audio.removeAttribute('src');audio.load?.();audio=null}if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}if(nativeUtterance){root.speechSynthesis?.cancel?.();nativeUtterance=null}emit('idle')}
  async function speak(text,code,selectedSpeaker=speaker){
   stop();
   if(typeof text!=='string'||!text.trim()||typeof code!=='string'||!code)return false;
@@ -22,7 +22,30 @@
    await audio.play();
    if(current!==generation)return false;
    emit('speaking');return true;
-  }catch(err){if(current===generation){stop();emit(err?.name==='AbortError'?'idle':'unavailable')}return false}
+  }catch(err){
+   if(current!==generation)return false;
+   const cancelled=err?.name==='AbortError';
+   stop();
+   if(cancelled){emit('idle');return false}
+   // iPhone/local preview fallback: OS speech is opt-in, never records audio,
+   // and does not pretend the optional Aura provider is configured.
+   if(root.speechSynthesis&&typeof root.SpeechSynthesisUtterance==='function'){
+    try{
+     const token=++generation;
+     const utterance=new root.SpeechSynthesisUtterance(text.slice(0,1200));
+     utterance.lang='en-US';utterance.rate=0.96;utterance.pitch=1;
+     const voices=root.speechSynthesis.getVoices?.()||[];
+     const selected=voices.find(v=>v.lang==='en-US'&&v.localService)||voices.find(v=>v.lang?.startsWith('en'));
+     if(selected)utterance.voice=selected;
+     nativeUtterance=utterance;
+     utterance.onend=()=>{if(token===generation)stop()};
+     utterance.onerror=()=>{if(token===generation){stop();emit('unavailable')}};
+     root.speechSynthesis.speak(utterance);
+     emit('speaking');return true;
+    }catch{nativeUtterance=null}
+   }
+   emit('unavailable');return false;
+  }
  }
  root.TradeFlowSpeech={speak,stop,get state(){return state},get auto(){return auto},get speaker(){return speaker},setAuto(value){auto=!!value;if(!auto)stop()},subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn)}};
  function mount(){
