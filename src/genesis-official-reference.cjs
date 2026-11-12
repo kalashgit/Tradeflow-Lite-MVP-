@@ -34,7 +34,7 @@ async function safetyReferences(question,{limit=3}={}){
    id:'tf-osha-'+item.passageId.replace(/[^A-Za-z0-9_-]/g,'-'),
    title:item.heading,summary:item.text,
    sourceTitle:item.title,sourceUrl:item.sourceUrl,
-   sourceType:'verified_offline_ohsa_paraphrase',
+   sourceType:'verified_offline_osha_paraphrase',
    reviewedOn:item.reviewedOn,
    limitations:'Federal general reference only; qualified professional and local AHJ/site requirements apply. Not permission to work energized.',
   };
