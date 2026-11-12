@@ -8,6 +8,7 @@ This iteration extends the existing TradeFlow Qwen adviser with public industry 
 
 - `src/genesis-industry-intelligence.cjs`: reviewed source ledger; short original source-linked notes; separate authority classes; a public competitor feature matrix; one actual fixed historical BLS wire/cable producer-price series snapshot.
 - `src/genesis-adviser.cjs`: bounded retrieval from official safety references, GKB-02 industry evidence, GKB-01 official contractor notes and earlier TradeFlow authored playbooks. Retrieval supplies untrusted **reference data** rather than a system-role tool prompt.
+- `src/genesis-economic-data-import.cjs`: **opt-in live agency-response import** with fixed Census 2023 CBP state/NAICS=238210 queries (caller-supplied Census key) and bounded BLS v1 series/year queries. Both produce checked historical envelopes containing geography/series, raw published numbers, source-response hash and explicit unit limitations. No secret is saved to a result or model prompt. GitHub CI uses synthetic test fixtures only: it does not fetch live data or pretend fixtures are actual observations.
 - `public/conversation-store.js`: exact HTTPS domain allowlist expanded for reviewed official sources, product manufacturers, suppliers and competitor software websites. These are **external source citations**, not authenticated company evidence or instruction authority.
 - `scripts/local-ai-preview-server.cjs`: local synthetic preview health reports source, historical-observation and comparison coverage with exact schema version.
 - Tests check classification, published history, claims versus facts, unavailable/not-checked features, state-rule effective dates, licensing uncertainty, product pricing boundaries, citations and Qwen's no-action policy.
@@ -72,8 +73,15 @@ A publicly available TDLR rulemaking notice, posted **2026-09-01**, reports adop
 ```bash
 node --check src/genesis-industry-intelligence.cjs
 node --test tests/genesis-industry-intelligence.test.cjs
+node --test tests/genesis-economic-data-import.test.cjs
 node --test tests/genesis-external-knowledge.test.cjs
 npm test
 ```
 
 **Key future quality gates:** independent Q01 review, full app-suite green once the separate real orb media asset is restored, authenticated source-specific ingestion, time-/jurisdiction-aware retrieval, real contractor outcome validations, and an untouched protected evaluation set. No merge or production deployment authorized in this research PR.
+
+## GKB-02 public historical API contract
+
+Census's 2023 County Business Patterns API requires an API key as of Nov 2026. `importCBP2023` requests exactly the 2023 state-level **NAICS 238210** aggregate with fixed classification filters. The caller supplies a Census-issued key; the function never echoes it or stores it in AION conversation history. The returned employer/payroll/establishment values are agency-published aggregates, not named competitors' accounts or company metrics. The exact unit of PAYANN must be verified against dataset variable metadata before conversion.
+
+The optional `importBLSSeries` uses the documented public/unregistered time-series API, a strict 10-year maximum, one explicitly supplied valid series ID, and accepts only monthly observation rows. It labels units as **UNVERIFIED_SERIES_SPECIFIC_UNIT** until the BLS metadata for that series is independently resolved; a BLS time-series ID is not automatically an electrician wage series. These importers require an explicit authorized invocation and internet-capable host; neither is run as part of the public TradeFlow app. Each use should be approved, audited and store only allowed observations with a source response checksum.
