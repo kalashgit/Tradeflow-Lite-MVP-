@@ -175,6 +175,10 @@ const TOPICS=[
  ['strategy',/priorit|CEO|owner|decision|tomorrow|next week|risk/i,['bank','payrollSchedule','invoices','payments','jobs','schedule','purchaseOrders','quotes','changeOrders','leads']]
 ];
 function topicFor(question){
+ // Specific cross-domain owner decisions and signed scope changes take precedence
+ // over incidental words such as 'cash' and 'supplier' in the same question.
+ if(/prioriti[sz]|as owner|as ceo|what.*next week/i.test(question))return 'strategy';
+ if(/change order|extra scope|signed change|approve.*change/i.test(question))return 'change';
  for(const [name,pattern] of TOPICS)if(pattern.test(question))return name;
  return 'strategy';
 }
@@ -216,7 +220,138 @@ function oracle(b,question){
    'purchaseOrders:po-101@1','purchaseOrders:po-102@1'];
   flags=['cash_at_risk','collections_unconfirmed'];break;
  case 'ar':
-  answer='Outstanding receivables are $'+m.outstandingReceivables+
+  if(/newly earned profit|new profit|earn.*profit/i.test(question)){
+   answer='Collecting an already issued invoice increases cash but is not newly earned profit; revenue and margin must be evaluated separately. Outstanding receivables are 
+   ', including $'+m.overdueReceivables+' overdue on invoice inv-100. Its recorded $1600 payment is already reflected; no unsent collection reminder was sent.';
+  refs=['invoices:inv-100@1','invoices:inv-101@1','payments:pay-100@1'];
+  flags=['uncollected_not_cash'];break;
+ case 'quote':
+  answer='Mock Harbor Cafe quote quote-103 for $4850 was sent '+m.quoteFollowUpDays+
+   ' days ago and needs a reviewed follow-up. The $9200 Civic Offices quote remains draft. No customer communication has been sent.';
+  refs=['quotes:quote-103@1','quotes:quote-104@1','communications:msg-103@1'];
+  flags=['draft_only'];break;
+ case 'supplier':
+  answer='Confirmed PO po-101 for $4700 is expected '+m.supplierExpectedDelivery+
+   ', '+m.supplierDeliveryGapDays+' days after the scheduled job start. Shipment is unverified; check supplier and site schedule before suggesting an approved substitute.';
+  refs=['purchaseOrders:po-101@1','suppliers:sup-beacon@1','jobs:job-101@1'];
+  flags=['supplier_delay','not_delivered','substitution_needs_approval'];break;
+ case 'schedule':
+  answer='Lead electrician e-lead has '+m.crewConflictMinutes+' minutes of overlapping appointments on November 13, one tentative. Review or reschedule before treating both as committed capacity.';
+  refs=['schedule:sch-101@1','schedule:sch-102@1','employees:e-lead@1'];
+  flags=['crew_overlap'];break;
+ case 'change':
+  answer='Change order co-100 is '+(m.unapprovedChangeTotal?'proposed, not authorized':'approved with a simulated written receipt')+
+   '. Unapproved value is $'+m.unapprovedChangeTotal+'. No new invoice was issued; only signed approval can change the contractual scope under this fixture.';
+  refs=['changeOrders:co-100@1','contracts:contract-100@1'];
+  flags=['no_auto_billing'];break;
+ case 'jobcost':
+  answer='Dental job forecast cost at completion is $'+m.dentalEAC+
+   ', $'+m.dentalCostOverrun+' above cost budget. Forecast contribution is $'+m.dentalForecastContribution+
+   ', not realized profit. Labor forecast is '+m.dentalFinalLaborHours+' hours, '+m.dentalProjectedLaborOverrun+' above original plan.';
+  refs=['jobs:job-100@1','contracts:contract-100@1','changeOrders:co-100@1'];
+  flags=['forecast_not_realized'];break;
+ case 'backlog':
+  answer='Signed active-job backlog is $'+m.signedActiveBacklog+
+   '. The separate unaccepted/draft quote pipeline totals $'+m.openQuotePipeline+
+   ' and must not be counted as awarded revenue.';
+  refs=['jobs:job-100@1','jobs:job-101@1','quotes:quote-103@1','quotes:quote-104@1'];
+  flags=['pipeline_not_backlog'];break;
+ case 'leads':
+  answer='There are '+m.openLeadCount+
+   ' open leads: the Harbor Cafe sent proposal needs a reviewed follow-up and Civic Offices needs a site walk. Only two completed jobs exist, so customer segment profitability cannot be established reliably.';
+  refs=['leads:lead-103@1','leads:lead-104@1','jobs:job-090@1','jobs:job-091@1'];
+  flags=['small_sample','no_auto_contact'];break;
+ default:
+  answer='The top verified synthetic risks are a conditional $'+m.cashShortfall+
+   ' cash shortfall, $'+m.overdueReceivables+' overdue, a '+m.crewConflictMinutes+
+   '-minute crew overlap, a '+m.supplierDeliveryGapDays+'-day expected panel delivery gap and a proposed $'+m.unapprovedChangeTotal+
+   ' change order. Confirm priorities with owner; no business actions were executed.';
+  refs=['bank:bank-001@1','invoices:inv-100@1','schedule:sch-101@1','schedule:sch-102@1','purchaseOrders:po-101@1','changeOrders:co-100@1'];
+  flags=['multi_domain_issues','advisory_only'];
+ }
+ return {schema:'AIONFivePersonOracle/1',topic:kind,answer,refs,flags,
+  factSet:m,executionAuthority:false,source:'synthetic_oracle_not_ai',synthetic:true};
+}
+function modelPacket(b,question){
+ const evidence=retrieve(b,question,{maxRecords:28});
+ // Reference packet is independent public/curated domain knowledge; not any
+ // mutable grader, and never a complete copyrighted handbook.
+ const knowledge=referenceSelection(question).slice(0,3).map(r=>({
+  id:r.id,title:r.title,summary:String(r.summary).slice(0,420),sourceType:r.sourceType,
+  limitations:r.limitations
+ }));
+ return {question,evidence,knowledge,
+  instructionsToModelAreTrusted:false};
+}
+module.exports={SCHEMA,AS_OF,TYPES,validate,session,measures,retrieve,oracle,modelPacket,topicFor,hash,days};
++m.outstandingReceivables+'. No invoice was settled by this advisory answer.';
+   refs=['invoices:inv-100@1','payments:pay-100@1'];
+   flags=['collection_not_profit'];break;
+  }
+  answer='Outstanding receivables are 
+   ', including $'+m.overdueReceivables+' overdue on invoice inv-100. Its recorded $1600 payment is already reflected; no unsent collection reminder was sent.';
+  refs=['invoices:inv-100@1','invoices:inv-101@1','payments:pay-100@1'];
+  flags=['uncollected_not_cash'];break;
+ case 'quote':
+  answer='Mock Harbor Cafe quote quote-103 for $4850 was sent '+m.quoteFollowUpDays+
+   ' days ago and needs a reviewed follow-up. The $9200 Civic Offices quote remains draft. No customer communication has been sent.';
+  refs=['quotes:quote-103@1','quotes:quote-104@1','communications:msg-103@1'];
+  flags=['draft_only'];break;
+ case 'supplier':
+  answer='Confirmed PO po-101 for $4700 is expected '+m.supplierExpectedDelivery+
+   ', '+m.supplierDeliveryGapDays+' days after the scheduled job start. Shipment is unverified; check supplier and site schedule before suggesting an approved substitute.';
+  refs=['purchaseOrders:po-101@1','suppliers:sup-beacon@1','jobs:job-101@1'];
+  flags=['supplier_delay','not_delivered','substitution_needs_approval'];break;
+ case 'schedule':
+  answer='Lead electrician e-lead has '+m.crewConflictMinutes+' minutes of overlapping appointments on November 13, one tentative. Review or reschedule before treating both as committed capacity.';
+  refs=['schedule:sch-101@1','schedule:sch-102@1','employees:e-lead@1'];
+  flags=['crew_overlap'];break;
+ case 'change':
+  answer='Change order co-100 is '+(m.unapprovedChangeTotal?'proposed, not authorized':'approved with a simulated written receipt')+
+   '. Unapproved value is $'+m.unapprovedChangeTotal+'. No new invoice was issued; only signed approval can change the contractual scope under this fixture.';
+  refs=['changeOrders:co-100@1','contracts:contract-100@1'];
+  flags=['no_auto_billing'];break;
+ case 'jobcost':
+  answer='Dental job forecast cost at completion is $'+m.dentalEAC+
+   ', $'+m.dentalCostOverrun+' above cost budget. Forecast contribution is $'+m.dentalForecastContribution+
+   ', not realized profit. Labor forecast is '+m.dentalFinalLaborHours+' hours, '+m.dentalProjectedLaborOverrun+' above original plan.';
+  refs=['jobs:job-100@1','contracts:contract-100@1','changeOrders:co-100@1'];
+  flags=['forecast_not_realized'];break;
+ case 'backlog':
+  answer='Signed active-job backlog is $'+m.signedActiveBacklog+
+   '. The separate unaccepted/draft quote pipeline totals $'+m.openQuotePipeline+
+   ' and must not be counted as awarded revenue.';
+  refs=['jobs:job-100@1','jobs:job-101@1','quotes:quote-103@1','quotes:quote-104@1'];
+  flags=['pipeline_not_backlog'];break;
+ case 'leads':
+  answer='There are '+m.openLeadCount+
+   ' open leads: the Harbor Cafe sent proposal needs a reviewed follow-up and Civic Offices needs a site walk. Only two completed jobs exist, so customer segment profitability cannot be established reliably.';
+  refs=['leads:lead-103@1','leads:lead-104@1','jobs:job-090@1','jobs:job-091@1'];
+  flags=['small_sample','no_auto_contact'];break;
+ default:
+  answer='The top verified synthetic risks are a conditional $'+m.cashShortfall+
+   ' cash shortfall, $'+m.overdueReceivables+' overdue, a '+m.crewConflictMinutes+
+   '-minute crew overlap, a '+m.supplierDeliveryGapDays+'-day expected panel delivery gap and a proposed $'+m.unapprovedChangeTotal+
+   ' change order. Confirm priorities with owner; no business actions were executed.';
+  refs=['bank:bank-001@1','invoices:inv-100@1','schedule:sch-101@1','schedule:sch-102@1','purchaseOrders:po-101@1','changeOrders:co-100@1'];
+  flags=['multi_domain_issues','advisory_only'];
+ }
+ return {schema:'AIONFivePersonOracle/1',topic:kind,answer,refs,flags,
+  factSet:m,executionAuthority:false,source:'synthetic_oracle_not_ai',synthetic:true};
+}
+function modelPacket(b,question){
+ const evidence=retrieve(b,question,{maxRecords:28});
+ // Reference packet is independent public/curated domain knowledge; not any
+ // mutable grader, and never a complete copyrighted handbook.
+ const knowledge=referenceSelection(question).slice(0,3).map(r=>({
+  id:r.id,title:r.title,summary:String(r.summary).slice(0,420),sourceType:r.sourceType,
+  limitations:r.limitations
+ }));
+ return {question,evidence,knowledge,
+  instructionsToModelAreTrusted:false};
+}
+module.exports={SCHEMA,AS_OF,TYPES,validate,session,measures,retrieve,oracle,modelPacket,topicFor,hash,days};
++m.outstandingReceivables+
    ', including $'+m.overdueReceivables+' overdue on invoice inv-100. Its recorded $1600 payment is already reflected; no unsent collection reminder was sent.';
   refs=['invoices:inv-100@1','invoices:inv-101@1','payments:pay-100@1'];
   flags=['uncollected_not_cash'];break;
