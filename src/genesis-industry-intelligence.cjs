@@ -160,11 +160,55 @@ const SERIES=Object.freeze({
   limitations:'Aggregate PPI only, not a SKU/contractor material price, not a future quote or profit margin.'
  })
 });
+const CAPABILITIES=Object.freeze({
+ servicetitan:Object.freeze(['estimating','pricebooks','dispatch','timesheets','field_mobile','client_messaging']),
+ simpro:Object.freeze(['estimating','dispatch','job_costing','invoicing','supplier_pricing','voice_site_notes']),
+ fieldpulse:Object.freeze(['dispatch','pricebooks','job_costing','invoicing','crew_tracking','client_records']),
+ buildops:Object.freeze(['commercial_service','commercial_projects','financial_workflows']),
+ procore:Object.freeze(['change_events','change_orders','permissioned_contract_workflows']),
+ housecallpro:Object.freeze(['dispatch','pricebooks','estimating','invoicing','job_costing','crm']),
+ knowify:Object.freeze(['job_costing','wip','change_orders','purchase_orders','accounting_sync']),
+});
+function competitorMatrix({vendors=Object.keys(CAPABILITIES)}={}){
+ if(!Array.isArray(vendors)||vendors.length<1||vendors.length>8||
+    vendors.some(v=>typeof v!=='string'||!(v in CAPABILITIES)))
+  throw Error('Invalid competitor comparison request');
+ const features=[...new Set(vendors.flatMap(v=>CAPABILITIES[v]))].sort();
+ return {
+  schema:'AIONPublicCompetitorClaims/1',reviewedOn:AS_OF,
+  reliability:'vendor_first_party_only_unverified_coverage_not_comparative_performance',
+  disclaimer:'Unlisted means not yet checked, NOT proof a feature is unavailable. No pricing tiers, sales performance, user satisfaction or claimed ROI is asserted.',
+  features,rows:vendors.map(v=>({
+   vendor:v,sourceUrl:SOURCES[v].url,evidenceClass:'vendor_feature_claim',
+   capabilities:Object.fromEntries(features.map(f=>[f,CAPABILITIES[v].includes(f)?
+     'publicly_advertised':'not_checked'])),
+  })),
+ };
+}
+function historicalEvidenceFor(question){
+ const terms=tokenize(question);
+ const relevant=['wire','cable','copper','ppi'].some(w=>terms.has(w))||
+  (terms.has('material')&&(terms.has('price')||terms.has('historical')||terms.has('index')));
+ if(!relevant)return null;
+ const series=SERIES.WPU102603;
+ return {
+  id:'tf-industry-historical-WPU102603',title:'Historical nonferrous wire and cable PPI observations',
+  family:'material_history',summary:'Verified published monthly index observations (Dec 1982=100, not seasonally adjusted): '+
+   series.observations.map(o=>o.period+': '+o.value.toFixed(3)).join('; ')+'.',
+  sourceTitle:'BLS via FRED — historical aggregate series',sourceUrl:SOURCES['fred-wire'].url,
+  sourceId:'fred-wire',sourceType:'government_index_via_fred',reviewedOn:AS_OF,asOf:AS_OF,
+  jurisdiction:'US_GENERAL',freshness:'historical_snapshot_not_current',
+  requiresLocalVerification:false,score:50,untrusted:true,actionAuthority:false,
+  sourceAssertion:'HISTORICAL_OBSERVATIONS',
+  limitations:'Index observations only, reviewed November 12 2026; NOT a supplier quote or commodity futures forecast; latest observed month is 2026-09.',
+ };
+}
 function retrieveIndustry(question,{limit=5}={}){
  if(typeof question!=='string'||!question.trim()||question.length>500||
     !Number.isSafeInteger(limit)||limit<1||limit>8)throw Error('Invalid bounded industry query');
  const tokens=tokenize(question);
- return RECORDS.map(row=>{
+ const historical=historicalEvidenceFor(question);
+ const ranked=RECORDS.map(row=>{
   const h=tokenize([row.title,row.keywords,row.family].join(' ')),b=tokenize(row.summary);
   const score=[...tokens].reduce((sum,t)=>sum+(h.has(t)?5:b.has(t)?1:0),0);
   return {score,row};
@@ -182,6 +226,7 @@ function retrieveIndustry(question,{limit=5}={}){
    sourceAssertion:src.evidenceClass==='vendor_feature_claim'?'VENDOR_SELF_REPORT':'REFERENCE_ONLY'
   };
  });
+ return historical?[historical,...ranked.filter(x=>x.id!==historical.id)].slice(0,limit):ranked;
 }
 function historicalSeries(id,{from,to}={}){
  const s=SERIES[id];if(!s)throw Error('Unknown approved historical series');
@@ -216,4 +261,4 @@ function audit(){
   competitorData:'first_party_marketing_not_verified_performance',disclosedPrivateData:0,
   automaticLiveData:false,trainingWeightsUpdated:false,sourceDate:AS_OF};
 }
-module.exports={VERSION,AS_OF,SOURCES,RECORDS,SERIES,retrieveIndustry,historicalSeries,audit};
+module.exports={VERSION,AS_OF,SOURCES,RECORDS,SERIES,CAPABILITIES,retrieveIndustry,historicalSeries,competitorMatrix,audit};
