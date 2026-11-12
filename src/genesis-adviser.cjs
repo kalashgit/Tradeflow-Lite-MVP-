@@ -31,7 +31,7 @@ function normalizeMessages(messages){
   throw Error('Genesis requires one to eight conversation turns');
  const clean=messages.map(m=>{
   if(!m||!['user','assistant'].includes(m.role)||typeof m.content!=='string'||
-     !m.content.trim()||m.content.length>1200)throw Error('Invalid Genesis conversation');
+     !m.content.trim()||m.content.length>(m.role==='assistant'?2500:1200))throw Error('Invalid Genesis conversation');
   return {role:m.role,content:m.content.trim()};
  });
  if(clean[clean.length-1].role!=='user'||
