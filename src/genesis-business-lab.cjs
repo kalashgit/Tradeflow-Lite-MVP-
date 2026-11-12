@@ -221,7 +221,11 @@ function oracle(b,question){
   flags=['cash_at_risk','collections_unconfirmed'];break;
  case 'ar':
   if(/newly earned profit|new profit|earn.*profit/i.test(question)){
-   answer='Collecting an already issued invoice increases cash but is not newly earned profit; revenue and margin must be evaluated separately. Outstanding receivables are 
+   answer='Collecting an already issued invoice increases cash but is not newly earned profit; revenue and margin must be evaluated separately. Outstanding receivables are $'+m.outstandingReceivables+'. No invoice was settled by this advisory answer.';
+   refs=['invoices:inv-100@1','payments:pay-100@1'];
+   flags=['collection_not_profit'];break;
+  }
+  answer='Outstanding receivables are $'+m.outstandingReceivables+
    ', including $'+m.overdueReceivables+' overdue on invoice inv-100. Its recorded $1600 payment is already reflected; no unsent collection reminder was sent.';
   refs=['invoices:inv-100@1','invoices:inv-101@1','payments:pay-100@1'];
   flags=['uncollected_not_cash'];break;
