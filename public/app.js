@@ -935,7 +935,7 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
  await tfAiUpdateChatUI();
  try{
   let business=null;
-  if(tfChatWithSummary&&!tfAiOfflinePreview){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
+  if(tfChatWithSummary&&!tfAiOfflinePreview&&!genesis){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
   // AION is read-only general expertise. Its Qwen context must not inherit
   // prior company-record answers or unrelated assistant threads on this device.
   const genesis=tfAiGenesisMode&&!!tfAiPreviewMode;
