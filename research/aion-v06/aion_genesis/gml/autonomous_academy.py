@@ -46,7 +46,7 @@ class AcademyBudget:
     check_cases: int = 40
     epochs_initial: int = 24
     epochs_step: int = 12
-    max_total_scenarios: int = 48
+    max_total_scenarios: int = 96
     max_wall_seconds: int = 420
     max_training_steps: int = 300
     seed: int = 43
@@ -65,7 +65,7 @@ class AcademyBudget:
                 and 1 <= self.epochs_initial <= 100
                 and 1 <= self.epochs_step <= 50
                 and 1 <= self.max_total_scenarios <= 200
-                and self.seed_cases + self.rounds * self.batch_cases
+                and self.check_cases + self.seed_cases + self.rounds * self.batch_cases
                     <= self.max_total_scenarios
                 and 30 <= self.max_wall_seconds <= 1800
                 and 1 <= self.max_training_steps <= 5000
@@ -325,6 +325,11 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
     first_hash = write_jsonl(dataset_dir / "generation-0.jsonl", train_rows)
     initial_spec = wm.WorldModelConfig(
         hidden=32, epochs=budget.epochs_initial, seed=budget.seed, batch=128)
+    initial_steps = budget.epochs_initial * math.ceil(len(train_rows) / 128)
+    if initial_steps > budget.max_training_steps:
+        raise ValueError("Initial training exceeds host-owned gradient-step budget")
+    if time.monotonic() >= deadline:
+        raise TimeoutError("Initial data generation exceeded wall-clock budget")
     fitted = wm.train(train_rows, initial_spec, dataset_id="self-directed-g0",
                       dataset_sha256=first_hash)
     champion = _persist_model(root / "models" / "generation-0", fitted)
@@ -348,14 +353,14 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
     curriculum = academy.Curriculum(
         families=FAMILIES, pool_start=1800, pool_size=560,
         exploration=0.3, adaptive=True)
-    training_steps = budget.epochs_initial * math.ceil(len(train_rows) / 128)
+    training_steps = initial_steps
     training_attempts = 0
     for generation_number in range(1, budget.rounds + 1):
         if time.monotonic() >= deadline:
             budget_events.append({"cycle": generation_number,
                                   "stop": "wall_clock_budget"})
             break
-        if active_scenarios + budget.batch_cases > budget.max_total_scenarios:
+        if budget.check_cases + active_scenarios + budget.batch_cases > budget.max_total_scenarios:
             budget_events.append({"cycle": generation_number,
                                   "stop": "scenario_budget"})
             break
@@ -367,7 +372,7 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
             budget_events.append({"cycle": generation_number,
                                   "stop": "scenario_pool_exhausted"})
             break
-        if (active_scenarios + len(selected) > budget.max_total_scenarios
+        if (budget.check_cases + active_scenarios + len(selected) > budget.max_total_scenarios
                 or time.monotonic() >= deadline):
             budget_events.append({"cycle": generation_number,
                                   "stop": "scenario_or_time_budget"})
@@ -494,6 +499,8 @@ def execute(out, budget: AcademyBudget = AcademyBudget()) -> dict:
         "final_research_champion_metrics": champ_score["all"],
         "learning_cycles_attempted": training_attempts,
         "simulated_training_scenarios": active_scenarios,
+        "distinct_development_scenarios": budget.check_cases,
+        "total_distinct_scenarios": active_scenarios + budget.check_cases,
         "training_gradient_steps_approx": training_steps,
         "elapsed_seconds": round(time.monotonic() - started, 2),
         "stop_reason": (budget_events[-1].get("stop", "max_research_cycles")
@@ -534,7 +541,8 @@ def main():
         rounds=args.rounds, batch_cases=args.batch_cases,
         seed_cases=args.seed_cases, check_cases=args.check_cases,
         epochs_initial=args.initial_epochs, epochs_step=args.step_epochs,
-        max_total_scenarios=args.seed_cases + args.rounds * args.batch_cases,
+        max_total_scenarios=args.seed_cases + args.rounds * args.batch_cases
+                             + args.check_cases,
         max_training_steps=args.max_training_steps,
         max_wall_seconds=args.max_wall_seconds)
     result = execute(args.out, budget)
