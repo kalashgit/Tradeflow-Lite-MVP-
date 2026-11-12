@@ -933,7 +933,12 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
  try{
   let business=null;
   if(tfChatWithSummary&&!tfAiOfflinePreview){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
-  const messages=tfChatMessages.slice(-8).map(({role,content})=>({role,content}));
+  // AION is read-only general expertise. Its Qwen context must not inherit
+  // prior company-record answers or unrelated assistant threads on this device.
+  const genesis=tfAiGenesisMode&&!!tfAiPreviewMode;
+  const messages=genesis?window.TradeFlowGenesisConversation?.projection(tfChatMessages):
+   tfChatMessages.slice(-8).map(({role,content})=>({role,content}));
+  if(!messages)throw Error('Genesis conversation isolation is not loaded');
   const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen,...(tfAiGenesisMode&&tfAiPreviewMode?{assistant:'genesis'}:{})}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
@@ -1621,7 +1626,10 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfAiVoice'){window.TradeFlowVoice?.start?.();return}
  if(el.dataset.action==='tfAiGenesisToggle'){
   if(!tfAiPreviewMode||!tfAiKey()){tfChatError='AION Genesis is only enabled in the authenticated synthetic development preview.';await tfAiUpdateChatUI();return}
-  tfAiGenesisMode=!tfAiGenesisMode;tfChatError='';await tfAiUpdateChatUI();return;
+  tfAiGenesisMode=!tfAiGenesisMode;tfChatError='';
+  // Mode switching begins a fresh local thread. The older thread stays in
+  // history but cannot silently become the next model's conversation state.
+  await tfAiNewThread();return;
  }
  if(el.dataset.action==='tfAiTestConnection'){try{tfChatError='';await tfAiHealthCheck()}catch(err){tfAiStatus='Connection failed: '+String(err.message||err).slice(0,160)}if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
