@@ -1,0 +1,97 @@
+name: AION Genesis TradeFlow voice + electrical CEO knowledge (pilot)
+
+on:
+  push:
+    branches:
+      - feature/aion-tradeflow-voice-knowledge-pilot
+    paths:
+      - 'src/genesis-contractor-knowledge.cjs'
+      - 'src/genesis-adviser.cjs'
+      - 'src/genesis-official-reference.cjs'
+      - 'src/local-ai-provider.cjs'
+      - 'scripts/local-ai-preview-server.cjs'
+      - 'public/app.js'
+      - 'public/ai-speech.js'
+      - 'public/genesis-conversation.js'
+      - 'public/index.html'
+      - 'public/conversation-store.js'
+      - 'tests/genesis-*.test.cjs'
+      - 'docs/TRADEFLOW_GENESIS_VOICE_KNOWLEDGE_PILOT.md'
+      - '.github/workflows/aion-tradeflow-voice-knowledge.yml'
+  pull_request:
+    branches:
+      - research/aion-autonomous-academy-v3
+    paths:
+      - 'src/genesis-contractor-knowledge.cjs'
+      - 'src/genesis-adviser.cjs'
+      - 'src/genesis-official-reference.cjs'
+      - 'src/local-ai-provider.cjs'
+      - 'scripts/local-ai-preview-server.cjs'
+      - 'public/app.js'
+      - 'public/ai-speech.js'
+      - 'public/genesis-conversation.js'
+      - 'public/index.html'
+      - 'public/conversation-store.js'
+      - 'tests/genesis-*.test.cjs'
+      - 'docs/TRADEFLOW_GENESIS_VOICE_KNOWLEDGE_PILOT.md'
+      - '.github/workflows/aion-tradeflow-voice-knowledge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-tradeflow-voice-knowledge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Local voice, retrieval, conversation and security-focused tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check app and pilot server syntax
+        run: |
+          node --check src/genesis-adviser.cjs
+          node --check src/genesis-contractor-knowledge.cjs
+          node --check scripts/local-ai-preview-server.cjs
+          node --check public/app.js
+          node --check public/ai-speech.js
+          node --check public/genesis-conversation.js
+      - name: AION integrated pilot and existing voice/chat regression tests
+        run: >-
+          node --test
+          tests/genesis-adviser.test.cjs
+          tests/genesis-conversation-isolation.test.cjs
+          tests/genesis-contractor-knowledge.test.cjs
+          tests/genesis-official-reference.test.cjs
+          tests/genesis-tradeflow-integration.test.cjs
+          tests/genesis-voice-fallback.test.cjs
+          tests/local-ai-provider.test.cjs
+          tests/local-ai-general-advice.test.cjs
+          tests/local-ai-preview-server.test.cjs
+          tests/ai-speech.test.cjs
+          tests/voice-command.test.cjs
+          tests/conversation-store.test.cjs
+      - name: Research-only disclaimer
+        run: |
+          echo 'Genesis chat is a Qwen-based read-only synthetic pilot, not the autonomous world-model operating on customer records.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No microphone audio is stored by the new native TTS fallback and there are no business writes.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  regression:
+    name: Full existing TradeFlow Node tests
+    needs: integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run complete TradeFlow Node suite
+        run: npm test
