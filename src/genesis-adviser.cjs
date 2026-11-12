@@ -4,6 +4,7 @@
 'use strict';
 const {completeLocal}=require('./local-ai-provider.cjs');
 const {retrieve,catalog,VERSION}=require('./genesis-contractor-knowledge.cjs');
+const {safetyReferences}=require('./genesis-official-reference.cjs');
 
 const SYSTEM=[
  'You are AION Genesis, the clearly identified AI adviser inside TradeFlow.',
@@ -39,8 +40,8 @@ function normalizeMessages(messages){
   throw Error('Last Genesis turn must be a short user question');
  return clean;
 }
-function referencePacket(query){
- const selected=retrieve(query,{limit:5});
+function referencePacket(query,official=[]){
+ const selected=[...official,...retrieve(query,{limit:5})].slice(0,8);
  return {
   schema:'aion-genesis.trusted-curation-retrieval.v1',
   knowledgeVersion:VERSION,
@@ -48,7 +49,7 @@ function referencePacket(query){
   selection: selected.map(x=>({
    id:x.id,topic:x.title,summary:x.summary,
    sourceTitle:x.sourceTitle,sourceUrl:x.sourceUrl,
-   sourceType:x.sourceType,asOf:x.asOf,limitations:x.limitations
+   sourceType:x.sourceType,asOf:x.asOf||x.reviewedOn,limitations:x.limitations
   })),
   limitations:[
    'No current jurisdiction adopted-edition lookup was conducted.',
@@ -60,8 +61,8 @@ function referencePacket(query){
 function bibliography(selected){
  return selected.map(x=>({
   id:x.id,title:x.title,sourceTitle:x.sourceTitle,
-  sourceUrl:x.sourceUrl,reviewedOn:x.asOf,
-  provenance:x.provenance,kind:x.sourceType
+  sourceUrl:x.sourceUrl,reviewedOn:x.asOf||x.reviewedOn,
+  provenance:x.provenance||'checksum_verified_official_reference',kind:x.sourceType
  }));
 }
 async function converseGenesis({messages,enabled=false,mode='live',
@@ -69,7 +70,9 @@ async function converseGenesis({messages,enabled=false,mode='live',
  if(enabled!==true)return {status:'disabled',answer:null,executionAuthority:false};
  if(!['live','mock'].includes(mode))throw Error('Invalid Genesis preview model mode');
  const turns=normalizeMessages(messages),question=turns[turns.length-1].content;
- const packet=referencePacket(question),sources=bibliography(retrieve(question,{limit:5}));
+ const official=await safetyReferences(question);
+ const packet=referencePacket(question,official);
+ const sources=bibliography([...official,...retrieve(question,{limit:5})].slice(0,8));
  const safeBase={knowledgeVersion:VERSION,knowledgeSources:sources,
   companyRecordsRead:0,executionAuthority:false,syntheticDemo:true,
   autonomousLearningActive:false,modelWeightsUpdated:false,
