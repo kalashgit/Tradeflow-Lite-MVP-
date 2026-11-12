@@ -8,10 +8,12 @@ on:
       - 'src/genesis-external-knowledge.cjs'
       - 'src/genesis-adviser.cjs'
       - 'scripts/genesis-source-review.cjs'
+      - 'scripts/genesis-source-refresh.cjs'
       - 'scripts/local-ai-preview-server.cjs'
       - 'public/conversation-store.js'
       - 'public/app.js'
       - 'tests/genesis-external-knowledge.test.cjs'
+      - 'tests/genesis-source-refresh.test.cjs'
       - 'docs/AION_ELECTRICAL_EXTERNAL_KNOWLEDGE.md'
       - '.github/workflows/aion-external-knowledge.yml'
   pull_request:
@@ -41,6 +43,7 @@ jobs:
           node --check src/genesis-external-knowledge.cjs
           node --check src/genesis-adviser.cjs
           node --check scripts/genesis-source-review.cjs
+          node --check scripts/genesis-source-refresh.cjs
           node --check scripts/local-ai-preview-server.cjs
           node --check public/conversation-store.js
           node --check public/app.js
@@ -49,6 +52,7 @@ jobs:
         run: >-
           node --test
           tests/genesis-external-knowledge.test.cjs
+          tests/genesis-source-refresh.test.cjs
           tests/genesis-adviser.test.cjs
           tests/genesis-contractor-knowledge.test.cjs
           tests/genesis-official-reference.test.cjs
