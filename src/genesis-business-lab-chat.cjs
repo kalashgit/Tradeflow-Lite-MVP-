@@ -56,7 +56,7 @@ function validateModelAnswer(text,packet){
   decision:data.decision};
 }
 async function converseBusinessLab({messages,enabled=false,mode='mock',
- fetchImpl,baseUrl,timeoutMs=45000,book}={}){
+ fetchImpl,baseUrl,timeoutMs=45000,modelId=null,book}={}){
  if(enabled!==true)return {status:'disabled',answer:null,executionAuthority:false};
  if(!['mock','live'].includes(mode))throw Error('Invalid synthetic model mode');
  const turns=normalize(messages),question=turns.at(-1).content;
@@ -85,7 +85,7 @@ async function converseBusinessLab({messages,enabled=false,mode='mock',
  const result=await completeLocal({
   enabled:true,messages:[{role:'system',content:SYSTEM},
    ...turns.slice(-3,-1),{role:'user',content}],
-  maxTokens:850,temperature:0.1,timeoutMs,
+  maxTokens:850,temperature:0.1,modelId,timeoutMs,
   ...(fetchImpl?{fetchImpl}:{}),...(baseUrl?{baseUrl}:{})
  });
  if(result.status!=='completed')return {...base,status:result.status,answer:null,
