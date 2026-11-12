@@ -10,7 +10,7 @@
  const THREADS = 'aiConversationThreads';
  const TURNS = 'aiConversationTurns';
  const ROLES = new Set(['user', 'assistant', 'system_notice']);
- const SOURCES = new Set(['user', 'user_scenario', 'financial_missing_data', 'synthetic_mock', 'local_qwen', 'general_advice', 'model_unavailable', 'unverified_model', 'device_local_evidence', 'academy_metadata', 'offline_knowledge', 'system_notice']);
+ const SOURCES = new Set(['user', 'user_scenario', 'financial_missing_data', 'synthetic_mock', 'local_qwen', 'general_advice', 'genesis_qwen', 'genesis_reference', 'genesis_unavailable', 'model_unavailable', 'unverified_model', 'device_local_evidence', 'academy_metadata', 'offline_knowledge', 'system_notice']);
  const MODALITIES = new Set(['text', 'voice']);
  const now = () => new Date().toISOString();
  const makeId = () => crypto.randomUUID();
