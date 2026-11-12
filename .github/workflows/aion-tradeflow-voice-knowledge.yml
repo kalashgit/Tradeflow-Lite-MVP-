@@ -12,6 +12,8 @@ on:
       - 'scripts/local-ai-preview-server.cjs'
       - 'public/app.js'
       - 'public/ai-speech.js'
+      - 'public/genesis-conversation.js'
+      - 'public/index.html'
       - 'public/conversation-store.js'
       - 'tests/genesis-*.test.cjs'
       - 'docs/TRADEFLOW_GENESIS_VOICE_KNOWLEDGE_PILOT.md'
@@ -27,6 +29,8 @@ on:
       - 'scripts/local-ai-preview-server.cjs'
       - 'public/app.js'
       - 'public/ai-speech.js'
+      - 'public/genesis-conversation.js'
+      - 'public/index.html'
       - 'public/conversation-store.js'
       - 'tests/genesis-*.test.cjs'
       - 'docs/TRADEFLOW_GENESIS_VOICE_KNOWLEDGE_PILOT.md'
@@ -57,10 +61,12 @@ jobs:
           node --check scripts/local-ai-preview-server.cjs
           node --check public/app.js
           node --check public/ai-speech.js
+          node --check public/genesis-conversation.js
       - name: AION integrated pilot and existing voice/chat regression tests
         run: >-
           node --test
           tests/genesis-adviser.test.cjs
+          tests/genesis-conversation-isolation.test.cjs
           tests/genesis-contractor-knowledge.test.cjs
           tests/genesis-official-reference.test.cjs
           tests/genesis-tradeflow-integration.test.cjs
