@@ -59,7 +59,7 @@
       c.url.length > 700) return false;
   try { const url = new URL(c.url);
    return url.protocol === 'https:' && !url.username && !url.password &&
-      CITATION_HOSTS.has(url.hostname.replace(/^www\\./,''));
+      CITATION_HOSTS.has((url.hostname.startsWith('www.') ? url.hostname.slice(4) : url.hostname));
   } catch { return false }
  }
  function sanitizeTurn(value) {
