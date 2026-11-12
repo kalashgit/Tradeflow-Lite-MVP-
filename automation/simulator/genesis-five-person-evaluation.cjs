@@ -59,7 +59,7 @@ function quantile(values,pct){if(!values.length)return null;
  const sorted=values.slice().sort((a,b)=>a-b);
  return Math.round(sorted[Math.max(0,Math.ceil(pct*sorted.length)-1)]*100)/100;
 }
-async function run({mode='oracle',fetchImpl,baseUrl,maxCases=21,onCase}={}){
+async function run({mode='oracle',fetchImpl,baseUrl,modelId=null,maxCases=21,onCase}={}){
  if(!['oracle','qwen'].includes(mode))throw Error('Unknown benchmark mode');
  if(!Number.isInteger(maxCases)||maxCases<1||maxCases>CASES.length)throw Error('Invalid benchmark case count');
  const before=lab.session().read(),beforeHash=lab.hash(before);
@@ -71,7 +71,7 @@ async function run({mode='oracle',fetchImpl,baseUrl,maxCases=21,onCase}={}){
   const started=performance.now();
   const answer=await converseBusinessLab({enabled:true,mode:mode==='oracle'?'mock':'live',
    messages:[{role:'user',content:spec.q}],book,
-   ...(fetchImpl?{fetchImpl}:{}),...(baseUrl?{baseUrl}:{})});
+   ...(fetchImpl?{fetchImpl}:{}),...(baseUrl?{baseUrl}:{}),...(modelId?{modelId}:{})});
   const elapsedMs=Math.round((performance.now()-started)*100)/100;
   if(world.hash()!==lockedHash||lab.hash(before)!==beforeHash)
    throw Error('Synthetic business mutated during a read-only model answer');
