@@ -9,6 +9,7 @@ const crypto=require('node:crypto');
 const {briefFromAuthorizedSource}=require('../src/local-ai-context-bridge.cjs');
 const {adviseGenerally}=require('../src/local-ai-general-advice.cjs');
 const {converseGenesis}=require('../src/genesis-adviser.cjs');
+const {converseBusinessLab}=require('../src/genesis-business-lab-chat.cjs');
 const {catalog:genesisCatalog}=require('../src/genesis-contractor-knowledge.cjs');
 const {validate:genesisExternalCatalog}=require('../src/genesis-external-knowledge.cjs');
 const {audit:genesisIndustryCatalog}=require('../src/genesis-industry-intelligence.cjs');
@@ -109,7 +110,23 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      if(url.pathname==='/api/ai/verify')return send(res,200,{authorized:true,syntheticDemo:true,modelMode:mode});
      const question=Array.isArray(data.messages)?[...data.messages].reverse().find(m=>m?.role==='user')?.content:null;
      if(typeof question!=='string'||question.trim().length<3||question.length>500)return send(res,400,{error:'Question must contain 3–500 characters'});
-     if(data.assistant!==undefined&&data.assistant!=='genesis')return send(res,400,{error:'Unknown assistant mode'});
+     if(data.assistant!==undefined&&!['genesis','genesis_lab'].includes(data.assistant))return send(res,400,{error:'Unknown assistant mode'});
+     // Explicit five-worker synthetic operating twin; no client JSON is used
+     // as company evidence, identity, permissions, or event instructions.
+     if(data.assistant==='genesis_lab'){
+      if(mode==='unavailable')return send(res,200,{reply:'AION five-person Qwen is unavailable. Synthetic business facts were not changed.',source:'genesis_lab_unavailable',refs:[],syntheticDemo:true,executionAuthority:false,genesisPilot:true,scenarioId:'TF-GENESIS-LAB-05'});
+      const result=await converseBusinessLab({enabled:true,messages:data.messages,
+       mode:mode==='live'?'live':'mock',timeoutMs:45000,
+       ...(localFetch?{fetchImpl:localFetch}:{})});
+      if(result.status!=='completed')return send(res,200,{reply:'The five-person model answer was blocked ('+result.status+'). No synthetic or real records were changed.',source:'genesis_lab_unavailable',refs:[],syntheticDemo:true,executionAuthority:false,genesisPilot:true,
+       scenarioId:'TF-GENESIS-LAB-05',modelStatus:result.status});
+      return send(res,200,{reply:result.answer,source:result.source,refs:result.refs,
+       syntheticDemo:true,executionAuthority:false,genesisPilot:true,
+       model:result.model,scenarioId:result.scenarioId,scenarioHash:result.scenarioHash,
+       realModelInference:result.realModelInference,recordCount:result.recordCount,
+       businessRecordsSource:result.businessRecordsSource,productionWrites:0,
+       realBusinessRecordsRead:0,knowledgeSources:[],autonomousLearningActive:false});
+     }
      // AION is an explicit, separate advisory lane inside the SAME conversation UI.
      // All user/assistant history is treated as untrusted and no client-provided
      // business/context/identity/permissions are forwarded to this model.

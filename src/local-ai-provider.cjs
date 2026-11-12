@@ -15,17 +15,18 @@ function asMessages(messages){
     return {role:m.role,content:m.content};
   });
 }
-async function completeLocal({messages,enabled=false,baseUrl=DEFAULT_URL,timeoutMs=60000,maxTokens=320,temperature=0.1,fetchImpl=globalThis.fetch}={}){
+async function completeLocal({messages,enabled=false,baseUrl=DEFAULT_URL,timeoutMs=60000,maxTokens=320,temperature=0.1,modelId=null,fetchImpl=globalThis.fetch}={}){
   if(!enabled)return {status:'disabled',answer:null,executionAuthority:false};
   const url=endpointFor(baseUrl),safeMessages=asMessages(messages);
   if(!Number.isSafeInteger(timeoutMs)||timeoutMs<100||timeoutMs>180000)throw Error('Invalid timeout');
   if(!Number.isSafeInteger(maxTokens)||maxTokens<16||maxTokens>2048)throw Error('Invalid token budget');
   if(typeof temperature!=='number'||!Number.isFinite(temperature)||temperature<0||temperature>0.8)throw Error('Invalid local-model temperature');
+  if(modelId!==null&&(typeof modelId!=='string'||!/^qwen3:(?:0[.]6b|1[.]7b)$/.test(modelId)))throw Error('Unapproved research-only Qwen model ID');
   let response;
   try {
     response=await fetchImpl(url,{
       method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({messages:safeMessages,chat_template_kwargs:{enable_thinking:false},temperature,max_tokens:maxTokens,stream:false}),
+      body:JSON.stringify({...(modelId?{model:modelId}:{}),messages:safeMessages,chat_template_kwargs:{enable_thinking:false},temperature,max_tokens:maxTokens,stream:false}),
       signal:AbortSignal.timeout(timeoutMs)
     });
   } catch(error){

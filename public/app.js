@@ -384,7 +384,7 @@ function tfFinancePhotoSection(record,target){
 
 /* AI preview threads remain in this device's local workspace. The app's local-owner
    identity is NOT an authenticated cloud identity, and history is never synchronized. */
-let tfChatMessages=[],tfChatThreads=[],tfActiveChatThreadId=null,tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='',tfAiGenesisMode=false,tfAiReviewJobId=null,tfAiReviewThreadId=null;
+let tfChatMessages=[],tfChatThreads=[],tfActiveChatThreadId=null,tfChatBusy=false,tfChatError='',tfChatWithSummary=false,tfAiStatus='',tfAiPreviewMode='',tfAiGenesisMode=false,tfAiBusinessLabMode=false,tfAiReviewJobId=null,tfAiReviewThreadId=null;
 const tfAiLocalScope=Object.freeze({kind:'local',businessId:'local-business',actorId:'local-owner'});
 /* AI-owned adapter: UI motion consumes this public surface; app state remains authoritative. */
 function tfHostRead(){
@@ -512,6 +512,11 @@ function tfAiAttribution(message){
  if(message.source==='financial_missing_data')return '<div class="tf-ai-evidence"><span>FINANCIAL DATA MISSING · NO VERIFIED CASH FORECAST</span></div>';
  if(message.source==='device_local_evidence')return '<div class="tf-ai-evidence"><span>LOCAL RECORD EVIDENCE · NOT VERIFIED CLOUD DATA</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.map(esc).join(' · ')+'</small>':'')+'</div>';
  if(message.source==='academy_metadata'||message.source==='offline_knowledge')return '<div class="tf-ai-evidence"><span>'+(message.source==='academy_metadata'?'OFFLINE ACADEMY CATALOG · NOT FULL BOOK TEXT':'OFFLINE OSHA REFERENCE · ORIGINAL PARAPHRASE')+'</span>'+(Array.isArray(message.refs)&&message.refs.length?'<small>Sources: '+message.refs.slice(0,8).map(esc).join(' · ')+'</small>':'')+'</div>';
+ if(['genesis_lab_qwen','genesis_lab_oracle','genesis_lab_unavailable'].includes(message.source)){
+  const label=message.source==='genesis_lab_qwen'?'AION · FIVE-PERSON SYNTHETIC BUSINESS · LOCAL QWEN':message.source==='genesis_lab_oracle'?'FIVE-PERSON SYNTHETIC BUSINESS · SCRIPTED ORACLE (NOT AI)':'FIVE-PERSON SYNTHETIC BUSINESS · MODEL BLOCKED';
+  const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^[A-Za-z]+:[A-Za-z0-9_-]+@[1-9][0-9]*$/.test(x)).slice(0,8):[];
+  return '<div class="tf-ai-evidence"><span>'+esc(label)+' · NO REAL CUSTOMER RECORDS</span>'+(refs.length?'<small>Simulated evidence: '+refs.map(esc).join(' · ')+'</small>':'')+'</div>';
+ }
  if(['genesis_qwen','genesis_reference','genesis_unavailable'].includes(message.source)){
   const label=message.source==='genesis_qwen'?'AION GENESIS · LOCAL QWEN · GENERAL EXPERTISE':message.source==='genesis_reference'?'AION GENESIS · REFERENCE-ONLY (NO MODEL)':'AION GENESIS · MODEL UNAVAILABLE';
   const refs=Array.isArray(message.refs)?message.refs.filter(x=>typeof x==='string'&&/^knowledge:tf-[A-Za-z0-9_-]+@1$/.test(x)).slice(0,6):[];
@@ -533,10 +538,12 @@ function tfAIChatView(data){
  const genesisToggleLabel=tfAiGenesisMode?
   (tfAiPreviewMode==='live'?'✓ AION Genesis · local Qwen selected':'✓ AION Genesis · references only'):
   (tfAiPreviewMode==='live'?'Use AION Genesis · local Qwen adviser':'Use AION Genesis · reference-only preview');
+ const businessLabToggle=!tfAiOfflinePreview&&unlocked&&tfAiPreviewMode&&tfAiGenesisMode?
+  '<div class="tf-ai-preview-gate" role="group" aria-label="Five-person electrical business simulation"><button type="button" data-action="tfAiBusinessLabToggle" aria-pressed="'+String(tfAiBusinessLabMode)+'" '+(tfChatBusy?'disabled':'')+'>'+(tfAiBusinessLabMode?'✓ Five-person company sandbox active':'Enter five-person company sandbox')+'</button><small>'+(tfAiBusinessLabMode?'SYNTHETIC BUSINESS · 5 employees · customers, leads, quotes, purchase orders, schedules, cash and payroll. Answers are research-only; no live company records.':'Try AION on a complete five-person fictional electrical contractor with linked operating records; it cannot modify real jobs.')+'</small></div>':'';
  const genesisToggle=!tfAiOfflinePreview&&unlocked&&tfAiPreviewMode?
   '<div class="tf-ai-preview-gate" role="group" aria-label="AION Genesis research adviser"><button type="button" data-action="tfAiGenesisToggle" aria-pressed="'+String(tfAiGenesisMode)+'" '+(tfChatBusy?'disabled':'')+'>'+genesisToggleLabel+'</button><small>'+(tfAiGenesisMode?'Read-only expert conversation. Reference-guided; no actual company data or autonomous execution.':'Switch between the existing TradeFlow assistant and a specialist AION research adviser; only available in the local synthetic preview.')+'</small></div>':'';
  const gate=tfAiOfflinePreview?'<div class="tf-ai-preview-gate"><span>Private online AI · no additional access code</span></div>':unlocked?'<div class="tf-ai-preview-gate"><span>Preview code saved for this browser session</span><button type="button" data-action="tfAiLock">Disconnect</button><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>':'<form id="tfAiUnlockForm" class="tf-ai-preview-gate"><label for="tfAiPreviewCode">Private preview access</label><div><input id="tfAiPreviewCode" name="code" type="password" minlength="12" maxlength="200" autocomplete="off" placeholder="Enter access code" required><button type="submit">Verify & unlock</button></div><small>Your code is checked against the Cloudflare Worker before unlocking.</small></form><div class="tf-ai-preview-gate"><button type="button" data-action="tfAiTestConnection">Check AI connection</button>'+(tfAiStatus?'<small role="status">'+esc(tfAiStatus)+'</small>':'')+'</div>';
- return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>'+(tfAiGenesisMode?'AION Genesis':'TradeFlow AI')+' <span>PREVIEW</span></h2><p>'+(tfAiGenesisMode?'Electrical contracting · CEO strategy adviser':'Business intelligence assistant')+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+genesisToggle+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="6000" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
+ return '<section class="tf-ai-chat-box" aria-label="TradeFlow AI chat preview"><div class="tf-ai-chat-top"><div class="tf-ai-chat-symbol">✦</div><div><h2>'+(tfAiGenesisMode?'AION Genesis':'TradeFlow AI')+' <span>PREVIEW</span></h2><p>'+(tfAiBusinessLabMode?'Five-person simulated electrical business · read-only laboratory':tfAiGenesisMode?'Electrical contracting · CEO strategy adviser':'Business intelligence assistant')+(tfAiPreviewMode?' · SYNTHETIC DEVELOPMENT DEMO':'')+'</p></div><button type="button" class="tf-ai-clear" data-action="tfAiClear" '+(!tfActiveChatThreadId||tfChatBusy?'disabled':'')+' aria-label="Delete active local conversation">Delete</button></div>'+gate+genesisToggle+businessLabToggle+jobReviews+tfAiHistoryView()+'<div class="tf-ai-chat-thread" id="tfAiThread" role="log" aria-live="polite">'+chat+(tfChatBusy?'<div class="tf-ai-typing">✦ Thinking…</div>':'')+'</div>'+conversationReview+(tfChatError?'<p class="tf-ai-chat-error" role="alert">'+esc(tfChatError)+'</p>':'')+'<div class="tf-ai-chat-suggestions">'+examples.map(([name,prompt])=>'<button type="button" data-action="tfAiPrompt" data-prompt="'+esc(prompt)+'" '+(!tfChatBusy&&(unlocked||name==='Business update')?'':'disabled')+'>'+esc(name)+'</button>').join('')+'</div><form id="tfAiChatForm" class="tf-ai-chat-composer"><label class="tf-ai-prompt-label" for="tfAiPrompt">Your question</label><div class="tf-ai-compose-row"><textarea id="tfAiPrompt" name="prompt" rows="2" maxlength="6000" required '+(!tfChatBusy?'':'disabled')+' placeholder="Ask for a local job review, or unlock the private AI preview"></textarea><button type="submit" '+(!tfChatBusy?'':'disabled')+' aria-label="Send question">➤</button></div><label class="tf-ai-context"><input type="checkbox" id="tfAiContext" '+(tfChatWithSummary?'checked':'')+' '+(!unlocked||tfChatBusy?'disabled':'')+'> Include anonymous business totals and record counts</label></form><p class="tf-ai-privacy">'+(tfAiPreviewMode?'SYNTHETIC DEVELOPMENT DEMO. Only fixed test records are supplied to the briefing. AI text is untrusted; no business actions occur.':'Online AI only when unlocked. Your contacts, photos, project details and complete records are never uploaded. Final messages are saved locally on this device, not synchronized or backed up. Anyone with access to this browser profile may see them. Messages are sent for inference only when you submit.')+'</p></section>';
 }
 
 /* TradeFlow Intelligence node: screen-aware preview UI, no silent data access/actions. */
@@ -891,6 +898,8 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
  if(content.length>6000){tfChatError='This message exceeds 6,000 characters; nothing was saved or sent.';await tfAiUpdateChatUI();return}
  if(!['text','voice'].includes(modality))throw Error('Invalid conversation modality');
  if(!content||tfChatBusy)return;
+ const activeBusinessLab=tfAiGenesisMode&&tfAiBusinessLabMode&&!!tfAiPreviewMode;
+ if(!activeBusinessLab){
  const {analyzeOwnerPayrollQuestion}=await import('./intelligence-payroll-risk.js');
  const payrollAnalysis=analyzeOwnerPayrollQuestion(content);
  if(payrollAnalysis){
@@ -921,6 +930,7 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
   if(await tfAiLocalAcademy(content))return;
   if(await tfAiLocalElectricalReference(content))return;
   if(await tfAiLocalJobReview(content))return;
+ }
  if(!tfAiOfflinePreview&&!tfAiKey())await tfAiRestoreSession();
  if(!tfAiOfflinePreview&&!tfAiKey()){
   tfAiPendingPrompt=content;tfAiPendingSpeak=!!speakReply;
@@ -937,14 +947,14 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
  await tfAiUpdateChatUI();
  try{
   let business=null;
+  const genesis=tfAiGenesisMode&&!!tfAiPreviewMode;
   if(tfChatWithSummary&&!tfAiOfflinePreview&&!genesis){const data=Object.fromEntries(await Promise.all(['jobs','tasks','quotes','opportunities','payments','expenses'].map(async s=>[s,await all(s)])));business=tfAiContext(data)}
   // AION is read-only general expertise. Its Qwen context must not inherit
   // prior company-record answers or unrelated assistant threads on this device.
-  const genesis=tfAiGenesisMode&&!!tfAiPreviewMode;
-  const messages=genesis?window.TradeFlowGenesisConversation?.projection(tfChatMessages):
+  const messages=genesis?window.TradeFlowGenesisConversation?.projection(tfChatMessages,{mode:tfAiBusinessLabMode?'lab':'general'}):
    tfChatMessages.slice(-8).map(({role,content})=>({role,content}));
   if(!messages)throw Error('Genesis conversation isolation is not loaded');
-  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen,...(tfAiGenesisMode&&tfAiPreviewMode?{assistant:'genesis'}:{})}),cache:'no-store'});
+  const response=await fetch('/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:tfAiKey(),messages,business,screen,...(tfAiGenesisMode&&tfAiPreviewMode?{assistant:tfAiBusinessLabMode?'genesis_lab':'genesis'}:{})}),cache:'no-store'});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(String(payload.error||'AI service not available')+' (HTTP '+response.status+')');
   if(typeof payload.reply!=='string'||!payload.reply.trim())throw Error('The model returned an empty response');
@@ -953,7 +963,7 @@ async function tfAISend(text,{speakReply=false,modality='text'}={}){
   // the UI does not mislabel a reference-only answer as live Qwen.
   if(payload.syntheticDemo&&['mock','live','unavailable'].includes(payload.modelMode))tfAiPreviewMode=payload.modelMode;
   await tfAiSaveTurn({role:'assistant',content:payload.reply.trim().slice(0,2500),modality:'text',status:'committed',
-   source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable','genesis_qwen','genesis_reference','genesis_unavailable'].includes(payload.source)?payload.source:'unverified_model',
+   source:payload.syntheticDemo&&['synthetic_mock','local_qwen','general_advice','model_unavailable','genesis_qwen','genesis_reference','genesis_unavailable','genesis_lab_qwen','genesis_lab_oracle','genesis_lab_unavailable'].includes(payload.source)?payload.source:'unverified_model',
    refs:payload.genesisPilot&&Array.isArray(payload.knowledgeSources)?payload.knowledgeSources.slice(0,6).filter(x=>typeof x?.id==='string'&&/^tf-[A-Za-z0-9_-]+$/.test(x.id)).map(x=>'knowledge:'+x.id+'@1'):payload.syntheticDemo&&Array.isArray(payload.refs)?payload.refs:[],
    citations:payload.genesisPilot&&['genesis_qwen','genesis_reference'].includes(payload.source)&&Array.isArray(payload.knowledgeSources)?
     payload.knowledgeSources.slice(0,8).map(x=>({id:x?.id,title:x?.sourceTitle||x?.title,url:x?.sourceUrl}))
@@ -1635,9 +1645,13 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfAiOpenVoiceSettings'){tfResetWorkspace('preferences');await render();showVoiceSettings();return}
  if(el.dataset.action==='tfAiSnapshotToggle'){tfAIShowLegacySnapshot=!tfAIShowLegacySnapshot;await render();return}
  if(el.dataset.action==='tfAiVoice'){window.TradeFlowVoice?.start?.();return}
+ if(el.dataset.action==='tfAiBusinessLabToggle'){
+  if(!tfAiPreviewMode||!tfAiGenesisMode||!tfAiKey()){tfChatError='The five-person company sandbox requires the local AION development preview.';await tfAiUpdateChatUI();return}
+  tfAiBusinessLabMode=!tfAiBusinessLabMode;tfChatError='';await tfAiNewThread();return;
+ }
  if(el.dataset.action==='tfAiGenesisToggle'){
   if(!tfAiPreviewMode||!tfAiKey()){tfChatError='AION Genesis is only enabled in the authenticated synthetic development preview.';await tfAiUpdateChatUI();return}
-  tfAiGenesisMode=!tfAiGenesisMode;tfChatError='';
+  tfAiGenesisMode=!tfAiGenesisMode;tfAiBusinessLabMode=false;tfChatError='';
   // Mode switching begins a fresh local thread. The older thread stays in
   // history but cannot silently become the next model's conversation state.
   await tfAiNewThread();return;
@@ -1646,7 +1660,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-tab
  if(el.dataset.action==='tfAiClear'){await tfAiDeleteThread();return}
   if(el.dataset.action==='tfAiNewThread'){await tfAiNewThread();return}
   if(el.dataset.action==='tfAiExportThread'){await tfAiExportThread();return}
- if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}try{await fetch('/api/ai/logout',{method:'POST',credentials:'same-origin'})}catch{}tfAiCookieReady=false;tfChatError='';tfAiStatus='';tfAiPreviewMode='';tfAiGenesisMode=false;if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
+ if(el.dataset.action==='tfAiLock'){try{sessionStorage.removeItem('tf-ai-preview-code')}catch(e){}try{await fetch('/api/ai/logout',{method:'POST',credentials:'same-origin'})}catch{}tfAiCookieReady=false;tfChatError='';tfAiStatus='';tfAiPreviewMode='';tfAiGenesisMode=false;tfAiBusinessLabMode=false;if(tab==='preferences')showVoiceSettings();await tfAiUpdateChatUI();return}
  if(el.dataset.action==='tfAIQuestion'){tfAIQuestion=el.dataset.question||'priorities';await render();return}
  if(el.dataset.action==='tfAIProInfo'){alert('AI document extraction and advanced AI are planned Pro features. They are not available for purchase yet. No cloud AI service is connected, and no photographs leave this device.');return}
 

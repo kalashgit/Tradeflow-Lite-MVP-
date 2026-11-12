@@ -1,0 +1,146 @@
+name: Genesis → TradeFlow five-person business benchmark
+
+on:
+  push:
+    branches:
+      - research/aion-5person-tradeflow-sim-v1
+    paths:
+      - 'automation/simulator/genesis-five-person-*'
+      - 'src/genesis-business-lab*.cjs'
+      - 'src/local-ai-provider.cjs'
+      - 'scripts/local-ai-preview-server.cjs'
+      - 'scripts/run-genesis-five-person-benchmark.cjs'
+      - 'public/app.js'
+      - 'public/genesis-conversation.js'
+      - 'public/conversation-store.js'
+      - 'tests/genesis-five-person-business.test.cjs'
+      - 'docs/AION_FIVE_PERSON_TRADEFLOW_TRIAL.md'
+      - '.github/workflows/aion-tradeflow-five-person-lab.yml'
+  pull_request:
+    branches:
+      - research/aion-industry-intelligence-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aion-5-person-sim-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proof:
+    name: Oracle validity, owner-question routing, synthetic evidence and zero-action contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate changed JS
+        run: |
+          node --check src/genesis-business-lab.cjs
+          node --check src/genesis-business-lab-chat.cjs
+          node --check src/local-ai-provider.cjs
+          node --check scripts/local-ai-preview-server.cjs
+          node --check scripts/run-genesis-five-person-benchmark.cjs
+          node --check automation/simulator/genesis-five-person-evaluation.cjs
+          node --check public/app.js
+          node --check public/genesis-conversation.js
+          node --check public/conversation-store.js
+      - name: Focused actual TradeFlow route, oral/cash/domain and model contract tests
+        run: >-
+          node --test tests/genesis-five-person-business.test.cjs
+          tests/genesis-tradeflow-integration.test.cjs
+          tests/genesis-conversation-isolation.test.cjs
+          tests/genesis-industry-intelligence.test.cjs
+          tests/genesis-economic-data-import.test.cjs
+          tests/genesis-adviser.test.cjs
+          tests/genesis-external-knowledge.test.cjs
+          tests/local-ai-preview-server.test.cjs
+      - name: Full 21-question deterministic oracle benchmark (not AI reasoning)
+        run: >-
+          node scripts/run-genesis-five-person-benchmark.cjs
+          --mode=oracle --cases=21
+          --out="${{ runner.temp }}/aion-oracle.json"
+      - name: Publish deterministic research report
+        run: |
+          node -e 'let r=require(process.env.RUNNER_TEMP+"/aion-oracle.json");console.log("System wiring:",r.passed+"/"+r.questions,"scripted-oracle cases; this is NOT Qwen reasoning.");'
+          echo 'Twenty-one scripted-oracle question/event checks. Not evidence of Qwen generalization.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aion-five-person-oracle-${{ github.run_id }}
+          path: ${{ runner.temp }}/aion-oracle.json
+          retention-days: 14
+
+  live-qwen:
+    name: Actual CPU Qwen3 0.6B answers on five-person business, measured honestly
+    needs: proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    env:
+      OLLAMA_HOST: 127.0.0.1:11434
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install explicitly isolated local CPU Ollama server
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/aion-ollama-install.sh
+          sh /tmp/aion-ollama-install.sh
+      - name: Boot loopback inference and pull only Qwen3 0.6B
+        run: |
+          ollama serve >/tmp/aion-tradeflow-five-person-ollama.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:11434/api/version >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:11434/api/version
+          ollama pull qwen3:0.6b
+          ollama list
+      - name: Evaluate 12 REAL Qwen model responses in frozen, synthetic business
+        run: >-
+          node scripts/run-genesis-five-person-benchmark.cjs
+          --mode=qwen --model=qwen3:0.6b
+          --cases=12 --model-url=http://127.0.0.1:11434
+          --out="${{ runner.temp }}/aion-real-qwen.json"
+      - name: Report measured correctness, latency and failure taxonomy without claiming success
+        if: always()
+        run: |
+          echo '### Real Qwen five-person electrical contractor test (development, known cases)' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Synthetic-only, no customer data, Qwen weights unchanged, no business writes or live deployments.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Source commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "${{ runner.temp }}/aion-real-qwen.json" ]; then
+            node -e '
+            const r=require(process.env.RUNNER_TEMP+"/aion-real-qwen.json");
+            console.log("Completed "+r.modelCompletion+"/"+r.questions+
+              " answers; strict pass "+r.passed+"/"+r.questions+
+              "; citation "+r.citationValid+"/"+r.questions+
+              "; numeric "+r.numericValid+"/"+r.questions+
+              "; action-safe "+r.actionSafe+"/"+r.questions+
+              "; p50 "+r.medianLatencyMs+"ms; p95 "+r.p95LatencyMs+"ms;");
+            ' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Actual model test could not run; no real-model accuracy claim.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aion-five-person-real-qwen-${{ github.run_id }}
+          path: ${{ runner.temp }}/aion-real-qwen.json
+          retention-days: 14
+
+  inherited:
+    name: Existing TradeFlow full regression (known approved video-media blocker)
+    needs: proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
