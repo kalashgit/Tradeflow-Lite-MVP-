@@ -7,10 +7,10 @@
 ## Delivered UI and inference behavior
 
 - The **existing TradeFlow Intelligence conversation** exposes a clearly labeled optional AION Genesis adviser mode only when connected to the authenticated local synthetic development preview. This avoids silently pretending the Cloudflare Llama preview is Qwen/Genesis.
-- In local **live** mode the adviser calls the existing Qwen loopback endpoint through `completeLocal`. It receives a bounded conversational history, a distinct natural-language assistant persona, and the top five related source-linked knowledge cards. It can answer conversationally and follow the topic across turns.
+- In local **live** mode the adviser calls the existing Qwen loopback endpoint through `completeLocal`. It receives a bounded **Genesis-only** conversational history, a distinct natural-language assistant persona, and source-linked knowledge cards. It can answer conversationally and follow the topic across turns. The new `public/genesis-conversation.js` projection stops at the most recent non-Genesis answer; older local business-record responses, user questions and system notices cannot silently become Qwen advisory context. Switching AION on/off starts a new local conversation without deleting prior history.
 - In local **mock** mode, the same UI honestly provides **reference-only** guidance with explicit no-model wording; it never generates fictitious model output.
 - Current anonymous aggregate and individual customer fields in browser requests are ignored by this AION lane. No business read occurs in this route; a user can type company information into a question, so the preview should still be private and the user must be informed.
-- The existing speech-recognition microphone feeds the same TradeFlow conversation. For spoken replies, optional Aura TTS is preferred; if absent, opt-in **device-local Web Speech synthesis** is used when supported (iPhone/iOS voice depends on device and browser). No cloned human voice and no guarantee of uninterrupted duplex speech. The existing 'Read aloud', stop and auto-speak controls are preserved.
+- The existing speech-recognition microphone feeds the same TradeFlow conversation. For spoken replies, optional Aura TTS is preferred; if absent, opt-in **device-local Web Speech synthesis** is used when supported (iPhone/iOS voice depends on device and browser). Native speech is shown as queued until `onstart` confirms playback; stale audio callbacks are ignored after cancellation, page hide or a newer turn. No cloned human voice and no guarantee of uninterrupted duplex speech. The existing 'Read aloud', stop and auto-speak controls are preserved.
 - The existing local conversation store now accepts the provenance sources `genesis_qwen`, `genesis_reference`, `genesis_unavailable`. AION citations display as **reference notes**, not company-record evidence.
 
 ## Electrical contractor / CEO knowledge corpus
@@ -67,3 +67,9 @@ npm test
 ```
 
 Focus on exact-head GitHub Actions and report failures honestly. Browser microphone/voice testing on a physical iPhone, actual Qwen quality testing, and the full integration with live tenant data are still separate acceptance gates.
+
+## Exact-head validation note (2026-11-12)
+
+The initial GitHub Actions run `43134743188` passed the focused AION/voice tests. The inherited full TradeFlow suite recorded **888 pass, 1 fail, 3 skipped**, with the single failure `tests/master-fluid-orb.test.cjs` caused by an absent approved welcome-orb MP4 media file. This is an **existing asset dependency**, not a green full-suite result, and the missing media must be separately supplied/restored rather than bypassing the assertion. Subsequent exact-head checks must be evaluated afresh after conversation isolation and audio lifecycle changes.
+
+Official-source metadata was checked against current published guidance: [OSHA 1926 Subpart K](https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926SubpartK), [OSHA 1926.417](https://www.osha.gov/laws-regs/regulations/standardnumber/1926/1926.417), [NFPA 70 (2026 publication)](https://www.nfpa.org/codes-and-standards/nfpa-70-development/70), [NFPA 70E (2027 publication)](https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70E) and [SBA business management](https://www.sba.gov/counseling/manage-your-business/). These links do not imply a current local code adoption check or authoritative technical analysis by Qwen.
