@@ -1,0 +1,39 @@
+name: Genesis strict approval resume — isolated research safety checks
+
+on:
+  push:
+    branches:
+      - research/aion-strict-approval-resume
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/strict_approval.py'
+      - 'research/aion-v06/tests/test_genesis_strict_approval.py'
+      - '.github/workflows/aion-strict-approval.yml'
+  pull_request:
+    branches:
+      - claude/aion-gml-01
+    paths:
+      - 'research/aion-v06/aion_genesis/gml/strict_approval.py'
+      - 'research/aion-v06/tests/test_genesis_strict_approval.py'
+      - '.github/workflows/aion-strict-approval.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  approval-contract:
+    name: Strict resume adversarial tests (no model inference)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: research/aion-v06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Strict approval focused tests
+        run: python -m unittest discover -s tests -p test_genesis_strict_approval.py -v
+      - name: Existing AION research regression suite
+        run: python -m unittest discover -s tests -q
