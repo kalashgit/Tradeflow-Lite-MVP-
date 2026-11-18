@@ -94,6 +94,27 @@ async function main(){
   await page.evaluate(()=>window.TradeFlowPilot.commands.prepare({commandId:'workspace.open',params:{workspace:'tasks'}}).then(p=>window.TradeFlowPilot.commands.execute(p.id)));
   await page.waitForTimeout(600);
   await page.screenshot({path:path.join(out,'tasks-after-genesys.png'),fullPage:false});
+  // The same loop through the app's own conversation box: More → TradeFlow AI → "Let Genesys act".
+  decline=false;await seed(page,tradeflowStores());await page.reload();
+  await page.waitForFunction(()=>!!window.TradeFlowPilot?.genesys,{timeout:20000});
+  await page.locator('[data-tab="settings"]:visible').first().click();
+  await page.locator('.tf-more-menu [data-tab="ai"]').click();
+  await page.locator('[data-action="tfAiOptionsToggle"]').first().click();
+  await page.locator('[data-action="tfAiSnapshotToggle"]').click();
+  await page.locator('[data-action="tfAiTestConnection"]').click();
+  await page.locator('[data-action="tfAiOperatorToggle"]').click();
+  const chatCase=spec.cases.find(c=>c.id==='multi-email-quote');
+  const chatBefore=await readStores(page),chatDialogs=dialogs.length;
+  await page.locator('#tfAiChatForm textarea[name="prompt"]').fill(chatCase.instruction);
+  await page.locator('#tfAiChatForm button[type="submit"]').click();
+  await page.waitForFunction(()=>/Done and checked/.test(document.querySelector('.tf-ai-chat-thread')?.innerText||''),null,{timeout:30000});
+  const chatAfter=await readStores(page);
+  const chatVerdict=bench.judge(chatCase,chatBefore,chatAfter,['execute']);
+  const chatText=await page.locator('.tf-ai-chat-thread').innerText();
+  await page.screenshot({path:path.join(out,'chat-genesys-reply.png'),fullPage:false});
+  results.push({id:'chat-ui/'+chatCase.id,pass:chatVerdict.pass&&chatDialogs<dialogs.length,status:['completed_verified'],
+   approvalDialogs:dialogs.slice(chatDialogs),missingEffects:chatVerdict.missingEffects,unexpectedChanges:chatVerdict.unexpectedChanges,
+   traceInIndexedDB:chatAfter.commandLog.some(r=>r.kind==='genesys.trace'),modelRecorded:null,chatReply:chatText.slice(-400)});
   const report={source:'real Chromium + real TradeFlow IndexedDB/runtime/executor; scripted model double (NOT AI)',
    asOf:'2026-11-12',modelCalls,pageErrors:errors,results,passed:results.filter(r=>r.pass).length,total:results.length};
   fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(report,null,1));
