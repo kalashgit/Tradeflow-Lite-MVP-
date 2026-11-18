@@ -60,14 +60,19 @@ jobs:
           retention-days: 30
 
   qwen:
-    # One bounded CPU run per push on this isolated branch: free hosted runner, public
-    # weights, loopback-only model, synthetic records, no secrets, no deployment.
-    name: Real Qwen3-0.6B interpretation through the full loop (CPU)
+    # Bounded CPU runs on free hosted runners: public weights, loopback-only model,
+    # synthetic records, no secrets, no deployment.
+    name: Real Qwen through the full loop (${{ matrix.model }}, CPU)
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ['qwen3:0.6b', 'qwen3:1.7b']
     env:
       OLLAMA_HOST: 127.0.0.1:11434
+      MODEL: ${{ matrix.model }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -80,49 +85,60 @@ jobs:
         run: |
           curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/genesys-ollama-install.sh
           sh /tmp/genesys-ollama-install.sh
-      - name: Start Ollama and pull only qwen3:0.6b
+      - name: Start Ollama and pull only the selected model
         run: |
           ollama serve > /tmp/genesys-ollama.log 2>&1 &
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:11434/api/version >/dev/null && break; sleep 2; done
-          ollama pull qwen3:0.6b
+          ollama pull "$MODEL"
           ollama list
-      - name: 24 frozen cases with real model inference
-        run: >-
-          node scripts/run-genesys-operational-benchmark.cjs --mode=qwen --model=qwen3:0.6b
-          --model-url=http://127.0.0.1:11434 --out=artifacts/genesys-qwen.json
-          --failures=artifacts/genesys-qwen-failures.jsonl
+      - name: Runs (v1 evaluation set is historical; development set is for iteration)
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          tag=${MODEL//[:.]/-}
+          run(){ node scripts/run-genesys-operational-benchmark.cjs --mode=qwen --model="$MODEL" \
+            --model-url=http://127.0.0.1:11434 --cases="$1" --intent="$2" \
+            --out="artifacts/$tag-$3-$2.json" --failures="artifacts/$tag-$3-$2-failures.jsonl" > /dev/null; }
+          run tests/fixtures/genesys-operational-cases-v1.json v1 eval
+          run tests/fixtures/genesys-operational-cases-v1.json v2 eval
+          run tests/fixtures/genesys-operational-dev-v1.json v1 dev
+          run tests/fixtures/genesys-operational-dev-v1.json v2 dev
+          if [ -f tests/fixtures/genesys-candidate-freeze.json ]; then
+            echo "Candidate freeze present: running the protected holdout once."
+            run tests/fixtures/genesys-operational-holdout-v2.json v1 holdout
+            run tests/fixtures/genesys-operational-holdout-v2.json v2 holdout
+          else
+            echo "No candidate freeze committed: holdout NOT run."
+          fi
       - name: Failures to the Academy remediation queue
         if: always()
+        shell: bash
         working-directory: research/aion-v06
         run: |
-          if [ -f ../../artifacts/genesys-qwen-failures.jsonl ]; then
-            python -m aion_genesis.gml.operational_intake --failures ../../artifacts/genesys-qwen-failures.jsonl --out ../../artifacts/genesys-academy-queue.json
-          fi
-      - name: Publish measured result (evidence, not promotion)
+          for f in ../../artifacts/*-failures.jsonl; do
+            [ -s "$f" ] && python -m aion_genesis.gml.operational_intake --failures "$f" --out "${f%-failures.jsonl}-academy-queue.json"
+          done
+          true
+      - name: Publish measured results (evidence, not promotion)
         if: always()
         run: |
           node -e '
-          const fs=require("fs");const f="artifacts/genesys-qwen.json";
-          const lines=["## Genesys operational loop — real Qwen3-0.6B","Synthetic five-person contractor records; owner approval simulated as approve-what-was-proposed. Exact commit: "+process.env.GITHUB_SHA];
-          if(fs.existsSync(f)){const r=JSON.parse(fs.readFileSync(f));const s=r.scorecard;
-           lines.push("Model: "+JSON.stringify(s.model),"Overall "+s.overall.passed+"/"+s.overall.total,
-            "Task completion (verified persisted state) "+s.task_completion_verified_state.passed+"/"+s.task_completion_verified_state.total,
-            "Safe no-write cases "+s.safe_no_write_cases.passed+"/"+s.safe_no_write_cases.total,"Unsafe writes "+s.unsafe_writes.count+" "+JSON.stringify(s.unsafe_writes.cases),
-            "By category "+JSON.stringify(s.by_category),"Latency ms "+JSON.stringify(s.latency_ms),"Tokens "+JSON.stringify(s.tokens),
-            "Failing: "+r.rows.filter(x=>!x.pass).map(x=>x.id+"="+x.observedClasses.join(">")).join(", "));
-           console.log(lines.join("\n"));}else lines.push("Qwen run INCOMPLETE");
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join("\n\n")+"\n");'
-      - name: Diagnostic log of every model output (no change to cases, prompt or judge)
-        if: always()
-        run: |
-          node -e '
-          const fs=require("fs");const f="artifacts/genesys-qwen.json";if(!fs.existsSync(f))process.exit(0);
-          for(const r of JSON.parse(fs.readFileSync(f)).rows)
-           console.log(JSON.stringify({id:r.id,pass:r.pass,classes:r.observedClasses,status:r.status,intentError:r.intentError,
-            raw:r.rawModelOutput,missing:r.missingEffects.length,unexpected:r.unexpectedChanges}));'
+          const fs=require("fs"),dir="artifacts";const lines=["## Genesys operational loop — "+process.env.MODEL+" — commit "+process.env.GITHUB_SHA];
+          for(const f of fs.readdirSync(dir).filter(f=>f.endsWith(".json")&&!f.includes("academy")).sort()){
+           const r=JSON.parse(fs.readFileSync(dir+"/"+f)),s=r.scorecard;
+           lines.push("RESULT "+JSON.stringify({file:f,model:s.model&&{id:s.model.id,digest:s.model.digest,quant:s.model.quantization},
+            partition:s.partition,intent:s.intentVersion,overall:s.overall.passed+"/"+s.overall.total,
+            tasks:s.task_completion_verified_state.passed+"/"+s.task_completion_verified_state.total,
+            safe:s.safe_no_write_cases.passed+"/"+s.safe_no_write_cases.total,unsafe:s.unsafe_writes,
+            byCategory:Object.fromEntries(Object.entries(s.by_category).map(([k,v])=>[k,v.passed+"/"+v.total])),
+            latency:s.latency_ms,tokens:s.tokens,rejected:s.model_output_rejected.length}));
+           if(s.partition!=="evaluation-v1")for(const x of r.rows)lines.push("CASE "+JSON.stringify({f,id:x.id,pass:x.pass,classes:x.observedClasses,
+            raw:x.rawModelOutput.map(t=>(t||"").slice(0,600)),unexpected:x.unexpectedChanges,missing:x.missingEffects.length}));}
+          console.log(lines.join("\n"));
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.filter(l=>!l.startsWith("CASE")).join("\n\n")+"\n");'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: genesys-qwen-${{ github.run_id }}
+          name: genesys-qwen-${{ strategy.job-index }}-${{ github.run_id }}
           path: artifacts
           retention-days: 30

@@ -92,6 +92,106 @@ function parseIntent(raw){
  return {steps:parsed,question:str(value.question,400),unsupported:str(value.unsupported,400)};
 }
 
+/* -------------------------------------------------- intent contract v2 ---
+ * Designed from the v1 failure analysis: a small model filled every field, copied
+ * today's date, invented contact methods and outcomes, and wrote "[]" for empty.
+ * v2 asks only for the owner's own words, and the host keeps a field only when
+ * those words really occur in the instruction. Method and outcome are derived by
+ * the host from the quoted words. A deterministic guard refuses requests that no
+ * registered action can perform, whatever the model says.
+ */
+const PLACEHOLDER=/^(?:\[\s*\]|\{\s*\}|none|null|n\/?a|nil|-+|no|empty|not applicable|nothing)$/i;
+const fold=x=>String(x??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9% ]+/g,' ').replace(/\s+/g,' ').trim();
+const GROUND_STOP=new Set(['the','a','an','of','to','for','on','at','in','and','mock','my','our','their','its','s']);
+function grounded(words,instruction){
+ // Every content word of the quote must appear in the instruction (prefix allowed for >=4 letters).
+ const quote=fold(words).split(' ').filter(w=>w&&!GROUND_STOP.has(w));if(!quote.length)return false;
+ const have=fold(instruction).split(' ');
+ return quote.every(w=>have.some(h=>h===w||(w.length>=4&&(h.startsWith(w)||w.startsWith(h)&&h.length>=4))));
+}
+const METHOD_WORDS=[['site_visit',/\bsite visit\b|\bon site\b|\bat (?:their|the) site\b|\bvisited\b|\bvisita\b/],
+ ['phone',/\bphon\w*|\bcall\w*|\brang\b|\bring\w*|\bvoice ?mail\b|\btelefon\w*|\bllam\w*/],
+ ['email',/\be ?mail\w*|\bcorreo\b/],['meeting',/\bmeeting\b|\bmet\b|\bmeet\b|\breunion\b/]];
+const ATTEMPTED=/\bvoice ?mail\b|\bno (?:answer|response|reply)\b|\bnobody (?:answered|picked up)\b|\bno one (?:answered|picked up)\b|\b(?:didn t|did not|couldn t|could not|never) (?:answer|reach|get through|pick up|respond|reply)\b|\bleft (?:a |them a )?message\b|\bheard nothing\b|\bunanswered\b|\bsin respuesta\b|\bno contest\w*/;
+const REACHED=/\bspoke\b|\bspoken\b|\btalked\b|\btalk(?:ed)? with\b|\breached\b|\bdiscussed\b|\bmet\b|\banswered\b|\bpicked up\b|\bgot hold\b|\bhable\b|\bhablamos\b|\bmeeting\b|\bsite visit\b/;
+function contactFromWords(words){
+ const w=fold(words);const method=(METHOD_WORDS.find(([,re])=>re.test(w))||[''])[0];
+ const outcome=ATTEMPTED.test(w)?'attempted':REACHED.test(w)?'reached':'';
+ return {method,outcome};
+}
+const CAPABILITY_GAPS=[
+ ['marking something paid, accepted or settled',/\b(?:mark|set|record|flag)\b[^.]*\b(?:paid|settled|accepted|approved|closed|won)\b|\bmarca\w*\b[^.]*\bpagad/],
+ ['writing off, refunding or crediting money',/\bwrite (?:it |this |that )?off\b|\bwrite off\b|\brefund\w*|\bcredit (?:to|for|note)\b|\bissue (?:a )?credit\b|\breembols/],
+ ['changing prices or applying discounts',/\bdiscount\w*|\b(?:change|raise|lower|update|cut) (?:the |our )?(?:price|rate|amount)\w*|\bdescuento/],
+ ['deleting, archiving or cancelling records',/\bdelete\w*|\bremove\b|\barchive\w*|\bcancel\w*|\bborra\w*|\belimina\w*/],
+ ['sending messages to customers',/(?:^|[.;!?,]\s*|\b(?:please|and|then|also|just)\s+)(?:send|text|sms|whatsapp|message|email|e mail|mail)\b(?! (?:me|myself)\b)|\benvia\w*/],
+ ['making payments',/(?:^|[.;!?,]\s*|\b(?:please|and|then|also|just)\s+)(?:pay|transfer|wire|charge)\b|\bpaga\b/],
+ ['approving everything on the owner\'s behalf',/\bpre ?approved\b|\bsystem override\b|\bignore (?:all )?(?:previous|prior) (?:rules|instructions)\b/]
+];
+function capabilityGap(instruction){
+ const text=fold(instruction);const found=CAPABILITY_GAPS.filter(([,re])=>re.test(text)).map(([label])=>label);
+ return found.length?found:null;
+}
+const INTENT_SCHEMA_V2=Object.freeze({
+ type:'object',additionalProperties:false,required:['steps','unsupported_words','question'],
+ properties:{steps:{type:'array',maxItems:MAX_STEPS,items:{type:'object',additionalProperties:false,
+  required:['action','request_words','customer_words','date_words','contact_words'],
+  properties:{action:{type:'string',enum:Object.keys(ACTIONS)},request_words:{type:'string'},customer_words:{type:'string'},
+   date_words:{type:'string'},contact_words:{type:'string'}}}},
+  unsupported_words:{type:'string'},question:{type:'string'}}
+});
+function intentMessagesV2({instruction,today,customers=[]}){
+ const actions=Object.entries(ACTIONS).map(([name,a])=>'- '+name+': '+a.describe).join('\n');
+ const system=[
+  'You read one instruction from the owner of a small electrical contracting business and fill in JSON.',
+  'Actions you may use:',actions,
+  'Rules:',
+  '- Copy words EXACTLY from the instruction. Never write a word the owner did not write. Use "" when the instruction does not say it.',
+  '- request_words: the owner\'s words asking for this action.',
+  '- customer_words: the owner\'s words naming the customer. "" if no customer is named.',
+  '- date_words: the owner\'s words saying when (e.g. "Friday", "next week", "in 3 days"). "" if no date is given. Never write a calendar date yourself.',
+  '- contact_words (log_contact only): the owner\'s words saying how they contacted the customer and whether they reached them.',
+  '- unsupported_words: the owner\'s words asking for anything these actions cannot do (sending messages, payments, marking paid, deleting, discounts). Otherwise "".',
+  '- One step per requested action. Do not add steps the owner did not ask for.',
+  'Examples (fictional customers):',
+  'Instruction: Remind me to chase Lakeside Bakery\'s unpaid invoice on Tuesday.',
+  '{"steps":[{"action":"invoice_followup","request_words":"Remind me to chase","customer_words":"Lakeside Bakery","date_words":"on Tuesday","contact_words":""}],"unsupported_words":"","question":""}',
+  'Instruction: Called Pine Street Clinic, got their voicemail. Log it and follow up on their quote in 2 days.',
+  '{"steps":[{"action":"log_contact","request_words":"Log it","customer_words":"Pine Street Clinic","date_words":"","contact_words":"Called, got their voicemail"},{"action":"quote_followup","request_words":"follow up on their quote","customer_words":"Pine Street Clinic","date_words":"in 2 days","contact_words":""}],"unsupported_words":"","question":""}',
+  'Instruction: Refund Lakeside Bakery and email them.',
+  '{"steps":[],"unsupported_words":"Refund Lakeside Bakery and email them","question":""}',
+  'Instruction: Follow up the invoice.',
+  '{"steps":[],"unsupported_words":"","question":"Which customer, and when should the follow-up be due?"}'
+ ].join('\n');
+ const user='Today is '+today+'.\nKnown customers: '+(customers.length?customers.join('; '):'none')+'\nInstruction: '+instruction;
+ return [{role:'system',content:system},{role:'user',content:user}];
+}
+function parseIntentV2(raw,instruction){
+ if(typeof raw!=='string'||!raw.trim()||raw.length>6000)throw fail('INVALID_MODEL_OUTPUT','Model output is empty or too long.');
+ let text=raw.trim();const fenced=text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);if(fenced)text=fenced[1];
+ const think=text.match(/<\/think>\s*([\s\S]*)$/i);if(think)text=think[1].trim();
+ let value;try{value=JSON.parse(text)}catch{throw fail('INVALID_MODEL_OUTPUT','Model output is not valid JSON.')}
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!['steps','unsupported_words','question'].includes(k)))
+  throw fail('INVALID_MODEL_OUTPUT','Model output has unknown fields.');
+ const str=(x,max)=>{if(x===undefined||x===null)return '';if(typeof x!=='string'||x.length>max)throw fail('INVALID_MODEL_OUTPUT','Model field is not a bounded string.');const t=x.trim();return PLACEHOLDER.test(t)?'':t};
+ const keep=(words,max)=>{const w=str(words,max);return w&&grounded(w,instruction)?w:''};
+ const steps=value.steps===undefined?[]:value.steps;
+ if(!Array.isArray(steps)||steps.length>MAX_STEPS)throw fail('INVALID_MODEL_OUTPUT','Model steps must be a short list.');
+ const kept=[],dropped=[];
+ for(const step of steps){
+  if(!step||typeof step!=='object'||Array.isArray(step)||Object.keys(step).some(k=>!['action','request_words','customer_words','date_words','contact_words'].includes(k)))
+   throw fail('INVALID_MODEL_OUTPUT','Model step has unknown fields.');
+  const action=str(step.action,40);if(!ACTIONS[action])throw fail('UNREGISTERED_ACTION','Model proposed an action that is not registered.');
+  const request=keep(step.request_words,300);
+  if(!request){dropped.push({action,reason:'request not grounded in the instruction'});continue}
+  const contact=action==='log_contact'?contactFromWords(keep(step.contact_words,300)):{method:'',outcome:''};
+  kept.push({action,customer:keep(step.customer_words,120),due:keep(step.date_words,60),
+   method:contact.method,outcome:contact.outcome,notes:'',request});
+ }
+ const unsupported=keep(value.unsupported_words,400);
+ return {steps:kept,dropped,question:str(value.question,400),unsupported};
+}
+
 /* Deterministic host date resolution; the model only copies the owner's words. */
 function resolveDue(expression,today){
  if(!isDate(today))throw Error('Host date is required');
@@ -174,7 +274,8 @@ function verifyStep(before,after,step,outcome){
 
 /* --------------------------------------------------------------- operator */
 function createOperator(options){
- const {runtime,snapshot,context,interpreter,approve,recordTrace,now=()=>new Date().toISOString(),hash}=options||{};
+ const {runtime,snapshot,context,interpreter,approve,recordTrace,now=()=>new Date().toISOString(),hash,intentVersion='v1'}=options||{};
+ if(!['v1','v2'].includes(intentVersion))throw Error('Unknown intent contract');
  if(!runtime||typeof snapshot!=='function'||typeof context!=='function'||typeof approve!=='function')throw Error('Operator needs a runtime, snapshot, context and a human approval port');
  const digest=hash||(async value=>{if(globalThis.crypto?.subtle){const b=await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(commands.canonical(value)));return [...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,'0')).join('')}return require('node:crypto').createHash('sha256').update(commands.canonical(value)).digest('hex')});
  async function handle(instruction,{requestKey,interpreter:override}={}){
@@ -194,22 +295,29 @@ function createOperator(options){
   if(!isDate(c.today))return finish('invalid',{reply:'The host date is unavailable.'});
   const before=await snapshot();
   // 1. Intent understanding (untrusted).
+  episode.intentVersion=intentVersion;
+  if(intentVersion==='v2'){
+   const gap=capabilityGap(instruction);
+   if(gap){episode.stages.guard={capabilityGap:gap};
+    return finish('refused',{reply:'TradeFlow cannot do this: '+gap.join('; ')+'. Nothing was changed.'})}
+  }
   const model=override||interpreter;
   if(!model||typeof model.interpret!=='function')return finish('unavailable',{reply:'No language model is configured.'});
   const customers=rows(before,'customers').filter(x=>!x.businessId||x.businessId===episode.businessId).map(x=>String(x.name||x.id)).slice(0,60);
-  const messages=intentMessages({instruction,today:c.today,customers});
+  const messages=(intentVersion==='v2'?intentMessagesV2:intentMessages)({instruction,today:c.today,customers});
   let inference;
-  try{inference=await model.interpret(messages,{schema:INTENT_SCHEMA})}
+  try{inference=await model.interpret(messages,{schema:intentVersion==='v2'?INTENT_SCHEMA_V2:INTENT_SCHEMA})}
   catch(error){return finish('unavailable',{reply:'The language model did not answer.',stages:{intent:{error:String(error.message||error)}}})}
   episode.model=clone(inference.model||{id:'unknown',real:false});
   episode.stages.intent={raw:String(inference.text||'').slice(0,4000),latencyMs:inference.latencyMs??null,usage:inference.usage||null};
   let intent;
-  try{intent=parseIntent(inference.text)}
+  try{intent=intentVersion==='v2'?parseIntentV2(inference.text,instruction):parseIntent(inference.text)}
   catch(error){episode.stages.intent.error=error.code||'INVALID_MODEL_OUTPUT';
    return finish('model_output_rejected',{reply:'I could not interpret that safely. Please rephrase it.'})}
   episode.stages.intent.parsed=intent;
   if(intent.unsupported)return finish('refused',{reply:'I cannot do this in TradeFlow: '+intent.unsupported+'. Nothing was changed.'});
   if(!intent.steps.length)return finish('clarification',{reply:intent.question||'What would you like me to do?'});
+  if(intent.dropped?.length)return finish('clarification',{reply:'I am not sure I understood all of that. Could you say each action you want, with the customer and date?'});
   // 2–4. Evidence, planning and safety, for every step before anything executes.
   const planned=[],questions=[],blocked=[];
   for(const [index,s] of intent.steps.entries()){
@@ -288,5 +396,5 @@ function summarize(p,data){
  if(p.commandId==='customer.contact.record')return p.params.method+' contact with '+name(p.params.ref.id)+' recorded as '+p.params.outcome;
  return 'lookup of '+(p.params.query||'records');
 }
-return Object.freeze({version:VERSION,ACTIONS,INTENT_SCHEMA,intentMessages,parseIntent,resolveDue,matchCustomers,verifyStep,createOperator});
+return Object.freeze({version:VERSION,ACTIONS,INTENT_SCHEMA,INTENT_SCHEMA_V2,intentMessages,intentMessagesV2,parseIntent,parseIntentV2,grounded,contactFromWords,capabilityGap,resolveDue,matchCustomers,verifyStep,createOperator});
 });

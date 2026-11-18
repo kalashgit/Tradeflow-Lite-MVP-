@@ -27,7 +27,7 @@ const BUSINESS_STORES=['customers','quotes','jobs','invoices','payments','tasks'
 const OWNER_PERMISSIONS=['navigate','read','draft','modify:quotation.convert','modify:quotation.reuse.create','modify:quotation.followup.schedule','modify:job.change_order.review.schedule','modify:job.change_order.authorization.record','modify:job.cost_review.schedule','modify:job.labor_review.schedule','modify:invoice.payment_review.schedule','modify:opportunity.bid_review.schedule','modify:customer.economics_review.schedule','modify:invoice.followup.schedule','modify:calendar.conflict.reschedule','modify:customer.contact.record','modify:customer.create'];
 const ROLE_PERMISSIONS={'local-owner':OWNER_PERMISSIONS,'office-coordinator':['navigate','read','draft']};
 
-function createHost({actor='local-owner',stores=tradeflowStores(),today=AS_OF,approver}={}){
+function createHost({actor='local-owner',stores=tradeflowStores(),today=AS_OF,approver,intentVersion='v1'}={}){
  const db=createDB(stores);let n=0;
  const uid=()=> 'genesys-'+(++n);
  const context=()=>({actor,businessId:BUSINESS_ID,today});
@@ -36,7 +36,7 @@ function createHost({actor='local-owner',stores=tradeflowStores(),today=AS_OF,ap
   ports:{operation:async(kind,payload,proof)=>core.execute({db,kind,payload,uid,requestKey:proof.requestKey,requestId:proof.requestId,
    actor:proof.actor,businessId:proof.businessId,recordGuard:proof.recordGuard,approved:proof.approved===true})}});
  const approvals=[];
- const operator=interpreter=>genesys.createOperator({runtime,snapshot:()=>snapshot(db),context,interpreter,
+ const operator=interpreter=>genesys.createOperator({runtime,snapshot:()=>snapshot(db),context,interpreter,intentVersion,
   approve:async review=>{approvals.push(review);return approver?approver(review):true},
   recordTrace:trace=>put(db,'commandLog',trace)});
  return {db,runtime,operator,approvals,context};
@@ -91,8 +91,8 @@ async function baselineRun(host,instruction,key){
 }
 
 /* ------------------------------------------------------------------ runner */
-async function runCase(testCase,mode,interpreter){
- const host=createHost({actor:testCase.actor});
+async function runCase(testCase,mode,interpreter,intentVersion='v1'){
+ const host=createHost({actor:testCase.actor,intentVersion});
  const before=await snapshot(host.db),episodes=[];
  for(let i=0;i<testCase.repeat;i++){
   const key='bench.'+testCase.id+'.'+i;
@@ -158,25 +158,28 @@ function failureRecords(rows,mode,model,casesHash){
   return {...body,id:'GOF-'+crypto.createHash('sha256').update(commands.canonical(body)).digest('hex').slice(0,20)};
  });
 }
-async function run({mode,model='qwen3:0.6b',modelUrl='http://127.0.0.1:11434',limit}={}){
+async function run({mode,model='qwen3:0.6b',modelUrl='http://127.0.0.1:11434',limit,cases=CASES,intentVersion='v1'}={}){
  if(!['baseline','oracle','qwen'].includes(mode))throw Error('mode must be baseline, oracle or qwen');
- const raw=fs.readFileSync(CASES,'utf8'),spec=JSON.parse(raw);
+ const raw=fs.readFileSync(cases,'utf8'),spec=JSON.parse(raw);
+ if(mode==='oracle'&&spec.cases.some(c=>!c.oracleIntent))throw Error('These cases have no scripted reference interpretations');
+ if(mode==='oracle'&&intentVersion!=='v1')throw Error('Scripted references use the v1 contract');
  const casesHash=crypto.createHash('sha256').update(raw).digest('hex');
  const interpreter=mode==='qwen'?ollamaInterpreter({baseUrl:modelUrl,model}):null;
  const rows=[];
- for(const c of spec.cases.slice(0,limit||spec.cases.length))rows.push(await runCase(c,mode,interpreter));
+ for(const c of spec.cases.slice(0,limit||spec.cases.length))rows.push(await runCase(c,mode,interpreter,intentVersion));
  const identity=mode==='qwen'?rows.find(r=>r.model?.real)?.model||null:mode==='oracle'?{id:'oracle-reference-interpretation',real:false}:{id:'none (strict command grammar)',real:false};
- return {scorecard:{...summarize(rows,mode,identity),casesHash,asOf:spec.as_of},rows,failures:failureRecords(rows,mode,identity,casesHash)};
+ return {scorecard:{...summarize(rows,mode,identity),casesHash,asOf:spec.as_of,casesFile:path.basename(cases),partition:spec.partition||'evaluation-v1',intentVersion:mode==='baseline'?null:intentVersion},rows,failures:failureRecords(rows,mode,identity,casesHash)};
 }
 async function main(){
  const arg=k=>process.argv.find(a=>a.startsWith('--'+k+'='))?.split('=').slice(1).join('=');
- const result=await run({mode:arg('mode')||'oracle',model:arg('model')||'qwen3:0.6b',modelUrl:arg('model-url')||'http://127.0.0.1:11434',limit:arg('limit')?Number(arg('limit')):undefined});
+ const result=await run({mode:arg('mode')||'oracle',model:arg('model')||'qwen3:0.6b',modelUrl:arg('model-url')||'http://127.0.0.1:11434',limit:arg('limit')?Number(arg('limit')):undefined,
+  cases:arg('cases')?path.resolve(arg('cases')):CASES,intentVersion:arg('intent')||'v1'});
  const out=arg('out');
  if(out){fs.mkdirSync(path.dirname(path.resolve(out)),{recursive:true});fs.writeFileSync(out,JSON.stringify(result,null,1)+'\n')}
  const failures=arg('failures');
  if(failures)fs.writeFileSync(failures,result.failures.map(f=>JSON.stringify(f)).join('\n')+(result.failures.length?'\n':''));
  const s=result.scorecard;
- console.log(JSON.stringify({mode:s.mode,model:s.model,overall:s.overall,task_completion:s.task_completion_verified_state,
+ console.log(JSON.stringify({mode:s.mode,cases:s.casesFile,intent:s.intentVersion,model:s.model,overall:s.overall,task_completion:s.task_completion_verified_state,
   safe_no_write:s.safe_no_write_cases,unsafe_writes:s.unsafe_writes,by_category:s.by_category,latency_ms:s.latency_ms,tokens:s.tokens,
   claimed_but_failed:s.operator_claims_vs_judge,failing:result.rows.filter(r=>!r.pass).map(r=>r.id+': '+r.observedClasses.join('>'))},null,1));
 }

@@ -206,3 +206,61 @@ test('preview host interpretation route: authenticated, fixed prompt only, no mo
  try{const r=await post(mock,{code:secret,messages});assert.equal(r.status,503);assert.equal(r.body.status,'unavailable')}
  finally{mock.close()}
 });
+
+/* ---------------------------------------------------- intent contract v2 */
+const step2=(action,extra={})=>({action,request_words:'',customer_words:'',date_words:'',contact_words:'',...extra});
+const intent2=(steps=[],extra={})=>JSON.stringify({steps,unsupported_words:'',question:'',...extra});
+
+test('v2 keeps only words that occur in the instruction; placeholders count as empty',()=>{
+ const text='Rang Riverside Dental twice and nobody answered. Note the attempt and set a reminder Monday to chase the invoice.';
+ const parsed=genesys.parseIntentV2(intent2([
+  step2('log_contact',{request_words:'Note the attempt',customer_words:'Mock Riverside Dental',contact_words:'Rang Riverside Dental twice and nobody answered'}),
+  step2('invoice_followup',{request_words:'set a reminder',customer_words:'Riverside Dental',date_words:'2026-11-12'})
+ ],{unsupported_words:'[]'}),text);
+ assert.equal(parsed.unsupported,'');                                   // "[]" is empty, not a refusal
+ assert.deepEqual([parsed.steps[0].method,parsed.steps[0].outcome],['phone','attempted']);
+ assert.equal(parsed.steps[1].due,'');                                  // a date the owner never wrote is discarded
+ const invented=genesys.parseIntentV2(intent2([step2('log_contact',{request_words:'Note the attempt',customer_words:'Harbor Cafe',contact_words:'site visit, reached'})]),text);
+ assert.equal(invented.steps[0].customer,'');assert.equal(invented.steps[0].method,'');
+ const ungrounded=genesys.parseIntentV2(intent2([step2('invoice_followup',{request_words:'schedule payment collection',customer_words:'Riverside Dental',date_words:'Monday'})]),text);
+ assert.equal(ungrounded.steps.length,0);assert.equal(ungrounded.dropped.length,1);
+ assert.throws(()=>genesys.parseIntentV2(intent2([{...step2('invoice_followup'),method:'phone'}]),text),/unknown fields/);
+});
+
+test('v2 refuses capability gaps before the model is asked, and never on past-tense reports',async()=>{
+ let calls=0;const counting={async interpret(){calls++;return {text:intent2(),model:{id:'counting',real:false},latencyMs:0}}};
+ for(const text of ['Send Riverside Dental a payment link.','Issue a credit to North Academy.','Delete the Civic Offices quote.','Mark the Harbor Cafe quote as accepted.']){
+  const host=bench.createHost({intentVersion:'v2'});
+  const run=await host.operator(counting).handle(text);
+  assert.equal(run.status,'refused',text);assert.ok(run.stages.guard.capabilityGap.length);
+ }
+ assert.equal(calls,0);
+ assert.equal(genesys.capabilityGap('I emailed Harbor Cafe about our estimate and got no reply. Record that.'),null);
+ assert.equal(genesys.capabilityGap('Remind me to email them on Friday.'),null);
+});
+
+test('v2 end to end: development multi-application case completes and verifies; partial understanding asks instead',async()=>{
+ const text='Talked with Riverside Dental by phone about payment. Log it and add an invoice follow-up next Tuesday.';
+ const good=intent2([step2('log_contact',{request_words:'Log it',customer_words:'Riverside Dental',contact_words:'Talked with Riverside Dental by phone'}),
+  step2('invoice_followup',{request_words:'add an invoice follow-up',customer_words:'Riverside Dental',date_words:'next Tuesday'})]);
+ const host=bench.createHost({intentVersion:'v2'});
+ const run=await host.operator(scriptedInterpreter(good)).handle(text);
+ assert.equal(run.status,'completed_verified');
+ const data=await snapshot(host.db);
+ assert.equal(data.events.find(e=>e.customerId==='c-dental').method,'Phone');
+ assert.equal(data.tasks.find(t=>t.invoiceId==='inv-100').due,'2026-11-17');
+ const half=intent2([step2('log_contact',{request_words:'Log it',customer_words:'Riverside Dental',contact_words:'Talked with Riverside Dental by phone'}),
+  step2('invoice_followup',{request_words:'create a collection reminder',customer_words:'Riverside Dental',date_words:'next Tuesday'})]);
+ const partial=bench.createHost({intentVersion:'v2'});
+ const asked=await partial.operator(scriptedInterpreter(half)).handle(text);
+ assert.equal(asked.status,'clarification');
+ assert.equal((await snapshot(partial.db)).events.length,0);            // nothing half-done
+});
+
+test('Academy development cases are new: none equal or closely resemble a frozen evaluation case',()=>{
+ const {jaccard}=require('../scripts/genesys-academy-dev-cases.cjs');
+ const load=f=>JSON.parse(fs.readFileSync(path.resolve(__dirname,'fixtures',f),'utf8')).cases.map(c=>c.instruction);
+ const dev=load('genesys-operational-dev-v1.json'),frozen=[...load('genesys-operational-cases-v1.json'),...load('genesys-operational-holdout-v2.json')];
+ assert.ok(dev.length>=30);
+ for(const d of dev)for(const f of frozen)assert.ok(jaccard(d,f)<0.7,d+' ~ '+f);
+});
