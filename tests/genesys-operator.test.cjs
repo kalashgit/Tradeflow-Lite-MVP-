@@ -201,6 +201,11 @@ test('preview host interpretation route: authenticated, fixed prompt only, no mo
   assert.equal(ok.status,200);assert.equal(ok.body.status,'completed');assert.equal(ok.body.executionAuthority,false);
   assert.deepEqual([ok.body.model.id,ok.body.model.digest,ok.body.model.quantization,ok.body.model.real],['qwen3:0.6b','sha256:test','Q4_K_M',true]);
   assert.deepEqual([ok.body.usage.promptTokens,ok.body.usage.completionTokens],[11,7]);
+  // The v2 contract is accepted too, and the server, not the client, picks its schema.
+  let sentFormat=null;const v2Fetch=async(url,options={})=>{if(new URL(url).pathname==='/api/chat')sentFormat=JSON.parse(options.body).format;return fakeOllama(url,options)};
+  const live2=await start({mode:'live',genesysFetch:v2Fetch});
+  try{const v2=await post(live2,{code:secret,schema:{type:'object'},messages:genesys.intentMessagesV2({instruction:'Follow up the dental invoice Friday',today:'2026-11-12',customers:[]})});
+   assert.equal(v2.status,200);assert.deepEqual(sentFormat,JSON.parse(JSON.stringify(genesys.INTENT_SCHEMA_V2)))}finally{live2.close()}
  }finally{live.close()}
  const mock=await start({mode:'mock'});
  try{const r=await post(mock,{code:secret,messages});assert.equal(r.status,503);assert.equal(r.body.status,'unavailable')}

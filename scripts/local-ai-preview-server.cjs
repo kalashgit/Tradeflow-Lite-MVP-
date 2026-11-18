@@ -113,14 +113,16 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
      const data=await bodyJson(req);
      if(!authorized(data.code,secret))return send(res,401,{status:'unauthorized',error:'Invalid preview code'});
      const messages=data.messages;
-     const reference=genesysOperator.intentMessages({instruction:'x',today:'2026-01-01'});
-     if(!Array.isArray(messages)||messages.length!==2||messages[0]?.role!=='system'||messages[0].content!==reference[0].content||
+     // Either fixed contract's system prompt; the schema is chosen here, never taken from the client.
+     const contracts=[[genesysOperator.intentMessages,genesysOperator.INTENT_SCHEMA],[genesysOperator.intentMessagesV2,genesysOperator.INTENT_SCHEMA_V2]];
+     const contract=Array.isArray(messages)?contracts.find(([build])=>build({instruction:'x',today:'2026-01-01'})[0].content===messages[0]?.content):null;
+     if(!Array.isArray(messages)||messages.length!==2||messages[0]?.role!=='system'||!contract||
       messages[1]?.role!=='user'||typeof messages[1].content!=='string'||messages[1].content.length>6000)
       return send(res,400,{status:'invalid',error:'Only the fixed Genesys intent prompt is accepted'});
      if(mode!=='live'&&!genesysFetch)return send(res,503,{status:'unavailable',error:'No language model is configured in this preview (mock mode). Nothing was changed.'});
      try{
       const model=ollamaInterpreter({baseUrl:genesysModelUrl,model:genesysModel,timeoutMs:120000,...(genesysFetch?{fetchImpl:genesysFetch}:{})});
-      const out=await model.interpret(messages,{schema:genesysOperator.INTENT_SCHEMA});
+      const out=await model.interpret(messages,{schema:contract[1]});
       return send(res,200,{status:'completed',text:out.text,model:out.model,usage:out.usage,latencyMs:out.latencyMs,executionAuthority:false});
      }catch(error){return send(res,503,{status:'unavailable',error:'Genesys model unavailable: '+String(error.message||error).slice(0,120)})}
     }
