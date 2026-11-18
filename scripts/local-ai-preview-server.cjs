@@ -90,7 +90,7 @@ function mockOutOfScope(question){
   return 'Synthetic demo: This fixed test dataset does not answer that question. This is not a real AI-generated analysis; use live Qwen when it is available. No business action was taken.';
  return null;
 }
-function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0},genesysModel=process.env.TF_GENESYS_MODEL||'qwen3:0.6b',genesysModelUrl=process.env.TF_GENESYS_MODEL_URL||'http://127.0.0.1:11434',genesysFetch}={}){
+function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0},genesysModel=process.env.TF_GENESYS_MODEL||'qwen3:1.7b',genesysModelUrl=process.env.TF_GENESYS_MODEL_URL||'http://127.0.0.1:11434',genesysFetch}={}){
  if(typeof secret!=='string'||secret.length<12)throw Error('Development preview token must be at least 12 characters');
  if(!['mock','live','unavailable'].includes(mode))throw Error('Invalid preview model mode');
  const server=http.createServer(async(req,res)=>{

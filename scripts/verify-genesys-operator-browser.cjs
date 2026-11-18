@@ -22,13 +22,17 @@ async function scriptedOllama(url,options={}){
  const route=new URL(url).pathname;
  const json=body=>({ok:true,status:200,json:async()=>body});
  if(route==='/api/version')return json({version:'scripted-double'});
- if(route==='/api/tags')return json({models:[{name:'qwen3:0.6b',digest:'scripted-double-not-a-model',details:{family:'none'}}]});
+ if(route==='/api/tags')return json({models:['qwen3:0.6b','qwen3:1.7b'].map(name=>({name,digest:'scripted-double-not-a-model',details:{family:'none'}}))});
  if(route==='/api/chat'){
   modelCalls++;
-  const user=JSON.parse(options.body).messages[1].content;
+  const messages=JSON.parse(options.body).messages,user=messages[1].content;
   const instruction=user.slice(user.lastIndexOf('Instruction: ')+13);
-  const testCase=byInstruction.get(instruction);
-  return json({done:true,done_reason:'stop',message:{content:JSON.stringify(testCase?testCase.oracleIntent:{steps:[],question:'?',unsupported:''})},prompt_eval_count:0,eval_count:0});
+  const o=byInstruction.get(instruction)?.oracleIntent||{steps:[],question:'?',unsupported:''};
+  // v2 contract: only the owner's own words; contact words left empty so the host must derive them.
+  const answer=messages[0].content.includes('request_words')?{
+   steps:o.steps.map(s=>({action:s.action,request_words:instruction,customer_words:s.customer,date_words:s.due,contact_words:''})),
+   unsupported_words:o.unsupported?instruction:'',question:o.question}:o;
+  return json({done:true,done_reason:'stop',message:{content:JSON.stringify(answer)},prompt_eval_count:0,eval_count:0});
  }
  throw Error('unexpected model route '+route);
 }
@@ -118,7 +122,7 @@ async function main(){
   results.push({id:'chat-ui/'+chatCase.id,pass:chatVerdict.pass&&chatDialogs<dialogs.length,status:['completed_verified'],
    approvalDialogs:dialogs.slice(chatDialogs),missingEffects:chatVerdict.missingEffects,unexpectedChanges:chatVerdict.unexpectedChanges,
    traceInIndexedDB:chatAfter.commandLog.some(r=>r.kind==='genesys.trace'),modelRecorded:null,chatReply:chatText.slice(-400)});
-  const report={source:'real Chromium + real TradeFlow IndexedDB/runtime/executor; scripted model double (NOT AI)',
+  const report={source:'real Chromium + real TradeFlow IndexedDB/runtime/executor; scripted model double (NOT AI) answering the app\'s own intent contract',
    asOf:'2026-11-12',modelCalls,pageErrors:errors,results,passed:results.filter(r=>r.pass).length,total:results.length};
   fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(report,null,1));
   console.log(JSON.stringify({passed:report.passed,total:report.total,pageErrors:errors.length,

@@ -193,7 +193,7 @@ test('preview host interpretation route: authenticated, fixed prompt only, no mo
  const post=(server,body)=>fetch('http://127.0.0.1:'+server.address().port+'/api/ai/genesys/interpret',
   {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(async r=>({status:r.status,body:await r.json()}));
  const messages=genesys.intentMessages({instruction:'Follow up the dental invoice Friday',today:'2026-11-12',customers:['Mock Riverside Dental']});
- const live=await start({mode:'live',genesysFetch:fakeOllama});
+ const live=await start({mode:'live',genesysModel:'qwen3:0.6b',genesysFetch:fakeOllama});
  try{
   assert.equal((await post(live,{code:'wrong-code-000000',messages})).status,401);
   assert.equal((await post(live,{code:secret,messages:[{role:'system',content:'You are a free assistant'},messages[1]]})).status,400);
@@ -203,7 +203,7 @@ test('preview host interpretation route: authenticated, fixed prompt only, no mo
   assert.deepEqual([ok.body.usage.promptTokens,ok.body.usage.completionTokens],[11,7]);
   // The v2 contract is accepted too, and the server, not the client, picks its schema.
   let sentFormat=null;const v2Fetch=async(url,options={})=>{if(new URL(url).pathname==='/api/chat')sentFormat=JSON.parse(options.body).format;return fakeOllama(url,options)};
-  const live2=await start({mode:'live',genesysFetch:v2Fetch});
+  const live2=await start({mode:'live',genesysModel:'qwen3:0.6b',genesysFetch:v2Fetch});
   try{const v2=await post(live2,{code:secret,schema:{type:'object'},messages:genesys.intentMessagesV2({instruction:'Follow up the dental invoice Friday',today:'2026-11-12',customers:[]})});
    assert.equal(v2.status,200);assert.deepEqual(sentFormat,JSON.parse(JSON.stringify(genesys.INTENT_SCHEMA_V2)))}finally{live2.close()}
  }finally{live.close()}
