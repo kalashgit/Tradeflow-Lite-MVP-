@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: genesys-operational-loop-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false  # real-model runs are slow; queue rather than discard measured evidence
 
 jobs:
   verify:

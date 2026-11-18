@@ -46,8 +46,8 @@ success. Dates are resolved by the host from the owner's own words.
 | `public/genesys-operator.js` | Intent schema, strict parser, date resolver, evidence matching, planning, verification, operator |
 | `src/genesys-model.cjs` | Real local Qwen via Ollama (records name, digest, size, quantization, server version, tokens); scripted test double labelled not-AI |
 | `src/genesys-tradeflow-fixture.cjs` | Maps PR #110's synthetic five-person book into TradeFlow record shapes |
-| `public/app.js`, `public/index.html` | `window.TradeFlowPilot.genesys.handle(text)` in the live app, using its own runtime and a confirm dialog |
-| `scripts/local-ai-preview-server.cjs` | `/api/ai/genesys/interpret`: authenticated, fixed prompt only, host-chosen loopback model, no record access |
+| `public/app.js`, `public/index.html` | `window.TradeFlowPilot.genesys.handle(text)` in the live app, using its own runtime and a confirm dialog; **chat entry point**: More → TradeFlow AI → "Let Genesys act on my records" sends the typed instruction through the same loop, and the reply badge shows the verified outcome and the audit-trace id |
+| `scripts/local-ai-preview-server.cjs` | `/api/ai/genesys/interpret`: authenticated, accepts only the fixed v1 or v2 system prompt, schema chosen by the server, host-chosen loopback model, no record access |
 | `tests/fixtures/genesys-operational-cases-v1.json` | 24 frozen cases with expected persisted effects |
 | `scripts/run-genesys-operational-benchmark.cjs` | Benchmark and independent judge (`baseline`, `oracle`, `qwen`) |
 | `scripts/verify-genesys-operator-browser.cjs` | Real app in Chromium, real IndexedDB, real approval dialog |
@@ -94,7 +94,7 @@ the created task. The model in this check is a scripted double.
 ## Limits
 
 - Four actions only: invoice follow-up, quote follow-up, contact log, lookup.
-- No chat/voice entry point yet; the live app exposes `TradeFlowPilot.genesys.handle`.
+- Text chat entry point only; no voice entry point.
 - Benchmark approval is simulated; real owners may catch wrong proposals the benchmark counts as unsafe.
 - 24 cases are small and developer-written; they are not an external holdout.
 - The scripted reference shows the execution layer works, not that any model understands.
