@@ -13,6 +13,8 @@ const {converseBusinessLab}=require('../src/genesis-business-lab-chat.cjs');
 const {catalog:genesisCatalog}=require('../src/genesis-contractor-knowledge.cjs');
 const {validate:genesisExternalCatalog}=require('../src/genesis-external-knowledge.cjs');
 const {audit:genesisIndustryCatalog}=require('../src/genesis-industry-intelligence.cjs');
+const {ollamaInterpreter}=require('../src/genesys-model.cjs');
+const genesysOperator=require('../public/genesys-operator.js');
 const STATIC_ROOT=path.resolve(__dirname,'../public');
 const principal=Object.freeze({verified:true,issuer:'https://synthetic.preview.invalid',subject:'synthetic_owner'});
 const businessId='synthetic_demo_business';
@@ -88,7 +90,7 @@ function mockOutOfScope(question){
   return 'Synthetic demo: This fixed test dataset does not answer that question. This is not a real AI-generated analysis; use live Qwen when it is available. No business action was taken.';
  return null;
 }
-function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0}}={}){
+function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,writes:0},genesysModel=process.env.TF_GENESYS_MODEL||'qwen3:1.7b',genesysModelUrl=process.env.TF_GENESYS_MODEL_URL||'http://127.0.0.1:11434',genesysFetch}={}){
  if(typeof secret!=='string'||secret.length<12)throw Error('Development preview token must be at least 12 characters');
  if(!['mock','live','unavailable'].includes(mode))throw Error('Invalid preview model mode');
  const server=http.createServer(async(req,res)=>{
@@ -102,6 +104,27 @@ function createPreviewServer({secret,mode='mock',localFetch,metrics={reads:0,wri
       try{const probe=await fetch('http://127.0.0.1:8088/health',{signal:AbortSignal.timeout(1500)});modelReady=probe.ok}catch{modelReady=false}
      }
      return send(res,200,{online:true,secretConfigured:true,aiBound:true,syntheticDemo:true,modelMode:mode,modelReady,genesisPilot:true,genesisKnowledge:genesisCatalog(),genesisExternalKnowledge:genesisExternalCatalog(),genesisIndustryIntelligence:genesisIndustryCatalog()});
+    }
+    // Genesys intent interpretation: the ONLY thing this route does is ask the host-chosen
+    // loopback model to fill the fixed intent schema. It reads and writes no records; the
+    // browser's command runtime validates, plans, asks the owner and executes.
+    if(url.pathname==='/api/ai/genesys/interpret'&&req.method==='POST'){
+     if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON required'});
+     const data=await bodyJson(req);
+     if(!authorized(data.code,secret))return send(res,401,{status:'unauthorized',error:'Invalid preview code'});
+     const messages=data.messages;
+     // Either fixed contract's system prompt; the schema is chosen here, never taken from the client.
+     const contracts=[[genesysOperator.intentMessages,genesysOperator.INTENT_SCHEMA],[genesysOperator.intentMessagesV2,genesysOperator.INTENT_SCHEMA_V2]];
+     const contract=Array.isArray(messages)?contracts.find(([build])=>build({instruction:'x',today:'2026-01-01'})[0].content===messages[0]?.content):null;
+     if(!Array.isArray(messages)||messages.length!==2||messages[0]?.role!=='system'||!contract||
+      messages[1]?.role!=='user'||typeof messages[1].content!=='string'||messages[1].content.length>6000)
+      return send(res,400,{status:'invalid',error:'Only the fixed Genesys intent prompt is accepted'});
+     if(mode!=='live'&&!genesysFetch)return send(res,503,{status:'unavailable',error:'No language model is configured in this preview (mock mode). Nothing was changed.'});
+     try{
+      const model=ollamaInterpreter({baseUrl:genesysModelUrl,model:genesysModel,timeoutMs:120000,...(genesysFetch?{fetchImpl:genesysFetch}:{})});
+      const out=await model.interpret(messages,{schema:contract[1]});
+      return send(res,200,{status:'completed',text:out.text,model:out.model,usage:out.usage,latencyMs:out.latencyMs,executionAuthority:false});
+     }catch(error){return send(res,503,{status:'unavailable',error:'Genesys model unavailable: '+String(error.message||error).slice(0,120)})}
     }
     if((url.pathname==='/api/ai/verify'||url.pathname==='/api/ai/chat')&&req.method==='POST'){
      if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON required'});
