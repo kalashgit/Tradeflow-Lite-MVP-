@@ -12,7 +12,7 @@
  */
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./command-registry.js'):root?.TradeFlowCommands);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.TradeFlowGenesys=api})(typeof globalThis==='object'?globalThis:null,function(commands){
 'use strict';
-const VERSION='genesys-operator/1';
+const VERSION='genesys-operator/1.1';
 const MAX_INSTRUCTION=1000,MAX_STEPS=3;
 const clone=x=>JSON.parse(JSON.stringify(x));
 const normalize=x=>String(x??'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -113,12 +113,22 @@ const METHOD_WORDS=[['site_visit',/\bsite visit\b|\bon site\b|\bat (?:their|the)
  ['phone',/\bphon\w*|\bcall\w*|\brang\b|\bring\w*|\bvoice ?mail\b|\btelefon\w*|\bllam\w*/],
  ['email',/\be ?mail\w*|\bcorreo\b/],['meeting',/\bmeeting\b|\bmet\b|\bmeet\b|\breunion\b/]];
 const ATTEMPTED=/\bvoice ?mail\b|\bno (?:answer|response|reply)\b|\bnobody (?:answered|picked up)\b|\bno one (?:answered|picked up)\b|\b(?:didn t|did not|couldn t|could not|never) (?:answer|reach|get through|pick up|respond|reply)\b|\bleft (?:a |them a )?message\b|\bheard nothing\b|\bunanswered\b|\bsin respuesta\b|\bno contest\w*/;
-const REACHED=/\bspoke\b|\bspoken\b|\btalked\b|\btalk(?:ed)? with\b|\breached\b|\bdiscussed\b|\bmet\b|\banswered\b|\bpicked up\b|\bgot hold\b|\bhable\b|\bhablamos\b|\bmeeting\b|\bsite visit\b/;
+const REACHED=/\bgot off the phone\b|\boff the phone with\b|\bspoke\b|\bspoken\b|\btalked\b|\btalk(?:ed)? with\b|\breached\b|\bdiscussed\b|\bmet\b|\banswered\b|\bpicked up\b|\bgot hold\b|\bhable\b|\bhablamos\b|\bmeeting\b|\bsite visit\b/;
 function contactFromWords(words){
  const w=fold(words);const method=(METHOD_WORDS.find(([,re])=>re.test(w))||[''])[0];
  const outcome=ATTEMPTED.test(w)?'attempted':REACHED.test(w)?'reached':'';
  return {method,outcome};
 }
+// Whole-instruction reading, used only when the model's own contact words do not settle it.
+// It answers only when the owner's text names exactly one method and one result; otherwise ''.
+function contactFromInstruction(text){
+ const w=fold(text);const methods=METHOD_WORDS.filter(([,re])=>re.test(w)).map(([m])=>m);
+ const attempted=ATTEMPTED.test(w),reached=REACHED.test(w.replace(new RegExp(ATTEMPTED.source,'g'),' '));
+ return {method:methods.length===1?methods[0]:'',outcome:attempted&&!reached?'attempted':reached&&!attempted?'reached':''};
+}
+// Which record kind the owner's own words name. Exactly one kind or ''.
+const INVOICE_WORDS=/\binvoice\w*|\bbill\b|\bpayment\w*|\bunpaid\b|\bowe\w*|\bcash\b|\bfactura\w*/,QUOTE_WORDS=/\bquot\w*|\bestimate\w*|\bbid\b|\bproposal\w*|\bcotizacion\w*|\bpresupuesto\w*/;
+function recordKind(words){const w=fold(words),i=INVOICE_WORDS.test(w),q=QUOTE_WORDS.test(w);return i&&!q?'invoice_followup':q&&!i?'quote_followup':''}
 const CAPABILITY_GAPS=[
  ['marking something paid, accepted or settled',/\b(?:mark|set|record|flag)\b[^.]*\b(?:paid|settled|accepted|approved|closed|won)\b|\bmarca\w*\b[^.]*\bpagad/],
  ['writing off, refunding or crediting money',/\bwrite (?:it |this |that )?off\b|\bwrite off\b|\brefund\w*|\bcredit (?:to|for|note)\b|\bissue (?:a )?credit\b|\breembols/],
@@ -184,9 +194,18 @@ function parseIntentV2(raw,instruction){
   const action=str(step.action,40);if(!ACTIONS[action])throw fail('UNREGISTERED_ACTION','Model proposed an action that is not registered.');
   const request=keep(step.request_words,300);
   if(!request){dropped.push({action,reason:'request not grounded in the instruction'});continue}
-  const contact=action==='log_contact'?contactFromWords(keep(step.contact_words,300)):{method:'',outcome:''};
-  kept.push({action,customer:keep(step.customer_words,120),due:keep(step.date_words,60),
-   method:contact.method,outcome:contact.outcome,notes:'',request});
+  let contact={method:'',outcome:''},corrected=action;
+  if(action==='log_contact'){
+   // Owner's words first (model-quoted contact words, then request words), then the whole instruction.
+   for(const source of [contactFromWords(keep(step.contact_words,300)),contactFromWords(request),contactFromInstruction(instruction)]){
+    contact={method:contact.method||source.method,outcome:contact.outcome||source.outcome};
+   }
+  }else if(action==='invoice_followup'||action==='quote_followup'){
+   // The owner's request words decide invoice vs quote when they name exactly one of them.
+   corrected=recordKind(request)||action;
+  }
+  kept.push({action:corrected,customer:keep(step.customer_words,120),due:keep(step.date_words,60),
+   method:contact.method,outcome:contact.outcome,notes:'',request,...(corrected!==action?{modelAction:action}:{})});
  }
  const unsupported=keep(value.unsupported_words,400);
  return {steps:kept,dropped,question:str(value.question,400),unsupported};

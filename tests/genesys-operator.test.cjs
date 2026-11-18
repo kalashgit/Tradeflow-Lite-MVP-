@@ -226,7 +226,8 @@ test('v2 keeps only words that occur in the instruction; placeholders count as e
  assert.deepEqual([parsed.steps[0].method,parsed.steps[0].outcome],['phone','attempted']);
  assert.equal(parsed.steps[1].due,'');                                  // a date the owner never wrote is discarded
  const invented=genesys.parseIntentV2(intent2([step2('log_contact',{request_words:'Note the attempt',customer_words:'Harbor Cafe',contact_words:'site visit, reached'})]),text);
- assert.equal(invented.steps[0].customer,'');assert.equal(invented.steps[0].method,'');
+ assert.equal(invented.steps[0].customer,'');
+ assert.deepEqual([invented.steps[0].method,invented.steps[0].outcome],['phone','attempted']);   // invented "site visit, reached" discarded; owner's own "Rang ... nobody answered" used
  const ungrounded=genesys.parseIntentV2(intent2([step2('invoice_followup',{request_words:'schedule payment collection',customer_words:'Riverside Dental',date_words:'Monday'})]),text);
  assert.equal(ungrounded.steps.length,0);assert.equal(ungrounded.dropped.length,1);
  assert.throws(()=>genesys.parseIntentV2(intent2([{...step2('invoice_followup'),method:'phone'}]),text),/unknown fields/);
@@ -268,4 +269,23 @@ test('Academy development cases are new: none equal or closely resemble a frozen
  const dev=load('genesys-operational-dev-v1.json'),frozen=[...load('genesys-operational-cases-v1.json'),...load('genesys-operational-holdout-v2.json')];
  assert.ok(dev.length>=30);
  for(const d of dev)for(const f of frozen)assert.ok(jaccard(d,f)<0.7,d+' ~ '+f);
+});
+
+test('v2.1: contact method/result fall back to the owner\'s sentence only when it is unambiguous; invoice vs quote follows the owner\'s words',()=>{
+ const one='Rang Riverside Dental twice and nobody answered. Note the attempt and set a reminder Friday to chase the invoice.';
+ const parsed=genesys.parseIntentV2(intent2([
+  step2('log_contact',{request_words:'Rang',customer_words:'Riverside Dental',contact_words:'Called twice, no answer'}),   // paraphrased: not grounded
+  step2('quote_followup',{request_words:'set a reminder Friday to chase the invoice',customer_words:'Riverside Dental',date_words:'Friday'})
+ ]),one);
+ assert.deepEqual([parsed.steps[0].method,parsed.steps[0].outcome],['phone','attempted']);           // read from the owner's sentence
+ assert.deepEqual([parsed.steps[1].action,parsed.steps[1].modelAction],['invoice_followup','quote_followup']);
+ // Two methods or both results in the sentence: nothing is guessed, so the operator asks.
+ const two=genesys.parseIntentV2(intent2([step2('log_contact',{request_words:'Log it',customer_words:'North Academy'})]),'Called North Academy and emailed them too. Log it.');
+ assert.equal(two.steps[0].method,'');
+ const mixed=genesys.parseIntentV2(intent2([step2('log_contact',{request_words:'Log it',customer_words:'North Academy'})]),'Called North Academy, no answer at first, then talked to the office. Log it.');
+ assert.deepEqual([mixed.steps[0].method,mixed.steps[0].outcome],['phone','']);
+ // Request words naming both kinds, or neither, leave the model's action as it was.
+ const both=genesys.parseIntentV2(intent2([step2('quote_followup',{request_words:'follow up on the quote and invoice',customer_words:'Harbor Cafe',date_words:'Monday'})]),'Harbor Cafe: follow up on the quote and invoice Monday.');
+ assert.equal(both.steps[0].action,'quote_followup');assert.equal(both.steps[0].modelAction,undefined);
+ assert.deepEqual(genesys.contactFromWords('Just got off the phone with Civic Offices'),{method:'phone',outcome:'reached'});
 });
