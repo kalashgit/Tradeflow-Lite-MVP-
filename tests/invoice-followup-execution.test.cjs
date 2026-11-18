@@ -153,3 +153,16 @@ test('partially paid invoice retains recorded balance and explicit approval guar
  assert.equal(found.status,'needs_review');assert.equal(found.result.recordedOutstanding,150);
  assert.ok(found.guard.some(x=>Array.isArray(x.invoicePayments)&&x.invoicePayments[0].id==='p1'));
 });
+test('invoice whose job came from a quotation can be followed up (quote → job → invoice lineage)',async()=>{
+ const linked={...invoice,jobId:'j1'};
+ const db=createDB({invoices:[linked],customers:[{id:'c1',name:'Pilot customer',businessId}],
+  jobs:[{id:'j1',customerId:'c1',quoteId:'q1',title:'Panel job',businessId}],
+  quotes:[{id:'q1',customerId:'c1',status:'Accepted',title:'Panel quote',businessId}],payments:[]});
+ const guard=commands.resolve({commandId:'invoice.followup.schedule',params:{ref:{store:'invoices',id:'i1'},due:'2026-11-02'}},
+  await snapshot(db),{actor:'local-owner',businessId,today:'2026-10-29'}).guard;
+ assert.ok(guard.some(g=>g.ref?.store==='quotes'),'guard covers the linked quotation');
+ const result=await core.execute({db,kind:'invoice.followup.schedule',uid:()=> 'task-linked',payload:{invoiceId:'i1',due:'2026-11-02'},
+  requestKey:'approve-linked',actor:'local-owner',businessId,approved:true,recordGuard:guard});
+ const data=await snapshot(db);
+ assert.equal(result.id,'task-linked');assert.equal(data.tasks.length,1);assert.equal(data.tasks[0].invoiceId,'i1');
+});

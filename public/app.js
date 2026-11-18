@@ -2678,7 +2678,21 @@ function tfInitializePilot(){
   }});
   window.TradeFlowAdaptiveUI?.configure({document,commands:runtime,notify,readState:()=>({actor:tfAiLocalScope.actorId,businessId:tfAiLocalScope.businessId,threadId:tfActiveChatThreadId,messages:tfChatMessages})});
   window.TradeFlowCommandCenter?.configure({document,commands:runtime,notify,showNotifications:()=>window.TradeFlowNotifications?.show()});
-  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,
+  // AION Genesys: natural-language instruction -> registered command -> owner approval ->
+  // existing executor -> persisted-state verification. The model only proposes; it is reached
+  // through the preview host, and every write still goes through this same runtime.
+  const genesysInterpreter={async interpret(messages,{schema}={}){
+   const response=await fetch('/api/ai/genesys/interpret',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+    body:JSON.stringify({code:tfAiKey(),messages,schema})});
+   const body=await response.json().catch(()=>({}));
+   if(!response.ok||body.status!=='completed')throw Error(body.error||'Genesys language model unavailable');
+   return {text:body.text,model:body.model,usage:body.usage||null,latencyMs:body.latencyMs??null};
+  }};
+  const genesysOperator=window.TradeFlowGenesys?.createOperator({runtime,snapshot:tfPilotSnapshot,context:tfPilotContext,interpreter:genesysInterpreter,
+   approve:async review=>window.confirm('Approve these TradeFlow actions?\n\n'+review.map((r,i)=>(i+1)+'. '+r.summary).join('\n')+'\n\nInternal records only. Nothing is sent to customers.'),
+   recordTrace:trace=>tx('commandLog','readwrite',store=>store.put(trace))});
+  const genesys=genesysOperator?Object.freeze({version:genesysOperator.version,handle:async(text,options)=>{const episode=await genesysOperator.handle(text,options);await render();return episode}}):null;
+  window.TradeFlowPilot=Object.freeze({version:1,commands:runtime,context:tfPilotContext,evaluateSnapshot,decisions,genesys,
   evaluate:async options=>evaluateSnapshot(await tfPilotSnapshot(),options)});
 }
 if(window.TradeFlowHostLifecycleFactory){

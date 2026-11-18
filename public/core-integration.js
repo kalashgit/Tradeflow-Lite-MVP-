@@ -477,8 +477,8 @@
    Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,value[key]])):value);
   const key='invoice-followup:'+requestKey.trim();
   return new Promise((resolve,reject)=>{
-   let tx,error,result,remaining=6,prior;const data={};
-   try{tx=db.transaction(['commandLog','invoices','customers','payments','tasks','jobs'],'readwrite')}catch(e){reject(e);return}
+   let tx,error,result,remaining=7,prior;const data={};
+   try{tx=db.transaction(['commandLog','invoices','customers','payments','tasks','jobs','quotes'],'readwrite')}catch(e){reject(e);return}
    const abort=e=>{error=e;tx.abort()};
    tx.oncomplete=()=>resolve(result);
    tx.onabort=tx.onerror=()=>reject(error||tx.error||Error('Invoice follow-up transaction failed'));
@@ -547,7 +547,7 @@
    }
    const read=tx.objectStore('commandLog').get(key);
    read.onsuccess=()=>{prior=read.result;ready()};
-   for(const name of ['invoices','customers','payments','tasks','jobs']){
+   for(const name of ['invoices','customers','payments','tasks','jobs','quotes']){
     const req=tx.objectStore(name).getAll();req.onsuccess=()=>{data[name]=req.result;ready()};
    }
   });
