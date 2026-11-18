@@ -12,7 +12,7 @@
  */
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./command-registry.js'):root?.TradeFlowCommands);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.TradeFlowGenesys=api})(typeof globalThis==='object'?globalThis:null,function(commands){
 'use strict';
-const VERSION='genesys-operator/1.1';
+const VERSION='genesys-operator/1.2';
 const MAX_INSTRUCTION=1000,MAX_STEPS=3;
 const clone=x=>JSON.parse(JSON.stringify(x));
 const normalize=x=>String(x??'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -369,6 +369,18 @@ function createOperator(options){
   episode.stages.evidence=planned.map(p=>p.evidence);
   if(questions.length)return finish('clarification',{reply:questions.join(' '),blocked});
   if(blocked.length)return finish('blocked_by_records',{reply:'The records do not allow this: '+blocked.map(b=>b.customer+' — '+b.reason).join('; ')+'. Nothing was changed.',blocked});
+  // One instruction never writes the same kind of record twice for the same target: identical
+  // steps are merged; the same target with different details is a question, not two writes.
+  const byTarget=new Map(),merged=[];
+  for(const p of planned){
+   const ref=p.params.ref,target=p.commandId+'|'+(ref?ref.store+':'+ref.id:commands.canonical(p.params));
+   const {notes,...material}=p.params,sig=commands.canonical(material);
+   const seen=byTarget.get(target);
+   if(!seen){byTarget.set(target,{p,sig});continue}
+   if(seen.sig!==sig)return finish('clarification',{reply:'You described the same '+(p.action==='log_contact'?'contact':'follow-up')+' more than once with different details. Which one should I record?'});
+   merged.push(p.index);
+  }
+  if(merged.length){planned.splice(0,planned.length,...planned.filter(p=>!merged.includes(p.index)));episode.stages.mergedDuplicateSteps=merged}
   const prepared=[];
   for(const p of planned){
    const key=requestKey?requestKey+'.'+p.index:undefined;

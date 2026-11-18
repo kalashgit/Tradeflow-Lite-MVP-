@@ -2724,7 +2724,7 @@ function tfInitializePilot(){
    return {text:body.text,model:body.model,usage:body.usage||null,latencyMs:body.latencyMs??null};
   }};
   const genesysOperator=window.TradeFlowGenesys?.createOperator({runtime,snapshot:tfPilotSnapshot,context:tfPilotContext,interpreter:genesysInterpreter,
-   intentVersion:'v2',  // frozen candidate: tests/fixtures/genesys-candidate-freeze.json
+   intentVersion:'v2',  // candidate frozen and holdout-tested: tests/fixtures/genesys-holdout-v2-result.json
    approve:async review=>window.confirm('Approve these TradeFlow actions?\n\n'+review.map((r,i)=>(i+1)+'. '+r.summary).join('\n')+'\n\nInternal records only. Nothing is sent to customers.'),
    recordTrace:trace=>tx('commandLog','readwrite',store=>store.put(trace))});
   const genesys=genesysOperator?Object.freeze({version:genesysOperator.version,handle:async(text,options)=>{const episode=await genesysOperator.handle(text,options);await render();return episode}}):null;

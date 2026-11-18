@@ -108,7 +108,7 @@ jobs:
             run tests/fixtures/genesys-operational-holdout-v2.json v1 holdout
             run tests/fixtures/genesys-operational-holdout-v2.json v2 holdout
           else
-            echo "No candidate freeze committed: holdout NOT run."
+            echo "No candidate freeze committed: holdout NOT run. (holdout-v2 was spent in run 44330800598; see tests/fixtures/genesys-holdout-v2-result.json)"
           fi
       - name: Failures to the Academy remediation queue
         if: always()

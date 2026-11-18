@@ -289,3 +289,20 @@ test('v2.1: contact method/result fall back to the owner\'s sentence only when i
  assert.equal(both.steps[0].action,'quote_followup');assert.equal(both.steps[0].modelAction,undefined);
  assert.deepEqual(genesys.contactFromWords('Just got off the phone with Civic Offices'),{method:'phone',outcome:'reached'});
 });
+
+test('one instruction never writes the same record twice: identical steps merge, conflicting ones ask',async()=>{
+ const text='Stopped by Civic Offices and walked the panel room with their facilities lead. Log it.';
+ const host=bench.createHost();const before=businessState(await snapshot(host.db));
+ const run=await host.operator(scriptedInterpreter(intent([
+  step('log_contact','Civic Offices',{method:'site_visit',outcome:'reached',notes:'Stopped by'}),
+  step('log_contact','Civic Offices',{method:'site_visit',outcome:'reached',notes:'Walked the panel room'}),
+  step('log_contact','Civic Offices',{method:'site_visit',outcome:'reached',notes:'With facilities lead'})]))).handle(text);
+ assert.equal(run.status,'completed_verified');assert.deepEqual(run.stages.mergedDuplicateSteps,[1,2]);
+ assert.equal((await snapshot(host.db)).events.filter(e=>e.customerId==='c-civic'&&e.kind==='customer_contact').length,1);
+ const conflicting=bench.createHost();
+ const asked=await conflicting.operator(scriptedInterpreter(intent([
+  step('log_contact','Civic Offices',{method:'site_visit',outcome:'reached'}),
+  step('log_contact','Civic Offices',{method:'phone',outcome:'attempted'})]))).handle(text);
+ assert.equal(asked.status,'clarification');
+ assert.deepEqual(businessState(await snapshot(conflicting.db)),before);   // nothing written
+});
