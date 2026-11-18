@@ -112,6 +112,14 @@ jobs:
             "Failing: "+r.rows.filter(x=>!x.pass).map(x=>x.id+"="+x.observedClasses.join(">")).join(", "));
            console.log(lines.join("\n"));}else lines.push("Qwen run INCOMPLETE");
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join("\n\n")+"\n");'
+      - name: Diagnostic log of every model output (no change to cases, prompt or judge)
+        if: always()
+        run: |
+          node -e '
+          const fs=require("fs");const f="artifacts/genesys-qwen.json";if(!fs.existsSync(f))process.exit(0);
+          for(const r of JSON.parse(fs.readFileSync(f)).rows)
+           console.log(JSON.stringify({id:r.id,pass:r.pass,classes:r.observedClasses,status:r.status,intentError:r.intentError,
+            raw:r.rawModelOutput,missing:r.missingEffects.length,unexpected:r.unexpectedChanges}));'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
