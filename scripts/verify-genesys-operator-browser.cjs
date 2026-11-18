@@ -111,6 +111,9 @@ async function main(){
   const chatAfter=await readStores(page);
   const chatVerdict=bench.judge(chatCase,chatBefore,chatAfter,['execute']);
   const chatText=await page.locator('.tf-ai-chat-thread').innerText();
+  assert.match(chatText,/AION GENESYS · DONE · CHECKED IN YOUR RECORDS/,'the chat badge shows the verified outcome');
+  assert.doesNotMatch(chatText,/MODEL UNAVAILABLE/);
+  assert.match(await page.locator('.tf-ai-privacy').innerText(),/only after you approve/);
   await page.screenshot({path:path.join(out,'chat-genesys-reply.png'),fullPage:false});
   results.push({id:'chat-ui/'+chatCase.id,pass:chatVerdict.pass&&chatDialogs<dialogs.length,status:['completed_verified'],
    approvalDialogs:dialogs.slice(chatDialogs),missingEffects:chatVerdict.missingEffects,unexpectedChanges:chatVerdict.unexpectedChanges,
